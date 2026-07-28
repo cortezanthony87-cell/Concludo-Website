@@ -15,3 +15,9 @@ Notewright is built in Melbourne by Anthony Cortez. It exists because most meeti
 ## Consent line
 
 We are consent-forward: always tell people when a conversation is being recorded.
+
+## Contact
+
+Notewright
+Melbourne, Australia
+hello@notewright.ai
