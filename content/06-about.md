@@ -1,31 +1,17 @@
-# About Notewright
-
-## The real value isn't in the device — it's in what you do with the notes
-
-Notewright was founded on a simple observation: AI pens are incredible devices, but most people barely scratch the surface of what they can do.
-
-The pen captures everything. But without the right workflows, templates, and know-how, those recordings just sit there — a growing archive of untapped value.
-
-**Notewright closes the gap between capturing and acting.**
-
-We create guides, workflows, and templates that help professionals turn raw recordings into structured meeting notes, clear action items, and professional follow-ups.
-
+---
+page: About
+slug: /about
+nav_order: 6
+status: draft
+source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
 ---
 
-## What We Believe
+# About Notewright.
 
-- **The device is just the start.** The real ROI comes from how you use it.
-- **Structure beats volume.** A clean summary with 5 action items beats a 90-minute recording you never replay.
-- **Everyone deserves a system.** Whether you're a solo consultant or a 50-person team, your meetings should produce outcomes — not just noise.
+## Body
 
----
+Notewright is built in Melbourne by Anthony Cortez. It exists because most meetings cost more than they return, and because the fix is teachable: clearer purpose, fewer people, real ownership, recorded decisions and fast follow-up. Notewright teaches the method and provides the software that turns conversations into outcomes.
 
-## Independence
+## Consent line
 
-Notewright is an independent education brand. We are not affiliated with, endorsed by, or partnered with any AI pen manufacturer, including Flowtica.
-
-We create learning resources that work with leading AI note-taking devices. Our recommendations are based on professional use-case testing, not commercial partnerships.
-
----
-
-*Notewright is independent and is not affiliated with or endorsed by Flowtica.*
+We are consent-forward: always tell people when a conversation is being recorded.

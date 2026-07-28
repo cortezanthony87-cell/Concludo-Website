@@ -1,40 +1,44 @@
-# Home
-
-## Hero Section
-
-**Heading:** Turn every conversation into action
-
-**Subheading:** AI-powered note-taking guides, workflows, and templates that turn meetings into clear decisions and done tasks.
-
-**CTA Button:** Join the Waitlist → (links to waitlist signup form)
-
+---
+page: Home
+slug: /
+nav_order: 1
+status: draft
+source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
 ---
 
-## Value Pillars
+# Run fewer, better meetings.
 
-### Capture
-Record your meetings and jot down key points on paper — the pen handles the rest.
+## Subheading
 
-### Summarise
-AI creates a clean, structured summary — not a wall of text. Key decisions, themes, and takeaways are organised automatically.
+Notewright helps professionals and teams cut meeting waste and turn every important conversation into finished work: summaries, action lists, follow-up emails, decision logs and branded decks, from any transcript, captured on any device.
 
-### Act
-Action items land in your to-do list with owners and deadlines. Nothing slips through the cracks.
+**Primary button:** Join the Meeting Reset list (links to the email signup section)
 
----
+## Section: The problem
 
-## Waitlist Signup
+Most meeting pain comes from five habits: unclear purpose, too many attendees, no owner for actions, no decision record, and no follow-up. Notewright attacks failed meeting culture, never people.
 
-**Heading:** Be the first to know
+## Section: How it works
 
-**Subheading:** Join our waitlist and get early access to Notewright guides, templates, and workflows.
+1. Free tools that diagnose your meeting waste.
+2. The Meeting Mastery Workbook: the practical operating manual.
+3. The Notewright Workspace: paste a transcript, leave with finished work.
+4. Live workshops that reset how your team meets.
+5. Corporate programs measured in your own numbers.
 
-**Form:** Email address field + "Join the Waitlist" button
+## Section: Who it is for
 
----
+- **Individuals:** make your AI note-taker pay for itself.
+- **Professionals:** turn client conversations into billable deliverables.
+- **Teams:** one standard for decisions, delegation and follow-up.
+- **Executives:** recover productive hours, measured in your own data.
 
-## Footer Note
+## Section: Email signup
 
-*Notewright is independent and is not affiliated with or endorsed by Flowtica.*
+**Heading:** Join the Meeting Reset list
 
-© 2026 Notewright. All rights reserved.
+**Field:** email (single field)
+
+**Button:** Join free
+
+**Supporting line:** Practical lessons on fewer, better meetings. No spam, unsubscribe any time.

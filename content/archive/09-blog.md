@@ -1,3 +1,6 @@
+<!-- ARCHIVED 2026-07-28. Superseded by the Business Plan v2.1 meeting-productivity positioning.
+     Retained for reference only; not used on the live or draft site. -->
+
 # Notewright Blog
 
 ## Articles and guides coming soon.
