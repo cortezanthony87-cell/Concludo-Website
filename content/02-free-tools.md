@@ -12,7 +12,7 @@ source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
 
 Start with the numbers. These tools show what meetings cost you and how to fix the habits behind the waste.
 
-## Four blocks
+## Five blocks
 
 ### Meeting Cost Calculator
 
@@ -33,6 +33,12 @@ Coming soon. Join the list and we will send it the day it ships.
 **Button:** Join the list (links to the Home signup section)
 
 ### AI Note-Taker Setup Checklist
+
+Coming soon. Join the list and we will send it the day it ships.
+
+**Button:** Join the list (links to the Home signup section)
+
+### Delegation Script Pack
 
 Coming soon. Join the list and we will send it the day it ships.
 

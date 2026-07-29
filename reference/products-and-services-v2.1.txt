@@ -1,0 +1,508 @@
+[]
+
+Notewright Products and Services
+
+The complete offer: every product, package and program, and who each is
+for
+
+July 2026 · Melbourne, Australia · Prepared for Anthony Cortez
+
+  STATUS: WORKING CONCEPT. The Notewright name is not trademark-cleared
+  and no entity or payment setup exists. All prices are indicative AUD,
+  validated with real buyers at Gate 2 before anything is published or
+  sold. Notewright is an independent product: not affiliated with, or
+  endorsed by, any device maker, and no hardware is ever included.
+
+  Material claims are tagged [Certain] / [Likely] / [Assumption] /
+  [Unknown]. This document consolidates Business Plan v2.1 and the
+  Package Line-up into one reference.
+
+1. What Notewright is
+
+Notewright is a meeting-transformation company. It helps professionals
+and businesses run fewer, better, more valuable meetings, and it gives
+them the software to turn every important conversation into finished
+work: summaries, action items, follow-up emails, decision logs, plans
+and branded presentations, from any transcript, captured on any device.
+
+The teaching attacks the problem that sits in front of transcription:
+meetings with no clear purpose, too many attendees, no decision record,
+weak delegation and no follow-up. Notewright teaches when not to meet,
+the questions every meeting must answer, how every action gets an owner
+and a date, and how to use AI note-takers responsibly. The Workspace
+then does the conversion in minutes.
+
+  Positioning statement: for meeting-heavy professionals and teams,
+  Notewright is the meeting-transformation education and workspace
+  platform that helps people run fewer, better meetings and turn
+  conversations into action. Unlike device apps, meeting bots, generic
+  AI tools, courses or consultants, it combines the Meeting Mastery
+  Workbook, practical software outputs, certification, workshops and
+  corporate implementation into one device-agnostic system.
+
+2. Offer overview
+
+The product stack has five layers sold as one ladder: the workbook, the
+education platform, the Workspace, the certification loop, and the
+content engine that turns the curriculum into market education.
+Customers enter for free and climb as far as their pain justifies.
+
+[]
+
+Figure 1. The offer ladder. Indicative AUD pricing, validated at Gate 2.
+
+  -----------------------------------------------------------------------
+  Offer              Indicative price (AUD)    Built for
+  ------------------ ------------------------- --------------------------
+  Free diagnostic    Free                      Professionals with meeting
+  tools                                        pain, not yet ready to buy
+
+  Meeting Mastery    $29 founding, $49         Managers, team leads,
+  Workbook           standard, $99 Pro edition consultants, coaches,
+                                               founders
+
+  Starter            $12/month or $99/year     New AI note-taker owners;
+  subscription                                 individuals
+
+  Pro subscription   $29/month or $290/year    Consultants, coaches,
+                                               brokers, freelancers,
+                                               power users
+
+  Team subscription  From $125/month ($25 per  Teams and departments; AU
+                     seat, 5-seat minimum)     real estate and
+                                               professional services
+
+  Meeting Reset      $500 to 2,500             Small teams and
+  Workshop                                     meeting-heavy departments
+
+  Meeting Waste      $1,500 to 3,000, credited Corporate prospects; the
+  Audit              toward any program        paid entry offer
+
+  Certification      $199 to 999 (beta first)  Internal champions, EAs,
+                                               operations leads,
+                                               consultants
+
+  Corporate          $10,000 to 50,000 by      Meeting-heavy
+  transformation     scope                     organisations
+  -----------------------------------------------------------------------
+
+14-day free trial on Starter and Pro. Per-seat pricing always displays
+as the minimum monthly invoice so the tier ladder visibly ascends.
+[Certain: standing pricing rule]
+
+3. Free diagnostic tools
+
+Five free tools, extracted from the workbook worksheets. Their job is
+diagnosis and trust: they name the pain, capture the email address, and
+move people onto the ladder.
+
+-   Meeting Cost Calculator: puts a dollar figure on a team’s meeting
+    load from their own numbers.
+
+-   The Ten Questions card: the questions every meeting must answer
+    before it deserves to exist.
+
+-   Meeting Audit Scorecard: scores a real meeting against the standard.
+
+-   AI Note-Taker Setup Checklist: responsible, consent-forward setup
+    for any capture device.
+
+-   Delegation Script Pack: word-for-word scripts that give every action
+    an owner and a date.
+
+4. The Meeting Mastery Workbook
+
+The practical operating manual for meetings, sold as a high-margin
+digital product: printable, versioned, with facilitator notes in the Pro
+edition. Editions: founding cohort AU$29, standard AU$49, Pro edition
+AU$99. [Assumption: price points tested at Gates 2 and 3]
+
+One asset, four jobs: it is the first paid product; chapter 1 and the
+Ten Questions card work free as lead magnets; each chapter is one
+education module and one content week, so the workbook writes the
+marketing; and certification assessment tasks are drawn directly from
+its worksheets.
+
+The ten chapters
+
+1.  Why we meet and when not to.
+
+2.  The real cost of your meetings.
+
+3.  The Ten Questions.
+
+4.  Agendas as questions.
+
+5.  Fewer people, better decisions.
+
+6.  The Delegation Standard.
+
+7.  The decision log.
+
+8.  The 24-hour follow-up.
+
+9.  AI note-takers, consent and setup.
+
+10. Transcript to finished work.
+
+Each chapter carries one concept, one example, one worksheet, one
+template and one action exercise. The existing Why We Meet guide,
+presentation and PDF supply the raw material.
+
+5. The education platform
+
+Seven layers, built lightweight first: delivery starts as email lessons,
+downloadable templates and recorded videos inside the existing app. No
+learning management system is purchased or built until Pro retention
+data justifies it.
+
+-   Meeting Basics: what a meeting is for, when not to hold one,
+    agendas, roles, consent, note-taking, follow-up.
+
+-   Efficient Meetings: shorter meetings, fewer attendees, decision
+    rules, timeboxing, async alternatives, meeting-cost calculation.
+
+-   Business Meeting Systems: sales, client, project, executive and HR
+    meetings, training sessions, and real estate file-note workflows.
+
+-   AI Note-Taker Mastery: responsible device use, transcript-to-output
+    workflows, privacy and consent in practice.
+
+-   Leadership and Delegation: owners, deadlines, decision rights and
+    accountability that make actions actually happen.
+
+-   History and Culture of Meetings: why humans gather to coordinate,
+    how meetings became overloaded, how to redesign meeting culture.
+
+-   Certification: the three tracks described in Section 10.
+
+The eight in-app course modules
+
+1.  Getting Started.
+
+2.  Meeting Productivity.
+
+3.  Turning Notes Into Action.
+
+4.  Business Communication.
+
+5.  Fast Data Management.
+
+6.  Company Workflows.
+
+7.  Templates and AI Prompts.
+
+8.  Privacy, Consent and Professional Use.
+
+6. The Notewright Workspace: technical specification
+
+Built, version 2. The Workspace is the software layer of the ladder:
+paste any transcript, leave with finished work. It is capture-agnostic
+by design; paste is the universal integration, and capture-side
+connectors are deliberately excluded because they would reposition
+Notewright as a meeting bot competing with the platform vendors’ bundled
+AI. [Certain: standing product decision]
+
+[]
+
+Figure 2. The paste-first Workspace flow, from any capture source to
+eight finished outputs.
+
+Outputs
+
+From one pasted transcript: Summary; Action items with owner and date
+enforced on every line; Follow-up email; Decision log; Action plan;
+Business plan draft; Workflow charts rendered as real flowcharts; and a
+one-click branded PowerPoint compiled from the generated notes. Every
+output supports copy and JSON export.
+
+Architecture, as built
+
+-   Front end: a single static web application containing the eight
+    course modules, the Workspace, the template and prompt libraries,
+    and plan-gated access matching the subscription tiers.
+
+-   Backend: an Express server exposing POST /api/generate (transcript
+    to output), POST /api/projects and GET /api/projects/:id, and acting
+    as the AI proxy so the API key exists only server-side, never in the
+    browser. [Certain: standing build rule]
+
+-   Hosting and source: Render for the app and backend; GitHub as the
+    source of truth.
+
+-   Deck export: PowerPoint generation via PptxGenJS, branded to the
+    customer’s outputs.
+
+-   Integrations: output-side only. The first connector, post Gate 4, is
+    Zapier or Make; compatibility guides, not native connectors, cover
+    the meeting platforms.
+
+Current limitations, stated honestly
+
+-   The sign-in screen is a prototype gate only: it stores and secures
+    nothing, and a real auth provider (Supabase, Auth0, Firebase or
+    Clerk) must be connected before real users. [Certain]
+
+-   Data is session-only in the browser today; saved projects, history
+    and the searchable archive require the hosted backend and a
+    database. [Certain]
+
+-   Some AI-heavy flows may run within Notewright usage limits or on the
+    customer’s own AI subscription; this pricing decision is still to be
+    locked in. [Assumption]
+
+7. Subscription packages
+
+The value ladder in one line each. Starter: get value from your AI
+note-taker in the first week. Pro: run your work on it. Team:
+standardise how the whole team turns talk into action.
+
+Starter, AU$12 per month or AU$99 per year
+
+Who it is for: curious individual buyers who just got an AI note-taker
+and want quick wins without the trial and error. Positioning: the
+fastest path from owning a recorder to running better meetings and never
+re-typing notes.
+
+Included: course modules 1 to 3; a 7-day Quick-Win onboarding sequence
+(setup, first recording, first summary, first follow-up); Starter
+Workspace access with the three core tools (Summary, Action items,
+Follow-up email); copy plus basic JSON export; the Core Prompt Pack;
+three essential templates (meeting notes, action tracker, follow-up
+email); the consent script and a responsible-use primer; workbook
+chapter 1; a plan money-saver guide; free updates and one-click upgrade
+to Pro.
+
+Outcome: set up correctly, run the first meetings well, and turn them
+into clean notes and follow-ups. [Assumption: price tested in the AU$9
+to 15 range]
+
+Pro, AU$29 per month or AU$290 per year
+
+Who it is for: consultants, freelancers, coaches, sales professionals
+and heavy individual users who turn conversations into billable,
+professional deliverables. Positioning: your practice runs on it; every
+client call becomes a polished summary, action plan and deck in minutes.
+
+Everything in Starter, plus: all eight modules including Company
+Workflows playbooks tuned to your role; video lessons; full Workspace
+access (every output, including workflow charts); one-click branded
+PowerPoint; a personal API key; the Full Template Library; the Pro
+Prompt Pack; the Privacy Toolkit (consent scripts, company-policy
+checklist, confidentiality guidance); the full workbook and education
+platform; the Notewright Certified badge via a short assessment; monthly
+office hours and Q&A with priority access to new templates and prompts.
+
+Outcome: professional, consistent client output, faster. [Assumption:
+price tested up to AU$39]
+
+Team, from AU$125 per month (AU$25 per seat, 5-seat minimum)
+
+Who it is for: teams and departments that want everyone turning meetings
+into action the same, reliable way. Positioning: one standard, one
+source of truth, rolled out and supported across the team. Annual
+contract preferred.
+
+Everything in Pro for the whole team, plus: multi-seat licensing with
+volume pricing; admin dashboard for seats, usage and access; SSO and
+secure sign-in via a real auth provider with a documented security
+posture; department workflow guides (sales, HR, consulting, project
+management, training, executive); live team onboarding plus
+train-the-trainer; an admin rollout guide; a shared workspace with
+shared templates, a shared prompt library and consistent branded
+outputs; team integrations and API; custom branding on summaries and
+decks; a company consent and policy framework customised to the
+organisation; the team Meeting Standard templates and implementation
+support; a dedicated account manager and priority support.
+
+Outcome: consistent, compliant, high-quality meeting output across the
+whole team, with the control and support to run it at scale.
+
+Feature comparison
+
+  -------------------------------------------------------------------------
+  Feature               Starter        Pro              Team
+  --------------------- -------------- ---------------- -------------------
+  Course modules        1 to 3         All 8            All 8
+
+  Video lessons                        ✓                ✓
+
+  Workspace tools       Core 3         All              All (shared)
+
+  One-click PowerPoint                 ✓                ✓
+
+  Template library      3 templates    Full             Full + shared
+
+  Prompt pack           Core           Pro              Pro + shared
+
+  Privacy toolkit       Basic          ✓                ✓ + custom policy
+
+  Company playbooks                    Your role        All departments
+
+  API / integrations                   Personal         Team + integrations
+
+  Certified badge                      ✓                ✓
+
+  Seats                 1              1                Multi-seat
+
+  Admin dashboard / SSO                                 ✓
+
+  Custom branding                                       ✓
+
+  Support               Updates        Priority + Q&A   Dedicated manager
+
+  Onboarding            7-day          Self-serve       Live +
+                        self-serve                      train-the-trainer
+  -------------------------------------------------------------------------
+
+14-day free trial on Starter and Pro. All tiers are monthly
+subscriptions; Workspace access carries ongoing AI cost, so even Starter
+recurs. [Certain: pricing structure decision]
+
+8. Live delivery: workshops and audits
+
+Meeting Reset Workshop, AU$500 to 2,500
+
+A live workshop for small teams and meeting-heavy departments: a meeting
+audit, the Ten Questions, delegation training, a live
+transcript-to-output demonstration, and an implementation sprint. The
+delivery kit: pre-work survey, cost calculator, live audit, delegation
+exercise, transcript demo, implementation checklist and follow-up pack.
+Every workshop books its own follow-up before it ends.
+
+Meeting Waste Audit, AU$1,500 to 3,000, credited toward any program
+
+A two-week paid diagnostic: calendar-load analysis; three observed
+meetings scored against the Ten Questions; a staff pulse survey; and a
+cost model built from the client’s own meeting counts, attendee numbers,
+durations and blended hourly cost, concluding with a recommended Meeting
+Standard. Return on investment is always computed from the client’s own
+data, never asserted from industry averages.
+
+9. The corporate transformation program, AU$10,000 to 50,000
+
+Priced by team size, depth and certification scope, with part-payment
+upfront. The deliverable stack:
+
+-   Meeting Waste Audit (2 weeks): the diagnostic above, run first and
+    credited into the program.
+
+-   Meeting Standard design: norms, templates, the decision-log system,
+    and the AI note-taker and consent policy tailored to the
+    organisation.
+
+-   Training: two half-day workshops plus train-the-trainer so the
+    standard survives the engagement.
+
+-   60-day implementation: Workspace rollout, weekly check-ins, adoption
+    support.
+
+-   Measurement report: before-and-after meeting hours, decision latency
+    and follow-up rate, in the client’s numbers, executive-ready.
+
+Payback logic: the audit quantifies current meeting cost from client
+data, and the program needs to recover only a stated fraction of that
+measured cost to pay back inside a quarter; the audit output states that
+fraction explicitly for each client. [Certain as arithmetic]
+
+10. Certification, AU$199 to 999
+
+Three tracks: Notewright Certified Meeting Operator; Notewright
+Certified AI Note-Taker; and the Notewright Team Meeting Standard.
+Certification runs as a beta first and is assessed on practical outputs:
+an agenda rewrite, a meeting audit, a delegation plan, a decision log, a
+consent script and a follow-up pack. [Assumption: beta pricing, tested
+with the first cohort]
+
+Positioned honestly as a Notewright practical standard, never as formal
+accreditation. Commercial launch is gated behind delivered workshops and
+corporate programs with documented outcomes (Gate 6), so the badge is
+worth displaying before it is sold at scale.
+
+11. Add-ons, available at any tier
+
+Priced per engagement. [Assumption: rate card set after the first
+deliveries]
+
+-   1:1 setup and strategy call: personal onboarding for a device or a
+    workflow.
+
+-   Custom company playbook: a workflow built for one team’s exact
+    process.
+
+-   Done-for-you service: send a recording, get back a polished summary
+    or deck.
+
+-   Extra template and prompt packs: industry-specific bundles.
+
+-   Additional seats: top-ups for Team.
+
+-   Priority support and SLA: faster response for teams that need it.
+
+-   Data persistence and history: saved projects and a searchable
+    archive; requires the hosted backend.
+
+12. Who each offer is for
+
+  -----------------------------------------------------------------------
+  Segment              Who and where                  Entry offer
+  -------------------- ------------------------------ -------------------
+  Free-tool users      Professionals searching for    Free tools, then
+                       agenda templates, meeting cost the email list
+                       calculators and note-taker     
+                       setup guidance                 
+
+  Workbook buyers      Managers, team leads,          The workbook
+                       consultants, coaches, founders 
+                       and productivity-minded        
+                       professionals                  
+
+  New note-taker       Reviewer audiences and         Starter
+  owners               productivity communities; they 
+                       just paid for hardware and     
+                       want it to pay off             
+
+  Client-facing        AU consultants, coaches,       Pro
+  operators            brokers, freelancers and       
+                       project managers via LinkedIn, 
+                       webinars and communities       
+
+  Teams and            AU real estate agencies,       Team pilot or a
+  departments          property management and        workshop
+                       professional services, reached 
+                       through the founder network    
+
+  Meeting-heavy        The 50-account corporate       Meeting Waste
+  organisations        target list, reached by        Audit, then a
+                       outbound and founder content   program
+  -----------------------------------------------------------------------
+
+13. What is not included
+
+-   The device or hardware. Notewright is device-agnostic education and
+    software; customers bring their own recorder. Device independence is
+    strategic and consent guidance ships in every package.
+
+-   Legal advice. Consent and privacy guidance is general and practical,
+    not legal counsel.
+
+-   Formal accreditation. Certification is a Notewright practical
+    standard, assessed on real outputs.
+
+Guarantee: a 14-day free trial on Starter and Pro lowers the risk of
+subscribing.
+
+14. Readiness and sell sequence
+
+What is ready now: Starter’s static value (course modules, templates,
+prompts and guides) plus the built Workspace v2 and its backend, scoped
+for deployment. What waits on build: hosted app, real authentication,
+persistence, seats, admin and SSO. [Certain: current build state]
+
+The sell sequence follows the gates: validate demand and price with
+Starter first; launch Pro once the hosted app, backend and a real auth
+provider are live; open Team once seats, admin and SSO exist. Workshops,
+audits and the corporate program are sold through the founder motion
+from Month 4 under Gates 5 and 6. Nothing is published or sold under the
+Notewright name until Gate 1 clears, and every price in this document is
+confirmed with real buyers at Gate 2 first.

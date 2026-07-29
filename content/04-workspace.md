@@ -12,6 +12,21 @@ source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
 
 The Notewright Workspace turns any transcript into summaries, action plans, follow-up emails, decision logs and branded presentations in minutes. Capture on any device or platform, paste the text in, and the Workspace does the rest.
 
+## Section: What you get back
+
+From one pasted transcript:
+
+1. Summary.
+2. Action items, with an owner and a date on every line.
+3. Follow-up email.
+4. Decision log.
+5. Action plan.
+6. Business plan draft.
+7. Workflow charts, rendered as real flowcharts.
+8. A one-click branded presentation, compiled from the generated notes.
+
+Every output supports copy and JSON export.
+
 ## Founding pricing
 
 ### Starter
