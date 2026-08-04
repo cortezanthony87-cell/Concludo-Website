@@ -1,14 +1,17 @@
 ---
-page: Free resources
-slug: /blank-2
-menu_label: Free resources
+page: Free Tools (appended section, formerly the standalone "Free resources" page)
+slug: /modules
+menu_label: Free Tools
 status: draft (not published)
-seo_title: Free resources on getting value from meetings
-meta_description: Free reading and a printable workbook to help consultants and property professionals turn meetings into decisions and clear next steps.
+location: Appended to the bottom of the Free Tools page, below the eight topic cards and above the footer. The standalone "Free resources" page (slug /blank-2) was deleted on 5 Aug 2026 and its menu item removed, per Anthony's instruction to place all this content into Free Tools.
+seo_title: Free Tools | Notewright (Free Tools page keeps its own existing SEO title)
+meta_description: Not set. The Free Tools page meta description is still empty sitewide, pending approval.
+heading_on_page: "Free reading: the meeting to action gap"
+omitted_when_merged: The "Free reading" eyebrow and the standalone H1 page title were dropped, since this is no longer its own page.
 assets:
   workbook_pdf: https://540d2ec6-f5c7-4bfa-9db6-3704a22adc51.usrfiles.com/ugd/c3e69e_e721062c3e964bdda6834d6cee5b8aaf.pdf
   presentation_pdf: https://540d2ec6-f5c7-4bfa-9db6-3704a22adc51.usrfiles.com/ugd/c3e69e_13c1f4559e784b4997fd141d9d2b1aff.pdf
-notes: Australian English. No em dashes or en dashes. No statistics. No pricing or checkout.
+notes: Australian English. No em dashes or en dashes. No statistics. No pricing or checkout. Presentation trimmed from 13 to 12 pages to drop the removed slide and its Canva placeholder contact details.
 ---
 
 **Free reading**
