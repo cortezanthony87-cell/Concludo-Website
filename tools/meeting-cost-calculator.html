@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Cost Calculator | Notewright</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#16263F;
+    --navy-2:#21395C;
+    --gold:#E2B53C;
+    --gold-deep:#BC8A1C;
+    --light:#F4F6FA;
+    --white:#FFFFFF;
+    --ink:#16263F;
+    --muted:#5A6B85;
+    --line:#D8DEEA;
+    --field:#EEF1F7;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 18px 40px rgba(22,38,63,.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--light);
+    color:var(--ink);
+    font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:36px 22px 64px}
+  h1,h2,h3,.num{font-family:"Poppins","Inter",system-ui,sans-serif}
+  h1{font-size:clamp(28px,4.4vw,40px);line-height:1.12;font-weight:700;letter-spacing:-.01em;margin:0 0 10px}
+  h2{font-size:clamp(21px,3vw,27px);font-weight:600;letter-spacing:-.01em;margin:44px 0 12px}
+  h3{font-size:18px;font-weight:600;margin:0 0 8px}
+  p{margin:0 0 15px}
+  .eyebrow{display:inline-block;font-family:"Poppins",sans-serif;font-weight:600;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 12px}
+  .lede{font-size:clamp(16px,2.1vw,19px);color:var(--navy-2)}
+  .muted{color:var(--muted)}
+  a{color:var(--gold-deep);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(188,138,28,.35)}
+  a:hover{border-bottom-color:var(--gold-deep)}
+
+  /* ---- Tool card ---- */
+  .tool{
+    background:var(--navy);
+    color:var(--light);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:30px;
+    margin:22px 0 8px;
+    position:relative;
+    overflow:hidden;
+  }
+  .tool::before{
+    /* faint circuit-nib motif nod to the v5 logo */
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(520px 220px at 100% -8%, rgba(226,181,60,.16), transparent 60%);
+  }
+  .tool-head{display:flex;align-items:center;gap:12px;margin-bottom:6px;position:relative}
+  .tool-head .dot{width:10px;height:10px;border-radius:50%;background:var(--gold)}
+  .tool-head h2{margin:0;color:var(--white);font-size:19px}
+  .tool-sub{color:#C6D0E2;font-size:14px;margin:0 0 22px;position:relative}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;position:relative}
+  @media (max-width:620px){.grid{grid-template-columns:1fr}}
+  .field label{display:block;font-size:13.5px;font-weight:600;color:#D7DFEE;margin-bottom:7px}
+  .hint{display:block;font-weight:400;color:#9DAAC2;font-size:12px;margin-top:3px}
+  input[type="number"]{
+    width:100%;font:inherit;font-size:16px;font-weight:600;color:var(--navy);
+    background:var(--white);border:1.5px solid transparent;border-radius:var(--radius-sm);
+    padding:12px 13px;outline:none;
+    -moz-appearance:textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  input[type="number"]:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(226,181,60,.35)}
+  .prefix{position:relative}
+  .prefix > span{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:600;font-size:15px;pointer-events:none}
+  .prefix input{padding-left:48px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+  .chip{
+    font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+    color:#D7DFEE;background:rgba(255,255,255,.06);
+    border:1.5px solid rgba(255,255,255,.16);border-radius:999px;padding:7px 13px;
+    transition:all .15s ease;
+  }
+  .chip:hover{border-color:var(--gold);color:#fff}
+  .chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+
+  .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.14);border-radius:12px;padding:5px;margin-top:2px}
+  @media (max-width:620px){.seg{grid-template-columns:repeat(2,1fr)}}
+  .seg button{
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;color:#D7DFEE;
+    background:transparent;border:0;border-radius:9px;padding:10px 6px;transition:all .15s ease;
+  }
+  .seg button:hover{color:#fff}
+  .seg button[aria-pressed="true"]{background:var(--gold);color:var(--navy)}
+
+  .helper-toggle{margin-top:14px;position:relative}
+  .helper-toggle > button{
+    font:inherit;font-size:13px;font-weight:600;color:var(--gold);background:none;border:0;cursor:pointer;padding:0;
+    border-bottom:1px dashed rgba(226,181,60,.5);
+  }
+  .helper-body{display:none;margin-top:14px;padding:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px}
+  .helper-body.open{display:block}
+  .helper-body .grid{gap:14px}
+
+  /* ---- Result ---- */
+  .result{
+    margin-top:26px;position:relative;
+    background:linear-gradient(180deg, rgba(226,181,60,.10), rgba(226,181,60,.03));
+    border:1.5px solid rgba(226,181,60,.45);border-radius:14px;padding:24px 24px 22px;
+  }
+  .result .row1{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 26px}
+  .stat{min-width:0}
+  .stat .k{font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#C6D0E2;margin-bottom:4px}
+  .stat .v{font-family:"Poppins",sans-serif;font-weight:700;color:var(--gold);line-height:1}
+  .stat.big .v{font-size:clamp(34px,6.6vw,52px)}
+  .stat.small .v{font-size:clamp(20px,3.4vw,26px);color:#F4F6FA}
+  .sentence{margin:18px 0 0;font-size:15.5px;color:#EAEFF7}
+  .sentence b{color:#fff}
+  .bar{height:9px;border-radius:6px;background:rgba(255,255,255,.12);margin-top:16px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0;background:var(--gold);border-radius:6px;transition:width .4s ease}
+  .barlabels{display:flex;justify-content:space-between;font-size:11.5px;color:#9DAAC2;margin-top:6px}
+
+  .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px;position:relative}
+  .btn{
+    font:inherit;font-weight:600;font-size:15px;cursor:pointer;border-radius:11px;padding:13px 20px;
+    display:inline-flex;align-items:center;gap:9px;border:1.5px solid transparent;text-decoration:none;
+  }
+  .btn-gold{background:var(--gold);color:var(--navy)}
+  .btn-gold:hover{background:#f0c352}
+  .btn-ghost{background:transparent;color:#EAEFF7;border-color:rgba(255,255,255,.28)}
+  .btn-ghost:hover{border-color:var(--gold);color:#fff}
+  .btn svg{width:17px;height:17px}
+
+  .assume{margin-top:16px;position:relative}
+  .assume summary{cursor:pointer;color:#9DAAC2;font-size:12.5px;font-weight:600;list-style:none}
+  .assume summary::-webkit-details-marker{display:none}
+  .assume summary::before{content:"+ ";color:var(--gold)}
+  .assume[open] summary::before{content:"\00D7 "}
+  .assume .abody{margin-top:12px;padding:14px;background:rgba(255,255,255,.05);border-radius:10px;font-size:13px;color:#C6D0E2}
+  .assume .abody .field{max-width:220px}
+  .assume .abody label{color:#C6D0E2}
+
+  /* ---- Article ---- */
+  .article{margin-top:8px}
+  .source{background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:18px 20px;margin:18px 0}
+  .source p{margin:0}
+  .source .cite{display:block;margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .figure{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:22px;margin:22px 0}
+  .figure figcaption{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
+  .checklist{list-style:none;padding:0;margin:14px 0 0}
+  .checklist li{position:relative;padding:10px 0 10px 34px;border-top:1px solid var(--line);font-weight:500}
+  .checklist li:first-child{border-top:0}
+  .checklist li::before{content:"";position:absolute;left:0;top:12px;width:20px;height:20px;border-radius:6px;background:var(--navy)}
+  .checklist li::after{content:"";position:absolute;left:6px;top:16px;width:8px;height:4px;border-left:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(-45deg)}
+
+  .cta{background:var(--navy);color:var(--light);border-radius:var(--radius);padding:28px 30px;margin-top:34px}
+  .cta h2{color:#fff;margin-top:0}
+  .cta p{color:#C6D0E2}
+  .cta .actions{margin-top:18px}
+
+  .foot{margin-top:34px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+
+  @media print{
+    body{background:#fff}
+    .wrap{padding:0}
+    .tool,.cta{box-shadow:none}
+    .tool{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
+    .tool-head h2,.tool-sub{color:var(--navy)!important}
+    .field label,.hint{color:var(--navy)!important}
+    .stat .k{color:var(--navy)!important}
+    .stat.small .v{color:var(--navy)!important}
+    .sentence{color:var(--navy)!important}
+    .actions,.helper-toggle,.assume,.chips,.seg,.cta{display:none!important}
+    .result{background:#fff;border-color:var(--navy)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ HERO + TOOL ============ -->
+  <span class="eyebrow">Free tool</span>
+  <h1>What does that meeting actually cost?</h1>
+  <p class="lede">Most teams book meetings without ever pricing them. Put your numbers in below and see the figure in dollars, for one meeting and for a year.</p>
+
+  <section class="tool" aria-label="Meeting cost calculator">
+    <div class="tool-head"><span class="dot"></span><h2>Meeting Cost Calculator</h2></div>
+    <p class="tool-sub">Everything updates as you type. Nothing is saved or sent.</p>
+
+    <div class="grid">
+      <div class="field">
+        <label for="people">People in the meeting</label>
+        <input id="people" type="number" min="1" step="1" value="6" inputmode="numeric">
+      </div>
+
+      <div class="field">
+        <label for="rate">Value of each person's time, per hour
+          <span class="hint">Use a billed rate for client-facing time, or a salary-based cost for internal staff.</span>
+        </label>
+        <div class="prefix"><span>AU$</span><input id="rate" type="number" min="0" step="5" value="100" inputmode="decimal"></div>
+      </div>
+
+      <div class="field">
+        <label for="mins">Meeting length, in minutes</label>
+        <input id="mins" type="number" min="1" step="5" value="30" inputmode="numeric">
+        <div class="chips" id="minChips" role="group" aria-label="Quick length">
+          <button class="chip" type="button" data-min="15">15</button>
+          <button class="chip" type="button" data-min="30" aria-pressed="true">30</button>
+          <button class="chip" type="button" data-min="45">45</button>
+          <button class="chip" type="button" data-min="60">60</button>
+          <button class="chip" type="button" data-min="90">90</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>How often does it run?</label>
+        <div class="seg" id="freqSeg" role="group" aria-label="Frequency">
+          <button type="button" data-freq="1" data-label="just once">Just once</button>
+          <button type="button" data-freq="46" data-label="every week" aria-pressed="true">Weekly</button>
+          <button type="button" data-freq="23" data-label="every fortnight">Fortnightly</button>
+          <button type="button" data-freq="12" data-label="every month">Monthly</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="helper-toggle">
+      <button type="button" id="helperBtn" aria-expanded="false">Not sure on the hourly figure? Work it out from a yearly salary</button>
+      <div class="helper-body" id="helperBody">
+        <div class="grid">
+          <div class="field">
+            <label for="salary">Yearly salary or package</label>
+            <div class="prefix"><span>AU$</span><input id="salary" type="number" min="0" step="1000" value="95000" inputmode="numeric"></div>
+          </div>
+          <div class="field">
+            <label for="hoursYear">Working hours a year
+              <span class="hint">A common figure is about 1,800.</span>
+            </label>
+            <input id="hoursYear" type="number" min="1" step="10" value="1800" inputmode="numeric">
+          </div>
+        </div>
+        <button class="btn btn-gold" type="button" id="applyRate" style="margin-top:14px;padding:10px 16px;font-size:14px">Use this hourly figure</button>
+      </div>
+    </div>
+
+    <!-- ===== Result ===== -->
+    <div class="result" aria-live="polite">
+      <div class="row1">
+        <div class="stat big">
+          <div class="k" id="primaryK">Cost per year</div>
+          <div class="v" id="primaryV">AU$0</div>
+        </div>
+        <div class="stat small">
+          <div class="k">This one meeting</div>
+          <div class="v" id="perMeetV">AU$0</div>
+        </div>
+        <div class="stat small" id="monthlyWrap">
+          <div class="k">Per month</div>
+          <div class="v" id="perMonthV">AU$0</div>
+        </div>
+      </div>
+      <p class="sentence" id="sentence"></p>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="barlabels"><span>One meeting</span><span id="barMax">A year</span></div>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-gold" href="https://540d2ec6-f5c7-4bfa-9db6-3704a22adc51.usrfiles.com/ugd/c3e69e_f90442d20389463d827c302ea276908c.pdf" id="pdfBtn" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download the printable worksheet
+      </a>
+      <button class="btn btn-ghost" type="button" id="printBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>
+        Print my result
+      </button>
+    </div>
+
+    <details class="assume">
+      <summary>Assumptions you can change</summary>
+      <div class="abody">
+        <p style="margin:0 0 12px">A year of weekly meetings is counted as 46 working weeks, allowing for leave and public holidays. Fortnightly is 23 and monthly is 12. Adjust the working weeks if your calendar differs.</p>
+        <div class="field">
+          <label for="weeks">Working weeks a year (for weekly and fortnightly)</label>
+          <input id="weeks" type="number" min="1" max="52" step="1" value="46" inputmode="numeric" style="max-width:120px;color:var(--navy)">
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ ARTICLE ============ -->
+  <div class="article">
+    <h2>What a meeting really costs</h2>
+    <p>A meeting has a price whether or not anyone writes it down. It is the number of people in the room, multiplied by what an hour of their time is worth, multiplied by how long you keep them there. Run it every week and the figure quietly compounds into one of the larger line items in how your week is spent.</p>
+    <p>For consultants and property professionals, that hourly figure is not abstract. It is a billed rate, or the internal cost of a salaried colleague, and every hour spent in a room is an hour not spent on client work. The calculator above is deliberately blunt about this. It does not judge the meeting. It just shows you the number, so you can decide whether the meeting is worth it.</p>
+
+    <div class="source">
+      <p>In a 2022 study for Otter.ai, Professor Steven Rogelberg of the University of North Carolina at Charlotte estimated that organisations invest roughly US$80,000 per professional employee each year in meetings, with about US$25,000 of that spent on meetings staff themselves considered unnecessary. The same survey found professionals were spending close to 18 hours a week in meetings.</p>
+      <span class="cite">Source: Rogelberg, S. for Otter.ai, "The Cost of Unnecessary Meeting Attendance," 2022. Figures are in US dollars and are indicative of a US sample, not an Australian benchmark.</span>
+    </div>
+
+    <figure class="figure">
+      <svg viewBox="0 0 720 300" width="100%" role="img" aria-label="Diagram: people times hourly value times length equals meeting cost, then times how often equals cost per year">
+        <defs>
+          <style>
+            .lbl{font-family:Poppins,sans-serif;font-weight:600;font-size:14px;fill:#16263F}
+            .sub{font-family:Inter,sans-serif;font-size:11.5px;fill:#5A6B85}
+            .op{font-family:Poppins,sans-serif;font-weight:700;font-size:22px;fill:#BC8A1C}
+            .box{fill:#F4F6FA;stroke:#D8DEEA;stroke-width:1.5;rx:12}
+            .goldbox{fill:#16263F;rx:12}
+            .goldtxt{font-family:Poppins,sans-serif;font-weight:700;font-size:15px;fill:#E2B53C}
+            .goldsub{font-family:Inter,sans-serif;font-size:11px;fill:#C6D0E2}
+          </style>
+        </defs>
+        <!-- top row: people x rate x time = cost -->
+        <rect class="box" x="8" y="26" width="120" height="70" rx="12"></rect>
+        <text class="lbl" x="68" y="58" text-anchor="middle">People</text>
+        <text class="sub" x="68" y="76" text-anchor="middle">in the room</text>
+
+        <text class="op" x="150" y="68" text-anchor="middle">&#215;</text>
+
+        <rect class="box" x="172" y="26" width="120" height="70" rx="12"></rect>
+        <text class="lbl" x="232" y="58" text-anchor="middle">Hourly value</text>
+        <text class="sub" x="232" y="76" text-anchor="middle">of each person</text>
+
+        <text class="op" x="314" y="68" text-anchor="middle">&#215;</text>
+
+        <rect class="box" x="336" y="26" width="120" height="70" rx="12"></rect>
+        <text class="lbl" x="396" y="58" text-anchor="middle">Length</text>
+        <text class="sub" x="396" y="76" text-anchor="middle">in hours</text>
+
+        <text class="op" x="478" y="68" text-anchor="middle">=</text>
+
+        <rect class="goldbox" x="500" y="26" width="212" height="70"></rect>
+        <text class="goldtxt" x="606" y="58" text-anchor="middle">Cost of the meeting</text>
+        <text class="goldsub" x="606" y="76" text-anchor="middle">one sitting</text>
+
+        <!-- connector -->
+        <path d="M606 96 L606 140 L232 140 L232 176" fill="none" stroke="#D8DEEA" stroke-width="1.5"></path>
+        <text class="op" x="150" y="214" text-anchor="middle">&#215;</text>
+
+        <!-- bottom row: cost x frequency = per year -->
+        <rect class="box" x="172" y="176" width="120" height="70" rx="12"></rect>
+        <text class="lbl" x="232" y="208" text-anchor="middle">How often</text>
+        <text class="sub" x="232" y="226" text-anchor="middle">times per year</text>
+
+        <text class="op" x="314" y="218" text-anchor="middle">=</text>
+
+        <rect class="goldbox" x="336" y="176" width="376" height="70"></rect>
+        <text class="goldtxt" x="524" y="208" text-anchor="middle">Cost per year</text>
+        <text class="goldsub" x="524" y="226" text-anchor="middle">what the recurring slot really costs</text>
+      </svg>
+      <figcaption>The whole model in one line. The calculator does exactly this with your figures.</figcaption>
+    </figure>
+
+    <h2>The number is not the point. The decision is.</h2>
+    <p>Seeing that a routine weekly slot costs several thousand dollars a year is not an argument for cancelling meetings. Plenty of them earn their keep many times over. The point is that once you can see the price, you can ask the fair question of any meeting: is it worth this? Three checks decide it.</p>
+    <ul class="checklist">
+      <li>There is a decision to make or a problem to solve, not just information to share.</li>
+      <li>The people in the room are the ones who can actually make that call.</li>
+      <li>Everyone leaves knowing the next action and who owns it.</li>
+    </ul>
+    <p style="margin-top:16px">That third point is where most of the money leaks. A meeting can be sharp in the room and still produce nothing, because the conversation never turns into owned, written actions. Rogelberg's survey found that most employees would feel comfortable skipping meetings entirely if clear notes were shared with them afterwards, which tells you how much of a meeting's value lives in the follow up rather than the room.</p>
+  </div>
+
+  <!-- ============ CTA ============ -->
+  <section class="cta">
+    <h2>Close the gap between the meeting and the work</h2>
+    <p>Notewright turns the conversation into a decision, a set of owned actions, and a clean summary you can send in minutes. Paste a transcript from any tool you already use. No bots in your calls, no lock in.</p>
+    <div class="actions">
+      <a class="btn btn-gold" href="https://elcortez87.wixsite.com/notewright-1/meeting-to-action-gap" target="_top">Read: the meeting to action gap</a>
+      <a class="btn btn-ghost" href="https://elcortez87.wixsite.com/notewright-1/" target="_top">Join the list for the next tools</a>
+    </div>
+  </section>
+
+  <p class="foot">Notewright is an independent product and is not affiliated with any meeting, device, or software maker. Figures shown depend entirely on the numbers you enter and are for planning only. All amounts are in Australian dollars unless stated otherwise.</p>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var money = new Intl.NumberFormat('en-AU', {maximumFractionDigits:0});
+
+  var state = { freq: 46, freqLabel: 'every week' };
+
+  function num(el, min){
+    var v = parseFloat(el.value);
+    if(isNaN(v) || v < 0){ v = 0; }
+    if(min !== undefined && v < min){ v = v; }
+    return v;
+  }
+
+  function fmt(v){ return 'AU$' + money.format(Math.round(v)); }
+
+  function calc(){
+    var people = num($('people'));
+    var rate   = num($('rate'));
+    var mins   = num($('mins'));
+    var perMeet = people * rate * (mins/60);
+
+    var freq = state.freq;
+    var perYear = perMeet * freq;
+    var perMonth = perYear / 12;
+
+    var once = (freq === 1);
+
+    // Primary stat: annual cost when recurring, otherwise the single meeting
+    if(once){
+      $('primaryK').textContent = 'This meeting';
+      $('primaryV').textContent = fmt(perMeet);
+      // hide year/month framing when one-off
+      $('perMeetV').parentElement.style.display = 'none';
+      $('monthlyWrap').style.display = 'none';
+      $('barMax').textContent = 'This meeting';
+    } else {
+      $('primaryK').textContent = 'Cost per year';
+      $('primaryV').textContent = fmt(perYear);
+      $('perMeetV').parentElement.style.display = '';
+      $('perMeetV').textContent = fmt(perMeet);
+      $('monthlyWrap').style.display = '';
+      $('perMonthV').textContent = fmt(perMonth);
+      $('barMax').textContent = 'A year';
+    }
+
+    // Sentence
+    var minTxt = money.format(Math.round(mins));
+    var pplTxt = money.format(Math.round(people));
+    if(once){
+      $('sentence').innerHTML = 'A <b>' + minTxt + ' minute</b> meeting with <b>' + pplTxt + ' people</b> costs about <b>' + fmt(perMeet) + '</b>.';
+    } else {
+      $('sentence').innerHTML = 'A <b>' + minTxt + ' minute</b> meeting with <b>' + pplTxt + ' people</b>, held <b>' + state.freqLabel + '</b>, costs about <b>' + fmt(perYear) + '</b> a year.';
+    }
+
+    // Bar: single meeting relative to annual (or full if one-off)
+    var pct = once ? 100 : (perYear > 0 ? Math.max(2, (perMeet / perYear) * 100) : 0);
+    $('bar').style.width = pct + '%';
+  }
+
+  // input listeners
+  ['people','rate','mins','weeks'].forEach(function(id){
+    $(id).addEventListener('input', function(){
+      if(id === 'weeks'){ syncFreqWeeks(); }
+      calc();
+    });
+  });
+
+  // minute chips
+  Array.prototype.forEach.call(document.querySelectorAll('#minChips .chip'), function(btn){
+    btn.addEventListener('click', function(){
+      $('mins').value = btn.getAttribute('data-min');
+      setPressed('#minChips .chip', btn);
+      calc();
+    });
+  });
+  // clear chip highlight if a custom value is typed
+  $('mins').addEventListener('input', function(){
+    var match = null;
+    Array.prototype.forEach.call(document.querySelectorAll('#minChips .chip'), function(btn){
+      if(btn.getAttribute('data-min') === $('mins').value){ match = btn; }
+    });
+    setPressed('#minChips .chip', match);
+  });
+
+  // frequency segmented control
+  var baseWeeks = 46;
+  Array.prototype.forEach.call(document.querySelectorAll('#freqSeg button'), function(btn){
+    btn.addEventListener('click', function(){
+      var f = parseInt(btn.getAttribute('data-freq'), 10);
+      state.freqType = btn.getAttribute('data-label');
+      // recompute against current working weeks for weekly/fortnightly
+      applyFreqFromButton(btn);
+      setPressed('#freqSeg button', btn);
+      calc();
+    });
+  });
+
+  function applyFreqFromButton(btn){
+    var label = btn.getAttribute('data-label');
+    state.freqLabel = label;
+    var weeks = parseInt($('weeks').value, 10); if(isNaN(weeks) || weeks < 1){ weeks = 46; }
+    if(label === 'just once'){ state.freq = 1; }
+    else if(label === 'every week'){ state.freq = weeks; }
+    else if(label === 'every fortnight'){ state.freq = Math.round(weeks/2); }
+    else if(label === 'every month'){ state.freq = 12; }
+    state.freqBtnLabel = label;
+  }
+
+  function syncFreqWeeks(){
+    // find pressed frequency button and recompute
+    var pressed = document.querySelector('#freqSeg button[aria-pressed="true"]');
+    if(pressed){ applyFreqFromButton(pressed); }
+  }
+
+  function setPressed(selector, active){
+    Array.prototype.forEach.call(document.querySelectorAll(selector), function(el){
+      el.setAttribute('aria-pressed', el === active ? 'true' : 'false');
+    });
+  }
+
+  // salary helper
+  $('helperBtn').addEventListener('click', function(){
+    var body = $('helperBody');
+    var open = body.classList.toggle('open');
+    this.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  $('applyRate').addEventListener('click', function(){
+    var salary = num($('salary'));
+    var hrs = num($('hoursYear'));
+    if(hrs > 0){
+      var hourly = salary / hrs;
+      $('rate').value = Math.round(hourly);
+      calc();
+    }
+  });
+
+  // print + pdf guard
+  $('printBtn').addEventListener('click', function(){ window.print(); });
+  $('pdfBtn').addEventListener('click', function(e){
+    if(this.getAttribute('href') === '' || this.getAttribute('href') === '#'){
+      e.preventDefault(); // placeholder until the hosted file link is wired in
+    }
+  });
+
+  // initial paint
+  applyFreqFromButton(document.querySelector('#freqSeg button[aria-pressed="true"]'));
+  calc();
+})();
+</script>
+</body>
+</html>
