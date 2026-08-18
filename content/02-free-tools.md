@@ -8,10 +8,6 @@ source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
 
 # Diagnose your meeting waste, free.
 
-## Intro
-
-Start with the numbers. These tools show what meetings cost you and how to fix the habits behind the waste.
-
 ## Five blocks
 
 ### Meeting Cost Calculator
@@ -58,9 +54,11 @@ text link to it, at the end of "Want to go deeper?".
 
 ## Note on the card grids
 
-The live page currently has TWO numbered grids, not one: the five cards above, and a second
+Resolved 18 Aug 2026: the page now has ONE numbered grid, the five cards above. The second
 eight card grid under the heading "Start with the numbers." (Meeting Cost Basics, Agenda
 Discipline, Action Item Tracking, Decision Records, Note-Taker Setup, Summary Writing, Recurring
-Meeting Review, Meeting Audit Basics), every one of them still reading "Coming soon". Thirteen
-cards in total. This duplication is awaiting Anthony's decision and has deliberately not been
-touched.
+Meeting Review, Meeting Audit Basics) was removed from the live draft on Anthony's instruction,
+because it was not part of the business plan. It echoed the workbook's eight modules rather than
+the five free tools. The heading "Start with the numbers." and its intro line were retired with
+it and no longer appear on the page. A text backup of the removed section is kept in the agent
+workspace file BACKUP-start-with-numbers-section.md, outside this repo.
