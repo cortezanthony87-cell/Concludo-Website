@@ -20,9 +20,11 @@ Shipped 7 Aug 2026. This is the first of the five to go live.
 
 ### The Ten Questions card
 
-Coming soon. Join the list and we will send it the day it ships.
+Available now. Open the free card.
 
-**Button:** Join the list (links to the Home signup section)
+**Link:** the whole card links to The Ten Questions page (`/ten-questions`).
+Set as an internal page link, not a hardcoded URL, so it survives a future domain change.
+Shipped 19 Aug 2026. This is the second of the five to go live.
 
 ### Meeting Audit Scorecard
 
@@ -62,3 +64,10 @@ because it was not part of the business plan. It echoed the workbook's eight mod
 the five free tools. The heading "Start with the numbers." and its intro line were retired with
 it and no longer appear on the page. A text backup of the removed section is kept in the agent
 workspace file BACKUP-start-with-numbers-section.md, outside this repo.
+
+## Removed by Anthony (19 Aug 2026, direct in the Wix editor)
+
+The bottom-of-page reading section is gone: the "Want to go deeper?" books blurb, the
+"Meetings, actually" presentation teaser, and the "View the presentation" button. Only the
+independence disclaimer line remains at the bottom of the page. The removed copy stays
+preserved in `08-free-resources.md`, which is retired from the live page except that line.
