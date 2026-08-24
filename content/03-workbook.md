@@ -3,7 +3,8 @@ page: Workbook
 slug: /workbook
 nav_order: 3
 status: draft
-source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
+source: Business Plan v2.1 / Concludo Wix Redesign brief (July 2026)
+rebrand: Renamed Notewright to Concludo, 24 Aug 2026 (new entity Concludo Pty Ltd; live Wix site not yet updated)
 ---
 
 # The Meeting Mastery Workbook.

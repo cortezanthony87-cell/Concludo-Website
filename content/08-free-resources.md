@@ -11,11 +11,12 @@ history: |
   /meeting-to-action-gap, because it was crowding Free Tools. Its copy now lives in
   10-meeting-to-action-gap.md and was moved verbatim. What remains here is everything that
   followed it.
-seo_title: Free Tools | Notewright (Free Tools page keeps its own existing SEO title)
+seo_title: Free Tools | Concludo (Free Tools page keeps its own existing SEO title)
 meta_description: Not set. The Free Tools page meta description is still empty sitewide, pending approval.
 assets:
   presentation_pdf: https://540d2ec6-f5c7-4bfa-9db6-3704a22adc51.usrfiles.com/ugd/c3e69e_13c1f4559e784b4997fd141d9d2b1aff.pdf
 notes: Australian English. No em dashes or en dashes. No statistics. No pricing or checkout. Presentation trimmed from 13 to 12 pages to drop the removed slide and its Canva placeholder contact details.
+rebrand: Renamed Notewright to Concludo, 24 Aug 2026 (new entity Concludo Pty Ltd; live Wix site not yet updated)
 ---
 
 ### Want to go deeper?
@@ -32,4 +33,4 @@ A short conversation about getting real value from the room. Two colleagues talk
 
 ---
 
-Notewright is an independent product. It works with meeting transcripts from any source and is not affiliated with any meeting, recording or device provider. This article is free to read and share. Pricing for paid products is not yet open and will be confirmed before anything can be purchased.
+Concludo is an independent product. It works with meeting transcripts from any source and is not affiliated with any meeting, recording or device provider. This article is free to read and share. Pricing for paid products is not yet open and will be confirmed before anything can be purchased.

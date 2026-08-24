@@ -5,7 +5,7 @@ status: draft (not published)
 created: 7 Aug 2026
 history: Moved out of the Free Tools page on 7 Aug 2026, where it had been appended on 5 Aug. The copy was moved verbatim, verified byte for byte identical before the original was deleted (5,414 characters, MD5 adb1da67700a3ff49b5416b8fa504b9d). Not a word was changed.
 background: Light, #F4F6FA, matching the styling it already had.
-seo_title: Not set yet. Page title currently auto-fills as "The Meeting to Action Gap | Notewright 1".
+seo_title: Not set yet. Page title currently auto-fills as "The Meeting to Action Gap | Concludo 1".
 meta_description: Not set. Empty sitewide, pending approval.
 heading_on_page: "Free reading: the meeting-to-action gap"
 linked_from:
@@ -14,6 +14,7 @@ linked_from:
 assets:
   workbook_pdf: https://540d2ec6-f5c7-4bfa-9db6-3704a22adc51.usrfiles.com/ugd/c3e69e_e721062c3e964bdda6834d6cee5b8aaf.pdf
 notes: Australian English. No em dashes or en dashes. No statistics. No pricing or checkout. Do not reword this article without Anthony's say so.
+rebrand: Renamed Notewright to Concludo, 24 Aug 2026 (new entity Concludo Pty Ltd; live Wix site not yet updated)
 ---
 
 **Free reading**
@@ -22,7 +23,7 @@ notes: Australian English. No em dashes or en dashes. No statistics. No pricing 
 
 For consultants and property professionals, the problem is rarely the meeting itself. It is what happens, or does not happen, in the hours afterwards.
 
-A Notewright guide · About a 5 minute read
+A Concludo guide · About a 5 minute read
 
 You know the meeting. The discovery call where the client leans in and finishes your sentences. The appraisal where the vendor nods at every point and says this is exactly what they were hoping to hear. You leave certain it went well, because it did.
 
@@ -62,7 +63,7 @@ In practice, that comes down to three habits. None of them are complicated. All 
 
 You do not need another piece of software sitting inside your meetings. You almost certainly already have a way to record or transcribe your calls, whether that is built into the platform you use or a separate tool. What is usually missing is the reliable bridge from that raw transcript to a clean set of decisions, actions and a follow-up you can actually send.
 
-That is the narrow job Notewright is built for. It is a paste-first workspace. You paste in the transcript from whatever you already use, and it drafts the decisions, the actions with owners, and a follow-up message you can edit before it goes anywhere. It is capture-agnostic on purpose, so it never has to sit inside your meeting or compete with your calling platform. You stay in control of every word.
+That is the narrow job Concludo is built for. It is a paste-first workspace. You paste in the transcript from whatever you already use, and it drafts the decisions, the actions with owners, and a follow-up message you can edit before it goes anywhere. It is capture-agnostic on purpose, so it never has to sit inside your meeting or compete with your calling platform. You stay in control of every word.
 
 ## Start with the next one
 

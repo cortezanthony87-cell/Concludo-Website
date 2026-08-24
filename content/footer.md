@@ -1,7 +1,8 @@
 ---
 element: Sitewide footer
 status: draft
-source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
+source: Business Plan v2.1 / Concludo Wix Redesign brief (July 2026)
+rebrand: Renamed Notewright to Concludo, 24 Aug 2026 (new entity Concludo Pty Ltd; live Wix site not yet updated)
 ---
 
 # Sitewide footer
@@ -10,7 +11,7 @@ Appears on every page.
 
 ## Footer text
 
-Notewright is an independent product. It is not affiliated with, or endorsed by, any device maker. Works with transcripts from any AI pen, phone recording or meeting platform.
+Concludo is an independent product. It is not affiliated with, or endorsed by, any device maker. Works with transcripts from any AI recorder, smart pen, phone recording or meeting platform.
 
 ## Footer links
 

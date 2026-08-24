@@ -4,7 +4,7 @@ slug: /meeting-cost-calculator
 status: draft (not published)
 created: 7 Aug 2026
 background: Light, #F4F6FA, deliberately different from the navy used across the rest of the site, because the embedded tool has a light base and would otherwise read as a floating white box.
-seo_title: Not set yet. Page title currently auto-fills as "Meeting Cost Calculator | Notewright 1".
+seo_title: Not set yet. Page title currently auto-fills as "Meeting Cost Calculator | Concludo 1".
 meta_description: Not set. Empty sitewide, pending approval.
 implementation: |
   The whole page is a single Wix HTML embed element (comp-msij1kn8) containing one self contained
@@ -31,6 +31,7 @@ notes: |
      starts at 13px, so at 34px padding it overlapped the first digit and rendered as a mangled
      "AU$250". Now measures a clean 4.6px gap at 3, 4 and 6 digit values.
   Not a word of the visible copy was changed.
+rebrand: Renamed Notewright to Concludo, 24 Aug 2026 (new entity Concludo Pty Ltd; live Wix site not yet updated)
 ---
 
 # What a meeting really costs
@@ -61,6 +62,6 @@ Nothing is saved or sent. All calculation happens in the visitor's own browser.
 
 ## Independence
 
-Notewright is an independent product and is not affiliated with any meeting, device, or software
+Concludo is an independent product and is not affiliated with any meeting, device, or software
 maker. Figures shown depend entirely on the numbers entered and are for planning only. All amounts
 are in Australian dollars unless stated otherwise.

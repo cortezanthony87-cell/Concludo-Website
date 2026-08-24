@@ -3,33 +3,34 @@ page: FAQ
 slug: /faq
 nav_order: hidden
 status: draft
-source: Business Plan v2.1 / Notewright Products and Services v2.1 / revision brief (July 2026)
+source: Business Plan v2.1 / Concludo Products and Services v2.1 / revision brief (July 2026)
 note: Replaces the archived AI-pen FAQ. Page remains hidden from the menu until Anthony asks for it to be shown.
+rebrand: Renamed Notewright to Concludo, 24 Aug 2026 (new entity Concludo Pty Ltd; live Wix site not yet updated)
 ---
 
 # Frequently asked questions.
 
 ## Intro
 
-Short, honest answers about what Notewright is, what it costs, and how your text is handled.
+Short, honest answers about what Concludo is, what it costs, and how your text is handled.
 
 ---
 
-**What is Notewright?**
+**What is Concludo?**
 
-Notewright helps professionals and teams cut meeting waste and turn every important conversation into finished work. It is two things: a teachable method for running fewer, better meetings, and the Notewright Workspace, which turns any transcript into summaries, action lists, follow-up emails, decision logs and branded decks.
+Concludo helps professionals and teams cut meeting waste and turn every important conversation into finished work. It is two things: a teachable method for running fewer, better meetings, and the Concludo Workspace, which turns any transcript into summaries, action lists, follow-up emails, decision logs and branded decks.
 
 ---
 
 **Do I need a special device?**
 
-No. Notewright works with transcript text from any source: an AI pen, a phone recording, or a meeting platform. You paste the text in; the device you captured it on does not matter.
+No. Concludo works with transcript text from any source: an AI recorder, a smart pen, a phone recording, or a meeting platform such as Zoom, Teams or Google Meet. You paste the text in; the device you captured it on does not matter.
 
 ---
 
-**Is Notewright affiliated with Flowtica?**
+**Is Concludo affiliated with any recorder, pen or meeting platform?**
 
-No. Notewright is independent and is not affiliated with or endorsed by Flowtica. Notewright is an independent product and is not affiliated with, or endorsed by, any device maker.
+No. Concludo is independent and capture agnostic. It is not affiliated with, or endorsed by, any device maker or meeting platform, including AI recorders, smart pens, or platforms such as Zoom, Teams or Google Meet.
 
 ---
 
@@ -53,7 +54,7 @@ The Meeting Reset Workshop runs AU$500 to 2,500. A Meeting Waste Audit is AU$1,5
 
 **How is my transcript text handled?**
 
-Be aware that the Notewright Workspace processes the transcript text you paste in order to produce your outputs. That is how the product works. Our Privacy Policy sets out how long text is retained, how you can have it removed, and the third-party services used to run the Workspace. We do not access your recordings or your device's companion app.
+Be aware that the Concludo Workspace processes the transcript text you paste in order to produce your outputs. That is how the product works. Our Privacy Policy sets out how long text is retained, how you can have it removed, and the third-party services used to run the Workspace. We do not access your recordings or your device's companion app.
 
 ---
 
@@ -65,12 +66,12 @@ Yes, and we take them seriously. We are consent-forward: always tell people when
 
 **When can I get access?**
 
-Notewright is in pre-launch. Join the Meeting Reset list and we will let you know the day each piece ships. Early members get priority access and founding pricing.
+Concludo is in pre-launch. Join the Meeting Reset list and we will let you know the day each piece ships. Early members get priority access and founding pricing.
 
 ---
 
 **How do I get in touch?**
 
-Notewright
+Concludo
 Melbourne, Australia
-hello@notewright.ai
+Email: to be confirmed

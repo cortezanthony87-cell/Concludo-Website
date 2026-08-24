@@ -3,14 +3,15 @@ page: Workspace
 slug: /workspace
 nav_order: 4
 status: draft
-source: Business Plan v2.1 / Notewright Wix Redesign brief (July 2026)
+source: Business Plan v2.1 / Concludo Wix Redesign brief (July 2026)
+rebrand: Renamed Notewright to Concludo, 24 Aug 2026 (new entity Concludo Pty Ltd; live Wix site not yet updated)
 ---
 
 # Paste a transcript. Leave with finished work.
 
 ## Intro
 
-The Notewright Workspace turns any transcript into summaries, action plans, follow-up emails, decision logs and branded presentations in minutes. Capture on any device or platform, paste the text in, and the Workspace does the rest.
+The Concludo Workspace turns any transcript into summaries, action plans, follow-up emails, decision logs and branded presentations in minutes. Capture on any device or platform, paste the text in, and the Workspace does the rest.
 
 ## Section: What you get back
 
