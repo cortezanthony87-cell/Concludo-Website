@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delegation Script Pack</title>
+<meta name="description" content="Word for word scripts that give every action an owner and a date: assigning in the room, confirming in writing, chasing before the deadline and escalating a repeat miss. Free from Concludo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  --navy:#16263F; --navy-2:#21395C; --gold:#E2B53C; --gold-d:#BC8A1C;
+  --ground:#F4F6FA; --surface:#FFFFFF;
+  --ink:#16263F; --muted:#5A6780; --line:#DDE3ED;
+  --bad:#A93226; --bad-bg:#F7E1DF; --good:#1E7F4F; --good-bg:#E4F1EA;
+  --display:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1B2D; --surface:#182941; --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C;
+    --bad:#E0736A; --bad-bg:#3A1E1C60; --good:#4FBF85; --good-bg:#16342660;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1B2D; --surface:#182941; --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C;
+  --bad:#E0736A; --bad-bg:#3A1E1C60; --good:#4FBF85; --good-bg:#16342660;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.page{max-width:800px;margin:0 auto;padding:24px 20px 60px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+:focus-visible{outline:2.5px solid var(--gold-d);outline-offset:2px}
+
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.masthead{display:flex;align-items:center;gap:10px}
+.mark{width:24px;height:28px;flex:none}
+.wordmark{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.4px}
+.wordmark .dot{color:var(--gold-d)}
+.btn{font-family:var(--body);font-weight:600;font-size:14px;border:none;border-radius:9px;
+  padding:9px 16px;cursor:pointer;background:var(--gold);color:#3A2C06}
+.btn:hover{background:var(--gold-d);color:#fff}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cardhead{background:var(--navy);color:#F4F6FA;padding:26px 30px 22px}
+.eyebrow{font-size:10.5px;letter-spacing:2.4px;text-transform:uppercase;font-weight:600;color:var(--gold);margin-bottom:9px}
+.cardhead h1{font-size:29px;font-weight:700;line-height:1.13;color:#fff}
+.principle{margin:14px 0 0;padding-left:14px;border-left:3px solid var(--gold);
+  font-size:14.5px;line-height:1.5;color:#C9D3E5;max-width:62ch}
+.principle b{color:#fff;font-weight:600}
+
+.body{padding:24px 30px 6px}
+section.blk{margin-bottom:28px;break-inside:avoid}
+.blklabel{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.blklabel span{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:1.8px;
+  text-transform:uppercase;color:var(--gold-d);white-space:nowrap}
+.blklabel i{flex:1;height:1px;background:var(--line);display:block}
+.lead{font-size:14px;color:var(--muted);margin:0 0 14px;max-width:64ch}
+
+/* five fields */
+.fields{display:grid;gap:9px}
+.field{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:12px 15px;break-inside:avoid}
+.field .n{font-family:var(--display);font-weight:700;font-size:12.5px;color:#fff;background:var(--navy-2);
+  width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.field .t{font-size:14.4px;line-height:1.5}
+.field .t b{font-family:var(--display);font-weight:600}
+.field .t span{color:var(--muted)}
+
+/* before / after */
+.ba{display:grid;gap:12px}
+@media(min-width:640px){.ba{grid-template-columns:1fr 1fr}}
+.bacol{border-radius:10px;padding:14px 16px;break-inside:avoid}
+.bacol.before{background:var(--bad-bg);border:1px solid var(--bad);border-left-width:4px}
+.bacol.after{background:var(--good-bg);border:1px solid var(--good);border-left-width:4px}
+.bacol h3{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px}
+.bacol.before h3{color:var(--bad)} .bacol.after h3{color:var(--good)}
+.bacol p{margin:0 0 7px;font-size:13.8px;line-height:1.5}
+.bacol p:last-child{margin:0}
+.bacol em{font-style:normal;color:var(--muted);font-size:12.5px;display:block;margin-top:6px}
+
+/* scripts */
+.script{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:14px;break-inside:avoid}
+.scripthead{background:var(--ground);padding:11px 16px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.scripthead b{font-family:var(--display);font-weight:600;font-size:14.5px}
+.scripthead span{font-size:11.5px;color:var(--muted);letter-spacing:.3px}
+.say{padding:15px 17px;font-size:14.5px;line-height:1.62;font-style:italic}
+.say + .say{border-top:1px dashed var(--line)}
+.say b{font-style:normal;font-family:var(--display);font-weight:600;font-size:11px;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--gold-d);display:block;margin-bottom:6px}
+.why{padding:0 17px 14px;font-size:12.8px;color:var(--muted);line-height:1.55}
+.why b{color:var(--ink);font-weight:600}
+
+.mistakes{background:var(--ground);border-top:1px solid var(--line);padding:20px 30px 22px}
+.mistakes h2{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold-d);margin-bottom:10px}
+.mistakes ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.mistakes li{font-size:13.3px;color:var(--muted);padding-left:15px;position:relative;line-height:1.5}
+.mistakes li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;background:var(--gold);transform:rotate(45deg)}
+
+.foot{padding:18px 30px 24px;border-top:1px solid var(--line);font-size:11.2px;color:var(--muted);line-height:1.6}
+.foot p{margin:0 0 7px} .foot p:last-child{margin:0}
+.foot b{color:var(--ink);font-weight:600}
+
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  :root{--ground:#FFFFFF;--surface:#FFFFFF;--line:#CCD5E3}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;font-size:10.2pt}
+  .page{max-width:none;padding:0}
+  .toolbar{display:none}
+  .card{border:none;border-radius:0}
+  .cardhead{padding:0 0 11pt;background:#fff}
+  .cardhead h1{color:var(--navy);font-size:20pt}
+  .principle{color:var(--muted)} .principle b{color:var(--navy)}
+  .body{padding:0}
+  .mistakes{background:#fff;padding:11pt 0 0}
+  .foot{padding:9pt 0 0;font-size:7.6pt}
+  .say{font-size:9.9pt}
+}
+</style>
+<script>
+/* Embedded in an iframe (for example a Wix HTML embed)? Lock to the light
+   palette so the tool always matches the host page instead of following the
+   viewer's dark-mode preference and rendering dark inside a light site. */
+try { if (window.self !== window.top) { document.documentElement.setAttribute('data-theme','light'); } } catch (e) { document.documentElement.setAttribute('data-theme','light'); }
+</script>
+</head>
+<body>
+<div class="page">
+
+  <div class="toolbar">
+    <div class="masthead">
+      <!-- Placeholder mark. Replace with the v5 faceted nib + circuitry SVG from nibSVG() in index.html -->
+      <svg class="mark" viewBox="0 0 26 30" aria-hidden="true">
+        <path d="M13 1 L24 8 L24 20 L13 29 L2 20 L2 8 Z" fill="none" stroke="#BC8A1C" stroke-width="1.6"/>
+        <path d="M13 7 L18 11 L13 23 L8 11 Z" fill="#16263F"/>
+        <path d="M13 7 L18 11 L13 15 Z" fill="#E2B53C"/>
+      </svg>
+      <div class="wordmark">CONCLUDO<span class="dot">.</span></div>
+    </div>
+    <button class="btn" onclick="window.print()">Print this pack</button>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <div class="eyebrow">Free script pack · Say it out loud</div>
+      <h1>Delegation scripts</h1>
+      <p class="principle">An action without a single named owner, a defined outcome, a date and a confirmation method is not an action. <b>It is a hope with good grammar.</b></p>
+    </div>
+
+    <div class="body">
+
+      <section class="blk">
+        <div class="blklabel"><span>The standard · five fields</span><i></i></div>
+        <p class="lead">This is where most meeting value is lost. A meeting can be well designed, well attended and well recorded and still produce nothing, because the actions were written in a form nobody can be held to. Every action carries five fields.</p>
+        <div class="fields">
+          <div class="field"><div class="n">1</div><div class="t"><b>Owner.</b> <span>One name. Never a team, never "we".</span></div></div>
+          <div class="field"><div class="n">2</div><div class="t"><b>Verb.</b> <span>What the owner will actually do: draft, send, approve, book, call, confirm, decide.</span></div></div>
+          <div class="field"><div class="n">3</div><div class="t"><b>Object, with a definition of done.</b> <span>What exists at the end, and what makes it acceptable.</span></div></div>
+          <div class="field"><div class="n">4</div><div class="t"><b>Deadline.</b> <span>A date, and a time where the date is not enough.</span></div></div>
+          <div class="field"><div class="n">5</div><div class="t"><b>Confirmation method.</b> <span>How and where completion becomes visible, and to whom.</span></div></div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Vague versus accountable</span><i></i></div>
+        <div class="ba">
+          <div class="bacol before">
+            <h3>A hope with good grammar</h3>
+            <p>"We'll get the proposal over to them soon."</p>
+            <p>"Someone should follow up with the client."</p>
+            <p>"Let's tidy up the onboarding process."</p>
+            <em>Missing, in order: owner and date. Owner. Definition of done.</em>
+          </div>
+          <div class="bacol after">
+            <h3>An action</h3>
+            <p>"Priya will send the draft proposal to Dan by 5pm Thursday, and post it in the deal channel when it goes."</p>
+            <p>"Marco will call the client on Tuesday and put the outcome in the account file."</p>
+            <p>"Priya will rewrite the onboarding checklist so a new starter can run day one unassisted, by the 14th, and share it for comment."</p>
+            <em>Owner, verb, object with done, date, confirmation.</em>
+          </div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Script 1 · Assigning in the room</span><i></i></div>
+        <div class="script">
+          <div class="scripthead"><b>Say it so the owner confirms it</b><span>Out loud, before anyone moves on</span></div>
+          <div class="say"><b>You say</b>Priya, can you take this one? What I am asking for is the draft proposal sent to Dan, good enough for him to send to the client without rewriting it. Does Thursday 5pm work, and can you drop it in the deal channel when it goes?</div>
+          <div class="say"><b>Then wait</b>Let Priya answer before you move on. If she says Friday, the action is Friday.</div>
+          <div class="why"><b>Why it works.</b> The five fields are all in one sentence, and it ends with a question rather than an instruction, so the owner has to accept it out loud. An action nobody said yes to is not owned.</div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Script 2 · Confirming in writing</span><i></i></div>
+        <div class="script">
+          <div class="scripthead"><b>Same day, in the follow up</b><span>Within twenty four hours</span></div>
+          <div class="say"><b>You write</b>Actions from today:<br><br>1. Priya to send the draft proposal to Dan by Thu 14th, 5pm. Confirmation: posted in the deal channel.<br>2. Marco to call the client Tue 12th and record the outcome in the account file.<br><br>If I have any of these wrong, tell me by end of tomorrow and I will correct the record.</div>
+          <div class="why"><b>Why it works.</b> The correction deadline matters as much as the actions. It turns silence into agreement at a defined point, so nobody can say later that they never accepted it.</div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Script 3 · Chasing before the deadline</span><i></i></div>
+        <div class="script">
+          <div class="scripthead"><b>Support, not surveillance</b><span>A day or two before it is due</span></div>
+          <div class="say"><b>You say or write</b>Hi Priya, the proposal draft is due Thursday. Are you on track, or is there anything in the way I can clear? Happy to move the date if something more urgent landed, I would just rather know now than Thursday afternoon.</div>
+          <div class="why"><b>Why it works.</b> It arrives before the miss, not after it, and it offers to move the date. A renegotiated deadline agreed on Tuesday is worth far more than a silent miss discovered on Friday. Chasing after the fact reads as surveillance; chasing before it reads as help.</div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Script 4 · Escalating a repeat miss</span><i></i></div>
+        <div class="script">
+          <div class="scripthead"><b>When a deadline has been missed twice</b><span>Back to the decision maker, not chased again</span></div>
+          <div class="say"><b>To the owner, first</b>Priya, this is the second time the proposal has moved. I do not think chasing it a third time is the answer. Either something is blocking it that we have not named, or it is not the right priority for you at the moment. Which is it? I would rather reassign it than keep asking.</div>
+          <div class="say"><b>Then, if needed, to the decision maker</b>Dan, the proposal action has now missed two agreed dates. I have raised it with Priya twice. I am handing it back to you to decide: reassign it, resource it, or drop it. My recommendation is [X].</div>
+          <div class="why"><b>Why it works.</b> There is a defined point where an action stops being chased and goes back to whoever decided it should exist. Without that point, a stuck action can absorb months of nagging and still not get done, and the relationship pays for it.</div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Script 5 · When you cannot commit to it</span><i></i></div>
+        <div class="script">
+          <div class="scripthead"><b>The other side of delegation</b><span>Say it in the meeting, not two weeks later</span></div>
+          <div class="say"><b>You say</b>I can take that, but not by Thursday, because the audit is due the same day. I can do it by Tuesday the 19th, or I can do a rough version by Thursday that will need someone else to finish. Which is more useful?</div>
+          <div class="why"><b>Why it works.</b> It accepts ownership while renegotiating the field that is actually wrong, and it offers a choice rather than a refusal. Saying this in the room costs you thirty seconds of discomfort. Saying nothing costs the team two weeks and the trust that comes with it.</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="mistakes">
+      <h2>Five ways this goes wrong</h2>
+      <ul>
+        <li>Group ownership. If it belongs to everyone, it belongs to nobody.</li>
+        <li>The action that is really a decision in disguise, handed to someone with no authority to make it.</li>
+        <li>Deadlines set to the next meeting rather than to when the work is actually needed.</li>
+        <li>Confirmation methods that require the chaser to go looking.</li>
+        <li>Recording actions somewhere the team does not already look.</li>
+      </ul>
+    </div>
+
+    <div class="foot">
+      <p><b>Independence.</b> Concludo is independent. It is not affiliated with, endorsed by, or partnered with any recorder manufacturer, AI note taker, transcription service or meeting platform. Where a product or platform is named, it is named because readers use it, not because there is a commercial relationship. There is no commercial relationship.</p>
+      <p><b>Practical guidance, not legal advice.</b> This pack is general in nature and does not take account of your jurisdiction, industry, contracts or employer policies. Where an action concerns an employment matter, get advice from a qualified practitioner. Concludo Pty Ltd accepts no liability for decisions made on the basis of this pack.</p>
+      <p>Concludo Pty Ltd, Melbourne · ACN 701 605 898 · Drawn from the Meeting Mastery Workbook, chapter 6.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

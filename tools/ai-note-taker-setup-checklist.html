@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Responsible Capture Checklist</title>
+<meta name="description" content="A consent-forward setup checklist for any AI note taker, smart pen, phone recording or meeting platform transcript. Free from Concludo, device and platform agnostic.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  --navy:#16263F; --navy-2:#21395C; --gold:#E2B53C; --gold-d:#BC8A1C;
+  --ground:#F4F6FA; --surface:#FFFFFF;
+  --ink:#16263F; --muted:#5A6780; --line:#DDE3ED;
+  --stop:#A93226; --stop-bg:#F7E1DF;
+  --display:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1B2D; --surface:#182941; --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C;
+    --stop:#E0736A; --stop-bg:#3A1E1C60;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1B2D; --surface:#182941; --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C;
+  --stop:#E0736A; --stop-bg:#3A1E1C60;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.page{max-width:800px;margin:0 auto;padding:24px 20px 60px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+:focus-visible{outline:2.5px solid var(--gold-d);outline-offset:2px}
+
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.masthead{display:flex;align-items:center;gap:10px}
+.mark{width:24px;height:28px;flex:none}
+.wordmark{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.4px}
+.wordmark .dot{color:var(--gold-d)}
+.btn{font-family:var(--body);font-weight:600;font-size:14px;border:none;border-radius:9px;
+  padding:9px 16px;cursor:pointer;background:var(--gold);color:#3A2C06}
+.btn:hover{background:var(--gold-d);color:#fff}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cardhead{background:var(--navy);color:#F4F6FA;padding:26px 30px 22px}
+.eyebrow{font-size:10.5px;letter-spacing:2.4px;text-transform:uppercase;font-weight:600;color:var(--gold);margin-bottom:9px}
+.cardhead h1{font-size:29px;font-weight:700;line-height:1.13;color:#fff}
+.principle{margin:14px 0 0;padding-left:14px;border-left:3px solid var(--gold);
+  font-size:14.5px;line-height:1.5;color:#C9D3E5;max-width:62ch}
+.principle b{color:#fff;font-weight:600}
+
+.body{padding:24px 30px 6px}
+section.blk{margin-bottom:26px;break-inside:avoid}
+.blklabel{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.blklabel span{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:1.8px;
+  text-transform:uppercase;color:var(--gold-d);white-space:nowrap}
+.blklabel i{flex:1;height:1px;background:var(--line);display:block}
+.lead{font-size:14px;color:var(--muted);margin:0 0 14px;max-width:64ch}
+
+ul.check{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+ul.check li{display:flex;gap:12px;align-items:flex-start;break-inside:avoid}
+ul.check .box{width:16px;height:16px;border:1.8px solid var(--gold-d);border-radius:4px;
+  flex:none;margin-top:3px;background:transparent;cursor:pointer;position:relative;padding:0}
+ul.check .box[aria-pressed="true"]{background:var(--gold-d)}
+ul.check .box[aria-pressed="true"]::after{content:"";position:absolute;left:4.5px;top:1px;
+  width:4px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+ul.check .t{font-size:14.6px;line-height:1.5}
+ul.check .t b{font-family:var(--display);font-weight:600}
+ul.check .t span{color:var(--muted)}
+
+.layers{display:grid;gap:10px}
+@media(min-width:640px){.layers{grid-template-columns:repeat(3,1fr)}}
+.layer{border:1px solid var(--line);border-radius:10px;padding:14px 16px;break-inside:avoid}
+.layer b{font-family:var(--display);font-weight:600;font-size:14px;display:block;margin-bottom:4px}
+.layer p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+
+.stop{background:var(--stop-bg);border:1px solid var(--stop);border-left-width:4px;border-radius:10px;padding:16px 18px}
+.stop h3{font-size:14.5px;color:var(--stop);margin-bottom:8px}
+.stop ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}
+.stop li{font-size:13.4px;padding-left:15px;position:relative;line-height:1.5}
+.stop li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;background:var(--stop);transform:rotate(45deg)}
+.stop .rule{margin:12px 0 0;font-size:13.6px;font-weight:600;line-height:1.5}
+
+.script{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px;break-inside:avoid}
+.scripthead{background:var(--ground);padding:9px 15px;font-family:var(--display);font-weight:600;font-size:13.2px;border-bottom:1px solid var(--line)}
+.scriptbody{padding:14px 16px;font-size:14.3px;line-height:1.6;font-style:italic;color:var(--ink)}
+.scriptbody + .scriptbody{border-top:1px dashed var(--line);font-style:normal}
+.scriptnote{padding:0 16px 13px;font-size:12.5px;color:var(--muted)}
+
+.mistakes{background:var(--ground);border-top:1px solid var(--line);padding:20px 30px 22px}
+.mistakes h2{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold-d);margin-bottom:10px}
+.mistakes ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.mistakes li{font-size:13.3px;color:var(--muted);padding-left:15px;position:relative;line-height:1.5}
+.mistakes li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;background:var(--gold);transform:rotate(45deg)}
+
+.foot{padding:18px 30px 24px;border-top:1px solid var(--line);font-size:11.2px;color:var(--muted);line-height:1.6}
+.foot p{margin:0 0 7px}
+.foot p:last-child{margin:0}
+.foot b{color:var(--ink);font-weight:600}
+
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  :root{--ground:#FFFFFF;--surface:#FFFFFF;--line:#CCD5E3}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;font-size:10.2pt}
+  .page{max-width:none;padding:0}
+  .toolbar{display:none}
+  .card{border:none;border-radius:0}
+  .cardhead{padding:0 0 11pt;background:#fff}
+  .cardhead h1{color:var(--navy);font-size:20pt}
+  .principle{color:var(--muted)} .principle b{color:var(--navy)}
+  .body{padding:0}
+  .mistakes{background:#fff;padding:11pt 0 0}
+  .foot{padding:9pt 0 0;font-size:7.6pt}
+  ul.check .t{font-size:9.8pt}
+  .scriptbody{font-size:9.8pt}
+}
+</style>
+<script>
+/* Embedded in an iframe (for example a Wix HTML embed)? Lock to the light
+   palette so the tool always matches the host page instead of following the
+   viewer's dark-mode preference and rendering dark inside a light site. */
+try { if (window.self !== window.top) { document.documentElement.setAttribute('data-theme','light'); } } catch (e) { document.documentElement.setAttribute('data-theme','light'); }
+</script>
+</head>
+<body>
+<div class="page">
+
+  <div class="toolbar">
+    <div class="masthead">
+      <!-- Placeholder mark. Replace with the v5 faceted nib + circuitry SVG from nibSVG() in index.html -->
+      <svg class="mark" viewBox="0 0 26 30" aria-hidden="true">
+        <path d="M13 1 L24 8 L24 20 L13 29 L2 20 L2 8 Z" fill="none" stroke="#BC8A1C" stroke-width="1.6"/>
+        <path d="M13 7 L18 11 L13 23 L8 11 Z" fill="#16263F"/>
+        <path d="M13 7 L18 11 L13 15 Z" fill="#E2B53C"/>
+      </svg>
+      <div class="wordmark">CONCLUDO<span class="dot">.</span></div>
+    </div>
+    <button class="btn" onclick="window.print()">Print this checklist</button>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <div class="eyebrow">Free checklist · Any device, any platform</div>
+      <h1>Responsible capture setup</h1>
+      <p class="principle">Consent is a practice, <b>not a checkbox.</b> Tell people before you record, tell them what happens to the recording, and be prepared to run the meeting without it.</p>
+    </div>
+
+    <div class="body">
+
+      <section class="blk">
+        <div class="blklabel"><span>Start here · the three layers</span><i></i></div>
+        <p class="lead">Three separate sets of rules can apply to the same recording, and they are not the same rules. Check all three before you record. Not your device maker, not your meeting platform, and not this checklist.</p>
+        <div class="layers">
+          <div class="layer"><b>The law</b><p>Differs between Australian states and territories, and differs again if anyone on the call is overseas.</p></div>
+          <div class="layer"><b>Employer policy</b><p>Often stricter than the law, and frequently never read by the person recording.</p></div>
+          <div class="layer"><b>Client obligation</b><p>May sit in a contract, a confidentiality term or a professional code.</p></div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>The eight steps</span><i></i></div>
+        <ul class="check">
+          <li><button class="box" aria-pressed="false" aria-label="Step 1"></button><div class="t"><b>Decide whether to record at all.</b> <span>Some meetings should not be. Start with the question, not the device.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Step 2"></button><div class="t"><b>Check the three layers.</b> <span>Applicable law, employer policy, and client or contractual obligation.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Step 3"></button><div class="t"><b>Notify before the recording starts.</b> <span>In the invitation, and again verbally at the start. The invitation alone is not enough.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Step 4"></button><div class="t"><b>Get and record agreement.</b> <span>Note any objection and what you did about it.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Step 5"></button><div class="t"><b>Decide storage before capture.</b> <span>Where the file and transcript live, who can access them, and when they are deleted.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Step 6"></button><div class="t"><b>Set up the capture.</b> <span>Audio conditions, speaker labels, a naming convention, and a note of who was present.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Step 7"></button><div class="t"><b>Check the transcript for accuracy</b> <span>on the points that matter, before you rely on it.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Step 8"></button><div class="t"><b>Handle the failure cases.</b> <span>No speaker labels, poor audio, a late joiner who did not hear the notice, and a participant who withdraws consent mid meeting.</span></div></li>
+        </ul>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>What not to record</span><i></i></div>
+        <div class="stop">
+          <h3>Leave the recorder off for these</h3>
+          <ul>
+            <li>Performance conversations and disciplinary matters.</li>
+            <li>Health and personal disclosures.</li>
+            <li>Legally privileged discussions.</li>
+            <li>Remuneration discussions, where policy prohibits it.</li>
+            <li>Any meeting where a participant has objected.</li>
+            <li>Anything covered by a client confidentiality term that does not permit recording.</li>
+          </ul>
+          <p class="rule">The practical rule, if you want one sentence to carry with you: if you would hesitate to tell the room the meeting is being recorded, do not record it.</p>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Wording you can use</span><i></i></div>
+        <p class="lead">Two forms, written in plain, non threatening language. Adapt them to your own voice and obligations.</p>
+
+        <div class="script">
+          <div class="scripthead">In the meeting invitation</div>
+          <div class="scriptbody">I use an AI note taker to capture actions and decisions in our meetings. It records audio and produces a transcript, which I store in [location] and delete after [period]. If you would prefer I did not record, tell me before we start or at any point during the meeting, and I will turn it off and take notes by hand instead.</div>
+        </div>
+
+        <div class="script">
+          <div class="scripthead">Spoken at the start</div>
+          <div class="scriptbody">Before we get going: I have a note taker running so I can capture the actions and decisions accurately. The transcript goes to [location] and I delete it after [period]. Is everyone comfortable with that?</div>
+          <div class="scriptnote">Then pause and let people answer. If anyone hesitates, turn it off. A recording obtained through an awkward silence is worse than no recording.</div>
+        </div>
+
+        <div class="script">
+          <div class="scripthead">When someone would rather you did not</div>
+          <div class="scriptbody">No problem at all, I will turn it off. I will take notes by hand and send the summary round afterwards so we still have the actions written down.</div>
+          <div class="scriptnote">Record the objection and what you did about it. The method does not depend on capture.</div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="blklabel"><span>Your setup, written down once</span><i></i></div>
+        <ul class="check">
+          <li><button class="box" aria-pressed="false" aria-label="Setup 1"></button><div class="t"><b>Device or platform:</b> <span>_______________________________</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Setup 2"></button><div class="t"><b>Notification wording</b> <span>added to my standard meeting invitation.</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Setup 3"></button><div class="t"><b>Storage location:</b> <span>_______________________________ (an account the organisation controls, not a personal one)</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Setup 4"></button><div class="t"><b>Who can access it:</b> <span>_______________________________</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Setup 5"></button><div class="t"><b>Retention decision:</b> <span>delete after _______________</span></div></li>
+          <li><button class="box" aria-pressed="false" aria-label="Setup 6"></button><div class="t"><b>My do not record list</b> <span>is written down and I have read it.</span></div></li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="mistakes">
+      <h2>Seven ways this goes wrong</h2>
+      <ul>
+        <li>Notifying in the invitation only, so anyone who did not read it never consented.</li>
+        <li>Recording first and asking later.</li>
+        <li>Storing transcripts in personal accounts.</li>
+        <li>Never making a retention decision, so nothing is ever deleted.</li>
+        <li>Relying on speaker labels without checking them, then attributing a decision to the wrong person.</li>
+        <li>Assuming the platform's consent prompt satisfies your obligation.</li>
+        <li>Assuming a rule you learned in one state or country applies everywhere.</li>
+      </ul>
+    </div>
+
+    <div class="foot">
+      <p><b>Practical guidance, not legal advice.</b> Nothing here is legal advice. This is general guidance written for business readers. It does not take account of your jurisdiction, industry, contracts, employer policies or specific circumstances. Consent rules differ across Australian states and territories and differ again overseas, and workplace and client policies may be stricter than the law. If you work in a regulated industry, are recording across state or national borders, have had a client object, are in a dispute, or are designing a recording policy for an organisation, get advice from a qualified legal practitioner before relying on anything here. Concludo Pty Ltd accepts no liability for decisions made on the basis of this checklist.</p>
+      <p><b>Independence.</b> Concludo is independent. It is not affiliated with, endorsed by, or partnered with any recorder manufacturer, AI note taker, transcription service or meeting platform. This checklist is written to apply to any device and any platform, and deliberately contains no setup instructions for any specific product, because those change and because Concludo does not endorse any of them.</p>
+      <p>Concludo Pty Ltd, Melbourne · ACN 701 605 898 · Drawn from the Meeting Mastery Workbook, chapter 9.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.box').forEach(b => {
+  b.addEventListener('click', () => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'));
+});
+</script>
+</body>
+</html>

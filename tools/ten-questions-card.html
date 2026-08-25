@@ -1,402 +1,187 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-AU">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Notewright — The Ten Questions</title>
-<meta name="description" content="Ten questions to ask before you send the invite. Run fewer, better meetings and turn every important conversation into action." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ten Questions Card</title>
+<meta name="description" content="The ten questions every meeting must answer before it deserves to exist. A free printable card from Concludo, for the desk or the meeting room wall.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap">
 <style>
 :root{
---navy:#16263F; --navy2:#0E1B30; --navy-soft:#21395C;
---gold:#E2B53C; --gold-d:#BC8A1C;
---ink:#1B2430; --muted:#8FA1C0; --line:#2A3E5E;
---light:#F4F6FA; --card:#1B2E4A;
---display:"Poppins","Segoe UI",system-ui,sans-serif;
---body:"Inter","Segoe UI",system-ui,sans-serif;
---maxw:1080px;
+  --navy:#16263F; --navy-2:#21395C; --gold:#E2B53C; --gold-d:#BC8A1C;
+  --ground:#F4F6FA; --surface:#FFFFFF;
+  --ink:#16263F; --muted:#5A6780; --line:#DDE3ED;
+  --display:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1B2D; --surface:#182941; --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1B2D; --surface:#182941; --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{
-font-family:var(--body);
-color:#E7EDF7;
-background:var(--navy2);
-line-height:1.6;
--webkit-font-smoothing:antialiased;
-}
-h1,h2,h3,h4{font-family:var(--display);line-height:1.18;margin:0}
-.wrap{max-width:var(--maxw);margin:0 auto;padding:0 26px}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.page{max-width:820px;margin:0 auto;padding:24px 20px 60px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+:focus-visible{outline:2.5px solid var(--gold-d);outline-offset:2px}
 
-/* ---------- draft banner (remove after Gate 1 name clearance) ---------- */
-.draft{
-background:repeating-linear-gradient(45deg,#3a2c06,#3a2c06 12px,#2f2405 12px,#2f2405 24px);
-color:var(--gold);
-font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:1.5px;
-text-align:center;padding:8px 12px;text-transform:uppercase;
-border-bottom:1px solid var(--gold-d);
-}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.masthead{display:flex;align-items:center;gap:10px}
+.mark{width:24px;height:28px;flex:none}
+.wordmark{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.4px}
+.wordmark .dot{color:var(--gold-d)}
+.btn{font-family:var(--body);font-weight:600;font-size:14px;border:none;border-radius:9px;
+  padding:9px 16px;cursor:pointer;background:var(--gold);color:#3A2C06}
+.btn:hover{background:var(--gold-d);color:#fff}
 
-/* ---------- hero ---------- */
-.hero{
-background:
-radial-gradient(900px 400px at 80% -10%, rgba(226,181,60,.10), transparent 60%),
-linear-gradient(160deg,var(--navy) 0%, var(--navy2) 100%);
-border-bottom:1px solid var(--line);
-padding:54px 0 46px;
-}
-.eyebrow{
-display:inline-flex;align-items:center;gap:10px;
-font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:3px;
-color:var(--gold);text-transform:uppercase;margin-bottom:18px;
-}
-.eyebrow .num{
-font-size:15px;background:var(--gold);color:#3a2c06;
-padding:2px 9px;border-radius:6px;letter-spacing:1px;
-}
-.hero h1{color:#fff;font-size:clamp(34px,5vw,52px);font-weight:700;max-width:16ch;margin-bottom:16px}
-.hero .sub{color:#C7D2E8;font-size:clamp(16px,2vw,19px);max-width:60ch;font-weight:400}
-.hero .sub b{color:var(--gold)}
+/* the card */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cardhead{background:var(--navy);color:#F4F6FA;padding:26px 30px 22px}
+.eyebrow{font-size:10.5px;letter-spacing:2.4px;text-transform:uppercase;font-weight:600;color:var(--gold);margin-bottom:9px}
+.cardhead h1{font-size:30px;font-weight:700;line-height:1.12;color:#fff}
+.principle{margin:14px 0 0;padding-left:14px;border-left:3px solid var(--gold);
+  font-size:14.5px;line-height:1.5;color:#C9D3E5;max-width:60ch}
+.principle b{color:#fff;font-weight:600}
 
-/* ---------- the one-question test ---------- */
-.test{
-margin:36px 0 6px;
-background:var(--card);
-border:1px solid var(--line);border-left:4px solid var(--gold);
-border-radius:14px;padding:26px 28px;
-display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;
-}
-.test .glyph{flex-shrink:0}
-.test .glyph svg{width:56px;height:56px}
-.test .body{flex:1;min-width:260px}
-.test h2{color:#fff;font-size:22px;margin-bottom:8px}
-.test h2 span{color:var(--gold)}
-.test p{color:#C7D2E8;font-size:15.5px;margin:0}
-.test .rule{
-margin-top:14px;display:flex;gap:18px;flex-wrap:wrap;
-font-family:var(--display);font-weight:600;font-size:14px;
-}
-.test .rule .yes{color:#7ED9A7}
-.test .rule .no{color:#F0A088}
+.body{padding:26px 30px 8px}
+.group{margin-bottom:26px}
+.grouplabel{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.grouplabel span{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:1.8px;
+  text-transform:uppercase;color:var(--gold-d);white-space:nowrap}
+.grouplabel i{flex:1;height:1px;background:var(--line);display:block}
 
-/* ---------- section intro ---------- */
-.band{padding:44px 0 10px}
-.band h2{color:#fff;font-size:26px;margin-bottom:8px}
-.band h2 .k{color:var(--gold)}
-.band .lead{color:var(--muted);font-size:15.5px;max-width:66ch}
+ol.qs{list-style:none;margin:0;padding:0;display:grid;gap:11px}
+ol.qs li{display:flex;gap:13px;align-items:flex-start;break-inside:avoid}
+ol.qs .n{font-family:var(--display);font-weight:700;font-size:13px;color:#fff;background:var(--navy-2);
+  width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  flex:none;margin-top:1px;font-variant-numeric:tabular-nums}
+ol.qs .t{font-size:14.8px;line-height:1.5}
+ol.qs .t b{font-family:var(--display);font-weight:600;color:var(--ink)}
+ol.qs .t span{color:var(--muted)}
 
-/* ---------- question grid ---------- */
-.grid{
-display:grid;grid-template-columns:repeat(2,1fr);gap:16px;
-padding:22px 0 8px;
-}
-.q{
-background:var(--card);
-border:1px solid var(--line);border-radius:14px;
-padding:22px 22px 20px;position:relative;overflow:hidden;
-transition:border-color .18s, transform .1s;
-}
-.q::after{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--gold),transparent 70%)}
-.q:hover{border-color:var(--gold-d);transform:translateY(-2px)}
-.q .top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
-.q .badge{
-flex-shrink:0;width:42px;height:42px;border-radius:11px;
-background:rgba(226,181,60,.12);border:1px solid rgba(226,181,60,.35);
-display:flex;align-items:center;justify-content:center;
-}
-.q .badge svg{width:24px;height:24px}
-.q .n{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:2px;color:var(--gold)}
-.q h3{color:#fff;font-size:17.5px;margin:2px 0 0;line-height:1.3}
-.q .why{color:#B9C6DE;font-size:14px;margin:10px 0 0}
-.q .good{
-margin-top:12px;font-size:13px;color:#8FA1C0;
-padding-top:11px;border-top:1px dashed var(--line);
-}
-.q .good b{color:var(--gold);font-weight:600;font-family:var(--display);letter-spacing:.3px}
+.mistakes{background:var(--ground);border-top:1px solid var(--line);padding:20px 30px 22px}
+.mistakes h2{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold-d);margin-bottom:10px}
+.mistakes ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.mistakes li{font-size:13.3px;color:var(--muted);padding-left:15px;position:relative;line-height:1.5}
+.mistakes li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;
+  background:var(--gold);transform:rotate(45deg)}
 
-/* ---------- closing ---------- */
-.close{
-margin:40px 0 0;text-align:center;
-background:
-radial-gradient(600px 300px at 50% 120%, rgba(226,181,60,.10), transparent 60%),
-var(--card);
-border:1px solid var(--line);border-radius:16px;padding:40px 28px;
-}
-.close .mark{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:3px;color:var(--gold);text-transform:uppercase}
-.close h2{color:#fff;font-size:clamp(22px,3vw,30px);margin:12px auto 10px;max-width:24ch}
-.close p{color:#C7D2E8;max-width:56ch;margin:0 auto 22px;font-size:15.5px}
-.cta{
-display:inline-flex;align-items:center;gap:9px;
-font-family:var(--display);font-weight:600;font-size:15px;
-background:var(--gold);color:#3a2c06;
-padding:13px 24px;border-radius:11px;text-decoration:none;
-transition:background .15s, transform .08s;
-}
-.cta:hover{background:#d3a82f}
-.cta:active{transform:translateY(1px)}
-.print{
-background:none;border:1.5px solid var(--line);color:#C7D2E8;
-font-family:var(--body);font-weight:600;font-size:14px;
-padding:12px 20px;border-radius:11px;cursor:pointer;margin-left:10px;
-}
-.print:hover{border-color:var(--gold-d);color:#fff}
+.foot{padding:18px 30px 24px;border-top:1px solid var(--line);font-size:11.2px;color:var(--muted);line-height:1.6}
+.foot p{margin:0 0 7px}
+.foot p:last-child{margin:0}
+.foot b{color:var(--ink);font-weight:600}
 
-/* ---------- footer ---------- */
-footer{margin-top:52px;border-top:1px solid var(--line);padding:30px 0 46px}
-footer .cols{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
-.logo{display:flex;align-items:center;gap:11px}
-.logo .lt{font-family:var(--display);font-weight:700;color:#fff;font-size:19px;letter-spacing:.3px}
-.logo .tag{display:block;font-size:9.5px;letter-spacing:2.5px;color:var(--gold);font-weight:600;margin-top:-3px}
-footer .fine{color:#6E80A6;font-size:12px;max-width:62ch;margin-top:18px}
-footer .fine b{color:#8FA1C0}
+.after{margin-top:20px;font-size:13px;color:var(--muted);text-align:center}
 
-/* ---------- responsive ---------- */
-@media (max-width:760px){
-.grid{grid-template-columns:1fr}
-}
-
-/* ---------- print / save as PDF ---------- */
+/* print: one clean A4 page */
 @media print{
-body{background:#fff;color:#1B2430}
-.draft, .print, .cta{display:none !important}
-.hero{background:#fff;border-bottom:2px solid var(--gold);padding:0 0 18px}
-.hero h1,.close h2,.band h2,.test h2,.q h3{color:var(--navy)}
-.hero .sub,.band .lead,.q .why,.test p,.close p{color:#333}
-.test,.q,.close{background:#fff;border:1px solid #ccc;break-inside:avoid}
-.q .badge{background:#fff}
-.grid{gap:10px}
-footer .fine{color:#555}
-.logo .lt{color:var(--navy)}
+  @page{size:A4 portrait;margin:11mm}
+  :root{--ground:#FFFFFF;--surface:#FFFFFF;--ink:#16263F;--muted:#5A6780;--line:#CCD5E3}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;font-size:10.4pt}
+  .page{max-width:none;padding:0}
+  .toolbar,.after{display:none}
+  .card{border:none;border-radius:0}
+  .cardhead{padding:0 0 12pt;background:#fff;color:var(--ink)}
+  .cardhead h1{color:var(--navy);font-size:21pt}
+  .eyebrow{color:var(--gold-d)}
+  .principle{color:var(--muted);margin-top:9pt}
+  .principle b{color:var(--navy)}
+  .body{padding:0}
+  .group{margin-bottom:13pt}
+  ol.qs{gap:6pt}
+  ol.qs .n{background:var(--navy);color:#fff;width:17pt;height:17pt;font-size:9pt}
+  ol.qs .t{font-size:10pt;line-height:1.42}
+  .mistakes{background:#fff;padding:11pt 0 0;border-top:1px solid var(--line)}
+  .mistakes li{font-size:9pt}
+  .foot{padding:9pt 0 0;font-size:7.6pt}
 }
 </style>
+<script>
+/* Embedded in an iframe (for example a Wix HTML embed)? Lock to the light
+   palette so the tool always matches the host page instead of following the
+   viewer's dark-mode preference and rendering dark inside a light site. */
+try { if (window.self !== window.top) { document.documentElement.setAttribute('data-theme','light'); } } catch (e) { document.documentElement.setAttribute('data-theme','light'); }
+</script>
 </head>
 <body>
+<div class="page">
 
-<div class="draft">Draft — hold for Gate 1 name clearance. Not for publication.</div>
-
-<!-- ============ HERO ============ -->
-<section class="hero">
-<div class="wrap">
-<span class="eyebrow"><span class="num">02</span> The Ten Questions</span>
-<h1>Ten questions to ask before you send the invite.</h1>
-<p class="sub">Most meetings fail before they start: no clear purpose, the wrong tool, the wrong people in the room. Run down this list before the invite goes out. If a meeting still earns its place, you will run a far better one. If it does not, you have just handed a roomful of people their afternoon back. <b>Fewer, smaller, shorter, better prepared.</b></p>
-</div>
-</section>
-
-<div class="wrap">
-
-<!-- ============ THE ONE-QUESTION TEST ============ -->
-<div class="test">
-<div class="glyph">
-<!-- exchange / two arrows -->
-<svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-<path d="M4 8h13"/><path d="M13 4l4 4-4 4"/>
-<path d="M20 16H7"/><path d="M11 20l-4-4 4-4"/>
-</svg>
-</div>
-<div class="body">
-<h2>Start with the one-question test: <span>will people's responses to each other change the outcome?</span></h2>
-<p>This single test sits above the other ten. A meeting is worth holding only when the live back-and-forth changes what gets decided. If the outcome would be the same whether or not people can react to one another, you do not need a meeting. You need a clear piece of writing.</p>
-<div class="rule">
-<span class="yes">→ Yes, it will change the outcome. Meet.</span>
-<span class="no">→ No, it will not. Write it instead.</span>
-</div>
-</div>
-</div>
-
-<!-- ============ SECTION INTRO ============ -->
-<div class="band">
-<h2>The <span class="k">ten</span>, in order.</h2>
-<p class="lead">Work top to bottom. The first three decide whether to meet at all. The next four shape who comes and how they arrive. The last three protect the time, the consent and the record. Skip none of them.</p>
-</div>
-
-<!-- ============ QUESTION GRID ============ -->
-<div class="grid">
-
-<!-- 1 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>
+  <div class="toolbar">
+    <div class="masthead">
+      <!-- Placeholder mark. Replace with the v5 faceted nib + circuitry SVG from nibSVG() in index.html -->
+      <svg class="mark" viewBox="0 0 26 30" aria-hidden="true">
+        <path d="M13 1 L24 8 L24 20 L13 29 L2 20 L2 8 Z" fill="none" stroke="#BC8A1C" stroke-width="1.6"/>
+        <path d="M13 7 L18 11 L13 23 L8 11 Z" fill="#16263F"/>
+        <path d="M13 7 L18 11 L13 15 Z" fill="#E2B53C"/>
       </svg>
+      <div class="wordmark">CONCLUDO<span class="dot">.</span></div>
     </div>
-    <div><div class="n">01 · Purpose</div><h3>Can I write the purpose and the outcome in one sentence each?</h3></div>
+    <button class="btn" onclick="window.print()">Print this card</button>
   </div>
-  <p class="why">If you cannot state both in a single sentence, you are not ready to invite anyone. The purpose is why you are meeting. The outcome is what must be true when you leave.</p>
-  <div class="good"><b>What good looks like:</b> "Decide the new price for the flagship product, and leave with a figure and an effective date."</div>
-</div>
 
-<!-- 2 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 10h8"/><path d="M8 13h5"/>
-        <path d="M4 5h16v11H8l-4 4z"/>
-      </svg>
+  <div class="card">
+    <div class="cardhead">
+      <div class="eyebrow">Free card · Print and keep</div>
+      <h1>The Ten Questions</h1>
+      <p class="principle">A meeting that cannot answer ten questions is not a meeting, <b>it is an appointment.</b> These are not a facilitation technique. They are the minimum specification.</p>
     </div>
-    <div><div class="n">02 · Right call</div><h3>Will interaction genuinely change the outcome?</h3></div>
-  </div>
-  <p class="why">The one-question test, applied to this specific meeting. Discussion earns its cost when a decision needs judgement, when the topic is contested, or when people build on each other in real time. Otherwise, it is a memo.</p>
-  <div class="good"><b>What good looks like:</b> a decision or debate that no document could resolve on its own.</div>
-</div>
 
-<!-- 3 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="4" y="3" width="10" height="14" rx="1.5"/><path d="M7 7h4M7 10h4"/>
-        <path d="M15 14l5 0"/><path d="M18 12l2 2-2 2"/>
-      </svg>
+    <div class="body">
+      <section class="group">
+        <div class="grouplabel"><span>Before the meeting</span><i></i></div>
+        <ol class="qs">
+          <li><div class="n">1</div><div class="t"><b>Purpose.</b> <span>What decision or outcome must this meeting produce, in one sentence.</span></div></li>
+          <li><div class="n">2</div><div class="t"><b>Alternative.</b> <span>Could this be a written brief, a shared document or a short call instead.</span></div></li>
+          <li><div class="n">3</div><div class="t"><b>People.</b> <span>Who is essential to the decision, and who only needs the outcome afterwards.</span></div></li>
+          <li><div class="n">4</div><div class="t"><b>Preparation.</b> <span>What must attendees read, prepare or bring, and by when.</span></div></li>
+          <li><div class="n">5</div><div class="t"><b>Agenda and time box.</b> <span>What questions will we work through, in what order, and how long does each get.</span></div></li>
+        </ol>
+      </section>
+
+      <section class="group">
+        <div class="grouplabel"><span>During the meeting</span><i></i></div>
+        <ol class="qs">
+          <li><div class="n">6</div><div class="t"><b>Roles.</b> <span>Who chairs, who records, who keeps time, and who decides.</span></div></li>
+          <li><div class="n">7</div><div class="t"><b>Decision.</b> <span>What are we deciding now, and what are we deliberately parking.</span></div></li>
+          <li><div class="n">8</div><div class="t"><b>Actions.</b> <span>Who owns each action, by what date, and how will completion be confirmed.</span></div></li>
+        </ol>
+      </section>
+
+      <section class="group">
+        <div class="grouplabel"><span>After the meeting</span><i></i></div>
+        <ol class="qs">
+          <li><div class="n">9</div><div class="t"><b>Follow up.</b> <span>Was the record of decisions, owners and dates sent within twenty four hours, to the people who need it.</span></div></li>
+          <li><div class="n">10</div><div class="t"><b>Record and review.</b> <span>Where is the decision recorded, and did this meeting earn its place in the calendar again.</span></div></li>
+        </ol>
+      </section>
     </div>
-    <div><div class="n">03 · Right tool</div><h3>Would a memo, email or short recording be faster and kinder?</h3></div>
-  </div>
-  <p class="why">One-way information transfer, routine status, or a decision already made: none of these need a meeting. Announce it honestly in writing, and give the time back. Meet only when live interaction is the right tool.</p>
-  <div class="good"><b>What good looks like:</b> the meeting survives because writing genuinely could not do the job.</div>
-</div>
 
-<!-- 4 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="8" r="3.4"/><path d="M6 19c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
-        <path d="M15.5 8l1.6 1.6L20 6.5"/>
-      </svg>
+    <div class="mistakes">
+      <h2>Five ways this goes wrong</h2>
+      <ul>
+        <li>Answering purpose with a topic. A topic invites discussion; a purpose names the decision.</li>
+        <li>Treating the questions as a checklist to complete rather than a specification to satisfy.</li>
+        <li>Letting question 3 expand instead of contract.</li>
+        <li>Skipping question 7, so nothing is formally parked and everything returns next week.</li>
+        <li>Answering question 10 with attendance.</li>
+      </ul>
     </div>
-    <div><div class="n">04 · Decision-maker</div><h3>Is the person who actually decides in the room?</h3></div>
-  </div>
-  <p class="why">A meeting without its decision-maker is a rehearsal. Name the person accountable for the outcome, and confirm they can attend and have had time to prepare. If they cannot, move the meeting.</p>
-  <div class="good"><b>What good looks like:</b> one named owner of the decision, present and prepared.</div>
-</div>
 
-<!-- 5 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="7" cy="9" r="2.2"/><circle cx="12" cy="8" r="2.2"/><circle cx="17" cy="9" r="2.2"/>
-        <path d="M4 17c0-2 1.6-3.4 3-3.4M20 17c0-2-1.6-3.4-3-3.4M9 17c0-2 1.4-3.6 3-3.6s3 1.6 3 3.6"/>
-      </svg>
+    <div class="foot">
+      <p><b>Independence.</b> Concludo is independent. It is not affiliated with, endorsed by, or partnered with any recorder manufacturer, AI note taker, transcription service or meeting platform. Where a product or platform is named, it is named because readers use it, not because there is a commercial relationship. There is no commercial relationship.</p>
+      <p><b>Practical guidance, not legal advice.</b> This card is general in nature and does not take account of your jurisdiction, industry, contracts or employer policies. Get advice from a qualified practitioner where a matter is regulated, contested or cross border. Concludo Pty Ltd accepts no liability for decisions made on the basis of this card.</p>
+      <p>Concludo Pty Ltd, Melbourne · ACN 701 605 898 · Drawn from the Meeting Mastery Workbook, chapter 3.</p>
     </div>
-    <div><div class="n">05 · Smallest group</div><h3>Who is the smallest group that can reach the outcome?</h3></div>
   </div>
-  <p class="why">Every acceptance interrupts someone's day. Invite the fewest people who can achieve the purpose, and tell optional invitees plainly that they are optional. Circulate the outcome to everyone who merely needs to know.</p>
-  <div class="good"><b>What good looks like:</b> a group small enough to actually decide something.</div>
-</div>
 
-<!-- 6 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M5 6h9M5 10h9M5 14h6"/>
-        <circle cx="18" cy="15" r="3.2"/><path d="M18 13.6v.9M18 16.4h.01"/>
-      </svg>
-    </div>
-    <div><div class="n">06 · Agenda</div><h3>Is every agenda item a question with a time limit?</h3></div>
-  </div>
-  <p class="why">Topics drift; questions get answered. Frame each item as the question the meeting must answer, put a time against it, and work them in order of importance, not ease. No agenda, no meeting.</p>
-  <div class="good"><b>What good looks like:</b> "Which of the three options do we choose? (15 min)" not "Pricing."</div>
+  <p class="after">Print it, put it next to your keyboard or on the meeting room wall, and use it on the next meeting you own.</p>
 </div>
-
-<!-- 7 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 6c-1.6-1.2-3.6-1.6-6-1.6V17c2.4 0 4.4.4 6 1.6 1.6-1.2 3.6-1.6 6-1.6V4.4c-2.4 0-4.4.4-6 1.6z"/>
-        <path d="M12 6v12.6"/>
-      </svg>
-    </div>
-    <div><div class="n">07 · Pre-reading</div><h3>What must people read first, and will they actually read it?</h3></div>
-  </div>
-  <p class="why">Preparation beats improvisation. Attach the brief, set the expectation that it is read, and consider opening the meeting with a few minutes of silent reading so debate starts from shared context rather than a cold start.</p>
-  <div class="good"><b>What good looks like:</b> a short brief with the options, the data and a recommendation.</div>
-</div>
-
-<!-- 8 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 1.5"/>
-      </svg>
-    </div>
-    <div><div class="n">08 · Timing and length</div><h3>Is this at the right time, for the shortest workable length?</h3></div>
-  </div>
-  <p class="why">Put decision-heavy meetings where energy is highest, usually earlier in the day. Default to 25 or 50 minutes instead of 30 or 60 so back-to-back sessions get breathing room, and protect meeting-free blocks for concentrated work.</p>
-  <div class="good"><b>What good looks like:</b> 25 or 50 minutes, deliberately placed, deep-work time defended.</div>
-</div>
-
-<!-- 9 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 3l7 3v5c0 4.4-3 7.6-7 8.6-4-1-7-4.2-7-8.6V6z"/>
-        <path d="M9 12l2 2 4-4.5"/>
-      </svg>
-    </div>
-    <div><div class="n">09 · Consent</div><h3>If we record or use a note-taker, is consent arranged?</h3></div>
-  </div>
-  <p class="why">Consent comes before capture, every time. If the meeting will be recorded or run through a note-taker, arrange and state consent as part of the logistics, before anyone starts talking. It is a courtesy and, in most places, a requirement.</p>
-  <div class="good"><b>What good looks like:</b> consent settled in the invite, not sprung in the room.</div>
-</div>
-
-<!-- 10 -->
-<div class="q">
-  <div class="top">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="6" y="4" width="12" height="16" rx="1.5"/><path d="M9 4V3h6v1"/>
-        <path d="M9 10l2 2 4-4"/><path d="M9 16h6"/>
-      </svg>
-    </div>
-    <div><div class="n">10 · The record</div><h3>Who captures decisions, and where does the summary go within 24 hours?</h3></div>
-  </div>
-  <p class="why">The summary is the product; the meeting was only the factory. Name who captures decisions and actions live, each with an owner and a date, and decide before you start where the summary lands within 24 hours, somewhere the team actually looks.</p>
-  <div class="good"><b>What good looks like:</b> decisions, actions, owners and dates, sent by tomorrow.</div>
-</div>
-
-</div>
-
-<!-- ============ CLOSING ============ -->
-<div class="close">
-<div class="mark">Fewer. Smaller. Shorter. Better prepared.</div>
-<h2>The best meeting is often the one you don't hold.</h2>
-<p>Turn every important conversation you do have into finished work: decisions, actions and a summary, from the paste of a transcript. Join the list and we will send the next tools the day they ship.</p>
-<a class="cta" href="#">Get the next tools →</a>
-<button class="print" onclick="window.print()">Save as PDF</button>
-</div>
-
-<!-- ============ FOOTER ============ -->
-<footer>
-<div class="cols">
-<div class="logo">
-<svg width="30" height="35" viewBox="0 0 48 56" fill="none" role="img" aria-label="Notewright nib mark">
-<path d="M24 4 L6 20 L24 52 L42 20 Z" stroke="#E2B53C" stroke-width="2.6" stroke-linejoin="round"/>
-<path d="M6 20 H42" stroke="#E2B53C" stroke-width="2.6" stroke-linecap="round"/>
-<circle cx="24" cy="26.5" r="4.4" stroke="#E2B53C" stroke-width="2.4"/>
-<path d="M24 30.9 V50" stroke="#E2B53C" stroke-width="2.4" stroke-linecap="round"/>
-</svg>
-<div><span class="lt">Notewright</span><span class="tag">MEETINGS, ACTUALLY</span></div>
-</div>
-<div style="text-align:right">
-<div style="font-family:var(--display);font-weight:600;color:#8FA1C0;font-size:13px;letter-spacing:1px">THE TEN QUESTIONS</div>
-<div style="color:#6E80A6;font-size:12px">Card 02 of the Meeting Mastery series</div>
-</div>
-</div>
-<p class="fine">
-Adapted from the Notewright <b>Why We Meet</b> guide. <b>Notewright is an independent product and is not affiliated with, endorsed by, or partnered with any device maker, meeting platform or note-taking service.</b> It works with the notes and transcripts you already have, whatever tool produced them. Pricing and product details are indicative and subject to change.
-</p>
-</footer>
-
-</div>
-
 </body>
 </html>

@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Audit Scorecard</title>
+<meta name="description" content="Score a real meeting against the Concludo standard in two minutes. Free meeting audit scorecard that names your three weakest areas and what to do about each.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  --navy:#16263F; --navy-2:#21395C; --gold:#E2B53C; --gold-d:#BC8A1C;
+  --ground:#F4F6FA; --surface:#FFFFFF; --panel:#16263F;
+  --ink:#16263F; --muted:#5A6780; --line:#DDE3ED; --field:#FFFFFF;
+  --on-panel:#F4F6FA; --on-panel-muted:#9DAAC4;
+  --good:#1E7F4F; --warn:#C2681C; --bad:#A93226;
+  --good-bg:#E4F1EA; --warn-bg:#F9EADC; --bad-bg:#F7E1DF;
+  --focus:#BC8A1C;
+  --display:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1B2D; --surface:#182941; --panel:#21395C;
+    --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C; --field:#132038;
+    --good:#4FBF85; --warn:#E0913F; --bad:#E0736A;
+    --good-bg:#16342650; --warn-bg:#3A2A1450; --bad-bg:#3A1E1C50;
+    --focus:#E2B53C;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1B2D; --surface:#182941; --panel:#21395C;
+  --ink:#EAEFF7; --muted:#9DAAC4; --line:#2A3E5C; --field:#132038;
+  --good:#4FBF85; --warn:#E0913F; --bad:#E0736A;
+  --good-bg:#16342650; --warn-bg:#3A2A1450; --bad-bg:#3A1E1C50;
+  --focus:#E2B53C;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+:focus-visible{outline:2.5px solid var(--focus);outline-offset:2px;border-radius:4px}
+
+.masthead{display:flex;align-items:center;gap:10px;padding:4px 0 22px}
+.mark{width:26px;height:30px;flex:none}
+.wordmark{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.4px}
+.wordmark .dot{color:var(--gold-d)}
+.eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:600;color:var(--gold-d);margin-bottom:8px}
+.intro{max-width:62ch;margin-bottom:26px}
+.intro h1{font-size:clamp(28px,4.2vw,40px);font-weight:700;line-height:1.15;margin-bottom:10px}
+.intro p{color:var(--muted);margin:0;font-size:17px}
+
+.cols{display:grid;grid-template-columns:1fr;gap:20px}
+@media(min-width:900px){.cols{grid-template-columns:minmax(0,1fr) 400px;align-items:start}
+  .resultcol{position:sticky;top:24px}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+.card + .card{margin-top:16px}
+
+/* questions */
+.q{border-bottom:1px solid var(--line);padding:20px 0}
+.q:first-of-type{padding-top:4px}
+.q:last-of-type{border-bottom:none;padding-bottom:4px}
+.qhead{display:flex;gap:12px;align-items:baseline;margin-bottom:4px}
+.qnum{font-family:var(--display);font-weight:700;font-size:13px;color:var(--gold-d);
+  font-variant-numeric:tabular-nums;flex:none;width:20px}
+.qtitle{font-family:var(--display);font-weight:600;font-size:16px}
+.qdesc{color:var(--muted);font-size:13.5px;margin:0 0 14px 32px}
+.scale{display:flex;gap:6px;margin-left:32px;flex-wrap:wrap}
+.scale input{position:absolute;opacity:0;width:0;height:0}
+.scale label{
+  flex:1 1 0;min-width:44px;text-align:center;cursor:pointer;
+  border:1.5px solid var(--line);border-radius:8px;padding:9px 4px;
+  font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;
+  color:var(--muted);background:var(--field);transition:all .12s;user-select:none;
+}
+.scale label:hover{border-color:var(--gold-d);color:var(--ink)}
+.scale input:checked + label{background:var(--navy);border-color:var(--navy);color:var(--gold)}
+.scale input:focus-visible + label{outline:2.5px solid var(--focus);outline-offset:2px}
+.anchors{display:flex;justify-content:space-between;margin:7px 0 0 32px;color:var(--muted);font-size:12px}
+
+/* result */
+.panel{background:var(--panel);border-radius:var(--r);padding:24px;color:var(--on-panel)}
+.panel .plabel{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:600;color:var(--gold);margin-bottom:14px}
+.scorerow{display:flex;align-items:center;gap:18px}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring .rv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .rv b{font-family:var(--display);font-weight:700;font-size:26px;color:var(--gold);line-height:1;font-variant-numeric:tabular-nums}
+.ring .rv span{font-size:11px;color:var(--on-panel-muted);margin-top:2px}
+.band{font-family:var(--display);font-weight:700;font-size:20px;line-height:1.2}
+.bandnote{color:var(--on-panel-muted);font-size:13.5px;margin-top:5px}
+.progressnote{font-size:12px;color:var(--on-panel-muted);margin-top:16px}
+
+.weak{margin-top:16px}
+.weak h2{font-size:15px;margin-bottom:4px}
+.weak .sub{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+.wcard{border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:14px 16px;background:var(--surface)}
+.wcard + .wcard{margin-top:10px}
+.wcard.bad{border-left-color:var(--bad);background:var(--bad-bg)}
+.wcard.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.wcard.good{border-left-color:var(--good);background:var(--good-bg)}
+.wtop{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:5px}
+.wtop b{font-family:var(--display);font-weight:600;font-size:15px}
+.chip{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;
+  padding:3px 9px;border-radius:20px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip.bad{background:var(--bad);color:#fff}
+.chip.warn{background:var(--warn);color:#fff}
+.chip.good{background:var(--good);color:#fff}
+.wcard p{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink)}
+.allgood{border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--good-bg);font-size:14px}
+
+.capture{background:var(--surface);border:1.5px solid var(--gold);border-radius:var(--r);padding:22px;margin-top:16px}
+.capture h2{font-size:16px;margin-bottom:6px}
+.capture p{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+.cform{display:flex;flex-wrap:wrap;gap:10px}
+.cform input[type=email]{flex:1 1 220px;font-family:var(--body);font-size:15px;color:var(--ink);
+  background:var(--field);border:1.5px solid var(--line);border-radius:9px;padding:11px 12px}
+.cform input[type=email]:focus{border-color:var(--gold-d)}
+.btn{font-family:var(--body);font-weight:600;font-size:15px;border:none;border-radius:9px;
+  padding:11px 20px;cursor:pointer;background:var(--gold);color:#3A2C06;transition:background .15s}
+.btn:hover{background:var(--gold-d);color:#fff}
+.msg{margin-top:12px;font-size:13.5px;line-height:1.5}
+.msg.ok{color:var(--good)} .msg.info{color:var(--muted)}
+.copyout{width:100%;margin-top:12px;font-family:var(--body);font-size:13px;color:var(--ink);
+  background:var(--field);border:1.5px solid var(--line);border-radius:9px;padding:12px;min-height:120px}
+
+.foot{margin-top:26px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;line-height:1.6;max-width:70ch}
+.foot strong{color:var(--ink);font-weight:600}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- printable worksheet: hidden on screen, the only thing that prints ---- */
+.printsheet{display:none}
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;color:#16263F;font-size:10.4pt}
+  .wrap{max-width:none;padding:0}
+  .toolbar,.masthead,.intro,.cols{display:none!important}
+  .printsheet{display:block}
+  .ps-head{border-bottom:2px solid #16263F;padding-bottom:6pt;margin-bottom:8pt}
+  .ps-head .eyebrow{font-size:8pt;letter-spacing:2pt;text-transform:uppercase;font-weight:700;color:#BC8A1C;margin-bottom:4pt}
+  .ps-head h1{font-family:'Poppins',sans-serif;font-size:19pt;font-weight:700;margin:0;color:#16263F}
+  .ps-head p{margin:5pt 0 0;font-size:9.2pt;color:#5A6780;max-width:70ch}
+  .ps-meta{display:flex;gap:14pt;margin-top:7pt}
+  .ps-meta div{flex:1;font-size:8.6pt;color:#5A6780}
+  .ps-meta span{display:block;border-bottom:1.2px solid #16263F;height:13pt;margin-top:2pt}
+  .ps-q{padding:4.5pt 0;border-bottom:1px solid #CCD5E3;break-inside:avoid}
+  .ps-q .qt{display:flex;gap:7pt;align-items:baseline}
+  .ps-q .qn{font-family:'Poppins',sans-serif;font-weight:700;font-size:9pt;color:#BC8A1C;width:12pt}
+  .ps-q .qname{font-family:'Poppins',sans-serif;font-weight:600;font-size:10.4pt}
+  .ps-q .qd{margin:1.5pt 0 4pt 19pt;font-size:8.8pt;color:#5A6780;line-height:1.35}
+  .ps-scale{display:flex;align-items:center;gap:5pt;margin-left:19pt}
+  .ps-scale .lb{font-size:7.4pt;color:#5A6780;width:50pt}
+  .ps-scale .lb.r{text-align:right}
+  .ps-scale .bx{width:18pt;height:18pt;border:1.2px solid #16263F;border-radius:3pt;
+    display:flex;align-items:center;justify-content:center;font-size:8.6pt;color:#5A6780}
+  .ps-total{display:flex;align-items:center;gap:10pt;background:#16263F;color:#fff;
+    border-radius:5pt;padding:8pt 13pt;margin-top:8pt;break-inside:avoid}
+  .ps-total b{font-family:'Poppins',sans-serif;font-size:11.6pt;flex:1}
+  .ps-total .box{width:62pt;height:24pt;background:#fff;border-radius:4pt}
+  .ps-total .of{font-size:9.6pt;color:#C9D3E5}
+  .ps-bands{display:flex;gap:7pt;margin-top:6pt}
+  .ps-bands div{flex:1;border:1px solid #CCD5E3;border-radius:4pt;padding:6pt 8pt;font-size:8.4pt;line-height:1.4}
+  .ps-bands b{display:block;font-family:'Poppins',sans-serif;font-size:9.2pt;margin-bottom:2pt}
+  .ps-sec{margin-top:8pt;break-inside:avoid}
+  .ps-sec h2{font-family:'Poppins',sans-serif;font-size:9pt;font-weight:700;letter-spacing:1.4pt;
+    text-transform:uppercase;color:#BC8A1C;margin:0 0 6pt;border-bottom:1px solid #CCD5E3;padding-bottom:3pt}
+  .ps-weak{display:flex;align-items:baseline;gap:7pt;padding:5pt 0;border-bottom:1px dotted #CCD5E3}
+  .ps-weak .n{font-family:'Poppins',sans-serif;font-weight:700;color:#BC8A1C;width:11pt;font-size:9pt}
+  .ps-weak .f1{flex:2;border-bottom:1.2px solid #16263F;height:13pt}
+  .ps-weak .f2{flex:3;border-bottom:1.2px solid #16263F;height:13pt}
+  .ps-note{font-size:8.6pt;color:#5A6780;margin:5pt 0 0;line-height:1.45}
+  .foot{padding:9pt 0 0;border-top:1px solid #CCD5E3;font-size:7.6pt;color:#5A6780;line-height:1.5;margin-top:11pt}
+}
+</style>
+<script>
+/* Embedded in an iframe (for example a Wix HTML embed)? Lock to the light
+   palette so the tool always matches the host page instead of following the
+   viewer's dark-mode preference and rendering dark inside a light site. */
+try { if (window.self !== window.top) { document.documentElement.setAttribute('data-theme','light'); } } catch (e) { document.documentElement.setAttribute('data-theme','light'); }
+</script>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <!-- Placeholder mark. Replace with the v5 faceted nib + circuitry SVG from nibSVG() in index.html -->
+    <svg class="mark" viewBox="0 0 26 30" aria-hidden="true">
+      <path d="M13 1 L24 8 L24 20 L13 29 L2 20 L2 8 Z" fill="none" stroke="#BC8A1C" stroke-width="1.6"/>
+      <path d="M13 7 L18 11 L13 23 L8 11 Z" fill="#16263F"/>
+      <path d="M13 7 L18 11 L13 15 Z" fill="#E2B53C"/>
+    </svg>
+    <div class="wordmark">CONCLUDO<span class="dot">.</span></div>
+  </header>
+
+  <div class="intro">
+    <div class="eyebrow">Free tool · Two minutes · No sign-up</div>
+    <h1>Score the last meeting you sat in</h1>
+    <p>Pick a real meeting, ideally one from this week, and answer six questions about it. You will get a score out of thirty and, more usefully, the three areas where that meeting was weakest and what to do about each.</p>
+  </div>
+
+  <div class="cols">
+    <div>
+      <section class="card" id="questions"></section>
+    </div>
+
+    <div class="resultcol">
+      <div class="panel">
+        <div class="plabel">Meeting score</div>
+        <div class="scorerow">
+          <div class="ring">
+            <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+              <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="8"/>
+              <circle id="arc" cx="48" cy="48" r="42" fill="none" stroke="#E2B53C" stroke-width="8"
+                      stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
+            </svg>
+            <div class="rv"><b id="scoreVal">0</b><span>of 30</span></div>
+          </div>
+          <div>
+            <div class="band" id="bandName">Not scored yet</div>
+            <div class="bandnote" id="bandNote">Answer the six questions to see where this meeting stands.</div>
+          </div>
+        </div>
+        <p class="progressnote" id="progress">0 of 6 answered</p>
+      </div>
+
+      <section class="card weak">
+        <h2>Where this meeting was weakest</h2>
+        <p class="sub">The three lowest-scoring areas, with the change that fixes each.</p>
+        <div id="weakList">
+          <div class="allgood">Answer the questions and your three weakest areas will appear here, each with a specific next step.</div>
+        </div>
+      </section>
+
+      <div class="capture">
+        <h2>Send me the scorecard</h2>
+        <p>Get this score written up as a one-page summary you can take to the next meeting, plus the Ten Questions card that every agenda should answer.</p>
+        <form class="cform" id="leadForm">
+          <input type="email" id="email" placeholder="you@yourfirm.com.au" required aria-label="Your email address">
+          <button class="btn" type="submit">Send it to me</button>
+        </form>
+        <div class="msg" id="formMsg" role="status" aria-live="polite"></div>
+        <textarea class="copyout" id="copyOut" hidden readonly aria-label="Your scorecard, ready to copy"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <section class="printsheet">
+    <div class="ps-head">
+      <div class="eyebrow">Concludo · Free worksheet</div>
+      <h1>Meeting Audit Scorecard</h1>
+      <p>Score one real meeting, ideally one you sat in this week. Circle a number from 0 to 5 for each of the six areas, add them up, then write down the three that scored lowest. Those three are the work.</p>
+      <div class="ps-meta">
+        <div>Meeting<span></span></div>
+        <div>Date<span></span></div>
+        <div>Scored by<span></span></div>
+      </div>
+    </div>
+
+    <div class="ps-q">
+      <div class="qt"><div class="qn">1</div><div class="qname">Purpose</div></div>
+      <div class="qd">Was it clear what the meeting existed to decide or resolve, before it started?</div>
+      <div class="ps-scale"><div class="lb">Not at all</div>
+        <div class="bx">0</div><div class="bx">1</div><div class="bx">2</div><div class="bx">3</div><div class="bx">4</div><div class="bx">5</div>
+        <div class="lb r">Completely</div></div>
+    </div>
+
+    <div class="ps-q">
+      <div class="qt"><div class="qn">2</div><div class="qname">The right people</div></div>
+      <div class="qd">Was everyone in the room needed, and was anyone missing who had to approve the outcome?</div>
+      <div class="ps-scale"><div class="lb">Not at all</div>
+        <div class="bx">0</div><div class="bx">1</div><div class="bx">2</div><div class="bx">3</div><div class="bx">4</div><div class="bx">5</div>
+        <div class="lb r">Completely</div></div>
+    </div>
+
+    <div class="ps-q">
+      <div class="qt"><div class="qn">3</div><div class="qname">Agenda quality</div></div>
+      <div class="qd">Was there an agenda, and was it written as questions to answer rather than headings to cover?</div>
+      <div class="ps-scale"><div class="lb">Not at all</div>
+        <div class="bx">0</div><div class="bx">1</div><div class="bx">2</div><div class="bx">3</div><div class="bx">4</div><div class="bx">5</div>
+        <div class="lb r">Completely</div></div>
+    </div>
+
+    <div class="ps-q">
+      <div class="qt"><div class="qn">4</div><div class="qname">Decision record</div></div>
+      <div class="qd">Were the decisions written down during the meeting, in words everyone would recognise a week later?</div>
+      <div class="ps-scale"><div class="lb">Not at all</div>
+        <div class="bx">0</div><div class="bx">1</div><div class="bx">2</div><div class="bx">3</div><div class="bx">4</div><div class="bx">5</div>
+        <div class="lb r">Completely</div></div>
+    </div>
+
+    <div class="ps-q">
+      <div class="qt"><div class="qn">5</div><div class="qname">Delegation clarity</div></div>
+      <div class="qd">Did every action leave with a named owner and a date, rather than a general sense of who might pick it up?</div>
+      <div class="ps-scale"><div class="lb">Not at all</div>
+        <div class="bx">0</div><div class="bx">1</div><div class="bx">2</div><div class="bx">3</div><div class="bx">4</div><div class="bx">5</div>
+        <div class="lb r">Completely</div></div>
+    </div>
+
+    <div class="ps-q">
+      <div class="qt"><div class="qn">6</div><div class="qname">Follow-up</div></div>
+      <div class="qd">Did a written follow-up go out promptly, and did the actions actually get tracked afterwards?</div>
+      <div class="ps-scale"><div class="lb">Not at all</div>
+        <div class="bx">0</div><div class="bx">1</div><div class="bx">2</div><div class="bx">3</div><div class="bx">4</div><div class="bx">5</div>
+        <div class="lb r">Completely</div></div>
+    </div>
+
+    <div class="ps-total">
+      <b>Total score</b><div class="box"></div><div class="of">out of 30</div>
+    </div>
+
+    <div class="ps-bands">
+      <div><b>24 to 30 · Strong</b>This meeting mostly earned its place. Protect what works and fix the weakest area.</div>
+      <div><b>15 to 23 · Mixed</b>The bones are there. The gaps below are where the time and goodwill are leaking.</div>
+      <div><b>0 to 14 · Weak</b>Costing more than it returns. Start with the first item below, not all three at once.</div>
+    </div>
+
+    <div class="ps-sec">
+      <h2>Your three weakest areas</h2>
+      <p class="ps-note">Write in the three lowest scores, and next to each the one change you will make before this meeting runs again.</p>
+      <div class="ps-weak"><div class="n">1</div><div class="f1"></div><div class="f2"></div></div>
+      <div class="ps-weak"><div class="n">2</div><div class="f1"></div><div class="f2"></div></div>
+      <div class="ps-weak"><div class="n">3</div><div class="f1"></div><div class="f2"></div></div>
+      <div class="ps-weak"><div class="n">&#8635;</div><div class="f1"></div><div class="f2"></div></div>
+      <p class="ps-note">Left column: the area. Right column: what you will change, and when. Last row: the date you will score this same meeting again. The trend matters more than any single pass.</p>
+    </div>
+
+  </section>
+
+  <p class="foot">
+    <strong>How this works.</strong> The score reflects only the answers you give about one meeting. It is a prompt for a conversation with your team, not a certification or an assessment of your organisation. Nothing you enter leaves your browser unless you choose to send it.
+    <br><br>
+    Concludo is independent. It is not affiliated with, endorsed by, or partnered with any recorder maker or meeting platform.
+    Concludo Pty Ltd, Melbourne. ACN 701 605 898.
+  </p>
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   LEAD CAPTURE CONFIG  ·  set one of these before this page goes live.
+   See the matching note in meeting-cost-calculator.html.
+   ------------------------------------------------------------------ */
+const FORM_ENDPOINT = "";
+const CONTACT_EMAIL = "";
+
+const DIMENSIONS = [
+  { key:'purpose', title:'Purpose',
+    desc:'Was it clear what the meeting existed to decide or resolve, before it started?',
+    fix:'Write the purpose as a decision to be made, not a topic to be discussed. If nobody can state the decision, the meeting is a written update.' },
+  { key:'attendees', title:'The right people',
+    desc:'Was everyone in the room needed, and was anyone missing who had to approve the outcome?',
+    fix:'Invite the people who decide and the people who do. Everyone else gets the notes. A smaller room decides faster and costs less.' },
+  { key:'agenda', title:'Agenda quality',
+    desc:'Was there an agenda, and was it written as questions to answer rather than headings to cover?',
+    fix:'Rewrite each agenda line as a question. "Pricing" becomes "Do we hold the current price for Q3?" Questions end; topics wander.' },
+  { key:'decisions', title:'Decision record',
+    desc:'Were the decisions written down during the meeting, in words everyone would recognise a week later?',
+    fix:'Capture each decision as it lands, read it back before moving on, and keep them in one place. Decisions people remember differently were never actually made.' },
+  { key:'delegation', title:'Delegation clarity',
+    desc:'Did every action leave with a named owner and a date, rather than a general sense of who might pick it up?',
+    fix:'No action without a name and a date. Say both out loud in the room and confirm them in writing afterwards.' },
+  { key:'followup', title:'Follow-up',
+    desc:'Did a written follow-up go out promptly, and did the actions actually get tracked afterwards?',
+    fix:'Send the summary the same day, while people still recognise it. Track the actions somewhere shared, and check them at the start of the next meeting.' }
+];
+
+const $ = id => document.getElementById(id);
+const answers = {};
+
+/* build the question list */
+const qhtml = DIMENSIONS.map((d,i) => `
+  <div class="q">
+    <div class="qhead"><div class="qnum">${i+1}</div><div class="qtitle">${d.title}</div></div>
+    <p class="qdesc">${d.desc}</p>
+    <div class="scale" role="radiogroup" aria-label="${d.title} score">
+      ${[0,1,2,3,4,5].map(n => `
+        <input type="radio" name="${d.key}" id="${d.key}${n}" value="${n}">
+        <label for="${d.key}${n}">${n}</label>`).join('')}
+    </div>
+    <div class="anchors"><span>0 · not at all</span><span>5 · completely</span></div>
+  </div>`).join('');
+$('questions').innerHTML = qhtml;
+
+$('questions').addEventListener('change', e => {
+  if(e.target.matches('input[type=radio]')){
+    answers[e.target.name] = parseInt(e.target.value,10);
+    render();
+  }
+});
+
+function bandFor(score, answered){
+  if(answered < DIMENSIONS.length) return {name:'In progress', note:'Answer every question for a complete picture.', cls:'warn'};
+  if(score >= 24) return {name:'Strong', note:'This meeting mostly earned its place. Protect what is working and fix the weakest area below.', cls:'good'};
+  if(score >= 15) return {name:'Mixed', note:'The bones are there. The gaps below are where the time and goodwill are leaking.', cls:'warn'};
+  return {name:'Weak', note:'This meeting is costing more than it returns. Start with the first item below, not all three at once.', cls:'bad'};
+}
+
+function clsFor(v){ return v <= 2 ? 'bad' : v <= 3 ? 'warn' : 'good'; }
+
+function render(){
+  const answered = Object.keys(answers).length;
+  const score = Object.values(answers).reduce((a,b)=>a+b,0);
+
+  $('scoreVal').textContent = score;
+  $('progress').textContent = `${answered} of ${DIMENSIONS.length} answered`;
+
+  const C = 2 * Math.PI * 42;
+  $('arc').setAttribute('stroke-dashoffset', String(C - (score/30) * C));
+
+  const b = bandFor(score, answered);
+  $('bandName').textContent = b.name;
+  $('bandNote').textContent = b.note;
+
+  if(answered === 0){
+    $('weakList').innerHTML = '<div class="allgood">Answer the questions and your three weakest areas will appear here, each with a specific next step.</div>';
+    return;
+  }
+
+  const ranked = DIMENSIONS
+    .filter(d => d.key in answers)
+    .map(d => ({...d, v: answers[d.key]}))
+    .sort((a,b2) => a.v - b2.v)
+    .slice(0,3);
+
+  const allStrong = ranked.every(d => d.v >= 4) && answered === DIMENSIONS.length;
+
+  $('weakList').innerHTML = allStrong
+    ? `<div class="allgood"><b>No weak areas at this threshold.</b> Every dimension scored 4 or better, so the useful next step is to make this meeting the written standard other meetings copy, rather than fixing anything.</div>`
+    : ranked.map(d => `
+      <div class="wcard ${clsFor(d.v)}">
+        <div class="wtop"><b>${d.title}</b><span class="chip ${clsFor(d.v)}">${d.v} / 5</span></div>
+        <p>${d.fix}</p>
+      </div>`).join('');
+}
+
+function summaryText(){
+  const answered = Object.keys(answers).length;
+  const score = Object.values(answers).reduce((a,b)=>a+b,0);
+  const b = bandFor(score, answered);
+  const lines = ['Concludo · Meeting Audit Scorecard','',`Score: ${score} of 30 (${b.name})`,''];
+  DIMENSIONS.forEach(d => lines.push(`${d.title}: ${d.key in answers ? answers[d.key] + ' / 5' : 'not answered'}`));
+  const ranked = DIMENSIONS.filter(d => d.key in answers).map(d => ({...d, v:answers[d.key]}))
+    .sort((a,b2)=>a.v-b2.v).slice(0,3);
+  lines.push('', 'Weakest areas and what to do:');
+  ranked.forEach(d => lines.push(`  ${d.title} (${d.v}/5): ${d.fix}`));
+  lines.push('', 'Scored by the user against one meeting.');
+  return lines.join('\n');
+}
+
+$('leadForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = $('email').value.trim();
+  const msg = $('formMsg');
+  msg.className = 'msg';
+  const score = Object.values(answers).reduce((a,b)=>a+b,0);
+
+  if (FORM_ENDPOINT){
+    msg.textContent = 'Sending…';
+    try{
+      const r = await fetch(FORM_ENDPOINT,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email, tool:'meeting-audit-scorecard', score, answers})
+      });
+      if(!r.ok) throw new Error('Request failed');
+      msg.className = 'msg ok';
+      msg.textContent = 'On its way. Check your inbox shortly.';
+      $('leadForm').reset();
+    }catch(err){
+      msg.className = 'msg info';
+      msg.textContent = 'That did not send. Your scorecard is below so nothing is lost, and you can copy it.';
+      showCopy();
+    }
+    return;
+  }
+
+  if (CONTACT_EMAIL){
+    const subject = encodeURIComponent('Meeting Audit Scorecard result');
+    const body = encodeURIComponent(summaryText() + `\n\nReply to: ${email}\n`);
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+    msg.className = 'msg ok';
+    msg.textContent = 'Your mail app should open with the scorecard in the message.';
+    return;
+  }
+
+  console.warn('[Concludo] Lead capture is not configured. Set FORM_ENDPOINT or CONTACT_EMAIL at the top of the script before publishing this page.');
+  msg.className = 'msg info';
+  msg.textContent = 'Email delivery is not switched on yet, so rather than lose your scorecard, here it is to copy.';
+  showCopy();
+});
+
+function showCopy(){
+  const t = $('copyOut');
+  t.hidden = false;
+  t.value = summaryText();
+  t.focus(); t.select();
+}
+
+render();
+</script>
+</body>
+</html>
