@@ -1,5 +1,6 @@
 import React from 'react';
-import { Settings, Sliders, Users, Bell, Building, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Sliders, Bell, Building, Sparkles, Database, ArrowRight } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
   return (
@@ -33,6 +34,35 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Supabase Connection Test Card */}
+          <Link
+            to="/test-connection"
+            style={{
+              padding: '18px',
+              background: 'rgba(226, 181, 60, 0.05)',
+              borderRadius: '12px',
+              border: '1px solid rgba(226, 181, 60, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Database size={22} color="#f3c958" />
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc' }}>
+                  Supabase Database Diagnostics
+                </div>
+                <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>
+                  Test URL connection, client initialisation, and security boundaries
+                </div>
+              </div>
+            </div>
+            <ArrowRight size={18} color="#f3c958" />
+          </Link>
+
           <div style={{ padding: '18px', background: 'rgba(9, 14, 26, 0.6)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '16px' }}>
             <Building size={22} color="#f3c958" />
             <div>

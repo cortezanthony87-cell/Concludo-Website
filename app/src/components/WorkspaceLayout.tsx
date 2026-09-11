@@ -11,8 +11,8 @@ import {
   User,
   LogOut,
   Building2,
-  Sparkles,
   Zap,
+  Database,
 } from 'lucide-react';
 
 export const WorkspaceLayout: React.FC = () => {
@@ -93,6 +93,14 @@ export const WorkspaceLayout: React.FC = () => {
                 >
                   <Settings size={16} />
                   <span>Settings</span>
+                </Link>
+                <Link
+                  to="/test-connection"
+                  className="dropdown-link"
+                  onClick={() => setAccountMenuOpen(false)}
+                >
+                  <Database size={16} />
+                  <span>Supabase Test</span>
                 </Link>
                 <div className="dropdown-divider" />
                 <Link

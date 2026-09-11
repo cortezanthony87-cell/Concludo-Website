@@ -12,6 +12,7 @@ import { AccountPage } from './pages/AccountPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { DecisionMemoryPage } from './pages/DecisionMemoryPage';
 import { ActionsPage } from './pages/ActionsPage';
+import { ConnectionTestPage } from './pages/ConnectionTestPage';
 
 export const App: React.FC = () => {
   return (
@@ -32,6 +33,7 @@ export const App: React.FC = () => {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/decision-memory" element={<DecisionMemoryPage />} />
         <Route path="/actions" element={<ActionsPage />} />
+        <Route path="/test-connection" element={<ConnectionTestPage />} />
       </Route>
 
       {/* Catch-all */}
