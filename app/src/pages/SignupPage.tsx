@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, ArrowRight, User, Mail, Lock } from 'lucide-react';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,8 +19,11 @@ export const SignupPage: React.FC = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-brand-logo">
-            <span className="brand-gold-dot" style={{ width: '12px', height: '12px' }}></span>
-            <span>Concludo</span>
+            <div className="brand-emblem" style={{ width: '36px', height: '36px' }}>
+              <div className="brand-emblem-inner" style={{ width: '14px', height: '14px' }} />
+            </div>
+            <span style={{ letterSpacing: '-0.02em' }}>CONCLUDO</span>
+            <span className="brand-title-badge">WORKSPACE</span>
           </div>
           <h1 className="auth-title">Create your account</h1>
           <p className="auth-subtitle">Start turning meetings into finished deliverables</p>
@@ -28,8 +31,9 @@ export const SignupPage: React.FC = () => {
 
         <form onSubmit={handleSignup}>
           <div className="form-group">
-            <label className="form-label" htmlFor="signup-name">
-              Full name
+            <label className="form-label" htmlFor="signup-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <User size={15} color="#f3c958" />
+              <span>Full name</span>
             </label>
             <input
               id="signup-name"
@@ -43,8 +47,9 @@ export const SignupPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="signup-email">
-              Work email
+            <label className="form-label" htmlFor="signup-email" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Mail size={15} color="#f3c958" />
+              <span>Work email</span>
             </label>
             <input
               id="signup-email"
@@ -58,8 +63,9 @@ export const SignupPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="signup-password">
-              Password
+            <label className="form-label" htmlFor="signup-password" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Lock size={15} color="#f3c958" />
+              <span>Password</span>
             </label>
             <input
               id="signup-password"
@@ -72,16 +78,15 @@ export const SignupPage: React.FC = () => {
             />
           </div>
 
-          <div style={{ marginTop: '24px' }}>
-            <button type="submit" className="btn-gold" style={{ width: '100%' }}>
-              <UserPlus size={18} />
-              <span>Create Account</span>
-            </button>
-          </div>
+          <button type="submit" className="btn-gold" style={{ width: '100%', marginTop: '10px' }}>
+            <span>Create Workspace Account</span>
+            <ArrowRight size={18} />
+          </button>
         </form>
 
         <div className="auth-footer">
-          Already have an account? <Link to="/login">Log in</Link>
+          Already have an account?{' '}
+          <Link to="/login">Sign in</Link>
         </div>
       </div>
     </div>

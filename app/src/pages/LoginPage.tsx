@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, ArrowRight } from 'lucide-react';
+import { LogIn, ArrowRight, Sparkles, Lock, Mail } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,8 +18,11 @@ export const LoginPage: React.FC = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-brand-logo">
-            <span className="brand-gold-dot" style={{ width: '12px', height: '12px' }}></span>
-            <span>Concludo</span>
+            <div className="brand-emblem" style={{ width: '36px', height: '36px' }}>
+              <div className="brand-emblem-inner" style={{ width: '14px', height: '14px' }} />
+            </div>
+            <span style={{ letterSpacing: '-0.02em' }}>CONCLUDO</span>
+            <span className="brand-title-badge">WORKSPACE</span>
           </div>
           <h1 className="auth-title">Log in to Workspace</h1>
           <p className="auth-subtitle">Enter your details to access your meeting projects</p>
@@ -27,8 +30,9 @@ export const LoginPage: React.FC = () => {
 
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label className="form-label" htmlFor="login-email">
-              Email address
+            <label className="form-label" htmlFor="login-email" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Mail size={15} color="#f3c958" />
+              <span>Email address</span>
             </label>
             <input
               id="login-email"
@@ -42,11 +46,12 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label className="form-label" htmlFor="login-password" style={{ marginBottom: 0 }}>
-                Password
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+              <label className="form-label" htmlFor="login-password" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={15} color="#f3c958" />
+                <span>Password</span>
               </label>
-              <Link to="/forgot-password" style={{ fontSize: '0.82rem', color: '#21395c', fontWeight: 500 }}>
+              <Link to="/forgot-password" style={{ fontSize: '0.82rem', color: '#f3c958', fontWeight: 500 }}>
                 Forgot password?
               </Link>
             </div>
@@ -54,23 +59,22 @@ export const LoginPage: React.FC = () => {
               id="login-password"
               type="password"
               className="form-input"
-              placeholder="••••••••"
+              placeholder="••••••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
 
-          <div style={{ marginTop: '24px' }}>
-            <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-              <LogIn size={18} />
-              <span>Log In</span>
-            </button>
-          </div>
+          <button type="submit" className="btn-gold" style={{ width: '100%', marginTop: '10px' }}>
+            <span>Sign in to Workspace</span>
+            <ArrowRight size={18} />
+          </button>
         </form>
 
         <div className="auth-footer">
-          Don't have an account? <Link to="/signup">Sign up</Link>
+          Don't have an account yet?{' '}
+          <Link to="/signup">Create account</Link>
         </div>
       </div>
     </div>

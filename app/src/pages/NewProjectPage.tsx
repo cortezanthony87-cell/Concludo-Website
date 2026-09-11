@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Check, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles, Calendar, Tag, User, FileText } from 'lucide-react';
 
 export const NewProjectPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,15 +17,19 @@ export const NewProjectPage: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: '680px' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <Link to="/projects" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '0.88rem', fontWeight: 500 }}>
+    <div style={{ maxWidth: '720px' }}>
+      <div style={{ marginBottom: '22px' }}>
+        <Link to="/projects" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.88rem', fontWeight: 500, transition: 'color 0.15s ease' }}>
           <ArrowLeft size={16} />
           <span>Back to Projects</span>
         </Link>
       </div>
 
       <div className="page-header">
+        <div className="page-eyebrow">
+          <Sparkles size={13} color="#f3c958" />
+          <span>WORKSPACE CONFIGURATION</span>
+        </div>
         <h1 className="page-title">Create Project</h1>
         <p className="page-subtitle">Configure the meeting details to begin processing your transcript.</p>
       </div>
@@ -33,8 +37,9 @@ export const NewProjectPage: React.FC = () => {
       <div className="content-card">
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label" htmlFor="project-title">
-              Project title
+            <label className="form-label" htmlFor="project-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FileText size={15} color="#f3c958" />
+              <span>Project title</span>
             </label>
             <input
               id="project-title"
@@ -48,8 +53,9 @@ export const NewProjectPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="meeting-type">
-              Meeting type
+            <label className="form-label" htmlFor="meeting-type" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Tag size={15} color="#f3c958" />
+              <span>Meeting type</span>
             </label>
             <select
               id="meeting-type"
@@ -67,8 +73,9 @@ export const NewProjectPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="client-project-name">
-              Client or project name
+            <label className="form-label" htmlFor="client-project-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <User size={15} color="#f3c958" />
+              <span>Client or project name</span>
             </label>
             <input
               id="client-project-name"
@@ -82,8 +89,9 @@ export const NewProjectPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="meeting-date">
-              Meeting date
+            <label className="form-label" htmlFor="meeting-date" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Calendar size={15} color="#f3c958" />
+              <span>Meeting date</span>
             </label>
             <input
               id="meeting-date"
@@ -96,19 +104,23 @@ export const NewProjectPage: React.FC = () => {
           </div>
 
           <div style={{
-            background: '#f4f6fa',
-            borderRadius: '8px',
-            padding: '14px 16px',
-            marginBottom: '24px',
-            border: '1px solid #e2e8f0',
+            background: 'rgba(33, 57, 92, 0.25)',
+            borderRadius: '10px',
+            padding: '14px 18px',
+            marginBottom: '26px',
+            border: '1px solid rgba(226, 181, 60, 0.2)',
             fontSize: '0.85rem',
-            color: '#64748b'
+            color: '#94a3b8',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
           }}>
-            <strong style={{ color: '#16263f' }}>Note:</strong> For now, these fields do not need to be saved to a database. Database persistence will connect in an upcoming tasklet.
+            <span style={{ color: '#f3c958', fontWeight: 600 }}>Note:</span>
+            <span>For now, these fields do not need to be saved to a database. Database persistence will connect in an upcoming tasklet.</span>
           </div>
 
           <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-            <button type="submit" className="btn-primary">
+            <button type="submit" className="btn-gold">
               <Check size={18} />
               <span>Create Project</span>
             </button>

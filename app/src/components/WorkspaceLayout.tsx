@@ -11,6 +11,8 @@ import {
   User,
   LogOut,
   Building2,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 
 export const WorkspaceLayout: React.FC = () => {
@@ -36,14 +38,21 @@ export const WorkspaceLayout: React.FC = () => {
       <header className="top-navbar">
         <div className="nav-brand-group">
           <Link to="/dashboard" className="brand-logo-link">
-            <span className="brand-gold-dot"></span>
-            <span>Concludo Workspace</span>
+            <div className="brand-emblem">
+              <div className="brand-emblem-inner" />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>CONCLUDO</span>
+              <span className="brand-title-badge">WORKSPACE</span>
+            </div>
           </Link>
         </div>
 
         <div className="nav-right-group">
           {/* Plan badge placeholder */}
           <div className="plan-badge-placeholder">
+            <span className="plan-badge-dot" />
+            <Zap size={12} />
             <span>Starter Plan</span>
           </div>
 
@@ -57,10 +66,10 @@ export const WorkspaceLayout: React.FC = () => {
               aria-label="Account menu"
             >
               <div className="account-avatar">AC</div>
-              <span style={{ fontSize: '0.88rem', fontWeight: 500, color: '#f1f5f9' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc' }}>
                 Anthony Cortez
               </span>
-              <ChevronDown size={15} />
+              <ChevronDown size={14} color="#94a3b8" />
             </button>
 
             {accountMenuOpen && (
@@ -105,6 +114,7 @@ export const WorkspaceLayout: React.FC = () => {
         {/* Left sidebar */}
         <aside className="left-sidebar">
           <div className="sidebar-content">
+            <div className="sidebar-category-label">Navigation</div>
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
@@ -136,6 +146,7 @@ export const WorkspaceLayout: React.FC = () => {
               <span>New Transcript</span>
             </NavLink>
 
+            <div className="sidebar-category-label" style={{ marginTop: '14px' }}>Intelligence</div>
             <NavLink
               to="/decision-memory"
               className={({ isActive }) =>
@@ -168,11 +179,17 @@ export const WorkspaceLayout: React.FC = () => {
           </div>
 
           <div className="sidebar-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <Building2 size={14} color="#e2b53c" />
-              <span style={{ fontWeight: 600, color: '#f1f5f9' }}>Concludo Pty Ltd</span>
+            <div className="telemetry-row">
+              <span className="live-pulse-dot" />
+              <span>WORKSPACE SHELL READY</span>
             </div>
-            <div>Melbourne, Australia</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+              <Building2 size={13} color="#e2b53c" />
+              <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.8rem' }}>
+                Concludo Pty Ltd
+              </span>
+            </div>
+            <div style={{ color: '#64748b', fontSize: '0.72rem' }}>Melbourne, Australia</div>
           </div>
         </aside>
 
