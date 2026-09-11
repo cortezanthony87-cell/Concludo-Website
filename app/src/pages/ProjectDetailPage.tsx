@@ -16,18 +16,29 @@ import {
   Loader2,
   Check,
   X,
-  RefreshCw
+  RefreshCw,
+  Mic,
+  MicOff,
+  Save,
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { Project, COMMON_MEETING_TYPES } from '../lib/projects/types';
 import { fetchProjectById, updateProject, softDeleteProject } from '../lib/projects/projectClient';
+import { Transcript } from '../lib/transcripts/types';
+import {
+  fetchProjectTranscript,
+  saveTranscript,
+  updateTranscript,
+  softDeleteTranscript
+} from '../lib/transcripts/transcriptClient';
 
 type TabKey = 'overview' | 'transcript' | 'outputs';
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { supabase, user } = useAuth();
+  const { supabase } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -36,7 +47,7 @@ export const ProjectDetailPage: React.FC = () => {
   // Tabs
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
-  // Edit State
+  // Edit Project State
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editTitle, setEditTitle] = useState<string>('');
   const [editMeetingType, setEditMeetingType] = useState<string>('');
@@ -45,10 +56,20 @@ export const ProjectDetailPage: React.FC = () => {
   const [updating, setUpdating] = useState<boolean>(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
-  // Delete State
+  // Delete Project State
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Transcript State
+  const [transcript, setTranscript] = useState<Transcript | null>(null);
+  const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
+  const [transcriptInput, setTranscriptInput] = useState<string>('');
+  const [savingTranscript, setSavingTranscript] = useState<boolean>(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
+  const [isEditingTranscript, setIsEditingTranscript] = useState<boolean>(false);
+  const [showDeleteTranscriptConfirm, setShowDeleteTranscriptConfirm] = useState<boolean>(false);
+  const [deletingTranscript, setDeletingTranscript] = useState<boolean>(false);
 
   const loadProject = async () => {
     if (!supabase || !id) return;
@@ -66,7 +87,6 @@ export const ProjectDetailPage: React.FC = () => {
       setProject(null);
     } else {
       setProject(result.data);
-      // Initialize edit fields
       setEditTitle(result.data.title);
       setEditMeetingType(result.data.meeting_type || 'Strategy & Planning');
       setEditClientOrProject(result.data.client_or_project || '');
@@ -75,8 +95,23 @@ export const ProjectDetailPage: React.FC = () => {
     setLoading(false);
   };
 
+  const loadTranscript = async () => {
+    if (!supabase || !id) return;
+    setLoadingTranscript(true);
+    const result = await fetchProjectTranscript(supabase, id);
+    if (result.data) {
+      setTranscript(result.data);
+      setTranscriptInput(result.data.raw_text);
+    } else {
+      setTranscript(null);
+      setTranscriptInput('');
+    }
+    setLoadingTranscript(false);
+  };
+
   useEffect(() => {
     loadProject();
+    loadTranscript();
   }, [supabase, id]);
 
   const handleStartEditing = () => {
@@ -138,8 +173,76 @@ export const ProjectDetailPage: React.FC = () => {
       return;
     }
 
-    // Redirect user back to /projects if deleted from project detail page
     navigate('/projects');
+  };
+
+  // Transcript Handlers
+  const handleSaveTranscript = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !id) return;
+
+    const trimmedText = transcriptInput.trim();
+    if (!trimmedText) {
+      setTranscriptError('Transcript text cannot be empty');
+      return;
+    }
+
+    setSavingTranscript(true);
+    setTranscriptError(null);
+
+    if (transcript) {
+      // Update existing transcript
+      const result = await updateTranscript(supabase, transcript.id, {
+        raw_text: transcriptInput
+      });
+
+      if (result.error || !result.data) {
+        setTranscriptError(result.error?.message || 'Failed to update transcript');
+        setSavingTranscript(false);
+        return;
+      }
+
+      setTranscript(result.data);
+      setIsEditingTranscript(false);
+    } else {
+      // Create new transcript
+      const result = await saveTranscript(supabase, {
+        project_id: id,
+        raw_text: transcriptInput,
+        source_type: 'pasted'
+      });
+
+      if (result.error || !result.data) {
+        setTranscriptError(result.error?.message || 'Failed to save transcript');
+        setSavingTranscript(false);
+        return;
+      }
+
+      setTranscript(result.data);
+      setIsEditingTranscript(false);
+    }
+
+    setSavingTranscript(false);
+  };
+
+  const handleDeleteTranscript = async () => {
+    if (!supabase || !transcript) return;
+    setDeletingTranscript(true);
+    setTranscriptError(null);
+
+    const result = await softDeleteTranscript(supabase, transcript.id);
+    if (!result.success) {
+      setTranscriptError(result.error?.message || 'Failed to delete transcript');
+      setDeletingTranscript(false);
+      setShowDeleteTranscriptConfirm(false);
+      return;
+    }
+
+    setTranscript(null);
+    setTranscriptInput('');
+    setIsEditingTranscript(false);
+    setShowDeleteTranscriptConfirm(false);
+    setDeletingTranscript(false);
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -736,7 +839,7 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Placeholder tabs */}
+      {/* Tabs container */}
       <div className="tabs-container">
         <button
           type="button"
@@ -763,6 +866,7 @@ export const ProjectDetailPage: React.FC = () => {
 
       {/* Tab content area */}
       <div className="content-card">
+        {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div>
             <h2 style={{ fontSize: '1.3rem', marginBottom: '8px', fontWeight: 600 }}>Project Overview</h2>
@@ -784,56 +888,371 @@ export const ProjectDetailPage: React.FC = () => {
                 Concludo Workspace Pipeline
               </div>
               <div>
-                This project workspace is configured and ready. Transcripts and generated executive outputs will link into this project in upcoming tasklets.
+                This project workspace is configured and ready. Transcripts and generated executive outputs link into this project workspace.
               </div>
             </div>
           </div>
         )}
 
+        {/* TRANSCRIPT TAB */}
         {activeTab === 'transcript' && (
           <div>
-            <div style={{ marginBottom: '18px' }}>
-              <h2 style={{ fontSize: '1.3rem', marginBottom: '8px', fontWeight: 600 }}>Meeting Transcript</h2>
-              <p style={{ color: '#94a3b8', fontSize: '0.95rem' }}>
-                Transcript archive will be added in the next tasklet
-              </p>
-            </div>
-
+            {/* Section Header */}
             <div
               style={{
-                background: 'rgba(9, 14, 26, 0.6)',
-                border: '2px dashed rgba(226, 181, 60, 0.25)',
-                borderRadius: '16px',
-                padding: '56px 24px',
-                textAlign: 'center'
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '20px',
+                paddingBottom: '16px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
               }}
             >
+              <div>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Transcript
+                </h2>
+                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '4px 0 0 0' }}>
+                  Raw meeting dialogue, speaker attribution, and source text archive.
+                </p>
+              </div>
+
+              {/* Status Badge & Actions if transcript exists */}
+              {transcript && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  {/* Speaker Label Detection Badge */}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      background: transcript.speaker_labels_detected
+                        ? 'rgba(16, 185, 129, 0.15)'
+                        : 'rgba(148, 163, 184, 0.12)',
+                      border: transcript.speaker_labels_detected
+                        ? '1px solid rgba(16, 185, 129, 0.35)'
+                        : '1px solid rgba(148, 163, 184, 0.25)',
+                      color: transcript.speaker_labels_detected ? '#34d399' : '#94a3b8'
+                    }}
+                  >
+                    {transcript.speaker_labels_detected ? (
+                      <>
+                        <Mic size={14} color="#34d399" />
+                        <span>Speaker labels detected</span>
+                      </>
+                    ) : (
+                      <>
+                        <MicOff size={14} color="#94a3b8" />
+                        <span>No speaker labels detected</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Delete Transcript Button */}
+                  {!showDeleteTranscriptConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteTranscriptConfirm(true)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#fca5a5',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        fontWeight: 500,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete Transcript</span>
+                    </button>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(239, 68, 68, 0.4)'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.8rem', color: '#fca5a5' }}>Delete?</span>
+                      <button
+                        type="button"
+                        disabled={deletingTranscript}
+                        onClick={handleDeleteTranscript}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          background: '#ef4444',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                          fontSize: '0.78rem',
+                          cursor: deletingTranscript ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {deletingTranscript ? 'Deleting...' : 'Confirm'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteTranscriptConfirm(false)}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#94a3b8',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Error Message */}
+            {transcriptError && (
               <div
                 style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '14px',
-                  background: 'linear-gradient(135deg, rgba(33, 57, 92, 0.4) 0%, rgba(14, 23, 41, 0.9) 100%)',
-                  border: '1px solid rgba(226, 181, 60, 0.35)',
-                  color: '#f3c958',
-                  display: 'inline-flex',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '20px',
+                  color: '#fca5a5',
+                  display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '16px'
+                  gap: '10px',
+                  fontSize: '0.9rem'
                 }}
               >
-                <Terminal size={26} />
+                <AlertCircle size={16} color="#ef4444" />
+                <span>{transcriptError}</span>
               </div>
-              <h3 style={{ fontSize: '1.2rem', marginBottom: '6px', fontWeight: 600 }}>
-                Transcript archive will be added in the next tasklet
-              </h3>
-              <p style={{ color: '#94a3b8', maxWidth: '440px', margin: '0 auto', fontSize: '0.9rem', lineHeight: 1.6 }}>
-                Meeting transcript ingestion, source archiving, and versioning will be connected to this workspace in Tasklet 7.
-              </p>
-            </div>
+            )}
+
+            {/* Loading Indicator */}
+            {loadingTranscript ? (
+              <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+                <Loader2
+                  size={32}
+                  color="#f3c958"
+                  style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px auto' }}
+                />
+                <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Loading transcript archive...</p>
+              </div>
+            ) : transcript && !isEditingTranscript ? (
+              /* SAVED TRANSCRIPT VIEW */
+              <div>
+                {/* Meta details bar */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    background: 'rgba(9, 14, 26, 0.75)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    marginBottom: '16px',
+                    fontSize: '0.86rem',
+                    color: '#94a3b8'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={14} color="#f3c958" />
+                      <span>Last updated: <strong style={{ color: '#f8fafc' }}>{formatTimestamp(transcript.updated_at)}</strong></span>
+                    </div>
+                    <div>
+                      Source: <strong style={{ color: '#f8fafc', textTransform: 'capitalize' }}>{transcript.source_type}</strong>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTranscriptInput(transcript.raw_text);
+                      setIsEditingTranscript(true);
+                      setTranscriptError(null);
+                    }}
+                    className="btn-secondary"
+                    style={{ padding: '6px 14px', fontSize: '0.84rem' }}
+                  >
+                    <Edit3 size={14} />
+                    <span>Edit or Replace Transcript</span>
+                  </button>
+                </div>
+
+                {/* Saved Transcript Display Area */}
+                <div
+                  style={{
+                    background: 'rgba(6, 10, 18, 0.85)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    maxHeight: '480px',
+                    overflowY: 'auto',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.7',
+                    color: '#e2e8f0',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5)'
+                  }}
+                >
+                  {transcript.raw_text}
+                </div>
+              </div>
+            ) : (
+              /* EMPTY STATE OR EDITING TRANSCRIPT FORM */
+              <div>
+                {!transcript && (
+                  <div
+                    style={{
+                      background: 'rgba(33, 57, 92, 0.2)',
+                      border: '1px solid rgba(226, 181, 60, 0.25)',
+                      borderRadius: '12px',
+                      padding: '16px 20px',
+                      marginBottom: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '8px',
+                        background: 'rgba(226, 181, 60, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#f3c958'
+                      }}
+                    >
+                      <Terminal size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
+                        No transcript saved yet
+                      </div>
+                      <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                        Paste meeting audio transcripts, Teams/Zoom output, or rough notes below to archive.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isEditingTranscript && transcript && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '14px'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.9rem', color: '#f3c958', fontWeight: 600 }}>
+                      Editing Saved Transcript
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingTranscript(false);
+                        setTranscriptInput(transcript.raw_text);
+                        setTranscriptError(null);
+                      }}
+                      className="btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                    >
+                      <RotateCcw size={13} />
+                      <span>Cancel Edit</span>
+                    </button>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveTranscript}>
+                  <div className="form-group" style={{ marginBottom: '18px' }}>
+                    <textarea
+                      className="form-input"
+                      rows={12}
+                      placeholder="Paste transcript here"
+                      value={transcriptInput}
+                      onChange={(e) => setTranscriptInput(e.target.value)}
+                      disabled={savingTranscript}
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.9rem',
+                        lineHeight: 1.6,
+                        resize: 'vertical',
+                        padding: '16px'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button
+                      type="submit"
+                      className="btn-gold"
+                      disabled={savingTranscript}
+                    >
+                      {savingTranscript ? (
+                        <>
+                          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                          <span>Saving Transcript...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={16} />
+                          <span>Save Transcript</span>
+                        </>
+                      )}
+                    </button>
+
+                    {isEditingTranscript && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingTranscript(false);
+                          if (transcript) setTranscriptInput(transcript.raw_text);
+                          setTranscriptError(null);
+                        }}
+                        className="btn-secondary"
+                        disabled={savingTranscript}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         )}
 
+        {/* OUTPUTS TAB */}
         {activeTab === 'outputs' && (
           <div>
             <div style={{ marginBottom: '18px' }}>
