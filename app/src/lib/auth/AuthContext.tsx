@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import type { User, Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '../supabase/client';
 import { getAuthErrorMessage } from './authErrors';
 import type { UserProfile } from '../profiles/types';
@@ -17,6 +17,7 @@ interface AuthResponse {
 }
 
 interface AuthContextType {
+  supabase: SupabaseClient;
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
@@ -34,6 +35,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -74,10 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isMounted = true;
 
     try {
-      const client = getSupabaseBrowserClient();
-
       // Fetch active session on mount
-      client.auth
+      supabase.auth
         .getSession()
         .then(async ({ data: { session: initialSession }, error }) => {
           if (!isMounted) return;
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Listen for authentication changes (SIGN_IN, SIGN_OUT, TOKEN_REFRESHED, USER_UPDATED, PASSWORD_RECOVERY)
       const {
         data: { subscription },
-      } = client.auth.onAuthStateChange(async (_event, currentSession) => {
+      } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
         if (!isMounted) return;
         setSession(currentSession);
         const currentUser = currentSession?.user ?? null;
@@ -121,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Supabase initialization failed in AuthProvider:', err);
       setLoading(false);
     }
-  }, [loadProfile]);
+  }, [supabase, loadProfile]);
 
   const refreshProfile = useCallback(async () => {
     if (user) {
@@ -164,14 +164,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const client = getSupabaseBrowserClient();
       const redirectTo = `${window.location.origin}/dashboard`;
       const metadata: Record<string, any> = {};
       if (fullName && fullName.trim()) {
         metadata.full_name = fullName.trim();
       }
 
-      const { data, error } = await client.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
@@ -234,8 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const client = getSupabaseBrowserClient();
-      const { data, error } = await client.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       });
@@ -270,8 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async (): Promise<{ error: Error | null }> => {
     try {
-      const client = getSupabaseBrowserClient();
-      const { error } = await client.auth.signOut();
+      const { error } = await supabase.auth.signOut();
       setSession(null);
       setUser(null);
       setProfile(null);
@@ -295,10 +292,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const client = getSupabaseBrowserClient();
       const redirectTo = `${window.location.origin}/reset-password`;
 
-      const { error } = await client.auth.resetPasswordForEmail(trimmedEmail, {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo,
       });
 
@@ -323,8 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const client = getSupabaseBrowserClient();
-      const { error } = await client.auth.updateUser({ password });
+      const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
         return { error: new Error(getAuthErrorMessage(error)) };
@@ -339,6 +334,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider
       value={{
+        supabase,
         user,
         session,
         profile,

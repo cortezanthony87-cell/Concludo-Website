@@ -1,25 +1,81 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Check, Sparkles, Calendar, Tag, User, FileText } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Sparkles,
+  Calendar,
+  Tag,
+  User,
+  FileText,
+  AlertCircle,
+  Loader2
+} from 'lucide-react';
+import { useAuth } from '../lib/auth/AuthContext';
+import { createProject } from '../lib/projects/projectClient';
+import { COMMON_MEETING_TYPES } from '../lib/projects/types';
 
 export const NewProjectPage: React.FC = () => {
+  const { supabase } = useAuth();
   const navigate = useNavigate();
+
   const [title, setTitle] = useState('');
   const [meetingType, setMeetingType] = useState('Strategy & Planning');
   const [clientOrProject, setClientOrProject] = useState('');
   const [meetingDate, setMeetingDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Fields do not need to be saved to a database yet.
-    // Navigate to project detail view with placeholder ID
-    navigate('/projects/project-1');
+    setErrorMessage(null);
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setErrorMessage('Project title missing');
+      return;
+    }
+
+    if (!supabase) {
+      setErrorMessage('Workspace database connection unavailable');
+      return;
+    }
+
+    setLoading(true);
+
+    const result = await createProject(supabase, {
+      title: trimmedTitle,
+      meeting_type: meetingType || null,
+      client_or_project: clientOrProject.trim() || null,
+      meeting_date: meetingDate || null
+    });
+
+    if (result.error || !result.data) {
+      setErrorMessage(result.error?.message || 'Failed to create project');
+      setLoading(false);
+      return;
+    }
+
+    // Redirect to the new project detail page
+    navigate(`/projects/${result.data.id}`);
   };
 
   return (
     <div style={{ maxWidth: '720px' }}>
       <div style={{ marginBottom: '22px' }}>
-        <Link to="/projects" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.88rem', fontWeight: 500, transition: 'color 0.15s ease' }}>
+        <Link
+          to="/projects"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#94a3b8',
+            fontSize: '0.88rem',
+            fontWeight: 500,
+            textDecoration: 'none'
+          }}
+        >
           <ArrowLeft size={16} />
           <span>Back to Projects</span>
         </Link>
@@ -34,12 +90,37 @@ export const NewProjectPage: React.FC = () => {
         <p className="page-subtitle">Configure the meeting details to begin processing your transcript.</p>
       </div>
 
+      {errorMessage && (
+        <div
+          style={{
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            marginBottom: '22px',
+            color: '#fca5a5',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}
+        >
+          <AlertCircle size={18} color="#ef4444" />
+          <span style={{ fontSize: '0.92rem' }}>{errorMessage}</span>
+        </div>
+      )}
+
       <div className="content-card">
         <form onSubmit={handleSubmit}>
+          {/* Project Title (Required) */}
           <div className="form-group">
-            <label className="form-label" htmlFor="project-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label
+              className="form-label"
+              htmlFor="project-title"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
               <FileText size={15} color="#f3c958" />
               <span>Project title</span>
+              <span style={{ color: '#f3c958' }}>*</span>
             </label>
             <input
               id="project-title"
@@ -48,34 +129,47 @@ export const NewProjectPage: React.FC = () => {
               placeholder="e.g. Executive Strategy Review"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
 
+          {/* Meeting Type (Optional) */}
           <div className="form-group">
-            <label className="form-label" htmlFor="meeting-type" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label
+              className="form-label"
+              htmlFor="meeting-type"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
               <Tag size={15} color="#f3c958" />
               <span>Meeting type</span>
+              <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
             </label>
             <select
               id="meeting-type"
               className="form-select"
               value={meetingType}
               onChange={(e) => setMeetingType(e.target.value)}
+              disabled={loading}
             >
-              <option value="Strategy & Planning">Strategy & Planning</option>
-              <option value="Client Consultation">Client Consultation</option>
-              <option value="Operational Sync">Operational Sync</option>
-              <option value="Workshop Session">Workshop Session</option>
-              <option value="Executive Review">Executive Review</option>
-              <option value="One-on-One Check-in">One-on-One Check-in</option>
+              {COMMON_MEETING_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </select>
           </div>
 
+          {/* Client or project name (Optional) */}
           <div className="form-group">
-            <label className="form-label" htmlFor="client-project-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label
+              className="form-label"
+              htmlFor="client-project-name"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
               <User size={15} color="#f3c958" />
               <span>Client or project name</span>
+              <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
             </label>
             <input
               id="client-project-name"
@@ -84,14 +178,20 @@ export const NewProjectPage: React.FC = () => {
               placeholder="e.g. Concludo Operations or Client Acme Corp"
               value={clientOrProject}
               onChange={(e) => setClientOrProject(e.target.value)}
-              required
+              disabled={loading}
             />
           </div>
 
+          {/* Meeting Date (Optional) */}
           <div className="form-group">
-            <label className="form-label" htmlFor="meeting-date" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label
+              className="form-label"
+              htmlFor="meeting-date"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
               <Calendar size={15} color="#f3c958" />
               <span>Meeting date</span>
+              <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
             </label>
             <input
               id="meeting-date"
@@ -99,32 +199,25 @@ export const NewProjectPage: React.FC = () => {
               className="form-input"
               value={meetingDate}
               onChange={(e) => setMeetingDate(e.target.value)}
-              required
+              disabled={loading}
             />
           </div>
 
-          <div style={{
-            background: 'rgba(33, 57, 92, 0.25)',
-            borderRadius: '10px',
-            padding: '14px 18px',
-            marginBottom: '26px',
-            border: '1px solid rgba(226, 181, 60, 0.2)',
-            fontSize: '0.85rem',
-            color: '#94a3b8',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <span style={{ color: '#f3c958', fontWeight: 600 }}>Note:</span>
-            <span>For now, these fields do not need to be saved to a database. Database persistence will connect in an upcoming tasklet.</span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-            <button type="submit" className="btn-gold">
-              <Check size={18} />
-              <span>Create Project</span>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginTop: '28px' }}>
+            <button type="submit" className="btn-gold" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                  <span>Creating project...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={18} />
+                  <span>Create Project</span>
+                </>
+              )}
             </button>
-            <Link to="/projects" className="btn-secondary">
+            <Link to="/projects" className="btn-secondary" style={{ pointerEvents: loading ? 'none' : 'auto' }}>
               Cancel
             </Link>
           </div>

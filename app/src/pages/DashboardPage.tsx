@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   PlusCircle,
@@ -12,8 +12,32 @@ import {
   Activity,
   Shield,
 } from 'lucide-react';
+import { useAuth } from '../lib/auth/AuthContext';
 
 export const DashboardPage: React.FC = () => {
+  const { supabase, user } = useAuth();
+  const [activeProjectsCount, setActiveProjectsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function loadActiveProjectsCount() {
+      if (!supabase || !user) return;
+      try {
+        const { count, error } = await supabase
+          .from('projects')
+          .select('id', { count: 'exact', head: true })
+          .is('deleted_at', null);
+
+        if (!error && typeof count === 'number') {
+          setActiveProjectsCount(count);
+        }
+      } catch {
+        // Fallback silently if offline or loading
+      }
+    }
+
+    loadActiveProjectsCount();
+  }, [supabase, user]);
+
   return (
     <div>
       {/* Page Header */}
@@ -46,10 +70,16 @@ export const DashboardPage: React.FC = () => {
       <div className="telemetry-grid">
         <div className="telemetry-card">
           <div className="telemetry-label">Active Projects</div>
-          <div className="telemetry-value">0</div>
+          <div className="telemetry-value">
+            {activeProjectsCount !== null ? activeProjectsCount : '—'}
+          </div>
           <div className="telemetry-subtext">
             <span className="live-pulse-dot" style={{ width: '5px', height: '5px' }} />
-            <span>Ready for first project</span>
+            <span>
+              {activeProjectsCount && activeProjectsCount > 0
+                ? `${activeProjectsCount} active workspace${activeProjectsCount > 1 ? 's' : ''}`
+                : 'Ready for first project'}
+            </span>
           </div>
         </div>
 
