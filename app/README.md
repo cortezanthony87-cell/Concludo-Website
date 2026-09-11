@@ -1,59 +1,63 @@
-# Notewright — App
+# Concludo Workspace — App Shell
 
-A learning + workflow app that turns conversations into action. It is **not** connected to the AI pen — you record and transcribe in the Flowtica app, paste the transcript into Notewright, and it compiles everything into summaries, action plans, follow-up emails, decision logs, a workflow chart, and a branded PowerPoint.
+Standalone SaaS application shell for **Concludo Workspace** (`app.concludo.com`).
 
-> **Working concept.** The Notewright name is not yet trademark-cleared and there's no registered entity. Treat this as a prototype to build on — not for public launch until clearance, real auth, and a deployed backend are in place. Independent; not affiliated with or endorsed by Flowtica.
+Concludo Pty Ltd (ACN 701 605 898, ABN 61 701 605 898, Melbourne VIC).
 
-## What's in the box
+## Architecture & Boundary
 
-- `index.html` — the full app: 8 learning modules, the **Workspace** (paste → AI drafts), PowerPoint export, prompt/template library, and a prototype sign-in.
-- `server.js` — backend starter: an Anthropic proxy (keeps your API key off the browser) and the Notewright API for other tools.
-- `README.md` — this file.
+- **Target URL:** `app.concludo.com`
+- **Marketing Site:** Wix remains the public marketing site only (`concludo.com.au` / `concludo.au`).
+- **Separation:** The Workspace SaaS app is completely decoupled and standalone from Wix.
+- **Frontend Stack:** React 19, TypeScript, Vite, React Router v7, Lucide React icons.
+- **Brand Standards:** Concludo Navy (`#16263F`, `#21395C`), Gold (`#E2B53C`, `#BC8A1C`), Light (`#F4F6FA`), Poppins headings, Inter body text, Australian English, no em dashes.
 
-## The 8 modules
-1. Getting Started · 2. Meeting Productivity · 3. Turning Notes Into Action · 4. Business Communication · 5. Fast Data Management · 6. Company Workflows · 7. Templates & AI Prompts · 8. Privacy, Consent & Professional Use.
+## Routes
 
-## How it actually works (read this)
+| Route | View | Description |
+|---|---|---|
+| `/login` | Login | Authentication sign-in placeholder |
+| `/signup` | Signup | Account creation placeholder |
+| `/forgot-password` | Forgot Password | Password recovery flow |
+| `/dashboard` | Dashboard | Workspace home with "Welcome to Concludo Workspace" |
+| `/projects` | Projects | Project list with "No projects yet" empty state |
+| `/projects/new` | New Project | Project setup form (title, meeting type, client/project, date) |
+| `/projects/:id` | Project Detail | Dynamic project view with Overview, Transcript, and Outputs tabs |
+| `/account` | Account | "Account settings coming soon" profile view |
+| `/settings` | Settings | "Workspace settings coming soon" configuration view |
+| `/decision-memory` | Decision Memory | "Decision Memory coming soon" governance log |
+| `/actions` | Actions | "Action Tracker coming soon" commitment tracker |
 
-**The AI drafting.** Inside the Claude preview of this app, the Workspace calls Claude directly and works out of the box — paste a transcript and try it. On your **own hosted site** that direct call won't be authenticated, so you route it through `server.js`:
+## Layout Shell
 
-1. Deploy `server.js` with your `ANTHROPIC_API_KEY` set as an environment variable (Render, Railway, Fly.io, or a serverless function all work).
-2. In `index.html`, change `callClaude()` to POST `{ type, transcript }` to `https://your-api.com/api/generate` and read `data.text`.
-3. The key lives **only on the server** — never paste it into the HTML.
+- **Top Navigation:**
+  - Concludo Workspace brand lockup
+  - Plan badge placeholder (`Starter Plan`)
+  - Account menu (`Anthony Cortez`, avatar `AC`, dropdown to Account, Settings, Sign out)
+- **Left Sidebar:**
+  - Dashboard
+  - Projects
+  - New Transcript
+  - Decision Memory
+  - Actions
+  - Settings
+  - Organization footer: Concludo Pty Ltd · Melbourne, Australia
+- **Main Content Area:**
+  - Responsive container with card layouts and styled components
 
-**Authentication.** The sign-in screen is a **prototype gate only** — it does not store, send, or secure passwords. Before real users:
-- Add a provider: **Supabase Auth**, **Auth0**, **Firebase Auth**, or **Clerk**.
-- Gate the app and every `/api/*` route behind it; verify the user server-side.
-- Don't hand-roll password storage.
+## Local Development
 
-**The API.** A static page can't *be* an API — `server.js` is. Once deployed it exposes:
-- `POST /api/generate` `{ type, transcript }` → AI draft
-- `POST /api/projects` → save a compiled project, returns `{ id }`
-- `GET /api/projects/:id` → fetch a project as JSON
-Swap the in-memory `Map` for a real database (Postgres/Supabase) for persistence.
-
-**Data & persistence.** The app keeps data in the browser session only (no browser storage is used), so it clears on refresh. Use **Export all (JSON)** / **Copy** to move data out, or add the backend + database for persistence.
-
-## Run the backend locally
 ```bash
-npm init -y
-npm install express cors
-ANTHROPIC_API_KEY=sk-ant-xxxxx node server.js
-# Notewright API on http://localhost:3000
+bun install
+bun run dev
 ```
 
-## Branding
-The header mark is the v5 faceted-nib + circuitry logo (inline SVG). Swap colours/marks in the `nibSVG()` function and the `:root` CSS variables.
+App runs on `http://localhost:3000/`.
 
-## Honest limitations (so nothing surprises you)
-- **Tasklet did not build this** — Tasklet automates browser tasks; a custom app like this is written as code (here) and hosted by you.
-- AI features need either the Claude preview or your deployed backend + key.
-- Sign-in is a prototype; wire a real auth provider before launch.
-- No real persistence until you connect a database.
-- PowerPoint and JSON export run in the browser and download locally.
+## Build
 
-## Suggested next steps
-1. Try the Workspace in the Claude preview with a real transcript.
-2. Deploy `server.js`, set the key, and repoint `callClaude()`.
-3. Add an auth provider and a database.
-4. Once the name clears: trademark it, add the final logo, and connect your domain.
+```bash
+bun run build
+```
+
+Outputs static SPA bundle in `dist/`.
