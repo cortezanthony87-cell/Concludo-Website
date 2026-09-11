@@ -12,7 +12,8 @@ import {
   Clock,
   ArrowLeft,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { Project } from '../lib/projects/types';
@@ -34,6 +35,19 @@ import {
   formatDeletedDate
 } from '../lib/retention';
 
+interface ActionErrorState {
+  action: 'restore_project' | 'restore_output' | 'delete_project' | 'delete_output';
+  title: 'Failed to restore item' | 'Failed to delete item';
+  message: string;
+  targetProject?: Project;
+  targetOutput?: DeletedOutputRecord;
+}
+
+interface ActionProgressState {
+  type: 'restoring' | 'deleting';
+  id: string;
+}
+
 export const RecentlyDeletedPage: React.FC = () => {
   const { supabase, user } = useAuth();
 
@@ -44,12 +58,10 @@ export const RecentlyDeletedPage: React.FC = () => {
   const [loadingOutputs, setLoadingOutputs] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Action feedback
+  // Action feedback & state
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-
-  // In-flight action tracking
-  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ActionErrorState | null>(null);
+  const [actionProgress, setActionProgress] = useState<ActionProgressState | null>(null);
 
   // Permanent Delete Confirmation Modals
   const [confirmDeleteProject, setConfirmDeleteProject] = useState<Project | null>(null);
@@ -93,38 +105,48 @@ export const RecentlyDeletedPage: React.FC = () => {
   // Handle Restore Project
   const handleRestoreProject = async (project: Project) => {
     if (!supabase) return;
-    setProcessingId(project.id);
+    setActionProgress({ type: 'restoring', id: project.id });
     setActionError(null);
     setActionSuccess(null);
 
     const result = await restoreProject(supabase, project.id);
     if (!result.success) {
-      setActionError(result.error?.message || 'Failed to restore project');
-      setProcessingId(null);
+      setActionError({
+        action: 'restore_project',
+        title: 'Failed to restore item',
+        message: result.error?.message || 'Failed to restore item',
+        targetProject: project
+      });
+      setActionProgress(null);
     } else {
       setDeletedProjects((prev) => prev.filter((p) => p.id !== project.id));
       setActionSuccess(`"${project.title}" has been restored to your active projects.`);
-      setProcessingId(null);
+      setActionProgress(null);
     }
   };
 
   // Handle Permanent Delete Project
   const handlePermanentDeleteProject = async (project: Project) => {
     if (!supabase) return;
-    setProcessingId(project.id);
+    setActionProgress({ type: 'deleting', id: project.id });
     setActionError(null);
     setActionSuccess(null);
 
     const result = await permanentDeleteProject(supabase, project.id);
     if (!result.success) {
-      setActionError(result.error?.message || 'Failed to permanently delete project');
-      setProcessingId(null);
+      setActionError({
+        action: 'delete_project',
+        title: 'Failed to delete item',
+        message: result.error?.message || 'Failed to delete item',
+        targetProject: project
+      });
+      setActionProgress(null);
     } else {
       setDeletedProjects((prev) => prev.filter((p) => p.id !== project.id));
       // Also remove any outputs that belonged to this project
       setDeletedOutputs((prev) => prev.filter((o) => o.project_id !== project.id));
       setActionSuccess(`"${project.title}" was permanently deleted.`);
-      setProcessingId(null);
+      setActionProgress(null);
       setConfirmDeleteProject(null);
     }
   };
@@ -132,39 +154,66 @@ export const RecentlyDeletedPage: React.FC = () => {
   // Handle Restore Output
   const handleRestoreOutput = async (output: DeletedOutputRecord) => {
     if (!supabase) return;
-    setProcessingId(output.id);
+    setActionProgress({ type: 'restoring', id: output.id });
     setActionError(null);
     setActionSuccess(null);
 
     const result = await restoreOutput(supabase, output.id);
     if (!result.success) {
-      setActionError(result.error?.message || 'Failed to restore output');
-      setProcessingId(null);
+      setActionError({
+        action: 'restore_output',
+        title: 'Failed to restore item',
+        message: result.error?.message || 'Failed to restore item',
+        targetOutput: output
+      });
+      setActionProgress(null);
     } else {
       setDeletedOutputs((prev) => prev.filter((o) => o.id !== output.id));
       const typeLabel = OUTPUT_TYPE_LABELS[output.output_type as OutputType] || output.output_type;
       setActionSuccess(`${typeLabel} output has been restored.`);
-      setProcessingId(null);
+      setActionProgress(null);
     }
   };
 
   // Handle Permanent Delete Output
   const handlePermanentDeleteOutput = async (output: DeletedOutputRecord) => {
     if (!supabase) return;
-    setProcessingId(output.id);
+    setActionProgress({ type: 'deleting', id: output.id });
     setActionError(null);
     setActionSuccess(null);
 
     const result = await permanentDeleteOutput(supabase, output.id);
     if (!result.success) {
-      setActionError(result.error?.message || 'Failed to permanently delete output');
-      setProcessingId(null);
+      setActionError({
+        action: 'delete_output',
+        title: 'Failed to delete item',
+        message: result.error?.message || 'Failed to delete item',
+        targetOutput: output
+      });
+      setActionProgress(null);
     } else {
       setDeletedOutputs((prev) => prev.filter((o) => o.id !== output.id));
       const typeLabel = OUTPUT_TYPE_LABELS[output.output_type as OutputType] || output.output_type;
       setActionSuccess(`${typeLabel} output was permanently deleted.`);
-      setProcessingId(null);
+      setActionProgress(null);
       setConfirmDeleteOutput(null);
+    }
+  };
+
+  // Handle Retry Action for Failed Restores or Deletions
+  const handleRetryAction = () => {
+    if (!actionError) return;
+    const current = { ...actionError };
+    setActionError(null);
+
+    if (current.action === 'restore_project' && current.targetProject) {
+      handleRestoreProject(current.targetProject);
+    } else if (current.action === 'restore_output' && current.targetOutput) {
+      handleRestoreOutput(current.targetOutput);
+    } else if (current.action === 'delete_project' && current.targetProject) {
+      handlePermanentDeleteProject(current.targetProject);
+    } else if (current.action === 'delete_output' && current.targetOutput) {
+      handlePermanentDeleteOutput(current.targetOutput);
     }
   };
 
@@ -217,31 +266,87 @@ export const RecentlyDeletedPage: React.FC = () => {
             color: '#86efac',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '12px'
           }}
         >
-          <CheckCircle2 size={18} color="#22c55e" />
-          <span style={{ fontSize: '0.92rem' }}>{actionSuccess}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <CheckCircle2 size={18} color="#22c55e" />
+            <span style={{ fontSize: '0.92rem' }}>{actionSuccess}</span>
+          </div>
+          <button
+            onClick={() => setActionSuccess(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#86efac',
+              cursor: 'pointer',
+              padding: '4px'
+            }}
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
-      {/* Action Error Notification */}
+      {/* Action Error Notification with Required Retry Support */}
       {actionError && (
         <div
           style={{
             background: 'rgba(239, 68, 68, 0.15)',
             border: '1px solid rgba(239, 68, 68, 0.4)',
             borderRadius: '12px',
-            padding: '14px 18px',
+            padding: '16px 20px',
             marginBottom: '20px',
             color: '#fca5a5',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px'
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px'
           }}
         >
-          <AlertCircle size={18} color="#ef4444" />
-          <span style={{ fontSize: '0.92rem' }}>{actionError}</span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <AlertCircle size={20} color="#ef4444" style={{ marginTop: '2px', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc', marginBottom: '2px' }}>
+                {actionError.title}
+              </div>
+              <div style={{ fontSize: '0.88rem', color: '#fca5a5' }}>
+                {actionError.message}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={handleRetryAction}
+              className="btn-secondary"
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.84rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(239, 68, 68, 0.2)',
+                borderColor: 'rgba(239, 68, 68, 0.4)'
+              }}
+            >
+              <RefreshCw size={13} />
+              <span>Retry</span>
+            </button>
+            <button
+              onClick={() => setActionError(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -370,7 +475,11 @@ export const RecentlyDeletedPage: React.FC = () => {
                     project.purge_after,
                     project.deleted_at
                   );
-                  const isProcessing = processingId === project.id;
+                  const isRestoring =
+                    actionProgress?.type === 'restoring' && actionProgress.id === project.id;
+                  const isDeleting =
+                    actionProgress?.type === 'deleting' && actionProgress.id === project.id;
+                  const isProcessing = actionProgress !== null;
 
                   return (
                     <div
@@ -443,12 +552,17 @@ export const RecentlyDeletedPage: React.FC = () => {
                             gap: '6px'
                           }}
                         >
-                          {isProcessing ? (
-                            <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                          {isRestoring ? (
+                            <>
+                              <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                              <span>Restoring record...</span>
+                            </>
                           ) : (
-                            <RotateCcw size={15} color="#f3c958" />
+                            <>
+                              <RotateCcw size={15} color="#f3c958" />
+                              <span>Restore</span>
+                            </>
                           )}
-                          <span>Restore</span>
                         </button>
 
                         <button
@@ -461,7 +575,7 @@ export const RecentlyDeletedPage: React.FC = () => {
                             background: 'rgba(239, 68, 68, 0.1)',
                             border: '1px solid rgba(239, 68, 68, 0.25)',
                             color: '#fca5a5',
-                            cursor: 'pointer',
+                            cursor: isProcessing ? 'not-allowed' : 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
@@ -469,8 +583,17 @@ export const RecentlyDeletedPage: React.FC = () => {
                             transition: 'all 0.15s ease'
                           }}
                         >
-                          <Trash2 size={15} />
-                          <span>Delete Permanently</span>
+                          {isDeleting ? (
+                            <>
+                              <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                              <span>Deleting record...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={15} />
+                              <span>Delete Permanently</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -528,7 +651,11 @@ export const RecentlyDeletedPage: React.FC = () => {
                     output.purge_after,
                     output.deleted_at
                   );
-                  const isProcessing = processingId === output.id;
+                  const isRestoring =
+                    actionProgress?.type === 'restoring' && actionProgress.id === output.id;
+                  const isDeleting =
+                    actionProgress?.type === 'deleting' && actionProgress.id === output.id;
+                  const isProcessing = actionProgress !== null;
                   const typeLabel =
                     OUTPUT_TYPE_LABELS[output.output_type as OutputType] ||
                     output.output_type;
@@ -627,12 +754,17 @@ export const RecentlyDeletedPage: React.FC = () => {
                             gap: '6px'
                           }}
                         >
-                          {isProcessing ? (
-                            <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                          {isRestoring ? (
+                            <>
+                              <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                              <span>Restoring record...</span>
+                            </>
                           ) : (
-                            <RotateCcw size={15} color="#f3c958" />
+                            <>
+                              <RotateCcw size={15} color="#f3c958" />
+                              <span>Restore</span>
+                            </>
                           )}
-                          <span>Restore</span>
                         </button>
 
                         <button
@@ -645,7 +777,7 @@ export const RecentlyDeletedPage: React.FC = () => {
                             background: 'rgba(239, 68, 68, 0.1)',
                             border: '1px solid rgba(239, 68, 68, 0.25)',
                             color: '#fca5a5',
-                            cursor: 'pointer',
+                            cursor: isProcessing ? 'not-allowed' : 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
@@ -653,8 +785,17 @@ export const RecentlyDeletedPage: React.FC = () => {
                             transition: 'all 0.15s ease'
                           }}
                         >
-                          <Trash2 size={15} />
-                          <span>Delete Permanently</span>
+                          {isDeleting ? (
+                            <>
+                              <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                              <span>Deleting record...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={15} />
+                              <span>Delete Permanently</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -666,7 +807,7 @@ export const RecentlyDeletedPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: Permanent Delete Project Confirmation */}
+      {/* MODAL: Permanent Delete Confirmation Prompt */}
       {confirmDeleteProject && (
         <div
           style={{
@@ -710,22 +851,22 @@ export const RecentlyDeletedPage: React.FC = () => {
               </div>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-                  Permanently delete project?
+                  Permanently delete?
                 </h3>
               </div>
             </div>
 
             <p style={{ color: '#cbd5e1', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '8px' }}>
-              Are you sure you want to permanently delete <strong>"{confirmDeleteProject.title}"</strong>?
+              Are you sure you want to permanently delete project <strong>"{confirmDeleteProject.title}"</strong>?
             </p>
-            <p style={{ color: '#f87171', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '24px' }}>
-              This will permanently remove this project and all associated transcripts and outputs. This action cannot be undone.
+            <p style={{ color: '#f87171', fontSize: '0.9rem', fontWeight: 500, lineHeight: 1.5, marginBottom: '24px' }}>
+              This action cannot be undone.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 type="button"
-                disabled={processingId !== null}
+                disabled={actionProgress !== null}
                 onClick={() => setConfirmDeleteProject(null)}
                 className="btn-secondary"
                 style={{ padding: '10px 18px', fontSize: '0.9rem' }}
@@ -734,7 +875,7 @@ export const RecentlyDeletedPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                disabled={processingId !== null}
+                disabled={actionProgress !== null}
                 onClick={() => handlePermanentDeleteProject(confirmDeleteProject)}
                 style={{
                   padding: '10px 20px',
@@ -744,17 +885,17 @@ export const RecentlyDeletedPage: React.FC = () => {
                   color: '#ffffff',
                   fontWeight: 600,
                   fontSize: '0.9rem',
-                  cursor: processingId !== null ? 'not-allowed' : 'pointer',
+                  cursor: actionProgress !== null ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
                   transition: 'background 0.15s ease'
                 }}
               >
-                {processingId === confirmDeleteProject.id ? (
+                {actionProgress?.type === 'deleting' && actionProgress.id === confirmDeleteProject.id ? (
                   <>
                     <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span>Deleting permanently...</span>
+                    <span>Deleting record...</span>
                   </>
                 ) : (
                   <>
@@ -768,7 +909,7 @@ export const RecentlyDeletedPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: Permanent Delete Output Confirmation */}
+      {/* MODAL: Permanent Delete Output Confirmation Prompt */}
       {confirmDeleteOutput && (
         <div
           style={{
@@ -812,7 +953,7 @@ export const RecentlyDeletedPage: React.FC = () => {
               </div>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-                  Permanently delete output?
+                  Permanently delete?
                 </h3>
               </div>
             </div>
@@ -823,16 +964,16 @@ export const RecentlyDeletedPage: React.FC = () => {
                 {OUTPUT_TYPE_LABELS[confirmDeleteOutput.output_type as OutputType] ||
                   confirmDeleteOutput.output_type}
               </strong>{' '}
-              record?
+              output?
             </p>
-            <p style={{ color: '#f87171', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '24px' }}>
-              This record will be permanently purged from Supabase. This action cannot be undone.
+            <p style={{ color: '#f87171', fontSize: '0.9rem', fontWeight: 500, lineHeight: 1.5, marginBottom: '24px' }}>
+              This action cannot be undone.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 type="button"
-                disabled={processingId !== null}
+                disabled={actionProgress !== null}
                 onClick={() => setConfirmDeleteOutput(null)}
                 className="btn-secondary"
                 style={{ padding: '10px 18px', fontSize: '0.9rem' }}
@@ -841,7 +982,7 @@ export const RecentlyDeletedPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                disabled={processingId !== null}
+                disabled={actionProgress !== null}
                 onClick={() => handlePermanentDeleteOutput(confirmDeleteOutput)}
                 style={{
                   padding: '10px 20px',
@@ -851,17 +992,17 @@ export const RecentlyDeletedPage: React.FC = () => {
                   color: '#ffffff',
                   fontWeight: 600,
                   fontSize: '0.9rem',
-                  cursor: processingId !== null ? 'not-allowed' : 'pointer',
+                  cursor: actionProgress !== null ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
                   transition: 'background 0.15s ease'
                 }}
               >
-                {processingId === confirmDeleteOutput.id ? (
+                {actionProgress?.type === 'deleting' && actionProgress.id === confirmDeleteOutput.id ? (
                   <>
                     <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span>Deleting permanently...</span>
+                    <span>Deleting record...</span>
                   </>
                 ) : (
                   <>
