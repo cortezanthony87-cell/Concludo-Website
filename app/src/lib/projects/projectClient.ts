@@ -167,6 +167,10 @@ export async function updateProject(
 /**
  * Soft delete a project by setting deleted_at to current timestamp.
  * Do not hard delete the row.
+ * Sets:
+ * deleted_at = now()
+ * deleted_by = authenticated user
+ * purge_after = now() + 30 days
  */
 export async function softDeleteProject(
   supabase: SupabaseClient,
@@ -181,7 +185,7 @@ export async function softDeleteProject(
     const nowIso = now.toISOString();
     const purgeAfterIso = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('projects')
       .update({
         deleted_at: nowIso,
@@ -189,10 +193,15 @@ export async function softDeleteProject(
         purge_after: purgeAfterIso
       })
       .eq('id', id)
-      .is('deleted_at', null);
+      .is('deleted_at', null)
+      .select();
 
     if (error) {
       return { success: false, error: new Error(error.message || 'Failed to delete project') };
+    }
+
+    if (!data || data.length === 0) {
+      return { success: false, error: new Error('Project not found or already deleted') };
     }
 
     return { success: true, error: null };

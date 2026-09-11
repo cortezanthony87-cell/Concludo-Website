@@ -26,7 +26,7 @@ export const ProjectsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Deletion state
+  // Deletion modal state
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -58,12 +58,12 @@ export const ProjectsPage: React.FC = () => {
     if (!result.success) {
       setDeleteError(result.error?.message || 'Failed to delete project');
       setDeletingId(null);
-      setDeleteConfirmId(null);
     } else {
-      // Remove from state immediately
+      // Remove from state immediately (soft-deleted records disappear from normal views)
       setProjects((prev) => prev.filter((p) => p.id !== id));
       setDeletingId(null);
       setDeleteConfirmId(null);
+      setDeleteError(null);
     }
   };
 
@@ -95,6 +95,8 @@ export const ProjectsPage: React.FC = () => {
       return dateStr;
     }
   };
+
+  const projectToConfirm = projects.find((p) => p.id === deleteConfirmId);
 
   return (
     <div>
@@ -222,9 +224,6 @@ export const ProjectsPage: React.FC = () => {
       {!loading && !loadError && projects.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {projects.map((project) => {
-            const isDeleting = deletingId === project.id;
-            const isConfirmingDelete = deleteConfirmId === project.id;
-
             return (
               <div
                 key={project.id}
@@ -235,9 +234,7 @@ export const ProjectsPage: React.FC = () => {
                   flexDirection: 'column',
                   gap: '16px',
                   position: 'relative',
-                  border: isConfirmingDelete
-                    ? '1px solid rgba(239, 68, 68, 0.4)'
-                    : '1px solid rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
                   transition: 'all 0.2s ease'
                 }}
               >
@@ -306,109 +303,169 @@ export const ProjectsPage: React.FC = () => {
 
                   {/* Actions Buttons */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    {!isConfirmingDelete ? (
-                      <>
-                        <Link
-                          to={`/projects/${project.id}`}
-                          className="btn-primary"
-                          style={{
-                            padding: '8px 16px',
-                            fontSize: '0.88rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                        >
-                          <span>Open project</span>
-                          <ArrowRight size={15} />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteConfirmId(project.id)}
-                          style={{
-                            padding: '8px 14px',
-                            borderRadius: '8px',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.25)',
-                            color: '#fca5a5',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '0.85rem',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <Trash2 size={15} />
-                          <span>Delete project</span>
-                        </button>
-                      </>
-                    ) : (
-                      /* Delete Confirmation Prompt */
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(239, 68, 68, 0.35)'
-                        }}
-                      >
-                        <span style={{ fontSize: '0.82rem', color: '#fca5a5', marginRight: '4px' }}>
-                          Confirm deletion?
-                        </span>
-                        <button
-                          type="button"
-                          disabled={isDeleting}
-                          onClick={() => handleDelete(project.id)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            background: '#ef4444',
-                            border: 'none',
-                            color: '#ffffff',
-                            fontWeight: 600,
-                            fontSize: '0.82rem',
-                            cursor: isDeleting ? 'not-allowed' : 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                              <span>Deleting...</span>
-                            </>
-                          ) : (
-                            <span>Confirm Delete</span>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isDeleting}
-                          onClick={() => setDeleteConfirmId(null)}
-                          style={{
-                            padding: '6px 10px',
-                            borderRadius: '6px',
-                            background: 'transparent',
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            color: '#94a3b8',
-                            fontSize: '0.82rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
+                    <Link
+                      to={`/projects/${project.id}`}
+                      className="btn-primary"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.88rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>Open project</span>
+                      <ArrowRight size={15} />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteConfirmId(project.id);
+                        setDeleteError(null);
+                      }}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        color: '#fca5a5',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.85rem',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <Trash2 size={15} />
+                      <span>Delete project</span>
+                    </button>
                   </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Project Delete Confirmation Dialog */}
+      {deleteConfirmId && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '460px',
+              width: '100%',
+              padding: '32px',
+              borderRadius: '16px',
+              background: '#16263F',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Trash2 size={22} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Delete project?
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '8px' }}>
+              This project will be moved to Recently Deleted.
+            </p>
+            <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '24px' }}>
+              You can restore it for 30 days.
+            </p>
+
+            {deleteError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '20px',
+                  color: '#fca5a5',
+                  fontSize: '0.85rem'
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                disabled={deletingId !== null}
+                onClick={() => {
+                  setDeleteConfirmId(null);
+                  setDeleteError(null);
+                }}
+                className="btn-secondary"
+                style={{ padding: '10px 18px', fontSize: '0.9rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingId !== null}
+                onClick={() => handleDelete(deleteConfirmId)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  background: '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: deletingId !== null ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                {deletingId !== null ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>Deleting project...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Delete project</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

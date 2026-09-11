@@ -86,8 +86,8 @@ export async function fetchOutputById(
  * Create a new output record attached to a project.
  * - Set user_id to the logged-in user
  * - Require project_id
- * - Confirm the project belongs to the logged-in user
- * - Require output_type
+ * - Confirm the project belongs to the logged-in user and is not deleted
+ * - Require output_type (supports Summary, Action Items, Follow-Up Email, Decision Log, Action Plan, Business Plan Draft, Workflow Chart, Endpoint Report, and future output types)
  * - Require either content or json_content
  * - Set created_at and updated_at automatically
  * - Set deleted_at to null
@@ -101,11 +101,15 @@ export async function saveOutput(
       return { data: null, error: new Error('Project ID is required') };
     }
 
-    if (!input.output_type) {
+    if (!input.output_type || typeof input.output_type !== 'string' || !input.output_type.trim()) {
       return { data: null, error: new Error('Output type missing') };
     }
 
-    if (!ALLOWED_OUTPUT_TYPES.includes(input.output_type)) {
+    const trimmedType = input.output_type.trim();
+    const isKnownType = ALLOWED_OUTPUT_TYPES.includes(trimmedType);
+    const isValidCustomType = /^[a-z0-9_-]+$/i.test(trimmedType);
+
+    if (!isKnownType && !isValidCustomType) {
       return {
         data: null,
         error: new Error(`Invalid output type. Must be one of: ${ALLOWED_OUTPUT_TYPES.join(', ')}`)
@@ -128,7 +132,7 @@ export async function saveOutput(
       return { data: null, error: new Error('User session not found') };
     }
 
-    // Client-side verification that project belongs to current user
+    // Client-side verification that project belongs to current user and is active
     const { data: projectData, error: projectError } = await supabase
       .from('projects')
       .select('id, user_id')
@@ -153,7 +157,7 @@ export async function saveOutput(
     const payload = {
       project_id: input.project_id,
       user_id: user.id,
-      output_type: input.output_type,
+      output_type: trimmedType,
       content: hasTextContent ? input.content!.trim() : null,
       json_content: hasJsonContent ? input.json_content : null,
       model_used: input.model_used || null,
@@ -217,13 +221,17 @@ export async function updateOutput(
     }
 
     if (input.output_type) {
-      if (!ALLOWED_OUTPUT_TYPES.includes(input.output_type)) {
+      const trimmedType = input.output_type.trim();
+      const isKnownType = ALLOWED_OUTPUT_TYPES.includes(trimmedType);
+      const isValidCustomType = /^[a-z0-9_-]+$/i.test(trimmedType);
+
+      if (!isKnownType && !isValidCustomType) {
         return {
           data: null,
           error: new Error(`Invalid output type. Must be one of: ${ALLOWED_OUTPUT_TYPES.join(', ')}`)
         };
       }
-      updatePayload.output_type = input.output_type;
+      updatePayload.output_type = trimmedType;
     }
 
     const { data, error } = await supabase
@@ -254,6 +262,10 @@ export async function updateOutput(
 /**
  * Soft delete an output record by setting deleted_at to the current timestamp.
  * Do not hard delete the row.
+ * Sets:
+ * deleted_at = now()
+ * deleted_by = authenticated user
+ * purge_after = now() + 30 days
  */
 export async function softDeleteOutput(
   supabase: SupabaseClient,

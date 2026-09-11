@@ -24,7 +24,12 @@ import {
   Copy,
   Plus,
   Mail,
-  CheckSquare
+  CheckSquare,
+  BookOpen,
+  ListChecks,
+  Briefcase,
+  GitBranch,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { Project, COMMON_MEETING_TYPES } from '../lib/projects/types';
@@ -436,6 +441,16 @@ export const ProjectDetailPage: React.FC = () => {
         return <CheckSquare size={16} color="#38bdf8" />;
       case 'follow_up_email':
         return <Mail size={16} color="#a78bfa" />;
+      case 'decision_log':
+        return <BookOpen size={16} color="#34d399" />;
+      case 'action_plan':
+        return <ListChecks size={16} color="#fbbf24" />;
+      case 'business_plan_draft':
+        return <Briefcase size={16} color="#f472b6" />;
+      case 'workflow_chart':
+        return <GitBranch size={16} color="#c084fc" />;
+      case 'endpoint_report':
+        return <BarChart3 size={16} color="#60a5fa" />;
       default:
         return <Layers size={16} color="#f3c958" />;
     }
@@ -547,88 +562,30 @@ export const ProjectDetailPage: React.FC = () => {
             </button>
           )}
 
-          {!showDeleteConfirm ? (
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              style={{
-                padding: '10px 16px',
-                borderRadius: '8px',
-                background: 'rgba(239, 68, 68, 0.12)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                color: '#fca5a5',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.88rem',
-                fontWeight: 500,
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Trash2 size={16} />
-              <span>Delete project</span>
-            </button>
-          ) : (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(239, 68, 68, 0.18)',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid rgba(239, 68, 68, 0.4)'
-              }}
-            >
-              <span style={{ fontSize: '0.84rem', color: '#fca5a5' }}>
-                Soft delete this project?
-              </span>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={handleDeleteProject}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  background: '#ef4444',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontWeight: 600,
-                  fontSize: '0.82rem',
-                  cursor: deleting ? 'not-allowed' : 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                {deleting ? (
-                  <>
-                    <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span>Deleting project...</span>
-                  </>
-                ) : (
-                  <span>Confirm Delete</span>
-                )}
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => setShowDeleteConfirm(false)}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'transparent',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#94a3b8',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setShowDeleteConfirm(true);
+              setDeleteError(null);
+            }}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#fca5a5',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.88rem',
+              fontWeight: 500,
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Trash2 size={16} />
+            <span>Delete project</span>
+          </button>
         </div>
       </div>
 
@@ -1683,72 +1640,29 @@ export const ProjectDetailPage: React.FC = () => {
                                 </button>
 
                                 {/* Delete Output Button */}
-                                {!isConfirmingDelete ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirmDeleteOutputId(output.id)}
-                                    style={{
-                                      padding: '6px 12px',
-                                      borderRadius: '6px',
-                                      background: 'rgba(239, 68, 68, 0.12)',
-                                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                                      color: '#fca5a5',
-                                      fontSize: '0.82rem',
-                                      cursor: 'pointer',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '6px'
-                                    }}
-                                  >
-                                    <Trash2 size={13} />
-                                    <span>Delete Output</span>
-                                  </button>
-                                ) : (
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                      background: 'rgba(239, 68, 68, 0.18)',
-                                      padding: '4px 10px',
-                                      borderRadius: '6px',
-                                      border: '1px solid rgba(239, 68, 68, 0.35)'
-                                    }}
-                                  >
-                                    <span style={{ fontSize: '0.8rem', color: '#fca5a5' }}>Delete output?</span>
-                                    <button
-                                      type="button"
-                                      disabled={isDeletingThisOutput}
-                                      onClick={() => handleDeleteOutput(output.id)}
-                                      style={{
-                                        background: '#ef4444',
-                                        border: 'none',
-                                        color: '#ffffff',
-                                        padding: '4px 8px',
-                                        borderRadius: '4px',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 600,
-                                        cursor: isDeletingThisOutput ? 'not-allowed' : 'pointer'
-                                      }}
-                                    >
-                                      {isDeletingThisOutput ? 'Deleting...' : 'Confirm'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={isDeletingThisOutput}
-                                      onClick={() => setConfirmDeleteOutputId(null)}
-                                      style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: '#94a3b8',
-                                        fontSize: '0.78rem',
-                                        cursor: 'pointer'
-                                      }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setConfirmDeleteOutputId(output.id);
+                                    setDeleteOutputError(null);
+                                  }}
+                                  style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    background: 'rgba(239, 68, 68, 0.12)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    color: '#fca5a5',
+                                    fontSize: '0.82rem',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Delete Output</span>
+                                </button>
                               </div>
                             )}
                           </div>
@@ -1869,6 +1783,245 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Project Delete Confirmation Dialog (Step 1-4 Flow) */}
+      {showDeleteConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '460px',
+              width: '100%',
+              padding: '32px',
+              borderRadius: '16px',
+              background: '#16263F',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Trash2 size={22} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Delete project?
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '8px' }}>
+              This project will be moved to Recently Deleted.
+            </p>
+            <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '24px' }}>
+              You can restore it for 30 days.
+            </p>
+
+            {deleteError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '20px',
+                  color: '#fca5a5',
+                  fontSize: '0.85rem'
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteError(null);
+                }}
+                className="btn-secondary"
+                style={{ padding: '10px 18px', fontSize: '0.9rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleDeleteProject}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  background: '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: deleting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>Deleting project...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Delete project</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Output Delete Confirmation Dialog */}
+      {confirmDeleteOutputId && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '440px',
+              width: '100%',
+              padding: '30px',
+              borderRadius: '16px',
+              background: '#16263F',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Trash2 size={20} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Delete output?
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ color: '#cbd5e1', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '24px' }}>
+              This output can be restored for 30 days.
+            </p>
+
+            {deleteOutputError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '20px',
+                  color: '#fca5a5',
+                  fontSize: '0.85rem'
+                }}
+              >
+                {deleteOutputError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                disabled={deletingOutputId !== null}
+                onClick={() => {
+                  setConfirmDeleteOutputId(null);
+                  setDeleteOutputError(null);
+                }}
+                className="btn-secondary"
+                style={{ padding: '9px 16px', fontSize: '0.88rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingOutputId !== null}
+                onClick={() => handleDeleteOutput(confirmDeleteOutputId)}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  background: '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  cursor: deletingOutputId !== null ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {deletingOutputId !== null ? (
+                  <>
+                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    <span>Delete output</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
