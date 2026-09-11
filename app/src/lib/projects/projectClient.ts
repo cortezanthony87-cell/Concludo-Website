@@ -67,6 +67,34 @@ export async function fetchProjectById(
 }
 
 /**
+ * Fetch all soft-deleted projects for the current authenticated user (Recently Deleted).
+ * Queries records where: deleted_at is not null
+ * Respects RLS (only returns records owned by authenticated user).
+ */
+export async function fetchDeletedProjects(
+  supabase: SupabaseClient
+): Promise<ProjectQueryResult<Project[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    if (error) {
+      return { data: null, error: new Error(error.message) };
+    }
+
+    return { data: (data as Project[]) || [], error: null };
+  } catch (err: any) {
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Failed to fetch deleted projects')
+    };
+  }
+}
+
+/**
  * Create a new project row in Supabase.
  * - Set user_id to the logged-in user
  * - Set created_at automatically
@@ -209,6 +237,68 @@ export async function softDeleteProject(
     return {
       success: false,
       error: err instanceof Error ? err : new Error('Failed to delete project')
+    };
+  }
+}
+
+/**
+ * Restore a soft-deleted project back to active state.
+ * Uses atomic PostgreSQL RPC function restore_project.
+ * Clears deleted_at, deleted_by, and purge_after.
+ */
+export async function restoreProject(
+  supabase: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    if (!id) {
+      return { success: false, error: new Error('Project ID is required') };
+    }
+
+    const { error } = await supabase.rpc('restore_project', {
+      p_project_id: id
+    });
+
+    if (error) {
+      return { success: false, error: new Error(error.message || 'Failed to restore project') };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err instanceof Error ? err : new Error('Failed to restore project')
+    };
+  }
+}
+
+/**
+ * Permanently delete a project from Recently Deleted.
+ * Uses atomic PostgreSQL RPC function permanent_delete_project.
+ * STRICT GUARD: Only succeeds if the record is currently soft-deleted (deleted_at is not null).
+ */
+export async function permanentDeleteProject(
+  supabase: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    if (!id) {
+      return { success: false, error: new Error('Project ID is required') };
+    }
+
+    const { error } = await supabase.rpc('permanent_delete_project', {
+      p_project_id: id
+    });
+
+    if (error) {
+      return { success: false, error: new Error(error.message || 'Failed to permanently delete project') };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err instanceof Error ? err : new Error('Failed to permanently delete project')
     };
   }
 }

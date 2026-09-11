@@ -12,6 +12,13 @@ export interface OutputQueryResult<T> {
   error: Error | null;
 }
 
+export interface DeletedOutputRecord extends OutputRecord {
+  projects?: {
+    id: string;
+    title: string;
+  } | null;
+}
+
 /**
  * Fetch all active outputs for a given project.
  * Normal output queries must only show: deleted_at is null
@@ -83,11 +90,40 @@ export async function fetchOutputById(
 }
 
 /**
+ * Fetch all soft-deleted outputs for the current authenticated user (Recently Deleted).
+ * Queries records where: deleted_at is not null
+ * Respects RLS (only returns records owned by authenticated user).
+ * Joins project title for context.
+ */
+export async function fetchDeletedOutputs(
+  supabase: SupabaseClient
+): Promise<OutputQueryResult<DeletedOutputRecord[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('outputs')
+      .select('*, projects(id, title)')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    if (error) {
+      return { data: null, error: new Error(error.message) };
+    }
+
+    return { data: (data as DeletedOutputRecord[]) || [], error: null };
+  } catch (err: any) {
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Failed to fetch deleted outputs')
+    };
+  }
+}
+
+/**
  * Create a new output record attached to a project.
  * - Set user_id to the logged-in user
  * - Require project_id
  * - Confirm the project belongs to the logged-in user and is not deleted
- * - Require output_type (supports Summary, Action Items, Follow-Up Email, Decision Log, Action Plan, Business Plan Draft, Workflow Chart, Endpoint Report, and future output types)
+ * - Require output_type
  * - Require either content or json_content
  * - Set created_at and updated_at automatically
  * - Set deleted_at to null
@@ -308,6 +344,69 @@ export async function softDeleteOutput(
     return {
       success: false,
       error: err instanceof Error ? err : new Error('Failed to delete output')
+    };
+  }
+}
+
+/**
+ * Restore a soft-deleted output back to active state.
+ * Uses atomic PostgreSQL RPC function restore_output.
+ * Clears deleted_at, deleted_by, and purge_after.
+ * If the parent project was also deleted, restores the parent project as well.
+ */
+export async function restoreOutput(
+  supabase: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    if (!id) {
+      return { success: false, error: new Error('Output ID is required') };
+    }
+
+    const { error } = await supabase.rpc('restore_output', {
+      p_output_id: id
+    });
+
+    if (error) {
+      return { success: false, error: new Error(error.message || 'Failed to restore output') };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err instanceof Error ? err : new Error('Failed to restore output')
+    };
+  }
+}
+
+/**
+ * Permanently delete an output from Recently Deleted.
+ * Uses atomic PostgreSQL RPC function permanent_delete_output.
+ * STRICT GUARD: Only succeeds if the record is currently soft-deleted (deleted_at is not null).
+ */
+export async function permanentDeleteOutput(
+  supabase: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    if (!id) {
+      return { success: false, error: new Error('Output ID is required') };
+    }
+
+    const { error } = await supabase.rpc('permanent_delete_output', {
+      p_output_id: id
+    });
+
+    if (error) {
+      return { success: false, error: new Error(error.message || 'Failed to permanently delete output') };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err instanceof Error ? err : new Error('Failed to permanently delete output')
     };
   }
 }

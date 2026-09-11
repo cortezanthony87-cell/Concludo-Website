@@ -14,6 +14,7 @@ import {
   Zap,
   Database,
   Shield,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -156,6 +157,14 @@ export const WorkspaceLayout: React.FC = () => {
                 >
                   <Settings size={16} />
                   <span>Settings</span>
+                </Link>
+                <Link
+                  to="/settings/deleted"
+                  className="dropdown-link"
+                  onClick={() => setAccountMenuOpen(false)}
+                >
+                  <Trash2 size={16} />
+                  <span>Recently Deleted</span>
                 </Link>
                 <Link
                   to="/test-connection"
