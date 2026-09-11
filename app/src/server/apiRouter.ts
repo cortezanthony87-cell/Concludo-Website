@@ -4,6 +4,8 @@ import {
   FeatureKey,
   ALL_FEATURE_KEYS,
   PLAN_PERMISSIONS,
+  FEATURE_TIER_BADGES,
+  PlanType,
 } from '../lib/permissions/types';
 import { getSupabaseAdminClient } from '../lib/supabase/admin';
 
@@ -78,7 +80,57 @@ export async function handleApiRequest(
 
   const authenticatedUser = userData.user;
 
-  // 4. Feature Permission Checking Endpoint: POST /api/features/check
+  // 4a. Batch Feature Permission Status Endpoint: GET /api/features/status
+  if (pathname === '/api/features/status' || pathname === '/api/features/permissions') {
+    if (req.method !== 'GET') {
+      return {
+        status: 405,
+        headers: jsonHeaders,
+        body: { error: 'method_not_allowed', message: 'Method Not Allowed' },
+      };
+    }
+
+    // Authoritative lookup from database profiles table
+    const { data: profileData, error: profileErr } = await adminClient
+      .from('profiles')
+      .select('*')
+      .eq('id', authenticatedUser.id)
+      .single();
+
+    if (profileErr || !profileData) {
+      return {
+        status: 404,
+        headers: jsonHeaders,
+        body: { error: 'profile_not_found', message: 'User profile not found.' },
+      };
+    }
+
+    const plan = (profileData.plan as PlanType) || 'free_preview';
+    const allowedFeatures = PLAN_PERMISSIONS[plan] || [];
+
+    const featureStatus: Record<string, { allowed: boolean; badge?: string }> = {};
+    for (const key of ALL_FEATURE_KEYS) {
+      const allowed = allowedFeatures.includes(key);
+      featureStatus[key] = {
+        allowed,
+        badge: FEATURE_TIER_BADGES[key],
+      };
+    }
+
+    return {
+      status: 200,
+      headers: jsonHeaders,
+      body: {
+        userId: authenticatedUser.id,
+        plan,
+        allowedFeatures,
+        lockedFeatures: ALL_FEATURE_KEYS.filter((k) => !allowedFeatures.includes(k)),
+        features: featureStatus,
+      },
+    };
+  }
+
+  // 4b. Feature Permission Checking Endpoint: POST /api/features/check
   if (pathname === '/api/features/check') {
     if (req.method !== 'POST') {
       return {
