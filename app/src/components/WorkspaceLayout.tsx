@@ -13,12 +13,14 @@ import {
   Building2,
   Zap,
   Database,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
+import { PLAN_LABELS } from '../lib/profiles/types';
 
 export const WorkspaceLayout: React.FC = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +44,11 @@ export const WorkspaceLayout: React.FC = () => {
   };
 
   const userEmail = user?.email || 'User';
-  const userInitial = userEmail.charAt(0).toUpperCase();
+  const fullName = profile?.full_name?.trim();
+  const displayName = fullName || userEmail;
+  const userInitial = (fullName ? fullName.charAt(0) : userEmail.charAt(0)).toUpperCase();
+  const currentPlan = profile?.plan || 'free_preview';
+  const planBadgeText = PLAN_LABELS[currentPlan] || 'Free Preview';
 
   return (
     <div className="app-container">
@@ -61,11 +67,11 @@ export const WorkspaceLayout: React.FC = () => {
         </div>
 
         <div className="nav-right-group">
-          {/* Plan badge placeholder */}
-          <div className="plan-badge-placeholder">
+          {/* Plan badge reading dynamically from user profile */}
+          <div className="plan-badge-placeholder" title={`Current Subscription: ${planBadgeText}`}>
             <span className="plan-badge-dot" />
             <Zap size={12} />
-            <span>Free Preview</span>
+            <span>{planBadgeText}</span>
           </div>
 
           {/* Account menu */}
@@ -90,7 +96,7 @@ export const WorkspaceLayout: React.FC = () => {
                 }}
                 title={userEmail}
               >
-                {userEmail}
+                {displayName}
               </span>
               <ChevronDown size={14} color="#94a3b8" />
             </button>
@@ -98,19 +104,41 @@ export const WorkspaceLayout: React.FC = () => {
             {accountMenuOpen && (
               <div className="account-dropdown">
                 <div className="dropdown-user-header">
+                  {fullName && (
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        color: '#f8fafc',
+                        fontSize: '0.92rem',
+                        marginBottom: '2px',
+                      }}
+                    >
+                      {fullName}
+                    </div>
+                  )}
                   <div
                     className="dropdown-user-email"
                     style={{
                       wordBreak: 'break-all',
-                      fontWeight: 600,
-                      color: '#f8fafc',
-                      fontSize: '0.88rem',
+                      fontWeight: 500,
+                      color: fullName ? '#94a3b8' : '#f8fafc',
+                      fontSize: '0.84rem',
                     }}
                   >
                     {userEmail}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#e2b53c', marginTop: '4px' }}>
-                    Authenticated via Supabase
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.75rem',
+                      color: '#e2b53c',
+                      marginTop: '6px',
+                    }}
+                  >
+                    <Shield size={12} />
+                    <span>{planBadgeText} • {profile?.role === 'admin' ? 'Admin' : 'Member'}</span>
                   </div>
                 </div>
                 <Link
@@ -135,7 +163,7 @@ export const WorkspaceLayout: React.FC = () => {
                   onClick={() => setAccountMenuOpen(false)}
                 >
                   <Database size={16} />
-                  <span>Supabase Test</span>
+                  <span>Supabase Diagnostics</span>
                 </Link>
                 <div className="dropdown-divider" />
                 <button

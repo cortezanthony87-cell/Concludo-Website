@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Mail, Lock, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowRight, Mail, Lock, User, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getAuthErrorMessage } from '../lib/auth/authErrors';
 
@@ -8,6 +8,7 @@ export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
   const { signUp } = useAuth();
 
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -48,7 +49,7 @@ export const SignupPage: React.FC = () => {
     }
 
     setLoading(true);
-    const { session, needsConfirmation, error } = await signUp(trimmedEmail, password);
+    const { session, needsConfirmation, error } = await signUp(trimmedEmail, password, fullName);
     setLoading(false);
 
     if (error) {
@@ -141,6 +142,26 @@ export const SignupPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSignup} noValidate>
+          <div className="form-group">
+            <label
+              className="form-label"
+              htmlFor="signup-name"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <User size={15} color="#f3c958" />
+              <span>Full name <span style={{ color: '#64748b', fontWeight: 400 }}>(optional)</span></span>
+            </label>
+            <input
+              id="signup-name"
+              type="text"
+              className="form-input"
+              placeholder="Anthony Cortez"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              autoComplete="name"
+            />
+          </div>
+
           <div className="form-group">
             <label
               className="form-label"

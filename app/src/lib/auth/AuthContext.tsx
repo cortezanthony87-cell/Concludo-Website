@@ -1,7 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, Session, AuthError } from '@supabase/supabase-js';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { User, Session } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '../supabase/client';
 import { getAuthErrorMessage } from './authErrors';
+import type { UserProfile } from '../profiles/types';
+import {
+  fetchUserProfile,
+  updateUserFullName,
+  repairOrEnsureProfile,
+} from '../profiles/profileClient';
 
 interface AuthResponse {
   user: User | null;
@@ -13,12 +19,16 @@ interface AuthResponse {
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<AuthResponse>;
+  profileLoading: boolean;
+  signUp: (email: string, password: string, fullName?: string) => Promise<AuthResponse>;
   signIn: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
+  refreshProfile: () => Promise<void>;
+  updateFullName: (fullName: string) => Promise<{ profile: UserProfile | null; error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,7 +36,39 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [profileLoading, setProfileLoading] = useState<boolean>(false);
+
+  const loadProfile = useCallback(async (targetUser: User | null) => {
+    if (!targetUser) {
+      setProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+
+    setProfileLoading(true);
+    try {
+      const res = await fetchUserProfile(targetUser.id);
+      if (res.profile) {
+        setProfile(res.profile);
+      } else {
+        // Auto-repair profile if row doesn't exist yet
+        const repairRes = await repairOrEnsureProfile({
+          id: targetUser.id,
+          email: targetUser.email || '',
+          fullName: targetUser.user_metadata?.full_name,
+        });
+        if (repairRes.profile) {
+          setProfile(repairRes.profile);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading user profile:', err);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,13 +79,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fetch active session on mount
       client.auth
         .getSession()
-        .then(({ data: { session: initialSession }, error }) => {
+        .then(async ({ data: { session: initialSession }, error }) => {
           if (!isMounted) return;
           if (error) {
             console.error('Error retrieving session:', error);
           }
           setSession(initialSession);
-          setUser(initialSession?.user ?? null);
+          const currentUser = initialSession?.user ?? null;
+          setUser(currentUser);
+          if (currentUser) {
+            await loadProfile(currentUser);
+          }
           setLoading(false);
         })
         .catch((err) => {
@@ -54,10 +100,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Listen for authentication changes (SIGN_IN, SIGN_OUT, TOKEN_REFRESHED, USER_UPDATED, PASSWORD_RECOVERY)
       const {
         data: { subscription },
-      } = client.auth.onAuthStateChange((_event, currentSession) => {
+      } = client.auth.onAuthStateChange(async (_event, currentSession) => {
         if (!isMounted) return;
         setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        const currentUser = currentSession?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await loadProfile(currentUser);
+        } else {
+          setProfile(null);
+        }
         setLoading(false);
       });
 
@@ -69,9 +121,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Supabase initialization failed in AuthProvider:', err);
       setLoading(false);
     }
-  }, []);
+  }, [loadProfile]);
 
-  const signUp = async (email: string, password: string): Promise<AuthResponse> => {
+  const refreshProfile = useCallback(async () => {
+    if (user) {
+      await loadProfile(user);
+    }
+  }, [user, loadProfile]);
+
+  const updateFullName = useCallback(
+    async (fullName: string): Promise<{ profile: UserProfile | null; error: Error | null }> => {
+      if (!user) {
+        return { profile: null, error: new Error('User is not authenticated.') };
+      }
+      const res = await updateUserFullName(user.id, fullName);
+      if (res.profile) {
+        setProfile(res.profile);
+      }
+      return res;
+    },
+    [user]
+  );
+
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName?: string
+  ): Promise<AuthResponse> => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       return { user: null, session: null, error: new Error('Please enter your email address.') };
@@ -90,12 +166,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const client = getSupabaseBrowserClient();
       const redirectTo = `${window.location.origin}/dashboard`;
+      const metadata: Record<string, any> = {};
+      if (fullName && fullName.trim()) {
+        metadata.full_name = fullName.trim();
+      }
 
       const { data, error } = await client.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
           emailRedirectTo: redirectTo,
+          data: metadata,
         },
       });
 
@@ -108,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Check if user already exists (Supabase enumeration protection returns empty identities)
+      // Check if user already exists
       if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
         return {
           user: null,
@@ -122,6 +203,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.session) {
         setSession(data.session);
         setUser(data.user);
+        if (data.user) {
+          await loadProfile(data.user);
+        }
       }
 
       return {
@@ -166,6 +250,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setSession(data.session);
       setUser(data.user);
+      if (data.user) {
+        await loadProfile(data.user);
+      }
 
       return {
         user: data.user,
@@ -187,6 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await client.auth.signOut();
       setSession(null);
       setUser(null);
+      setProfile(null);
 
       if (error) {
         return { error: new Error(getAuthErrorMessage(error)) };
@@ -195,6 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       setSession(null);
       setUser(null);
+      setProfile(null);
       return { error: new Error(getAuthErrorMessage(err)) };
     }
   };
@@ -252,12 +341,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         session,
+        profile,
         loading,
+        profileLoading,
         signUp,
         signIn,
         signOut,
         resetPassword,
         updatePassword,
+        refreshProfile,
+        updateFullName,
       }}
     >
       {children}
