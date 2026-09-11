@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Link, Outlet } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderKanban,
@@ -14,8 +14,11 @@ import {
   Zap,
   Database,
 } from 'lucide-react';
+import { useAuth } from '../lib/auth/AuthContext';
 
 export const WorkspaceLayout: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
@@ -31,6 +34,15 @@ export const WorkspaceLayout: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleLogout = async () => {
+    setAccountMenuOpen(false);
+    await signOut();
+    navigate('/login', { replace: true });
+  };
+
+  const userEmail = user?.email || 'User';
+  const userInitial = userEmail.charAt(0).toUpperCase();
 
   return (
     <div className="app-container">
@@ -53,7 +65,7 @@ export const WorkspaceLayout: React.FC = () => {
           <div className="plan-badge-placeholder">
             <span className="plan-badge-dot" />
             <Zap size={12} />
-            <span>Starter Plan</span>
+            <span>Free Preview</span>
           </div>
 
           {/* Account menu */}
@@ -65,9 +77,20 @@ export const WorkspaceLayout: React.FC = () => {
               aria-expanded={accountMenuOpen}
               aria-label="Account menu"
             >
-              <div className="account-avatar">AC</div>
-              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc' }}>
-                Anthony Cortez
+              <div className="account-avatar">{userInitial}</div>
+              <span
+                style={{
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  color: '#f8fafc',
+                  maxWidth: '180px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                title={userEmail}
+              >
+                {userEmail}
               </span>
               <ChevronDown size={14} color="#94a3b8" />
             </button>
@@ -75,8 +98,20 @@ export const WorkspaceLayout: React.FC = () => {
             {accountMenuOpen && (
               <div className="account-dropdown">
                 <div className="dropdown-user-header">
-                  <div className="dropdown-user-name">Anthony Cortez</div>
-                  <div className="dropdown-user-email">hello@concludo.au</div>
+                  <div
+                    className="dropdown-user-email"
+                    style={{
+                      wordBreak: 'break-all',
+                      fontWeight: 600,
+                      color: '#f8fafc',
+                      fontSize: '0.88rem',
+                    }}
+                  >
+                    {userEmail}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#e2b53c', marginTop: '4px' }}>
+                    Authenticated via Supabase
+                  </div>
                 </div>
                 <Link
                   to="/account"
@@ -103,14 +138,22 @@ export const WorkspaceLayout: React.FC = () => {
                   <span>Supabase Test</span>
                 </Link>
                 <div className="dropdown-divider" />
-                <Link
-                  to="/login"
+                <button
+                  type="button"
                   className="dropdown-link"
-                  onClick={() => setAccountMenuOpen(false)}
+                  onClick={handleLogout}
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    color: '#f87171',
+                  }}
                 >
-                  <LogOut size={16} />
-                  <span>Sign out</span>
-                </Link>
+                  <LogOut size={16} color="#f87171" />
+                  <span>Log out</span>
+                </button>
               </div>
             )}
           </div>
@@ -154,7 +197,9 @@ export const WorkspaceLayout: React.FC = () => {
               <span>New Transcript</span>
             </NavLink>
 
-            <div className="sidebar-category-label" style={{ marginTop: '14px' }}>Intelligence</div>
+            <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+              Intelligence
+            </div>
             <NavLink
               to="/decision-memory"
               className={({ isActive }) =>
@@ -189,7 +234,7 @@ export const WorkspaceLayout: React.FC = () => {
           <div className="sidebar-footer">
             <div className="telemetry-row">
               <span className="live-pulse-dot" />
-              <span>WORKSPACE SHELL READY</span>
+              <span>WORKSPACE SECURED</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
               <Building2 size={13} color="#e2b53c" />
