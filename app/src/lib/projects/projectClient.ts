@@ -96,7 +96,10 @@ export async function createProject(
       title: trimmedTitle,
       meeting_type: input.meeting_type?.trim() || null,
       client_or_project: input.client_or_project?.trim() || null,
-      meeting_date: input.meeting_date || null
+      meeting_date: input.meeting_date || null,
+      deleted_at: null,
+      deleted_by: null,
+      purge_after: null
     };
 
     const { data, error } = await supabase
@@ -170,11 +173,21 @@ export async function softDeleteProject(
   id: string
 ): Promise<{ success: boolean; error: Error | null }> {
   try {
-    const nowIso = new Date().toISOString();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const purgeAfterIso = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const { error } = await supabase
       .from('projects')
-      .update({ deleted_at: nowIso })
+      .update({
+        deleted_at: nowIso,
+        deleted_by: user?.id || null,
+        purge_after: purgeAfterIso
+      })
       .eq('id', id)
       .is('deleted_at', null);
 

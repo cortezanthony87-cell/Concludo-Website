@@ -35,6 +35,8 @@ export interface OutputRecord {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  deleted_by?: string | null;
+  purge_after?: string | null;
 }
 
 export interface SaveOutputInput {

@@ -157,7 +157,9 @@ export async function saveOutput(
       content: hasTextContent ? input.content!.trim() : null,
       json_content: hasJsonContent ? input.json_content : null,
       model_used: input.model_used || null,
-      deleted_at: null
+      deleted_at: null,
+      deleted_by: null,
+      purge_after: null
     };
 
     const { data, error } = await supabase
@@ -262,11 +264,21 @@ export async function softDeleteOutput(
       return { success: false, error: new Error('Output ID is required') };
     }
 
-    const nowIso = new Date().toISOString();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const purgeAfterIso = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data, error } = await supabase
       .from('outputs')
-      .update({ deleted_at: nowIso })
+      .update({
+        deleted_at: nowIso,
+        deleted_by: user?.id || null,
+        purge_after: purgeAfterIso
+      })
       .eq('id', id)
       .is('deleted_at', null)
       .select();
