@@ -1,0 +1,204 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { canUseFeature } from '../lib/permissions/canUseFeature';
+import {
+  FeatureKey,
+  ALL_FEATURE_KEYS,
+  PLAN_PERMISSIONS,
+} from '../lib/permissions/types';
+import { getSupabaseAdminClient } from '../lib/supabase/admin';
+
+export interface ApiRequest {
+  method: string;
+  url: string;
+  headers: Record<string, string | undefined>;
+  body?: any;
+}
+
+export interface ApiResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: any;
+}
+
+/**
+ * Server-side API Router for Concludo Workspace.
+ * Protects backend actions by verifying user credentials and authoritative profile plan.
+ */
+export async function handleApiRequest(
+  req: ApiRequest,
+  options?: { adminClient?: SupabaseClient }
+): Promise<ApiResponse> {
+  const jsonHeaders = { 'Content-Type': 'application/json' };
+  const pathname = req.url.split('?')[0];
+
+  const adminClient = options?.adminClient || getSupabaseAdminClient();
+
+  // 1. Public / Developer diagnostic routes
+  if (req.method === 'GET' && pathname === '/api/permissions/matrix') {
+    return {
+      status: 200,
+      headers: jsonHeaders,
+      body: {
+        plans: PLAN_PERMISSIONS,
+        featureKeys: ALL_FEATURE_KEYS,
+      },
+    };
+  }
+
+  // 2. Authentication extraction
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  let token: string | null = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7).trim();
+  }
+
+  if (!token) {
+    return {
+      status: 401,
+      headers: jsonHeaders,
+      body: {
+        error: 'unauthorized',
+        message: 'Authentication required: Missing Bearer token.',
+      },
+    };
+  }
+
+  // 3. Verify user session with Supabase
+  const { data: userData, error: authError } = await adminClient.auth.getUser(token);
+  if (authError || !userData?.user) {
+    return {
+      status: 401,
+      headers: jsonHeaders,
+      body: {
+        error: 'unauthorized',
+        message: 'Authentication failed: Invalid or expired token.',
+      },
+    };
+  }
+
+  const authenticatedUser = userData.user;
+
+  // 4. Feature Permission Checking Endpoint: POST /api/features/check
+  if (pathname === '/api/features/check') {
+    if (req.method !== 'POST') {
+      return {
+        status: 405,
+        headers: jsonHeaders,
+        body: { error: 'method_not_allowed', message: 'Method Not Allowed' },
+      };
+    }
+
+    const featureKey = req.body?.feature || req.body?.featureKey;
+    if (!featureKey) {
+      return {
+        status: 400,
+        headers: jsonHeaders,
+        body: {
+          error: 'invalid_feature_key',
+          message: 'Feature key is required.',
+        },
+      };
+    }
+
+    // Call server-side canUseFeature
+    const result = await canUseFeature(authenticatedUser.id, featureKey, {
+      supabase: adminClient,
+    });
+
+    if (!result.allowed) {
+      return {
+        status: result.statusCode || 403,
+        headers: jsonHeaders,
+        body: result.error,
+      };
+    }
+
+    return {
+      status: 200,
+      headers: jsonHeaders,
+      body: {
+        allowed: true,
+        plan: result.plan,
+        feature: result.feature,
+      },
+    };
+  }
+
+  // 5. Mapping of Protected API Endpoints to their required feature keys
+  const endpointRequirements: Record<string, { method: string; feature: FeatureKey }[]> = {
+    // Projects endpoints require 'saved_projects'
+    '/api/projects': [
+      { method: 'GET', feature: 'saved_projects' },
+      { method: 'POST', feature: 'saved_projects' },
+    ],
+    // Transcripts endpoints require 'transcript_archive'
+    '/api/transcripts': [
+      { method: 'GET', feature: 'transcript_archive' },
+      { method: 'POST', feature: 'transcript_archive' },
+      { method: 'PUT', feature: 'transcript_archive' },
+      { method: 'DELETE', feature: 'transcript_archive' },
+    ],
+    // Outputs endpoints require 'manual_outputs'
+    '/api/outputs': [
+      { method: 'GET', feature: 'manual_outputs' },
+      { method: 'POST', feature: 'manual_outputs' },
+      { method: 'PUT', feature: 'manual_outputs' },
+      { method: 'DELETE', feature: 'manual_outputs' },
+    ],
+    // Output actions
+    '/api/outputs/copy': [{ method: 'POST', feature: 'copy_output' }],
+    '/api/outputs/export-json': [{ method: 'POST', feature: 'json_export' }],
+    // Intelligence endpoints
+    '/api/decision-memory': [{ method: 'GET', feature: 'decision_memory' }],
+    '/api/actions': [{ method: 'GET', feature: 'action_tracker' }],
+    '/api/search/keywords': [{ method: 'POST', feature: 'keyword_search' }],
+    '/api/insight': [{ method: 'GET', feature: 'insight' }],
+    '/api/stats': [{ method: 'GET', feature: 'stats' }],
+    '/api/reports/endpoint': [{ method: 'GET', feature: 'endpoint_report' }],
+    '/api/export/automation': [{ method: 'POST', feature: 'automation_export' }],
+  };
+
+  // Match route
+  for (const [routePattern, ruleList] of Object.entries(endpointRequirements)) {
+    if (pathname === routePattern || pathname.startsWith(routePattern + '/')) {
+      const matchingRule = ruleList.find(
+        (r) => r.method === req.method || r.method === '*'
+      );
+
+      if (matchingRule) {
+        // Enforce backend permission check
+        const permCheck = await canUseFeature(authenticatedUser.id, matchingRule.feature, {
+          supabase: adminClient,
+        });
+
+        if (!permCheck.allowed) {
+          return {
+            status: permCheck.statusCode || 403,
+            headers: jsonHeaders,
+            body: permCheck.error,
+          };
+        }
+
+        // Action is permitted for this user
+        return {
+          status: 200,
+          headers: jsonHeaders,
+          body: {
+            success: true,
+            action: `${req.method} ${pathname}`,
+            feature: matchingRule.feature,
+            plan: permCheck.plan,
+            user_id: authenticatedUser.id,
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
+    }
+  }
+
+  return {
+    status: 404,
+    headers: jsonHeaders,
+    body: { error: 'not_found', message: `API route not found: ${req.method} ${pathname}` },
+  };
+}

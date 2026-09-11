@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { viteApiPlugin } from './src/server/viteApiPlugin';
 
 export default defineConfig(({ mode }) => {
   // Load environment variables from .env and .env.local
@@ -7,9 +8,10 @@ export default defineConfig(({ mode }) => {
 
   const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL || '';
   const supabaseAnonKey = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '';
+  const supabaseServiceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   return {
-    plugins: [react()],
+    plugins: [react(), viteApiPlugin(supabaseUrl, supabaseServiceRoleKey)],
     base: './',
     server: {
       host: '0.0.0.0',
