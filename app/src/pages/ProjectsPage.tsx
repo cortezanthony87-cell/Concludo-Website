@@ -1,18 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FolderKanban,
   PlusCircle,
   Sparkles,
   Calendar,
-  User,
+  Building,
   Tag,
   Clock,
   ArrowRight,
   Trash2,
   AlertCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { Project } from '../lib/projects/types';
@@ -20,7 +22,6 @@ import { fetchProjects, softDeleteProject } from '../lib/projects/projectClient'
 
 export const ProjectsPage: React.FC = () => {
   const { supabase, user } = useAuth();
-  const navigate = useNavigate();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -31,7 +32,7 @@ export const ProjectsPage: React.FC = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const loadUserProjects = async () => {
+  const loadUserProjects = useCallback(async () => {
     if (!supabase || !user) return;
     setLoading(true);
     setLoadError(null);
@@ -43,11 +44,11 @@ export const ProjectsPage: React.FC = () => {
       setProjects(result.data || []);
     }
     setLoading(false);
-  };
+  }, [supabase, user]);
 
   useEffect(() => {
     loadUserProjects();
-  }, [supabase, user]);
+  }, [loadUserProjects]);
 
   const handleDelete = async (id: string) => {
     if (!supabase) return;
@@ -96,8 +97,6 @@ export const ProjectsPage: React.FC = () => {
     }
   };
 
-  const projectToConfirm = projects.find((p) => p.id === deleteConfirmId);
-
   return (
     <div>
       {/* Page Header */}
@@ -114,17 +113,27 @@ export const ProjectsPage: React.FC = () => {
         <div>
           <div className="page-eyebrow">
             <Sparkles size={13} color="#f3c958" />
-            <span>WORKSPACE REPOSITORY</span>
+            <span>TRANSCRIPT ARCHIVE & MEETING MEMORY</span>
           </div>
           <h1 className="page-title">Projects</h1>
           <p className="page-subtitle">
-            Manage meeting projects, transcripts, and generated workspace outputs.
+            Permanent workspace repository of your conversations, transcripts, and outputs.
           </p>
         </div>
-        <Link to="/projects/new" className="btn-gold">
-          <PlusCircle size={18} />
-          <span>Create New Project</span>
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <Link
+            to="/search"
+            className="btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Search size={16} />
+            <span>Search History</span>
+          </Link>
+          <Link to="/projects/new" className="btn-gold">
+            <PlusCircle size={18} />
+            <span>Create Project</span>
+          </Link>
+        </div>
       </div>
 
       {/* Delete Error Banner */}
@@ -156,15 +165,15 @@ export const ProjectsPage: React.FC = () => {
             style={{ animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}
           />
           <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-            Loading projects...
+            Loading projects
           </h3>
           <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
-            Retrieving your workspace records from Supabase.
+            Retrieving saved projects from Supabase.
           </p>
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error State with Retry */}
       {!loading && loadError && (
         <div className="content-card" style={{ textAlign: 'center', padding: '56px 24px' }}>
           <AlertCircle size={40} color="#ef4444" style={{ margin: '0 auto 16px auto' }} />
@@ -176,7 +185,7 @@ export const ProjectsPage: React.FC = () => {
           </p>
           <button onClick={loadUserProjects} className="btn-secondary">
             <RefreshCw size={16} />
-            <span>Try Again</span>
+            <span>Retry</span>
           </button>
         </div>
       )}
@@ -211,140 +220,164 @@ export const ProjectsPage: React.FC = () => {
               lineHeight: 1.6
             }}
           >
-            Get started by creating your first meeting workspace. Paste a transcript or notes to generate summaries and outputs.
+            Create your first project to start building your meeting archive.
           </p>
           <Link to="/projects/new" className="btn-gold">
             <PlusCircle size={18} />
-            <span>Create your first project</span>
+            <span>Create Project</span>
           </Link>
         </div>
       )}
 
-      {/* Projects List */}
+      {/* Projects List & Transcript Archive */}
       {!loading && !loadError && projects.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {projects.map((project) => {
-            return (
-              <div
-                key={project.id}
-                className="content-card"
-                style={{
-                  padding: '24px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                  position: 'relative',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  transition: 'all 0.2s ease'
-                }}
-              >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={18} color="#f3c958" />
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                Transcript Archive ({projects.length})
+              </h2>
+            </div>
+            <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+              Sorted by most recently modified
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {projects.map((project) => {
+              const displayClient = project.client_name || project.client_or_project || 'Internal';
+
+              return (
                 <div
+                  key={project.id}
+                  className="content-card"
                   style={{
+                    padding: '22px 24px',
                     display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                    gap: '14px'
+                    flexDirection: 'column',
+                    gap: '14px',
+                    position: 'relative',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  <div style={{ flex: '1 1 340px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                      <Link
-                        to={`/projects/${project.id}`}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      flexWrap: 'wrap',
+                      gap: '14px'
+                    }}
+                  >
+                    <div style={{ flex: '1 1 340px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                        <Link
+                          to={`/projects/${project.id}`}
+                          style={{
+                            fontSize: '1.2rem',
+                            fontWeight: 600,
+                            color: '#f8fafc',
+                            textDecoration: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <span>{project.title}</span>
+                        </Link>
+                      </div>
+
+                      {/* Metadata row */}
+                      <div
                         style={{
-                          fontSize: '1.25rem',
-                          fontWeight: 600,
-                          color: '#f8fafc',
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px'
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '16px',
+                          fontSize: '0.84rem',
+                          color: '#94a3b8'
                         }}
                       >
-                        <span>{project.title}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Tag size={14} color="#f3c958" />
+                          <span style={{ color: '#cbd5e1' }}>
+                            {project.meeting_type || 'Unspecified Type'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Building size={14} color="#f3c958" />
+                          <span style={{ color: '#cbd5e1' }}>
+                            {displayClient}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Calendar size={14} color="#f3c958" />
+                          <span>Meeting: {formatDate(project.meeting_date)}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Clock size={14} color="#94a3b8" />
+                          <span>Last Updated: {formatTimestamp(project.updated_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <Link
+                        to={`/projects/${project.id}`}
+                        className="btn-primary"
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '0.88rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>Open</span>
+                        <ArrowRight size={15} />
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteConfirmId(project.id);
+                          setDeleteError(null);
+                        }}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          color: '#fca5a5',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.85rem',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Trash2 size={15} />
+                        <span>Delete</span>
+                      </button>
                     </div>
-
-                    {/* Metadata chips */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '12px',
-                        fontSize: '0.84rem',
-                        color: '#94a3b8'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Tag size={14} color="#f3c958" />
-                        <span style={{ color: '#cbd5e1' }}>
-                          {project.meeting_type || 'Unspecified Type'}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <User size={14} color="#f3c958" />
-                        <span style={{ color: '#cbd5e1' }}>
-                          {project.client_or_project || 'Internal'}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Calendar size={14} color="#f3c958" />
-                        <span>Meeting: {formatDate(project.meeting_date)}</span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Clock size={14} color="#94a3b8" />
-                        <span>Last updated: {formatTimestamp(project.updated_at)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions Buttons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <Link
-                      to={`/projects/${project.id}`}
-                      className="btn-primary"
-                      style={{
-                        padding: '8px 16px',
-                        fontSize: '0.88rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <span>Open project</span>
-                      <ArrowRight size={15} />
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteConfirmId(project.id);
-                        setDeleteError(null);
-                      }}
-                      style={{
-                        padding: '8px 14px',
-                        borderRadius: '8px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.25)',
-                        color: '#fca5a5',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '0.85rem',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <Trash2 size={15} />
-                      <span>Delete project</span>
-                    </button>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -460,7 +493,7 @@ export const ProjectsPage: React.FC = () => {
                 ) : (
                   <>
                     <Trash2 size={16} />
-                    <span>Delete project</span>
+                    <span>Delete</span>
                   </>
                 )}
               </button>

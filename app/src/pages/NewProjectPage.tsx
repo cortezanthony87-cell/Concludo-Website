@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
-  Check,
   Sparkles,
   Calendar,
   Tag,
   User,
+  Building,
   FileText,
   AlertCircle,
-  Loader2
+  Loader2,
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { createProject } from '../lib/projects/projectClient';
@@ -21,48 +23,60 @@ export const NewProjectPage: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [meetingType, setMeetingType] = useState('Strategy & Planning');
-  const [clientOrProject, setClientOrProject] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [meetingDate, setMeetingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [transcript, setTranscript] = useState('');
+  const [notes, setNotes] = useState('');
 
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMessage(null);
 
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setErrorMessage('Project title missing');
+      setErrorMessage('Project title is required.');
+      return;
+    }
+
+    const trimmedTranscript = transcript.trim();
+    if (!trimmedTranscript) {
+      setErrorMessage('Transcript is required.');
       return;
     }
 
     if (!supabase) {
-      setErrorMessage('Workspace database connection unavailable');
+      setErrorMessage('Failed to create project: Database connection unavailable.');
       return;
     }
 
-    setLoading(true);
+    setSaving(true);
 
     const result = await createProject(supabase, {
       title: trimmedTitle,
       meeting_type: meetingType || null,
-      client_or_project: clientOrProject.trim() || null,
-      meeting_date: meetingDate || null
+      client_name: clientName.trim() || null,
+      project_name: projectName.trim() || null,
+      meeting_date: meetingDate || null,
+      transcript: trimmedTranscript,
+      notes: notes.trim() || null
     });
 
     if (result.error || !result.data) {
       setErrorMessage(result.error?.message || 'Failed to create project');
-      setLoading(false);
+      setSaving(false);
       return;
     }
 
-    // Redirect to the new project detail page
+    // Redirect to the created project view
     navigate(`/projects/${result.data.id}`);
   };
 
   return (
-    <div style={{ maxWidth: '720px' }}>
+    <div style={{ maxWidth: '820px' }}>
       <div style={{ marginBottom: '22px' }}>
         <Link
           to="/projects"
@@ -87,7 +101,9 @@ export const NewProjectPage: React.FC = () => {
           <span>WORKSPACE CONFIGURATION</span>
         </div>
         <h1 className="page-title">Create Project</h1>
-        <p className="page-subtitle">Configure the meeting details to begin processing your transcript.</p>
+        <p className="page-subtitle">
+          Save a meeting record and transcript to establish your Meeting Memory.
+        </p>
       </div>
 
       {errorMessage && (
@@ -101,16 +117,28 @@ export const NewProjectPage: React.FC = () => {
             color: '#fca5a5',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '12px'
           }}
         >
-          <AlertCircle size={18} color="#ef4444" />
-          <span style={{ fontSize: '0.92rem' }}>{errorMessage}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertCircle size={18} color="#ef4444" />
+            <span style={{ fontSize: '0.92rem' }}>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleCreate()}
+            className="btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+          >
+            <RefreshCw size={14} />
+            <span>Retry</span>
+          </button>
         </div>
       )}
 
       <div className="content-card">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleCreate}>
           {/* Project Title (Required) */}
           <div className="form-group">
             <label
@@ -119,7 +147,7 @@ export const NewProjectPage: React.FC = () => {
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <FileText size={15} color="#f3c958" />
-              <span>Project title</span>
+              <span>Project Title</span>
               <span style={{ color: '#f3c958' }}>*</span>
             </label>
             <input
@@ -129,86 +157,156 @@ export const NewProjectPage: React.FC = () => {
               placeholder="e.g. Executive Strategy Review"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              disabled={loading}
+              disabled={saving}
               required
             />
           </div>
 
-          {/* Meeting Type (Optional) */}
-          <div className="form-group">
-            <label
-              className="form-label"
-              htmlFor="meeting-type"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Tag size={15} color="#f3c958" />
-              <span>Meeting type</span>
-              <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
-            </label>
-            <select
-              id="meeting-type"
-              className="form-select"
-              value={meetingType}
-              onChange={(e) => setMeetingType(e.target.value)}
-              disabled={loading}
-            >
-              {COMMON_MEETING_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+            {/* Meeting Type */}
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="meeting-type"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Tag size={15} color="#f3c958" />
+                <span>Meeting Type</span>
+              </label>
+              <select
+                id="meeting-type"
+                className="form-select"
+                value={meetingType}
+                onChange={(e) => setMeetingType(e.target.value)}
+                disabled={saving}
+              >
+                {COMMON_MEETING_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Meeting Date */}
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="meeting-date"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Calendar size={15} color="#f3c958" />
+                <span>Meeting Date</span>
+              </label>
+              <input
+                id="meeting-date"
+                type="date"
+                className="form-input"
+                value={meetingDate}
+                onChange={(e) => setMeetingDate(e.target.value)}
+                disabled={saving}
+              />
+            </div>
           </div>
 
-          {/* Client or project name (Optional) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+            {/* Client Name */}
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="client-name"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Building size={15} color="#f3c958" />
+                <span>Client Name</span>
+                <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
+              </label>
+              <input
+                id="client-name"
+                type="text"
+                className="form-input"
+                placeholder="e.g. Concludo Pty Ltd or Client Org"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                disabled={saving}
+              />
+            </div>
+
+            {/* Project Name */}
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="project-name"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <User size={15} color="#f3c958" />
+                <span>Project Name</span>
+                <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
+              </label>
+              <input
+                id="project-name"
+                type="text"
+                className="form-input"
+                placeholder="e.g. Workspace SaaS Modernisation"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                disabled={saving}
+              />
+            </div>
+          </div>
+
+          {/* Transcript (Required) */}
           <div className="form-group">
             <label
               className="form-label"
-              htmlFor="client-project-name"
+              htmlFor="project-transcript"
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <User size={15} color="#f3c958" />
-              <span>Client or project name</span>
-              <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
+              <FileText size={15} color="#f3c958" />
+              <span>Transcript</span>
+              <span style={{ color: '#f3c958' }}>*</span>
             </label>
-            <input
-              id="client-project-name"
-              type="text"
+            <textarea
+              id="project-transcript"
               className="form-input"
-              placeholder="e.g. Concludo Operations or Client Acme Corp"
-              value={clientOrProject}
-              onChange={(e) => setClientOrProject(e.target.value)}
-              disabled={loading}
+              rows={8}
+              placeholder="Paste conversation transcript or meeting audio transcript here..."
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              disabled={saving}
+              required
+              style={{ fontFamily: 'monospace', fontSize: '0.88rem', lineHeight: 1.5 }}
             />
           </div>
 
-          {/* Meeting Date (Optional) */}
+          {/* Notes (Optional) */}
           <div className="form-group">
             <label
               className="form-label"
-              htmlFor="meeting-date"
+              htmlFor="project-notes"
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <Calendar size={15} color="#f3c958" />
-              <span>Meeting date</span>
+              <FileText size={15} color="#94a3b8" />
+              <span>Notes</span>
               <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 400 }}>(Optional)</span>
             </label>
-            <input
-              id="meeting-date"
-              type="date"
+            <textarea
+              id="project-notes"
               className="form-input"
-              value={meetingDate}
-              onChange={(e) => setMeetingDate(e.target.value)}
-              disabled={loading}
+              rows={4}
+              placeholder="Additional agenda items, participant observations, or context..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={saving}
             />
           </div>
 
           <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginTop: '28px' }}>
-            <button type="submit" className="btn-gold" disabled={loading}>
-              {loading ? (
+            <button type="submit" className="btn-gold" disabled={saving}>
+              {saving ? (
                 <>
                   <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                  <span>Creating project...</span>
+                  <span>Saving project...</span>
                 </>
               ) : (
                 <>
@@ -217,7 +315,7 @@ export const NewProjectPage: React.FC = () => {
                 </>
               )}
             </button>
-            <Link to="/projects" className="btn-secondary" style={{ pointerEvents: loading ? 'none' : 'auto' }}>
+            <Link to="/projects" className="btn-secondary" style={{ pointerEvents: saving ? 'none' : 'auto' }}>
               Cancel
             </Link>
           </div>

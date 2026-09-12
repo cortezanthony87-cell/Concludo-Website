@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Calendar,
+  Building,
   User,
   Tag,
   Clock,
@@ -11,16 +12,12 @@ import {
   Sparkles,
   Layers,
   FileText,
-  Terminal,
   AlertCircle,
   Loader2,
   Check,
   X,
   RefreshCw,
-  Mic,
-  MicOff,
   Save,
-  RotateCcw,
   Copy,
   Plus,
   Mail,
@@ -29,68 +26,51 @@ import {
   ListChecks,
   Briefcase,
   GitBranch,
-  BarChart3
+  BarChart3,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { Project, COMMON_MEETING_TYPES } from '../lib/projects/types';
 import { fetchProjectById, updateProject, softDeleteProject } from '../lib/projects/projectClient';
-import { Transcript } from '../lib/transcripts/types';
-import {
-  fetchProjectTranscript,
-  saveTranscript,
-  updateTranscript,
-  softDeleteTranscript
-} from '../lib/transcripts/transcriptClient';
 import {
   OutputRecord,
   OutputType,
   OUTPUT_TYPE_LABELS,
-  ALLOWED_OUTPUT_TYPES
+  ALLOWED_OUTPUT_TYPES,
 } from '../lib/outputs/types';
 import {
   fetchProjectOutputs,
   saveOutput,
-  updateOutput,
-  softDeleteOutput
+  softDeleteOutput,
 } from '../lib/outputs/outputClient';
-
-type TabKey = 'overview' | 'transcript' | 'outputs';
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { supabase } = useAuth();
 
+  // Project state
   const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Tabs
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [loadingProject, setLoadingProject] = useState<boolean>(true);
+  const [projectError, setProjectError] = useState<string | null>(null);
 
   // Edit Project State
-  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isEditingProject, setIsEditingProject] = useState<boolean>(false);
   const [editTitle, setEditTitle] = useState<string>('');
   const [editMeetingType, setEditMeetingType] = useState<string>('');
-  const [editClientOrProject, setEditClientOrProject] = useState<string>('');
+  const [editClientName, setEditClientName] = useState<string>('');
+  const [editProjectName, setEditProjectName] = useState<string>('');
   const [editMeetingDate, setEditMeetingDate] = useState<string>('');
-  const [updating, setUpdating] = useState<boolean>(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [editTranscript, setEditTranscript] = useState<string>('');
+  const [editNotes, setEditNotes] = useState<string>('');
+
+  const [savingProject, setSavingProject] = useState<boolean>(false);
+  const [saveProjectError, setSaveProjectError] = useState<string | null>(null);
 
   // Delete Project State
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  const [deleting, setDeleting] = useState<boolean>(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  // Transcript State
-  const [transcript, setTranscript] = useState<Transcript | null>(null);
-  const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
-  const [transcriptInput, setTranscriptInput] = useState<string>('');
-  const [savingTranscript, setSavingTranscript] = useState<boolean>(false);
-  const [transcriptError, setTranscriptError] = useState<string | null>(null);
-  const [isEditingTranscript, setIsEditingTranscript] = useState<boolean>(false);
-  const [showDeleteTranscriptConfirm, setShowDeleteTranscriptConfirm] = useState<boolean>(false);
-  const [deletingTranscript, setDeletingTranscript] = useState<boolean>(false);
+  const [deletingProject, setDeletingProject] = useState<boolean>(false);
+  const [deleteProjectError, setDeleteProjectError] = useState<string | null>(null);
 
   // Outputs State
   const [outputs, setOutputs] = useState<OutputRecord[]>([]);
@@ -104,203 +84,134 @@ export const ProjectDetailPage: React.FC = () => {
   const [savingOutput, setSavingOutput] = useState<boolean>(false);
   const [saveOutputError, setSaveOutputError] = useState<string | null>(null);
 
-  // Edit Output State
-  const [editingOutputId, setEditingOutputId] = useState<string | null>(null);
-  const [editOutputType, setEditOutputType] = useState<OutputType>('summary');
-  const [editOutputContent, setEditOutputContent] = useState<string>('');
-  const [updatingOutput, setUpdatingOutput] = useState<boolean>(false);
-  const [updateOutputError, setUpdateOutputError] = useState<string | null>(null);
+  // View / Open Output Modal State
+  const [viewingOutput, setViewingOutput] = useState<OutputRecord | null>(null);
 
   // Delete Output State
   const [confirmDeleteOutputId, setConfirmDeleteOutputId] = useState<string | null>(null);
   const [deletingOutputId, setDeletingOutputId] = useState<string | null>(null);
   const [deleteOutputError, setDeleteOutputError] = useState<string | null>(null);
 
-  // Copy Output State
-  const [copiedOutputId, setCopiedOutputId] = useState<string | null>(null);
+  // Copy State
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const loadProject = async () => {
+  // Load Project
+  const loadProject = useCallback(async () => {
     if (!supabase || !id) return;
-    setLoading(true);
-    setLoadError(null);
+    setLoadingProject(true);
+    setProjectError(null);
 
     const result = await fetchProjectById(supabase, id);
     if (result.error || !result.data) {
-      setLoadError(result.error?.message || 'Project not found');
+      setProjectError('Failed to load project');
       setProject(null);
     } else {
       setProject(result.data);
-      setEditTitle(result.data.title);
+      setEditTitle(result.data.title || '');
       setEditMeetingType(result.data.meeting_type || '');
-      setEditClientOrProject(result.data.client_or_project || '');
+      setEditClientName(result.data.client_name || result.data.client_or_project || '');
+      setEditProjectName(result.data.project_name || '');
       setEditMeetingDate(result.data.meeting_date || '');
+      setEditTranscript(result.data.transcript || '');
+      setEditNotes(result.data.notes || '');
     }
-    setLoading(false);
-  };
+    setLoadingProject(false);
+  }, [supabase, id]);
 
-  const loadTranscript = async () => {
-    if (!supabase || !id) return;
-    setLoadingTranscript(true);
-    const result = await fetchProjectTranscript(supabase, id);
-    if (result.data) {
-      setTranscript(result.data);
-      setTranscriptInput(result.data.raw_text);
-    } else {
-      setTranscript(null);
-      setTranscriptInput('');
-    }
-    setLoadingTranscript(false);
-  };
-
-  const loadOutputs = async () => {
+  // Load Outputs
+  const loadOutputs = useCallback(async () => {
     if (!supabase || !id) return;
     setLoadingOutputs(true);
     setOutputsError(null);
+
     const result = await fetchProjectOutputs(supabase, id);
     if (result.error) {
-      setOutputsError(result.error.message);
+      setOutputsError('Failed to load outputs');
     } else {
       setOutputs(result.data || []);
     }
     setLoadingOutputs(false);
-  };
+  }, [supabase, id]);
 
   useEffect(() => {
     loadProject();
-    loadTranscript();
     loadOutputs();
-  }, [id, supabase]);
+  }, [loadProject, loadOutputs]);
 
+  // Handle Edit Project
   const handleStartEditing = () => {
     if (!project) return;
-    setEditTitle(project.title);
+    setEditTitle(project.title || '');
     setEditMeetingType(project.meeting_type || '');
-    setEditClientOrProject(project.client_or_project || '');
+    setEditClientName(project.client_name || project.client_or_project || '');
+    setEditProjectName(project.project_name || '');
     setEditMeetingDate(project.meeting_date || '');
-    setUpdateError(null);
-    setIsEditing(true);
+    setEditTranscript(project.transcript || '');
+    setEditNotes(project.notes || '');
+    setSaveProjectError(null);
+    setIsEditingProject(true);
   };
 
   const handleCancelEditing = () => {
-    setIsEditing(false);
-    setUpdateError(null);
+    setIsEditingProject(false);
+    setSaveProjectError(null);
   };
 
-  const handleUpdateProject = async (e: React.FormEvent) => {
+  const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !id) return;
 
-    if (!editTitle.trim()) {
-      setUpdateError('Project title missing');
+    const trimmedTitle = editTitle.trim();
+    if (!trimmedTitle) {
+      setSaveProjectError('Project title missing');
       return;
     }
 
-    setUpdating(true);
-    setUpdateError(null);
+    setSavingProject(true);
+    setSaveProjectError(null);
 
     const result = await updateProject(supabase, id, {
-      title: editTitle.trim(),
+      title: trimmedTitle,
       meeting_type: editMeetingType.trim() || undefined,
-      client_or_project: editClientOrProject.trim() || undefined,
-      meeting_date: editMeetingDate || undefined
+      client_name: editClientName.trim() || undefined,
+      project_name: editProjectName.trim() || undefined,
+      meeting_date: editMeetingDate || undefined,
+      transcript: editTranscript.trim() || undefined,
+      notes: editNotes.trim() || undefined,
     });
 
     if (result.error || !result.data) {
-      setUpdateError(result.error?.message || 'Failed to update project');
+      setSaveProjectError('Failed to save project');
     } else {
       setProject(result.data);
-      setIsEditing(false);
+      setIsEditingProject(false);
     }
-    setUpdating(false);
+    setSavingProject(false);
   };
 
+  // Handle Delete Project
   const handleDeleteProject = async () => {
     if (!supabase || !id) return;
 
-    setDeleting(true);
-    setDeleteError(null);
+    setDeletingProject(true);
+    setDeleteProjectError(null);
 
     const result = await softDeleteProject(supabase, id);
     if (!result.success) {
-      setDeleteError(result.error?.message || 'Failed to delete project');
-      setDeleting(false);
+      setDeleteProjectError(result.error?.message || 'Failed to delete project');
+      setDeletingProject(false);
     } else {
       navigate('/projects');
     }
   };
 
-  const handleSaveTranscript = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase || !id) return;
-
-    if (!transcriptInput.trim()) {
-      setTranscriptError('Transcript text cannot be empty');
-      return;
-    }
-
-    setSavingTranscript(true);
-    setTranscriptError(null);
-
-    if (transcript && isEditingTranscript) {
-      const updateResult = await updateTranscript(supabase, transcript.id, {
-        raw_text: transcriptInput.trim()
-      });
-
-      if (updateResult.error || !updateResult.data) {
-        setTranscriptError(updateResult.error?.message || 'Failed to update transcript');
-      } else {
-        setTranscript(updateResult.data);
-        setIsEditingTranscript(false);
-      }
-    } else {
-      const createResult = await saveTranscript(supabase, {
-        project_id: id,
-        raw_text: transcriptInput.trim(),
-        source_type: 'pasted'
-      });
-
-      if (createResult.error || !createResult.data) {
-        setTranscriptError(createResult.error?.message || 'Failed to save transcript');
-      } else {
-        setTranscript(createResult.data);
-      }
-    }
-
-    setSavingTranscript(false);
-  };
-
-  const handleDeleteTranscript = async () => {
-    if (!supabase || !transcript) return;
-
-    setDeletingTranscript(true);
-    setTranscriptError(null);
-
-    const result = await softDeleteTranscript(supabase, transcript.id);
-    if (!result.success) {
-      setTranscriptError(result.error?.message || 'Failed to delete transcript');
-      setDeletingTranscript(false);
-    } else {
-      setTranscript(null);
-      setTranscriptInput('');
-      setShowDeleteTranscriptConfirm(false);
-      setDeletingTranscript(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // Output Actions
-  // ---------------------------------------------------------------------------
+  // Handle Create Output
   const handleSaveOutput = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !id) return;
 
-    if (!newOutputType) {
-      setSaveOutputError('Output type missing');
-      return;
-    }
-
     if (!newOutputContent.trim()) {
-      setSaveOutputError('Output content missing');
+      setSaveOutputError('Output content is required');
       return;
     }
 
@@ -310,11 +221,11 @@ export const ProjectDetailPage: React.FC = () => {
     const result = await saveOutput(supabase, {
       project_id: id,
       output_type: newOutputType,
-      content: newOutputContent.trim()
+      content: newOutputContent.trim(),
     });
 
     if (result.error || !result.data) {
-      setSaveOutputError(result.error?.message || 'Failed to save output');
+      setSaveOutputError('Failed to save output');
     } else {
       setOutputs((prev) => [result.data!, ...prev]);
       setNewOutputContent('');
@@ -323,46 +234,7 @@ export const ProjectDetailPage: React.FC = () => {
     setSavingOutput(false);
   };
 
-  const handleStartEditOutput = (output: OutputRecord) => {
-    setEditingOutputId(output.id);
-    setEditOutputType(output.output_type);
-    setEditOutputContent(output.content || '');
-    setUpdateOutputError(null);
-  };
-
-  const handleCancelEditOutput = () => {
-    setEditingOutputId(null);
-    setUpdateOutputError(null);
-  };
-
-  const handleUpdateOutput = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase || !editingOutputId) return;
-
-    if (!editOutputContent.trim()) {
-      setUpdateOutputError('Output content missing');
-      return;
-    }
-
-    setUpdatingOutput(true);
-    setUpdateOutputError(null);
-
-    const result = await updateOutput(supabase, editingOutputId, {
-      output_type: editOutputType,
-      content: editOutputContent.trim()
-    });
-
-    if (result.error || !result.data) {
-      setUpdateOutputError(result.error?.message || 'Failed to update output');
-    } else {
-      setOutputs((prev) =>
-        prev.map((item) => (item.id === editingOutputId ? result.data! : item))
-      );
-      setEditingOutputId(null);
-    }
-    setUpdatingOutput(false);
-  };
-
+  // Handle Delete Output
   const handleDeleteOutput = async (outputId: string) => {
     if (!supabase) return;
 
@@ -377,29 +249,28 @@ export const ProjectDetailPage: React.FC = () => {
       setOutputs((prev) => prev.filter((item) => item.id !== outputId));
       setConfirmDeleteOutputId(null);
       setDeletingOutputId(null);
+      if (viewingOutput?.id === outputId) {
+        setViewingOutput(null);
+      }
     }
   };
 
-  const handleCopyOutput = async (output: OutputRecord) => {
-    if (!output.content) return;
+  // Handle Copy text
+  const handleCopyText = async (text: string, identifier: string) => {
     try {
-      await navigator.clipboard.writeText(output.content);
-      setCopiedOutputId(output.id);
-      setTimeout(() => {
-        setCopiedOutputId(null);
-      }, 2500);
+      await navigator.clipboard.writeText(text);
+      setCopiedId(identifier);
+      setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      // Fallback if clipboard API is restricted
-      const textarea = document.createElement('textarea');
-      textarea.value = output.content;
-      document.body.appendChild(textarea);
-      textarea.select();
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
       document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopiedOutputId(output.id);
-      setTimeout(() => {
-        setCopiedOutputId(null);
-      }, 2500);
+      document.body.removeChild(ta);
+      setCopiedId(identifier);
+      setTimeout(() => setCopiedId(null), 2000);
     }
   };
 
@@ -410,7 +281,7 @@ export const ProjectDetailPage: React.FC = () => {
       return new Intl.DateTimeFormat('en-AU', {
         day: 'numeric',
         month: 'short',
-        year: 'numeric'
+        year: 'numeric',
       }).format(d);
     } catch {
       return dateStr;
@@ -426,7 +297,7 @@ export const ProjectDetailPage: React.FC = () => {
         month: 'short',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       }).format(d);
     } catch {
       return dateStr;
@@ -436,7 +307,7 @@ export const ProjectDetailPage: React.FC = () => {
   const getOutputIcon = (type: OutputType) => {
     switch (type) {
       case 'summary':
-        return <FileText size={16} color="#f3c958" />;
+        return <FileText size={16} color="#e2b53c" />;
       case 'action_items':
         return <CheckSquare size={16} color="#38bdf8" />;
       case 'follow_up_email':
@@ -452,49 +323,70 @@ export const ProjectDetailPage: React.FC = () => {
       case 'endpoint_report':
         return <BarChart3 size={16} color="#60a5fa" />;
       default:
-        return <Layers size={16} color="#f3c958" />;
+        return <Layers size={16} color="#e2b53c" />;
     }
   };
 
-  if (loading) {
+  // 1. Loading State
+  if (loadingProject) {
     return (
-      <div className="workspace-container">
+      <div className="workspace-page-container">
         <div style={{ textAlign: 'center', padding: '100px 20px' }}>
-          <Loader2 size={36} color="#f3c958" style={{ animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
-          <h2 style={{ fontSize: '1.2rem', color: '#94a3b8' }}>Loading project detail...</h2>
+          <Loader2
+            size={36}
+            color="#e2b53c"
+            className="spin-animation"
+            style={{ margin: '0 auto 16px' }}
+          />
+          <h2 style={{ fontSize: '1.2rem', color: '#f8fafc', fontWeight: 600 }}>Loading project</h2>
+          <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Retrieving project and transcript archive...</p>
         </div>
       </div>
     );
   }
 
-  if (loadError || !project) {
+  // 2. Error State
+  if (projectError || !project) {
     return (
-      <div className="workspace-container">
+      <div className="workspace-page-container">
         <div style={{ marginBottom: '24px' }}>
-          <Link to="/projects" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <Link
+            to="/projects"
+            className="btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
             <ArrowLeft size={16} />
             <span>Back to Projects</span>
           </Link>
         </div>
 
-        <div className="content-card" style={{ textAlign: 'center', padding: '60px 24px', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-          <AlertCircle size={44} color="#ef4444" style={{ marginBottom: '16px' }} />
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: '8px' }}>Project Not Found</h2>
+        <div
+          className="content-card"
+          style={{ textAlign: 'center', padding: '60px 24px', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+        >
+          <AlertCircle size={44} color="#ef4444" style={{ margin: '0 auto 16px' }} />
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+            Failed to load project
+          </h2>
           <p style={{ color: '#94a3b8', maxWidth: '480px', margin: '0 auto 24px auto' }}>
-            {loadError || 'The requested project could not be found or you do not have permission to access it.'}
+            {projectError || 'The requested project could not be found or you do not have permission to access it.'}
           </p>
-          <button type="button" onClick={() => navigate('/projects')} className="btn-gold">
-            Return to Projects List
+          <button type="button" onClick={loadProject} className="btn-primary">
+            <RefreshCw size={16} />
+            <span>Retry</span>
           </button>
         </div>
       </div>
     );
   }
 
+  const displayClientName = project.client_name || project.client_or_project || 'Internal / Unspecified';
+  const displayProjectName = project.project_name || 'Unspecified';
+
   return (
-    <div className="workspace-container">
-      {/* Back button */}
-      <div style={{ marginBottom: '20px' }}>
+    <div className="workspace-page-container">
+      {/* Top Breadcrumb & Back Link */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
         <Link
           to="/projects"
           style={{
@@ -503,15 +395,28 @@ export const ProjectDetailPage: React.FC = () => {
             gap: '6px',
             color: '#94a3b8',
             fontSize: '0.88rem',
-            textDecoration: 'none'
+            textDecoration: 'none',
           }}
         >
           <ArrowLeft size={16} />
           <span>Back to Projects</span>
         </Link>
+        <Link
+          to="/search"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: '#e2b53c',
+            fontSize: '0.85rem',
+            textDecoration: 'none',
+          }}
+        >
+          <span>Search Meeting History</span>
+        </Link>
       </div>
 
-      {deleteError && (
+      {deleteProjectError && (
         <div
           style={{
             padding: '12px 16px',
@@ -523,11 +428,11 @@ export const ProjectDetailPage: React.FC = () => {
             marginBottom: '20px',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
           }}
         >
           <AlertCircle size={16} />
-          <span>{deleteError}</span>
+          <span>{deleteProjectError}</span>
         </div>
       )}
 
@@ -539,13 +444,14 @@ export const ProjectDetailPage: React.FC = () => {
           justifyContent: 'space-between',
           alignItems: 'flex-start',
           flexWrap: 'wrap',
-          gap: '16px'
+          gap: '16px',
+          marginBottom: '24px',
         }}
       >
         <div>
           <div className="page-eyebrow">
-            <Sparkles size={13} color="#f3c958" />
-            <span>PROJECT WORKSPACE</span>
+            <Sparkles size={13} color="#e2b53c" />
+            <span>PROJECT & MEETING MEMORY</span>
           </div>
           <h1 className="page-title">{project.title}</h1>
           <p className="page-subtitle">
@@ -553,12 +459,17 @@ export const ProjectDetailPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Action Buttons: Edit & Delete */}
+        {/* Action Buttons: Edit, Delete */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {!isEditing && (
-            <button type="button" onClick={handleStartEditing} className="btn-secondary">
+          {!isEditingProject && (
+            <button
+              type="button"
+              onClick={handleStartEditing}
+              className="btn btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
               <Edit3 size={15} />
-              <span>Edit project details</span>
+              <span>Edit Project</span>
             </button>
           )}
 
@@ -566,7 +477,7 @@ export const ProjectDetailPage: React.FC = () => {
             type="button"
             onClick={() => {
               setShowDeleteConfirm(true);
-              setDeleteError(null);
+              setDeleteProjectError(null);
             }}
             style={{
               padding: '10px 16px',
@@ -580,23 +491,22 @@ export const ProjectDetailPage: React.FC = () => {
               gap: '6px',
               fontSize: '0.88rem',
               fontWeight: 500,
-              transition: 'all 0.15s ease'
             }}
           >
             <Trash2 size={16} />
-            <span>Delete project</span>
+            <span>Delete</span>
           </button>
         </div>
       </div>
 
-      {/* Edit Form Modal/Card (if active) */}
-      {isEditing && (
+      {/* EDIT PROJECT FORM */}
+      {isEditingProject && (
         <div
           className="content-card"
           style={{
             marginBottom: '28px',
             border: '1px solid rgba(226, 181, 60, 0.4)',
-            boxShadow: '0 0 24px rgba(226, 181, 60, 0.1)'
+            boxShadow: '0 0 24px rgba(226, 181, 60, 0.1)',
           }}
         >
           <div
@@ -604,12 +514,14 @@ export const ProjectDetailPage: React.FC = () => {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '18px'
+              marginBottom: '18px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Edit3 size={18} color="#f3c958" />
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Edit Project Details</h2>
+              <Edit3 size={18} color="#e2b53c" />
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                Edit Project
+              </h2>
             </div>
             <button
               type="button"
@@ -618,17 +530,17 @@ export const ProjectDetailPage: React.FC = () => {
                 background: 'transparent',
                 border: 'none',
                 color: '#94a3b8',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               <X size={18} />
             </button>
           </div>
 
-          {updateError && (
+          {saveProjectError && (
             <div
               style={{
-                padding: '10px 14px',
+                padding: '12px 16px',
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.35)',
                 borderRadius: '8px',
@@ -637,16 +549,27 @@ export const ProjectDetailPage: React.FC = () => {
                 marginBottom: '16px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                justifyContent: 'space-between',
+                gap: '8px',
               }}
             >
-              <AlertCircle size={15} />
-              <span>{updateError}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} />
+                <span>{saveProjectError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveProject}
+                className="btn btn-secondary"
+                style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+              >
+                Retry
+              </button>
             </div>
           )}
 
-          <form onSubmit={handleUpdateProject}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+          <form onSubmit={handleSaveProject}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div className="form-group">
                 <label className="form-label">
                   Project Title <span style={{ color: '#ef4444' }}>*</span>
@@ -656,8 +579,9 @@ export const ProjectDetailPage: React.FC = () => {
                   className="form-input"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  disabled={updating}
+                  disabled={savingProject}
                   placeholder="e.g. Q4 Executive Strategy Review"
+                  required
                 />
               </div>
 
@@ -667,7 +591,7 @@ export const ProjectDetailPage: React.FC = () => {
                   className="form-input"
                   value={editMeetingType}
                   onChange={(e) => setEditMeetingType(e.target.value)}
-                  disabled={updating}
+                  disabled={savingProject}
                 >
                   <option value="">Select a type (optional)</option>
                   {COMMON_MEETING_TYPES.map((type) => (
@@ -682,14 +606,26 @@ export const ProjectDetailPage: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Client or Project Name</label>
+                <label className="form-label">Client Name</label>
                 <input
                   type="text"
                   className="form-input"
-                  value={editClientOrProject}
-                  onChange={(e) => setEditClientOrProject(e.target.value)}
-                  disabled={updating}
-                  placeholder="e.g. ACME Corp / Internal"
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  disabled={savingProject}
+                  placeholder="e.g. Concludo Pty Ltd / Client Org"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Project Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editProjectName}
+                  onChange={(e) => setEditProjectName(e.target.value)}
+                  disabled={savingProject}
+                  placeholder="e.g. Workspace Modernisation"
                 />
               </div>
 
@@ -700,34 +636,61 @@ export const ProjectDetailPage: React.FC = () => {
                   className="form-input"
                   value={editMeetingDate}
                   onChange={(e) => setEditMeetingDate(e.target.value)}
-                  disabled={updating}
+                  disabled={savingProject}
                 />
               </div>
+            </div>
+
+            {/* Transcript Edit */}
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label">Transcript</label>
+              <textarea
+                className="form-input"
+                rows={8}
+                value={editTranscript}
+                onChange={(e) => setEditTranscript(e.target.value)}
+                disabled={savingProject}
+                placeholder="Meeting transcript dialogue..."
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.88rem' }}
+              />
+            </div>
+
+            {/* Notes Edit */}
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label className="form-label">Notes</label>
+              <textarea
+                className="form-input"
+                rows={4}
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                disabled={savingProject}
+                placeholder="Meeting context or notes..."
+              />
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 onClick={handleCancelEditing}
-                className="btn-secondary"
-                disabled={updating}
+                className="btn btn-secondary"
+                disabled={savingProject}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn-gold"
-                disabled={updating}
+                className="btn btn-primary"
+                disabled={savingProject}
               >
-                {updating ? (
+                {savingProject ? (
                   <>
-                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span>Saving Changes...</span>
+                    <Loader2 size={15} className="spin-animation" />
+                    <span>Updating project</span>
                   </>
                 ) : (
                   <>
-                    <Check size={15} />
-                    <span>Save Project Details</span>
+                    <Save size={15} />
+                    <span>Save</span>
                   </>
                 )}
               </button>
@@ -736,1055 +699,624 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Project Meta Information Cards */}
+      {/* METADATA CARDS: Project Title, Meeting Type, Client Name, Project Name, Meeting Date, Created Date, Last Updated */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: '12px',
-          marginBottom: '28px'
+          marginBottom: '28px',
         }}
       >
-        <div
-          style={{
-            padding: '16px 18px',
-            background: 'rgba(9, 14, 26, 0.65)',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#94a3b8',
-              fontSize: '0.8rem',
-              marginBottom: '6px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}
-          >
-            <Tag size={14} color="#f3c958" />
+        <div className="metadata-card" style={{ padding: '16px', background: 'rgba(9, 14, 26, 0.65)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '0.78rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+            <Tag size={14} color="#e2b53c" />
             <span>Meeting Type</span>
           </div>
-          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '1rem' }}>
+          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
             {project.meeting_type || 'Unspecified'}
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '16px 18px',
-            background: 'rgba(9, 14, 26, 0.65)',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#94a3b8',
-              fontSize: '0.8rem',
-              marginBottom: '6px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}
-          >
-            <User size={14} color="#f3c958" />
-            <span>Client or Project</span>
+        <div className="metadata-card" style={{ padding: '16px', background: 'rgba(9, 14, 26, 0.65)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '0.78rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+            <Building size={14} color="#e2b53c" />
+            <span>Client Name</span>
           </div>
-          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '1rem' }}>
-            {project.client_or_project || 'Internal'}
+          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
+            {displayClientName}
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '16px 18px',
-            background: 'rgba(9, 14, 26, 0.65)',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#94a3b8',
-              fontSize: '0.8rem',
-              marginBottom: '6px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}
-          >
-            <Calendar size={14} color="#f3c958" />
+        <div className="metadata-card" style={{ padding: '16px', background: 'rgba(9, 14, 26, 0.65)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '0.78rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+            <User size={14} color="#e2b53c" />
+            <span>Project Name</span>
+          </div>
+          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
+            {displayProjectName}
+          </div>
+        </div>
+
+        <div className="metadata-card" style={{ padding: '16px', background: 'rgba(9, 14, 26, 0.65)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '0.78rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+            <Calendar size={14} color="#e2b53c" />
             <span>Meeting Date</span>
           </div>
-          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '1rem' }}>
+          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
             {formatDate(project.meeting_date)}
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '16px 18px',
-            background: 'rgba(9, 14, 26, 0.65)',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#94a3b8',
-              fontSize: '0.8rem',
-              marginBottom: '6px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}
-          >
-            <Clock size={14} color="#f3c958" />
+        <div className="metadata-card" style={{ padding: '16px', background: 'rgba(9, 14, 26, 0.65)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '0.78rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+            <Clock size={14} color="#e2b53c" />
             <span>Created Date</span>
           </div>
-          <div style={{ fontWeight: 500, color: '#f8fafc', fontSize: '0.92rem' }}>
+          <div style={{ fontWeight: 500, color: '#f8fafc', fontSize: '0.88rem' }}>
             {formatTimestamp(project.created_at)}
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '16px 18px',
-            background: 'rgba(9, 14, 26, 0.65)',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#94a3b8',
-              fontSize: '0.8rem',
-              marginBottom: '6px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}
-          >
-            <Clock size={14} color="#f3c958" />
+        <div className="metadata-card" style={{ padding: '16px', background: 'rgba(9, 14, 26, 0.65)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '0.78rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+            <Clock size={14} color="#e2b53c" />
             <span>Last Updated</span>
           </div>
-          <div style={{ fontWeight: 500, color: '#f8fafc', fontSize: '0.92rem' }}>
+          <div style={{ fontWeight: 500, color: '#f8fafc', fontSize: '0.88rem' }}>
             {formatTimestamp(project.updated_at)}
           </div>
         </div>
       </div>
 
-      {/* Tabs container */}
-      <div className="tabs-container">
-        <button
-          type="button"
-          className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button
-          type="button"
-          className={`tab-button ${activeTab === 'transcript' ? 'active' : ''}`}
-          onClick={() => setActiveTab('transcript')}
-        >
-          Transcript
-        </button>
-        <button
-          type="button"
-          className={`tab-button ${activeTab === 'outputs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('outputs')}
-        >
-          Outputs {outputs.length > 0 && `(${outputs.length})`}
-        </button>
-      </div>
-
-      {/* Tab content area */}
-      <div className="content-card">
-        {/* OVERVIEW TAB */}
-        {activeTab === 'overview' && (
-          <div>
-            <h2 style={{ fontSize: '1.3rem', marginBottom: '8px', fontWeight: 600 }}>Project Overview</h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '24px' }}>
-              Project overview will appear here
-            </p>
-
-            <div
-              style={{
-                background: 'rgba(33, 57, 92, 0.25)',
-                border: '1px solid rgba(226, 181, 60, 0.2)',
-                borderRadius: '12px',
-                padding: '20px',
-                fontSize: '0.9rem',
-                color: '#cbd5e1'
-              }}
+      {/* SECTION: TRANSCRIPT (Immediately loaded with project) */}
+      <section className="content-card" style={{ marginBottom: '28px', padding: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={20} color="#e2b53c" />
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Transcript
+            </h2>
+          </div>
+          {project.transcript && (
+            <button
+              type="button"
+              onClick={() => handleCopyText(project.transcript || '', 'transcript')}
+              className="btn btn-secondary"
+              style={{ padding: '5px 12px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              <div style={{ color: '#f3c958', fontWeight: 600, marginBottom: '6px' }}>
-                Concludo Workspace Pipeline
-              </div>
-              <div>
-                This project workspace is configured and ready. Transcripts and generated executive outputs link into this project workspace.
-              </div>
-            </div>
+              {copiedId === 'transcript' ? (
+                <>
+                  <Check size={14} color="#34d399" />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={14} />
+                  <span>Copy Transcript</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        {project.transcript ? (
+          <div
+            style={{
+              background: 'rgba(9, 14, 26, 0.75)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '10px',
+              padding: '18px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.88rem',
+              lineHeight: 1.6,
+              color: '#e2e8f0',
+              whiteSpace: 'pre-wrap',
+              maxHeight: '380px',
+              overflowY: 'auto',
+            }}
+          >
+            {project.transcript}
+          </div>
+        ) : (
+          <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', background: 'rgba(9, 14, 26, 0.4)', borderRadius: '8px' }}>
+            No transcript recorded for this project.
           </div>
         )}
 
-        {/* TRANSCRIPT TAB */}
-        {activeTab === 'transcript' && (
+        {project.notes && (
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+              Notes
+            </h3>
+            <div style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+              {project.notes}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* SECTION: SAVED OUTPUTS */}
+      <section className="content-card" style={{ padding: '24px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '20px',
+            paddingBottom: '14px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
           <div>
-            {/* Section Header */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '12px',
-                marginBottom: '20px',
-                paddingBottom: '16px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={20} color="#e2b53c" />
+              <span>Saved Outputs</span>
+            </h2>
+            <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: '4px 0 0 0' }}>
+              Structured records, executive summaries, and action plans generated for this project.
+            </p>
+          </div>
+
+          {!showCreateOutputForm && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateOutputForm(true);
+                setSaveOutputError(null);
               }}
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.86rem' }}
             >
-              <div>
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-                  Transcript
-                </h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '4px 0 0 0' }}>
-                  Raw meeting dialogue, speaker attribution, and source text archive.
-                </p>
-              </div>
+              <Plus size={15} />
+              <span>Save Output</span>
+            </button>
+          )}
+        </div>
 
-              {/* Status Badge & Actions if transcript exists */}
-              {transcript && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  {/* Speaker Label Detection Badge */}
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      background: transcript.speaker_labels_detected
-                        ? 'rgba(16, 185, 129, 0.15)'
-                        : 'rgba(148, 163, 184, 0.12)',
-                      border: transcript.speaker_labels_detected
-                        ? '1px solid rgba(16, 185, 129, 0.35)'
-                        : '1px solid rgba(148, 163, 184, 0.25)',
-                      color: transcript.speaker_labels_detected ? '#34d399' : '#94a3b8'
-                    }}
-                  >
-                    {transcript.speaker_labels_detected ? (
-                      <>
-                        <Mic size={14} color="#34d399" />
-                        <span>Speaker labels detected</span>
-                      </>
-                    ) : (
-                      <>
-                        <MicOff size={14} color="#94a3b8" />
-                        <span>No speaker labels detected</span>
-                      </>
-                    )}
-                  </div>
+        {/* Output Error Banner with required Retry support */}
+        {(outputsError || deleteOutputError) && (
+          <div
+            style={{
+              padding: '12px 16px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '8px',
+              color: '#fca5a5',
+              fontSize: '0.9rem',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} />
+              <span>{outputsError || deleteOutputError}</span>
+            </div>
+            {outputsError && (
+              <button
+                type="button"
+                onClick={loadOutputs}
+                className="btn btn-secondary"
+                style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
 
-                  {/* Delete Transcript Button */}
-                  {!showDeleteTranscriptConfirm ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteTranscriptConfirm(true)}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        background: 'rgba(239, 68, 68, 0.12)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        color: '#fca5a5',
-                        fontSize: '0.82rem',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <Trash2 size={13} />
-                      <span>Delete Transcript</span>
-                    </button>
-                  ) : (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        background: 'rgba(239, 68, 68, 0.18)',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(239, 68, 68, 0.35)'
-                      }}
-                    >
-                      <span style={{ fontSize: '0.8rem', color: '#fca5a5' }}>Confirm delete?</span>
-                      <button
-                        type="button"
-                        onClick={handleDeleteTranscript}
-                        disabled={deletingTranscript}
-                        style={{
-                          background: '#ef4444',
-                          border: 'none',
-                          color: '#ffffff',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {deletingTranscript ? 'Deleting...' : 'Delete'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowDeleteTranscriptConfirm(false)}
-                        disabled={deletingTranscript}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#94a3b8',
-                          fontSize: '0.78rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+        {/* Loading Outputs State */}
+        {loadingOutputs && (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+            <Loader2 size={24} color="#e2b53c" className="spin-animation" style={{ margin: '0 auto 8px' }} />
+            <div>Loading outputs</div>
+          </div>
+        )}
+
+        {/* CREATE / SAVE OUTPUT FORM */}
+        {showCreateOutputForm && (
+          <div
+            style={{
+              background: 'rgba(9, 14, 26, 0.65)',
+              border: '1px solid rgba(226, 181, 60, 0.35)',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '24px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                Save Output
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateOutputForm(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            {transcriptError && (
+            {saveOutputError && (
               <div
                 style={{
-                  padding: '12px 16px',
+                  padding: '10px 14px',
                   background: 'rgba(239, 68, 68, 0.15)',
                   border: '1px solid rgba(239, 68, 68, 0.35)',
                   borderRadius: '8px',
                   color: '#fca5a5',
-                  fontSize: '0.9rem',
-                  marginBottom: '20px',
+                  fontSize: '0.88rem',
+                  marginBottom: '14px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '8px',
                 }}
               >
-                <AlertCircle size={16} />
-                <span>{transcriptError}</span>
+                <AlertCircle size={15} />
+                <span>{saveOutputError}</span>
               </div>
             )}
 
-            {loadingTranscript ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
-                <Loader2 size={24} color="#f3c958" style={{ animation: 'spin 1s linear infinite', marginBottom: '8px' }} />
-                <div>Loading transcript...</div>
-              </div>
-            ) : (
-              <div>
-                {/* Saved Transcript Display */}
-                {transcript && !isEditingTranscript && (
-                  <div style={{ marginBottom: '28px' }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '10px'
-                      }}
-                    >
-                      <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                        Last updated: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(transcript.updated_at)}</span>
-                        <span style={{ margin: '0 8px' }}>•</span>
-                        Source: <span style={{ color: '#f3c958', textTransform: 'capitalize' }}>{transcript.source_type}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEditingTranscript(true);
-                          setTranscriptInput(transcript.raw_text);
-                        }}
-                        className="btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-                      >
-                        <Edit3 size={14} />
-                        <span>Edit / Replace Transcript</span>
-                      </button>
-                    </div>
-
-                    <div
-                      style={{
-                        background: 'rgba(9, 14, 26, 0.75)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '12px',
-                        padding: '18px',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.88rem',
-                        lineHeight: 1.6,
-                        color: '#e2e8f0',
-                        whiteSpace: 'pre-wrap',
-                        maxHeight: '420px',
-                        overflowY: 'auto'
-                      }}
-                    >
-                      {transcript.raw_text}
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty State when no transcript saved */}
-                {!transcript && (
-                  <div
-                    style={{
-                      background: 'rgba(9, 14, 26, 0.45)',
-                      border: '1px dashed rgba(255, 255, 255, 0.15)',
-                      borderRadius: '12px',
-                      padding: '24px',
-                      marginBottom: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '10px',
-                        background: 'rgba(33, 57, 92, 0.4)',
-                        border: '1px solid rgba(226, 181, 60, 0.3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#f3c958'
-                      }}
-                    >
-                      <Terminal size={18} />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
-                        No transcript saved yet
-                      </div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-                        Paste meeting audio transcripts, Teams/Zoom output, or rough notes below to archive.
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {isEditingTranscript && transcript && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '14px'
-                    }}
-                  >
-                    <span style={{ fontSize: '0.9rem', color: '#f3c958', fontWeight: 600 }}>
-                      Editing Saved Transcript
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsEditingTranscript(false);
-                        setTranscriptInput(transcript.raw_text);
-                        setTranscriptError(null);
-                      }}
-                      className="btn-secondary"
-                      style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-                    >
-                      <RotateCcw size={13} />
-                      <span>Cancel Edit</span>
-                    </button>
-                  </div>
-                )}
-
-                <form onSubmit={handleSaveTranscript}>
-                  <div className="form-group" style={{ marginBottom: '18px' }}>
-                    <textarea
-                      className="form-input"
-                      rows={12}
-                      placeholder="Paste transcript here"
-                      value={transcriptInput}
-                      onChange={(e) => setTranscriptInput(e.target.value)}
-                      disabled={savingTranscript}
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.9rem',
-                        lineHeight: 1.6,
-                        resize: 'vertical',
-                        padding: '16px'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <button
-                      type="submit"
-                      className="btn-gold"
-                      disabled={savingTranscript}
-                    >
-                      {savingTranscript ? (
-                        <>
-                          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                          <span>Saving Transcript...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Save size={16} />
-                          <span>Save Transcript</span>
-                        </>
-                      )}
-                    </button>
-
-                    {isEditingTranscript && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEditingTranscript(false);
-                          if (transcript) setTranscriptInput(transcript.raw_text);
-                          setTranscriptError(null);
-                        }}
-                        className="btn-secondary"
-                        disabled={savingTranscript}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* OUTPUTS TAB */}
-        {activeTab === 'outputs' && (
-          <div>
-            {/* Outputs Section Header */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '12px',
-                marginBottom: '20px',
-                paddingBottom: '16px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
-              }}
-            >
-              <div>
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-                  Outputs
-                </h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '4px 0 0 0' }}>
-                  Generated executive summaries, action item registers, and follow-up communications.
-                </p>
+            <form onSubmit={handleSaveOutput}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">
+                  Output Type <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  className="form-input"
+                  value={newOutputType}
+                  onChange={(e) => setNewOutputType(e.target.value as OutputType)}
+                  disabled={savingOutput}
+                >
+                  {ALLOWED_OUTPUT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {OUTPUT_TYPE_LABELS[type]}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Action button to add output when list already has items */}
-              {outputs.length > 0 && !showCreateOutputForm && (
+              <div className="form-group" style={{ marginBottom: '18px' }}>
+                <label className="form-label">
+                  Output Content <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <textarea
+                  className="form-input"
+                  rows={8}
+                  placeholder="Paste or generate output content here..."
+                  value={newOutputContent}
+                  onChange={(e) => setNewOutputContent(e.target.value)}
+                  disabled={savingOutput}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.88rem',
+                    lineHeight: 1.6,
+                    padding: '14px',
+                  }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={savingOutput}
+                >
+                  {savingOutput ? (
+                    <>
+                      <Loader2 size={16} className="spin-animation" />
+                      <span>Saving output</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      <span>Save Output</span>
+                    </>
+                  )}
+                </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowCreateOutputForm(true);
-                    setSaveOutputError(null);
-                  }}
-                  className="btn-gold"
-                  style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                  onClick={() => setShowCreateOutputForm(false)}
+                  className="btn btn-secondary"
+                  disabled={savingOutput}
                 >
-                  <Plus size={15} />
-                  <span>New Output</span>
+                  Cancel
                 </button>
-              )}
-            </div>
-
-            {/* General Errors */}
-            {(outputsError || deleteOutputError) && (
-              <div
-                style={{
-                  padding: '12px 16px',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  borderRadius: '8px',
-                  color: '#fca5a5',
-                  fontSize: '0.9rem',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <AlertCircle size={16} />
-                <span>{outputsError || deleteOutputError}</span>
               </div>
-            )}
+            </form>
+          </div>
+        )}
 
-            {/* Loading Outputs State */}
-            {loadingOutputs ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
-                <Loader2 size={24} color="#f3c958" style={{ animation: 'spin 1s linear infinite', marginBottom: '8px' }} />
-                <div>Loading outputs...</div>
-              </div>
-            ) : (
-              <div>
-                {/* Empty State Banner (Shown when no outputs exist) */}
-                {outputs.length === 0 && (
+        {/* EMPTY STATE */}
+        {!loadingOutputs && outputs.length === 0 && !showCreateOutputForm && (
+          <div
+            style={{
+              padding: '48px 20px',
+              textAlign: 'center',
+              background: 'rgba(9, 14, 26, 0.4)',
+              borderRadius: '12px',
+              border: '1px dashed rgba(255, 255, 255, 0.12)',
+            }}
+          >
+            <Layers size={36} color="#64748b" style={{ margin: '0 auto 12px' }} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
+              No outputs saved yet
+            </h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginBottom: '18px' }}>
+              Save summaries, action items, or decision logs linked to this project.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCreateOutputForm(true)}
+              className="btn btn-primary"
+            >
+              <Plus size={15} />
+              <span>Save Output</span>
+            </button>
+          </div>
+        )}
+
+        {/* SAVED OUTPUTS LIST: Display Output Type, Created Date, Preview, Open Button, Delete Button */}
+        {!loadingOutputs && outputs.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {outputs.map((output) => {
+              const typeLabel = OUTPUT_TYPE_LABELS[output.output_type] || output.output_type;
+              const previewText = output.content
+                ? output.content.slice(0, 140) + (output.content.length > 140 ? '...' : '')
+                : 'No content recorded';
+              const isDeletingThis = deletingOutputId === output.id;
+              const isConfirming = confirmDeleteOutputId === output.id;
+
+              return (
+                <div
+                  key={output.id}
+                  style={{
+                    background: 'rgba(9, 14, 26, 0.65)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '10px',
+                    padding: '18px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
                   <div
                     style={{
-                      background: 'rgba(9, 14, 26, 0.5)',
-                      border: '1px dashed rgba(226, 181, 60, 0.25)',
-                      borderRadius: '12px',
-                      padding: '24px',
-                      marginBottom: '24px',
                       display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px'
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
                     }}
                   >
-                    <div
-                      style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '10px',
-                        background: 'linear-gradient(135deg, rgba(33, 57, 92, 0.5) 0%, rgba(14, 23, 41, 0.9) 100%)',
-                        border: '1px solid rgba(226, 181, 60, 0.35)',
-                        color: '#f3c958',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}
-                    >
-                      <Layers size={20} />
-                    </div>
                     <div>
-                      <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '1rem' }}>
-                        No outputs saved yet
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            background: 'rgba(226, 181, 60, 0.15)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          {getOutputIcon(output.output_type)}
+                          <span style={{ fontWeight: 600, color: '#e2b53c', fontSize: '0.85rem' }}>
+                            {typeLabel}
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-                        Create manual executive summaries, action items, or follow-up communications below.
+                      <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                        Created: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(output.created_at)}</span>
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Create Output Form (Always shown if 0 outputs, or toggled when outputs exist) */}
-                {(outputs.length === 0 || showCreateOutputForm) && (
-                  <div
-                    style={{
-                      background: 'rgba(9, 14, 26, 0.65)',
-                      border: '1px solid rgba(226, 181, 60, 0.3)',
-                      borderRadius: '12px',
-                      padding: '20px',
-                      marginBottom: '28px',
-                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '16px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Sparkles size={16} color="#f3c958" />
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-                          Create Output Record
-                        </h3>
-                      </div>
-                      {outputs.length > 0 && (
+                    {/* Action buttons: Open Button, Delete Button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setViewingOutput(output)}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.82rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <ExternalLink size={14} />
+                        <span>Open</span>
+                      </button>
+
+                      {!isConfirming ? (
                         <button
                           type="button"
                           onClick={() => {
-                            setShowCreateOutputForm(false);
-                            setSaveOutputError(null);
+                            setConfirmDeleteOutputId(output.id);
+                            setDeleteOutputError(null);
                           }}
                           style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#94a3b8',
-                            cursor: 'pointer'
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#fca5a5',
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
                           }}
                         >
-                          <X size={16} />
+                          <Trash2 size={13} />
+                          <span>Delete</span>
                         </button>
-                      )}
-                    </div>
-
-                    {saveOutputError && (
-                      <div
-                        style={{
-                          padding: '10px 14px',
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          border: '1px solid rgba(239, 68, 68, 0.35)',
-                          borderRadius: '8px',
-                          color: '#fca5a5',
-                          fontSize: '0.88rem',
-                          marginBottom: '14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
-                        }}
-                      >
-                        <AlertCircle size={15} />
-                        <span>{saveOutputError}</span>
-                      </div>
-                    )}
-
-                    <form onSubmit={handleSaveOutput}>
-                      {/* Output Type Selector */}
-                      <div className="form-group" style={{ marginBottom: '16px' }}>
-                        <label className="form-label">
-                          Output Type <span style={{ color: '#ef4444' }}>*</span>
-                        </label>
-                        <select
-                          className="form-input"
-                          value={newOutputType}
-                          onChange={(e) => setNewOutputType(e.target.value as OutputType)}
-                          disabled={savingOutput}
-                        >
-                          {ALLOWED_OUTPUT_TYPES.map((type) => (
-                            <option key={type} value={type}>
-                              {OUTPUT_TYPE_LABELS[type]}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Output Content Area */}
-                      <div className="form-group" style={{ marginBottom: '18px' }}>
-                        <label className="form-label">
-                          Output Content <span style={{ color: '#ef4444' }}>*</span>
-                        </label>
-                        <textarea
-                          className="form-input"
-                          rows={8}
-                          placeholder="Paste or create output content here"
-                          value={newOutputContent}
-                          onChange={(e) => setNewOutputContent(e.target.value)}
-                          disabled={savingOutput}
-                          style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.88rem',
-                            lineHeight: 1.6,
-                            resize: 'vertical',
-                            padding: '14px'
-                          }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <button
-                          type="submit"
-                          className="btn-gold"
-                          disabled={savingOutput}
-                        >
-                          {savingOutput ? (
-                            <>
-                              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                              <span>Saving output...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Save size={16} />
-                              <span>Save Output</span>
-                            </>
-                          )}
-                        </button>
-
-                        {outputs.length > 0 && (
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <button
                             type="button"
-                            onClick={() => {
-                              setShowCreateOutputForm(false);
-                              setSaveOutputError(null);
+                            onClick={() => handleDeleteOutput(output.id)}
+                            disabled={isDeletingThis}
+                            style={{
+                              background: '#ef4444',
+                              border: 'none',
+                              color: '#ffffff',
+                              padding: '5px 10px',
+                              borderRadius: '4px',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
                             }}
-                            className="btn-secondary"
-                            disabled={savingOutput}
+                          >
+                            {isDeletingThis ? 'Deleting...' : 'Confirm'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteOutputId(null)}
+                            disabled={isDeletingThis}
+                            className="btn btn-secondary"
+                            style={{ padding: '5px 8px', fontSize: '0.8rem' }}
                           >
                             Cancel
                           </button>
-                        )}
-                      </div>
-                    </form>
-                  </div>
-                )}
-
-                {/* Saved Output List */}
-                {outputs.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {outputs.map((output) => {
-                      const isEditingThisOutput = editingOutputId === output.id;
-                      const isDeletingThisOutput = deletingOutputId === output.id;
-                      const isConfirmingDelete = confirmDeleteOutputId === output.id;
-                      const isCopied = copiedOutputId === output.id;
-
-                      return (
-                        <div
-                          key={output.id}
-                          style={{
-                            background: 'rgba(9, 14, 26, 0.75)',
-                            border: isEditingThisOutput
-                              ? '1px solid rgba(226, 181, 60, 0.5)'
-                              : '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '12px',
-                            padding: '20px',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {/* Output Card Header */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start',
-                              flexWrap: 'wrap',
-                              gap: '12px',
-                              marginBottom: '14px',
-                              paddingBottom: '12px',
-                              borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
-                            }}
-                          >
-                            {/* Title & Metadata */}
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                <div
-                                  style={{
-                                    padding: '4px 8px',
-                                    borderRadius: '6px',
-                                    background: 'rgba(33, 57, 92, 0.5)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                  }}
-                                >
-                                  {getOutputIcon(output.output_type)}
-                                  <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.9rem' }}>
-                                    {OUTPUT_TYPE_LABELS[output.output_type] || output.output_type}
-                                  </span>
-                                </div>
-                              </div>
-                              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                                Created: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(output.created_at)}</span>
-                                <span style={{ margin: '0 8px' }}>•</span>
-                                Last updated: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(output.updated_at)}</span>
-                              </div>
-                            </div>
-
-                            {/* Action Buttons: Copy, Edit, Delete Output */}
-                            {!isEditingThisOutput && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                {/* Copy Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyOutput(output)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    background: isCopied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                                    border: isCopied ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.15)',
-                                    color: isCopied ? '#34d399' : '#e2e8f0',
-                                    fontSize: '0.82rem',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    transition: 'all 0.15s ease'
-                                  }}
-                                >
-                                  {isCopied ? (
-                                    <>
-                                      <Check size={14} color="#34d399" />
-                                      <span>Copied</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy size={14} />
-                                      <span>Copy</span>
-                                    </>
-                                  )}
-                                </button>
-
-                                {/* Edit Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEditOutput(output)}
-                                  className="btn-secondary"
-                                  style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-                                >
-                                  <Edit3 size={14} />
-                                  <span>Edit</span>
-                                </button>
-
-                                {/* Delete Output Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setConfirmDeleteOutputId(output.id);
-                                    setDeleteOutputError(null);
-                                  }}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    background: 'rgba(239, 68, 68, 0.12)',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    color: '#fca5a5',
-                                    fontSize: '0.82rem',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    transition: 'all 0.15s ease'
-                                  }}
-                                >
-                                  <Trash2 size={13} />
-                                  <span>Delete Output</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Content / Edit View */}
-                          {isEditingThisOutput ? (
-                            <form onSubmit={handleUpdateOutput}>
-                              {updateOutputError && (
-                                <div
-                                  style={{
-                                    padding: '10px 14px',
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                                    borderRadius: '8px',
-                                    color: '#fca5a5',
-                                    fontSize: '0.88rem',
-                                    marginBottom: '14px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                  }}
-                                >
-                                  <AlertCircle size={15} />
-                                  <span>{updateOutputError}</span>
-                                </div>
-                              )}
-
-                              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 300px) 1fr', gap: '14px', marginBottom: '14px' }}>
-                                <div className="form-group">
-                                  <label className="form-label">Output Type</label>
-                                  <select
-                                    className="form-input"
-                                    value={editOutputType}
-                                    onChange={(e) => setEditOutputType(e.target.value as OutputType)}
-                                    disabled={updatingOutput}
-                                  >
-                                    {ALLOWED_OUTPUT_TYPES.map((type) => (
-                                      <option key={type} value={type}>
-                                        {OUTPUT_TYPE_LABELS[type]}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
-
-                              <div className="form-group" style={{ marginBottom: '16px' }}>
-                                <label className="form-label">Content</label>
-                                <textarea
-                                  className="form-input"
-                                  rows={8}
-                                  value={editOutputContent}
-                                  onChange={(e) => setEditOutputContent(e.target.value)}
-                                  disabled={updatingOutput}
-                                  style={{
-                                    fontFamily: 'var(--font-mono)',
-                                    fontSize: '0.88rem',
-                                    lineHeight: 1.6,
-                                    resize: 'vertical',
-                                    padding: '14px'
-                                  }}
-                                />
-                              </div>
-
-                              <div style={{ display: 'flex', gap: '10px' }}>
-                                <button
-                                  type="submit"
-                                  className="btn-gold"
-                                  disabled={updatingOutput}
-                                >
-                                  {updatingOutput ? (
-                                    <>
-                                      <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                                      <span>Updating output...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Save size={15} />
-                                      <span>Save Changes</span>
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleCancelEditOutput}
-                                  className="btn-secondary"
-                                  disabled={updatingOutput}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <div
-                              style={{
-                                background: 'rgba(9, 14, 26, 0.65)',
-                                border: '1px solid rgba(255, 255, 255, 0.08)',
-                                borderRadius: '10px',
-                                padding: '16px',
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: '0.88rem',
-                                lineHeight: 1.6,
-                                color: '#e2e8f0',
-                                whiteSpace: 'pre-wrap',
-                                maxHeight: '360px',
-                                overflowY: 'auto'
-                              }}
-                            >
-                              {output.content}
-                            </div>
-                          )}
                         </div>
-                      );
-                    })}
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {/* Matching Text Preview */}
+                  <div
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.5)',
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.85rem',
+                      lineHeight: 1.5,
+                      color: '#cbd5e1',
+                      borderLeft: '3px solid #e2b53c',
+                    }}
+                  >
+                    {previewText}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Project Delete Confirmation Dialog (Step 1-4 Flow) */}
+      {/* VIEW OUTPUT MODAL */}
+      {viewingOutput && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '680px',
+              width: '100%',
+              padding: '28px',
+              borderRadius: '14px',
+              background: '#16263F',
+              border: '1px solid rgba(226, 181, 60, 0.4)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {getOutputIcon(viewingOutput.output_type)}
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  {OUTPUT_TYPE_LABELS[viewingOutput.output_type] || viewingOutput.output_type}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingOutput(null)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '14px' }}>
+              Created: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(viewingOutput.created_at)}</span>
+              <span style={{ margin: '0 8px' }}>•</span>
+              Last updated: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(viewingOutput.updated_at)}</span>
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                background: 'rgba(9, 14, 26, 0.7)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                padding: '18px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.88rem',
+                lineHeight: 1.6,
+                color: '#e2e8f0',
+                whiteSpace: 'pre-wrap',
+                marginBottom: '18px',
+              }}
+            >
+              {viewingOutput.content}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => handleCopyText(viewingOutput.content || '', viewingOutput.id)}
+                className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                {copiedId === viewingOutput.id ? (
+                  <>
+                    <Check size={14} color="#34d399" />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <span>Copy Output</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingOutput(null)}
+                className="btn btn-primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROJECT DELETE CONFIRMATION DIALOG (Tasklet 11 Retentive Soft Delete) */}
       {showDeleteConfirm && (
         <div
           style={{
@@ -1796,7 +1328,7 @@ export const ProjectDetailPage: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px'
+            padding: '20px',
           }}
         >
           <div
@@ -1808,7 +1340,7 @@ export const ProjectDetailPage: React.FC = () => {
               borderRadius: '16px',
               background: '#16263F',
               border: '1px solid rgba(239, 68, 68, 0.4)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
@@ -1821,26 +1353,24 @@ export const ProjectDetailPage: React.FC = () => {
                   border: '1px solid rgba(239, 68, 68, 0.35)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
                 }}
               >
                 <Trash2 size={22} color="#ef4444" />
               </div>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-                  Delete project?
-                </h3>
-              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                Delete project?
+              </h3>
             </div>
 
             <p style={{ color: '#cbd5e1', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '8px' }}>
               This project will be moved to Recently Deleted.
             </p>
             <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '24px' }}>
-              You can restore it for 30 days.
+              You can restore it for 30 days before permanent removal.
             </p>
 
-            {deleteError && (
+            {deleteProjectError && (
               <div
                 style={{
                   background: 'rgba(239, 68, 68, 0.15)',
@@ -1849,179 +1379,57 @@ export const ProjectDetailPage: React.FC = () => {
                   padding: '10px 14px',
                   marginBottom: '20px',
                   color: '#fca5a5',
-                  fontSize: '0.85rem'
+                  fontSize: '0.85rem',
                 }}
               >
-                {deleteError}
+                {deleteProjectError}
               </div>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 type="button"
-                disabled={deleting}
+                disabled={deletingProject}
                 onClick={() => {
                   setShowDeleteConfirm(false);
-                  setDeleteError(null);
+                  setDeleteProjectError(null);
                 }}
-                className="btn-secondary"
+                className="btn btn-secondary"
                 style={{ padding: '10px 18px', fontSize: '0.9rem' }}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={deleting}
+                disabled={deletingProject}
                 onClick={handleDeleteProject}
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
                   background: '#ef4444',
                   border: 'none',
                   color: '#ffffff',
-                  fontWeight: 600,
+                  padding: '10px 20px',
+                  borderRadius: '8px',
                   fontSize: '0.9rem',
-                  cursor: deleting ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  cursor: deletingProject ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  transition: 'background 0.15s ease'
                 }}
               >
-                {deleting ? (
+                {deletingProject ? (
                   <>
-                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span>Deleting project...</span>
+                    <Loader2 size={16} className="spin-animation" />
+                    <span>Deleting project</span>
                   </>
                 ) : (
-                  <>
-                    <Trash2 size={16} />
-                    <span>Delete project</span>
-                  </>
+                  <span>Delete project</span>
                 )}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Output Delete Confirmation Dialog */}
-      {confirmDeleteOutputId && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(5, 11, 20, 0.85)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-        >
-          <div
-            className="content-card"
-            style={{
-              maxWidth: '440px',
-              width: '100%',
-              padding: '30px',
-              borderRadius: '16px',
-              background: '#16263F',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-              <div
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '12px',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Trash2 size={20} color="#ef4444" />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-                  Delete output?
-                </h3>
-              </div>
-            </div>
-
-            <p style={{ color: '#cbd5e1', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '24px' }}>
-              This output can be restored for 30 days.
-            </p>
-
-            {deleteOutputError && (
-              <div
-                style={{
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
-                  marginBottom: '20px',
-                  color: '#fca5a5',
-                  fontSize: '0.85rem'
-                }}
-              >
-                {deleteOutputError}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                type="button"
-                disabled={deletingOutputId !== null}
-                onClick={() => {
-                  setConfirmDeleteOutputId(null);
-                  setDeleteOutputError(null);
-                }}
-                className="btn-secondary"
-                style={{ padding: '9px 16px', fontSize: '0.88rem' }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={deletingOutputId !== null}
-                onClick={() => handleDeleteOutput(confirmDeleteOutputId)}
-                style={{
-                  padding: '9px 18px',
-                  borderRadius: '8px',
-                  background: '#ef4444',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontWeight: 600,
-                  fontSize: '0.88rem',
-                  cursor: deletingOutputId !== null ? 'not-allowed' : 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                {deletingOutputId !== null ? (
-                  <>
-                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={15} />
-                    <span>Delete output</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };

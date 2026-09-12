@@ -37,6 +37,8 @@ interface DashboardProject {
   id: string;
   title: string;
   meeting_type: string | null;
+  client_name?: string | null;
+  project_name?: string | null;
   client_or_project: string | null;
   meeting_date: string | null;
   updated_at: string;
@@ -118,7 +120,7 @@ export const DashboardPage: React.FC = () => {
     try {
       const { data: projData, error: projErr } = await supabase
         .from('projects')
-        .select('id, title, meeting_type, client_or_project, meeting_date, updated_at')
+        .select('id, title, meeting_type, client_name, project_name, client_or_project, meeting_date, updated_at')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .limit(5);
@@ -603,7 +605,7 @@ export const DashboardPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
             <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <FolderKanban size={19} color="#f3c958" />
-              <span>Recent Projects</span>
+              <span>Transcript Archive / Recent Projects</span>
             </h2>
             <Link to="/projects" style={{ fontSize: '0.82rem', color: '#f3c958', fontWeight: 600 }}>
               View all
@@ -613,7 +615,7 @@ export const DashboardPage: React.FC = () => {
           {loadingProjects ? (
             <div style={{ padding: '36px 0', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
               <Loader2 size={24} className="spin-animation" color="#f3c958" />
-              <span style={{ fontSize: '0.88rem' }}>Loading recent projects...</span>
+              <span style={{ fontSize: '0.88rem' }}>Loading projects</span>
             </div>
           ) : recentProjects.length === 0 ? (
             /* Empty State */
@@ -659,8 +661,11 @@ export const DashboardPage: React.FC = () => {
                           <span>{proj.meeting_type}</span>
                         </span>
                       )}
-                      {proj.client_or_project && (
-                        <span>Client: {proj.client_or_project}</span>
+                      {(proj.client_name || proj.client_or_project) && (
+                        <span>Client: {proj.client_name || proj.client_or_project}</span>
+                      )}
+                      {proj.project_name && (
+                        <span>Project: {proj.project_name}</span>
                       )}
                       {proj.meeting_date && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -701,7 +706,7 @@ export const DashboardPage: React.FC = () => {
           {loadingOutputs ? (
             <div style={{ padding: '36px 0', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
               <Loader2 size={24} className="spin-animation" color="#f3c958" />
-              <span style={{ fontSize: '0.88rem' }}>Loading recent outputs...</span>
+              <span style={{ fontSize: '0.88rem' }}>Loading outputs</span>
             </div>
           ) : recentOutputs.length === 0 ? (
             /* Empty State */

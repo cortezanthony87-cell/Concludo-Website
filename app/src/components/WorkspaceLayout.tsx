@@ -3,6 +3,7 @@ import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderKanban,
+  Search,
   FileText,
   BrainCircuit,
   CheckSquare,
@@ -239,6 +240,16 @@ export const WorkspaceLayout: React.FC = () => {
             >
               <FolderKanban size={18} />
               <span>Projects</span>
+            </NavLink>
+
+            <NavLink
+              to="/search"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Search size={18} />
+              <span>Search</span>
             </NavLink>
 
             <NavLink

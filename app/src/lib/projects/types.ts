@@ -3,8 +3,12 @@ export interface Project {
   user_id: string;
   title: string;
   meeting_type: string | null;
-  client_or_project: string | null;
+  client_name?: string | null;
+  project_name?: string | null;
+  client_or_project?: string | null;
   meeting_date: string | null;
+  transcript?: string | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -15,15 +19,23 @@ export interface Project {
 export interface CreateProjectInput {
   title: string;
   meeting_type?: string | null;
+  client_name?: string | null;
+  project_name?: string | null;
   client_or_project?: string | null;
   meeting_date?: string | null;
+  transcript?: string | null;
+  notes?: string | null;
 }
 
 export interface UpdateProjectInput {
-  title: string;
+  title?: string;
   meeting_type?: string | null;
+  client_name?: string | null;
+  project_name?: string | null;
   client_or_project?: string | null;
   meeting_date?: string | null;
+  transcript?: string | null;
+  notes?: string | null;
 }
 
 export const COMMON_MEETING_TYPES = [

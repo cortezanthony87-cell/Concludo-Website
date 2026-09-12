@@ -32,7 +32,36 @@ export async function fetchProjectTranscript(
       return { data: null, error: new Error(error.message) };
     }
 
-    return { data: (data as Transcript) || null, error: null };
+    if (data) {
+      return { data: data as Transcript, error: null };
+    }
+
+    // Fallback: check projects table for transcript field (Tasklet 13 storage)
+    const { data: projData, error: projErr } = await supabase
+      .from('projects')
+      .select('id, user_id, transcript, created_at, updated_at')
+      .eq('id', projectId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (!projErr && projData?.transcript) {
+      return {
+        data: {
+          id: `proj-tr-${projData.id}`,
+          project_id: projData.id,
+          user_id: projData.user_id,
+          raw_text: projData.transcript,
+          speaker_labels_detected: detectSpeakerLabels(projData.transcript),
+          source_type: 'pasted',
+          created_at: projData.created_at,
+          updated_at: projData.updated_at,
+          deleted_at: null
+        },
+        error: null
+      };
+    }
+
+    return { data: null, error: null };
   } catch (err: any) {
     return {
       data: null,

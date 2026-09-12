@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Project, CreateProjectInput, UpdateProjectInput } from './types';
+import { detectSpeakerLabels } from '../transcripts/speakerDetection';
 
 export interface ProjectQueryResult<T> {
   data: T | null;
@@ -9,6 +10,7 @@ export interface ProjectQueryResult<T> {
 /**
  * Fetch all active projects for the current authenticated user.
  * Normal project queries must only show: deleted_at is null
+ * Sorted: Updated date descending (most recently modified first)
  */
 export async function fetchProjects(
   supabase: SupabaseClient
@@ -18,7 +20,7 @@ export async function fetchProjects(
       .from('projects')
       .select('*')
       .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
 
     if (error) {
       return { data: null, error: new Error(error.message) };
@@ -97,8 +99,10 @@ export async function fetchDeletedProjects(
 /**
  * Create a new project row in Supabase.
  * - Set user_id to the logged-in user
- * - Set created_at automatically
- * - Set updated_at automatically
+ * - Stores all Tasklet 13 fields:
+ *   id, user_id, title, meeting_type, client_name, project_name, meeting_date, transcript, notes
+ * - Synchronizes with transcripts table for archive compatibility
+ * - Set created_at & updated_at automatically
  */
 export async function createProject(
   supabase: SupabaseClient,
@@ -119,12 +123,22 @@ export async function createProject(
       return { data: null, error: new Error('User session not found') };
     }
 
-    const newProjectPayload = {
+    const clientName = input.client_name?.trim() || null;
+    const projectName = input.project_name?.trim() || null;
+    const clientOrProject = input.client_or_project?.trim() || clientName || projectName || null;
+    const transcriptText = input.transcript ? input.transcript.trim() : null;
+    const notesText = input.notes ? input.notes.trim() : null;
+
+    const newProjectPayload: Record<string, any> = {
       user_id: user.id,
       title: trimmedTitle,
       meeting_type: input.meeting_type?.trim() || null,
-      client_or_project: input.client_or_project?.trim() || null,
+      client_name: clientName,
+      project_name: projectName,
+      client_or_project: clientOrProject,
       meeting_date: input.meeting_date || null,
+      transcript: transcriptText,
+      notes: notesText,
       deleted_at: null,
       deleted_by: null,
       purge_after: null
@@ -133,11 +147,26 @@ export async function createProject(
     const { data, error } = await supabase
       .from('projects')
       .insert(newProjectPayload)
-      .select()
+      .select('*')
       .single();
 
     if (error) {
       return { data: null, error: new Error(error.message || 'Failed to create project') };
+    }
+
+    // If transcript text was provided, also save to transcripts table for dual-table archive support
+    if (transcriptText) {
+      try {
+        await supabase.from('transcripts').insert({
+          project_id: data.id,
+          user_id: user.id,
+          raw_text: transcriptText,
+          speaker_labels_detected: detectSpeakerLabels(transcriptText),
+          source_type: 'pasted'
+        });
+      } catch {
+        // Silently continue if transcripts table has non-critical issue; project record has full transcript
+      }
     }
 
     return { data: data as Project, error: null };
@@ -150,7 +179,8 @@ export async function createProject(
 }
 
 /**
- * Update project details: title, meeting_type, client_or_project, meeting_date.
+ * Update project details:
+ * title, meeting_type, client_name, project_name, client_or_project, meeting_date, transcript, notes.
  * Does not change user_id or created_at.
  */
 export async function updateProject(
@@ -159,24 +189,92 @@ export async function updateProject(
   input: UpdateProjectInput
 ): Promise<ProjectQueryResult<Project>> {
   try {
-    const trimmedTitle = input.title ? input.title.trim() : '';
-    if (!trimmedTitle) {
-      return { data: null, error: new Error('Project title missing') };
+    const updatePayload: Record<string, any> = {};
+
+    if (input.title !== undefined) {
+      const trimmedTitle = input.title ? input.title.trim() : '';
+      if (!trimmedTitle) {
+        return { data: null, error: new Error('Project title missing') };
+      }
+      updatePayload.title = trimmedTitle;
     }
 
-    const updatePayload = {
-      title: trimmedTitle,
-      meeting_type: input.meeting_type?.trim() || null,
-      client_or_project: input.client_or_project?.trim() || null,
-      meeting_date: input.meeting_date || null
-    };
+    if (input.meeting_type !== undefined) {
+      updatePayload.meeting_type = input.meeting_type?.trim() || null;
+    }
+
+    if (input.client_name !== undefined) {
+      updatePayload.client_name = input.client_name?.trim() || null;
+    }
+
+    if (input.project_name !== undefined) {
+      updatePayload.project_name = input.project_name?.trim() || null;
+    }
+
+    if (input.client_or_project !== undefined) {
+      updatePayload.client_or_project = input.client_or_project?.trim() || null;
+    } else if (input.client_name !== undefined || input.project_name !== undefined) {
+      updatePayload.client_or_project =
+        input.client_name?.trim() || input.project_name?.trim() || null;
+    }
+
+    if (input.meeting_date !== undefined) {
+      updatePayload.meeting_date = input.meeting_date || null;
+    }
+
+    if (input.transcript !== undefined) {
+      const trimmedTranscript = input.transcript ? input.transcript.trim() : null;
+      updatePayload.transcript = trimmedTranscript;
+
+      // Also update or insert in transcripts table
+      if (trimmedTranscript) {
+        try {
+          const { data: existingTr } = await supabase
+            .from('transcripts')
+            .select('id')
+            .eq('project_id', id)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+          if (existingTr) {
+            await supabase
+              .from('transcripts')
+              .update({
+                raw_text: trimmedTranscript,
+                speaker_labels_detected: detectSpeakerLabels(trimmedTranscript),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingTr.id);
+          } else {
+            const {
+              data: { user }
+            } = await supabase.auth.getUser();
+            if (user) {
+              await supabase.from('transcripts').insert({
+                project_id: id,
+                user_id: user.id,
+                raw_text: trimmedTranscript,
+                speaker_labels_detected: detectSpeakerLabels(trimmedTranscript),
+                source_type: 'pasted'
+              });
+            }
+          }
+        } catch {
+          // Ignore child transcript sync error
+        }
+      }
+    }
+
+    if (input.notes !== undefined) {
+      updatePayload.notes = input.notes ? input.notes.trim() : null;
+    }
 
     const { data, error } = await supabase
       .from('projects')
       .update(updatePayload)
       .eq('id', id)
       .is('deleted_at', null)
-      .select()
+      .select('*')
       .single();
 
     if (error) {
