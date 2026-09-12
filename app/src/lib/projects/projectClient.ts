@@ -1,26 +1,45 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Project, CreateProjectInput, UpdateProjectInput } from './types';
 import { detectSpeakerLabels } from '../transcripts/speakerDetection';
+import { logTeamActivity } from '../teams/teamClient';
 
 export interface ProjectQueryResult<T> {
   data: T | null;
   error: Error | null;
 }
 
+export interface FetchProjectsOptions {
+  teamId?: string;
+  workspaceScope?: 'all' | 'personal' | 'team';
+}
+
 /**
- * Fetch all active projects for the current authenticated user.
+ * Fetch active projects for the current authenticated user and accessible teams.
  * Normal project queries must only show: deleted_at is null
  * Sorted: Updated date descending (most recently modified first)
  */
 export async function fetchProjects(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  options?: FetchProjectsOptions
 ): Promise<ProjectQueryResult<Project[]>> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('projects')
       .select('*')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false });
+      .is('deleted_at', null);
+
+    if (options?.workspaceScope === 'personal') {
+      query = query.or('ownership_type.eq.personal,team_id.is.null');
+    } else if (options?.workspaceScope === 'team') {
+      query = query.eq('ownership_type', 'team');
+      if (options.teamId) {
+        query = query.eq('team_id', options.teamId);
+      }
+    } else if (options?.teamId) {
+      query = query.eq('team_id', options.teamId);
+    }
+
+    const { data, error } = await query.order('updated_at', { ascending: false });
 
     if (error) {
       return { data: null, error: new Error(error.message) };
@@ -36,7 +55,7 @@ export async function fetchProjects(
 }
 
 /**
- * Fetch a single active project by ID for the current authenticated user.
+ * Fetch a single active project by ID.
  * Normal project queries must only show: deleted_at is null
  */
 export async function fetchProjectById(
@@ -71,7 +90,7 @@ export async function fetchProjectById(
 /**
  * Fetch all soft-deleted projects for the current authenticated user (Recently Deleted).
  * Queries records where: deleted_at is not null
- * Respects RLS (only returns records owned by authenticated user).
+ * Respects RLS.
  */
 export async function fetchDeletedProjects(
   supabase: SupabaseClient
@@ -99,8 +118,8 @@ export async function fetchDeletedProjects(
 /**
  * Create a new project row in Supabase.
  * - Set user_id to the logged-in user
- * - Stores all Tasklet 13 fields:
- *   id, user_id, title, meeting_type, client_name, project_name, meeting_date, transcript, notes
+ * - Stores all Tasklet 13 & 16 fields:
+ *   id, user_id, title, meeting_type, client_name, project_name, meeting_date, transcript, notes, ownership_type, team_id
  * - Synchronizes with transcripts table for archive compatibility
  * - Set created_at & updated_at automatically
  */
@@ -128,6 +147,8 @@ export async function createProject(
     const clientOrProject = input.client_or_project?.trim() || clientName || projectName || null;
     const transcriptText = input.transcript ? input.transcript.trim() : null;
     const notesText = input.notes ? input.notes.trim() : null;
+    const ownershipType = input.ownership_type || (input.team_id ? 'team' : 'personal');
+    const teamId = input.team_id || null;
 
     const newProjectPayload: Record<string, any> = {
       user_id: user.id,
@@ -139,6 +160,8 @@ export async function createProject(
       meeting_date: input.meeting_date || null,
       transcript: transcriptText,
       notes: notesText,
+      ownership_type: ownershipType,
+      team_id: teamId,
       deleted_at: null,
       deleted_by: null,
       purge_after: null
@@ -169,6 +192,17 @@ export async function createProject(
       }
     }
 
+    // If team project, log team activity
+    if (teamId && ownershipType === 'team') {
+      await logTeamActivity(supabase, teamId, {
+        activity_type: 'project_created',
+        title: 'Project created',
+        description: `Created project "${trimmedTitle}"`,
+        entity_id: data.id,
+        entity_type: 'project',
+      });
+    }
+
     return { data: data as Project, error: null };
   } catch (err: any) {
     return {
@@ -181,7 +215,6 @@ export async function createProject(
 /**
  * Update project details:
  * title, meeting_type, client_name, project_name, client_or_project, meeting_date, transcript, notes.
- * Does not change user_id or created_at.
  */
 export async function updateProject(
   supabase: SupabaseClient,
@@ -189,7 +222,9 @@ export async function updateProject(
   input: UpdateProjectInput
 ): Promise<ProjectQueryResult<Project>> {
   try {
-    const updatePayload: Record<string, any> = {};
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
 
     if (input.title !== undefined) {
       const trimmedTitle = input.title ? input.title.trim() : '';
@@ -220,6 +255,14 @@ export async function updateProject(
 
     if (input.meeting_date !== undefined) {
       updatePayload.meeting_date = input.meeting_date || null;
+    }
+
+    if (input.ownership_type !== undefined) {
+      updatePayload.ownership_type = input.ownership_type;
+    }
+
+    if (input.team_id !== undefined) {
+      updatePayload.team_id = input.team_id;
     }
 
     if (input.transcript !== undefined) {
@@ -281,6 +324,16 @@ export async function updateProject(
       return { data: null, error: new Error(error.message || 'Failed to update project') };
     }
 
+    if (data?.team_id && data.ownership_type === 'team') {
+      await logTeamActivity(supabase, data.team_id, {
+        activity_type: 'project_updated',
+        title: 'Project updated',
+        description: `Updated project "${data.title}"`,
+        entity_id: data.id,
+        entity_type: 'project',
+      });
+    }
+
     return { data: data as Project, error: null };
   } catch (err: any) {
     return {
@@ -293,10 +346,6 @@ export async function updateProject(
 /**
  * Soft delete a project by setting deleted_at to current timestamp.
  * Do not hard delete the row.
- * Sets:
- * deleted_at = now()
- * deleted_by = authenticated user
- * purge_after = now() + 30 days
  */
 export async function softDeleteProject(
   supabase: SupabaseClient,
@@ -330,6 +379,17 @@ export async function softDeleteProject(
       return { success: false, error: new Error('Project not found or already deleted') };
     }
 
+    const proj = data[0];
+    if (proj.team_id && proj.ownership_type === 'team') {
+      await logTeamActivity(supabase, proj.team_id, {
+        activity_type: 'project_deleted',
+        title: 'Project deleted',
+        description: `Moved project "${proj.title}" to Recently Deleted`,
+        entity_id: proj.id,
+        entity_type: 'project',
+      });
+    }
+
     return { success: true, error: null };
   } catch (err: any) {
     return {
@@ -342,7 +402,6 @@ export async function softDeleteProject(
 /**
  * Restore a soft-deleted project back to active state.
  * Uses atomic PostgreSQL RPC function restore_project.
- * Clears deleted_at, deleted_by, and purge_after.
  */
 export async function restoreProject(
   supabase: SupabaseClient,
@@ -373,7 +432,6 @@ export async function restoreProject(
 /**
  * Permanently delete a project from Recently Deleted.
  * Uses atomic PostgreSQL RPC function permanent_delete_project.
- * STRICT GUARD: Only succeeds if the record is currently soft-deleted (deleted_at is not null).
  */
 export async function permanentDeleteProject(
   supabase: SupabaseClient,

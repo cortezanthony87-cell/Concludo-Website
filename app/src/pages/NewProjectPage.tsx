@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -11,14 +11,17 @@ import {
   AlertCircle,
   Loader2,
   Check,
-  RefreshCw
+  RefreshCw,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { createProject } from '../lib/projects/projectClient';
-import { COMMON_MEETING_TYPES } from '../lib/projects/types';
+import { COMMON_MEETING_TYPES, OwnershipType } from '../lib/projects/types';
+import { fetchUserTeams } from '../lib/teams/teamClient';
+import { Team, TeamRole } from '../lib/teams/types';
 
 export const NewProjectPage: React.FC = () => {
-  const { supabase } = useAuth();
+  const { supabase, user } = useAuth();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
@@ -29,8 +32,28 @@ export const NewProjectPage: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Workspace ownership
+  const [ownershipType, setOwnershipType] = useState<OwnershipType>('personal');
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+  const [userTeams, setUserTeams] = useState<(Team & { currentRole: TeamRole })[]>([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadTeams() {
+      if (!supabase) return;
+      setLoadingTeams(true);
+      const res = await fetchUserTeams(supabase);
+      if (res.data && res.data.length > 0) {
+        setUserTeams(res.data);
+        setSelectedTeamId(res.data[0].id);
+      }
+      setLoadingTeams(false);
+    }
+    loadTeams();
+  }, [supabase]);
 
   const handleCreate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -48,6 +71,11 @@ export const NewProjectPage: React.FC = () => {
       return;
     }
 
+    if (ownershipType === 'team' && !selectedTeamId) {
+      setErrorMessage('Please select a Team Workspace for this project.');
+      return;
+    }
+
     if (!supabase) {
       setErrorMessage('Failed to create project: Database connection unavailable.');
       return;
@@ -62,7 +90,9 @@ export const NewProjectPage: React.FC = () => {
       project_name: projectName.trim() || null,
       meeting_date: meetingDate || null,
       transcript: trimmedTranscript,
-      notes: notes.trim() || null
+      notes: notes.trim() || null,
+      ownership_type: ownershipType,
+      team_id: ownershipType === 'team' ? selectedTeamId : null,
     });
 
     if (result.error || !result.data) {
@@ -87,7 +117,7 @@ export const NewProjectPage: React.FC = () => {
             color: '#94a3b8',
             fontSize: '0.88rem',
             fontWeight: 500,
-            textDecoration: 'none'
+            textDecoration: 'none',
           }}
         >
           <ArrowLeft size={16} />
@@ -118,7 +148,7 @@ export const NewProjectPage: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '12px'
+            gap: '12px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -139,6 +169,85 @@ export const NewProjectPage: React.FC = () => {
 
       <div className="content-card">
         <form onSubmit={handleCreate}>
+          {/* Workspace Destination Selector */}
+          {userTeams.length > 0 && (
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                padding: '16px 18px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                marginBottom: '24px',
+              }}
+            >
+              <label
+                className="form-label"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}
+              >
+                <Users size={15} color="#f3c958" />
+                <span>Workspace Destination</span>
+              </label>
+
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="workspace"
+                    checked={ownershipType === 'personal'}
+                    onChange={() => setOwnershipType('personal')}
+                    disabled={saving}
+                  />
+                  <span>Personal Workspace</span>
+                </label>
+
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="workspace"
+                    checked={ownershipType === 'team'}
+                    onChange={() => setOwnershipType('team')}
+                    disabled={saving}
+                  />
+                  <span>Team Workspace</span>
+                </label>
+
+                {ownershipType === 'team' && (
+                  <select
+                    className="form-select"
+                    style={{ minWidth: '220px', padding: '6px 12px', fontSize: '0.88rem' }}
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                    disabled={saving}
+                  >
+                    {userTeams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Project Title (Required) */}
           <div className="form-group">
             <label

@@ -27,6 +27,9 @@ import { InsightPage } from './pages/InsightPage';
 import { StatsPage } from './pages/StatsPage';
 import { EndpointReportPage } from './pages/EndpointReportPage';
 import { ConnectionTestPage } from './pages/ConnectionTestPage';
+import { TeamDashboardPage } from './pages/TeamDashboardPage';
+import { CreateTeamPage } from './pages/CreateTeamPage';
+import { TeamSettingsPage } from './pages/TeamSettingsPage';
 
 export const App: React.FC = () => {
   return (
@@ -83,6 +86,12 @@ export const App: React.FC = () => {
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/endpoint-report" element={<EndpointReportPage />} />
             <Route path="/endpoint-report/:id" element={<EndpointReportPage />} />
+
+            {/* Team Workspace Routes */}
+            <Route path="/team" element={<TeamDashboardPage />} />
+            <Route path="/team/create" element={<CreateTeamPage />} />
+            <Route path="/team/settings" element={<TeamSettingsPage />} />
+
             <Route path="/admin" element={<DashboardPage />} />
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

@@ -62,7 +62,6 @@ export async function handleApiRequest(
   }
 
   // Automated Retention Purge Endpoint (Background worker / Cron / Scheduled function)
-  // Can be called via cron secret or service key, or via authenticated user session
   if (pathname === '/api/retention/purge') {
     if (req.method !== 'POST') {
       return {
@@ -389,6 +388,41 @@ export async function handleApiRequest(
       { method: 'POST', feature: 'endpoint_report' },
     ],
     '/api/export/automation': [{ method: 'POST', feature: 'automation_export' }],
+
+    // Tasklet 16 Team Workspace & Collaboration Endpoints
+    '/api/team': [
+      { method: 'GET', feature: 'team_workspace' },
+      { method: 'POST', feature: 'team_workspace' },
+      { method: 'PUT', feature: 'team_workspace' },
+      { method: 'DELETE', feature: 'team_workspace' },
+    ],
+    '/api/teams': [
+      { method: 'GET', feature: 'team_workspace' },
+      { method: 'POST', feature: 'team_workspace' },
+      { method: 'PUT', feature: 'team_workspace' },
+      { method: 'DELETE', feature: 'team_workspace' },
+    ],
+    '/api/team/admin': [
+      { method: 'GET', feature: 'team_administration' },
+      { method: 'POST', feature: 'team_administration' },
+      { method: 'PUT', feature: 'team_administration' },
+      { method: 'DELETE', feature: 'team_administration' },
+    ],
+    '/api/team/invitations': [
+      { method: 'GET', feature: 'team_administration' },
+      { method: 'POST', feature: 'team_administration' },
+      { method: 'PUT', feature: 'team_administration' },
+      { method: 'DELETE', feature: 'team_administration' },
+    ],
+    '/api/team/activity': [
+      { method: 'GET', feature: 'team_workspace' },
+    ],
+    '/api/team/insights': [
+      { method: 'GET', feature: 'shared_insights' },
+    ],
+    '/api/team/stats': [
+      { method: 'GET', feature: 'shared_insights' },
+    ],
   };
 
   // Match route

@@ -18,6 +18,11 @@ export type FeatureKey =
   | 'endpoint_report'
   | 'automation_export'
   | 'team_workspace'
+  | 'team_administration'
+  | 'shared_projects'
+  | 'shared_decisions'
+  | 'shared_actions'
+  | 'shared_insights'
   | 'admin_dashboard'
   | 'core_outputs'
   | 'copy_output'
@@ -40,6 +45,11 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'endpoint_report',
   'automation_export',
   'team_workspace',
+  'team_administration',
+  'shared_projects',
+  'shared_decisions',
+  'shared_actions',
+  'shared_insights',
   'admin_dashboard',
   'core_outputs',
   'copy_output',
@@ -63,6 +73,11 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   endpoint_report: 'Endpoint Report',
   automation_export: 'Automation Export',
   team_workspace: 'Team Workspace',
+  team_administration: 'Team Administration',
+  shared_projects: 'Shared Projects',
+  shared_decisions: 'Shared Decision Memory',
+  shared_actions: 'Shared Action Tracker',
+  shared_insights: 'Shared Insights',
   admin_dashboard: 'Admin Dashboard',
   core_outputs: 'Core Outputs',
   copy_output: 'Copy Output',
@@ -145,6 +160,11 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'endpoint_report',
     'automation_export',
     'team_workspace',
+    'team_administration',
+    'shared_projects',
+    'shared_decisions',
+    'shared_actions',
+    'shared_insights',
     'core_outputs',
     'copy_output',
     'json_export',
@@ -165,6 +185,11 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'endpoint_report',
     'automation_export',
     'team_workspace',
+    'team_administration',
+    'shared_projects',
+    'shared_decisions',
+    'shared_actions',
+    'shared_insights',
     'admin_dashboard',
     'core_outputs',
     'copy_output',
@@ -193,6 +218,11 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   meeting_health_dashboard: 'Available on Pro',
   automation_export: 'Available on Pro',
   team_workspace: 'Available on Team',
+  team_administration: 'Available on Team',
+  shared_projects: 'Available on Team',
+  shared_decisions: 'Available on Team',
+  shared_actions: 'Available on Team',
+  shared_insights: 'Available on Team',
   admin_dashboard: 'Available on Admin',
   admin_tools: 'Available on Admin',
   saved_projects: 'Available on Pro',

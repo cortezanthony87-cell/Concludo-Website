@@ -45,6 +45,8 @@ import { fetchUserInsights, fetchUserStats } from '../lib/intelligence/intellige
 import { InsightData, StatsData } from '../lib/intelligence/types';
 import { fetchEndpointReports } from '../lib/reports/reportClient';
 import { EndpointReport } from '../lib/reports/types';
+import { fetchUserTeams } from '../lib/teams/teamClient';
+import { Team, TeamRole } from '../lib/teams/types';
 
 interface DashboardProject {
   id: string;
@@ -81,6 +83,7 @@ export const DashboardPage: React.FC = () => {
   const [insights, setInsights] = useState<InsightData | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentReports, setRecentReports] = useState<EndpointReport[]>([]);
+  const [userTeams, setUserTeams] = useState<(Team & { currentRole: TeamRole })[]>([]);
   const [backendPerms, setBackendPerms] = useState<BackendPermissionsResponse | null>(null);
 
   // Loading states
@@ -274,6 +277,18 @@ export const DashboardPage: React.FC = () => {
         console.warn('Could not load dashboard reports:', err);
       } finally {
         setLoadingReports(false);
+      }
+    }
+
+    // 10. Fetch User Teams if team_workspace is allowed
+    if (permDataResult?.allowedFeatures.includes('team_workspace')) {
+      try {
+        const teamsRes = await fetchUserTeams(supabase);
+        if (teamsRes.data) {
+          setUserTeams(teamsRes.data);
+        }
+      } catch (err) {
+        console.warn('Could not load user teams:', err);
       }
     }
 
@@ -711,6 +726,93 @@ export const DashboardPage: React.FC = () => {
           </Link>
         </div>
       </section>
+
+      {/* SECTION: TEAM WORKSPACE SNAPSHOT (When on Team / Admin Tier) */}
+      {isFeatureAllowed('team_workspace') && (
+        <section
+          className="content-card"
+          style={{
+            padding: '22px 24px',
+            marginBottom: '32px',
+            background: 'linear-gradient(135deg, #16263f 0%, #1a2f4d 100%)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '8px',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#38bdf8',
+                }}
+              >
+                <Users size={20} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Team Workspaces</span>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: '#38bdf8',
+                    }}
+                  >
+                    TEAM PLAN ACTIVE
+                  </span>
+                </h2>
+                <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: '2px 0 0 0' }}>
+                  {userTeams.length > 0
+                    ? `You are an active member of ${userTeams.length} collaborative workspace${userTeams.length > 1 ? 's' : ''}.`
+                    : 'Set up your shared workspace to collaborate on meeting archives, decisions, and action plans.'}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {userTeams.length > 0 ? (
+                <>
+                  <Link
+                    to="/team"
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span>Open Team Workspace</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                  <Link
+                    to="/team/settings"
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                  >
+                    <span>Manage Team</span>
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  to="/team/create"
+                  className="btn btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <PlusCircle size={15} />
+                  <span>Create Team Workspace</span>
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* TWO-COLUMN GRID: RECENT PROJECTS & RECENT OUTPUTS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '24px', marginBottom: '40px' }}>

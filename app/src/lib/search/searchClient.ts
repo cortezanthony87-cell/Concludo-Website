@@ -9,6 +9,8 @@ export interface SearchFilterOptions {
   projectName?: string;
   startDate?: string;
   endDate?: string;
+  workspaceScope?: 'all' | 'personal' | 'team' | 'both';
+  teamId?: string;
 }
 
 export interface SearchResultItem {
@@ -37,13 +39,7 @@ export interface SearchQueryResult {
  * - Decision records (decision_title, decision_summary, decision_reasoning, decision_owner)
  * - Action records (action_title, action_description, owner_name, status)
  *
- * Results are ranked by relevance.
- *
- * Rules:
- * - Search only current user's records (auth.uid())
- * - Respect RLS
- * - Never return deleted projects, deleted outputs, deleted decisions, or deleted actions
- * - Never return other users' records
+ * Supports Personal Workspace, Team Workspace, or Both.
  */
 export async function searchMeetingHistory(
   supabase: SupabaseClient,
@@ -66,6 +62,7 @@ export async function searchMeetingHistory(
     }
 
     const typeFilter = filters?.typeFilter || 'all';
+    const workspaceScope = filters?.workspaceScope || 'all';
 
     // Try PostgreSQL RPC function first
     try {
@@ -77,6 +74,8 @@ export async function searchMeetingHistory(
         p_project_name: filters?.projectName || null,
         p_start_date: filters?.startDate || null,
         p_end_date: filters?.endDate || null,
+        p_workspace_scope: workspaceScope,
+        p_team_id: filters?.teamId || null,
       });
 
       if (!rpcError && Array.isArray(rpcData)) {
@@ -106,6 +105,15 @@ export async function searchMeetingHistory(
 
     // Helper filter check
     const matchesMeta = (p: any) => {
+      if (workspaceScope === 'personal' && p.ownership_type === 'team' && p.team_id) {
+        return false;
+      }
+      if (workspaceScope === 'team' && p.ownership_type !== 'team') {
+        return false;
+      }
+      if (filters?.teamId && p.team_id !== filters.teamId) {
+        return false;
+      }
       if (filters?.meetingType && (!p.meeting_type || !p.meeting_type.toLowerCase().includes(filters.meetingType.toLowerCase()))) {
         return false;
       }
@@ -129,7 +137,7 @@ export async function searchMeetingHistory(
     if (typeFilter === 'all' || typeFilter === 'projects') {
       const { data: projects, error: projErr } = await supabase
         .from('projects')
-        .select('id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, transcript, notes, created_at, updated_at')
+        .select('id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, transcript, notes, created_at, updated_at, ownership_type, team_id')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
@@ -205,7 +213,7 @@ export async function searchMeetingHistory(
     if (typeFilter === 'all' || typeFilter === 'outputs') {
       const { data: outputs, error: outErr } = await supabase
         .from('outputs')
-        .select('id, project_id, output_type, content, created_at, updated_at, projects(id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, deleted_at)')
+        .select('id, project_id, output_type, content, created_at, updated_at, projects(id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, deleted_at, ownership_type, team_id)')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
@@ -240,7 +248,7 @@ export async function searchMeetingHistory(
     if (typeFilter === 'all' || typeFilter === 'decisions') {
       const { data: decisions, error: decErr } = await supabase
         .from('decision_memory')
-        .select('id, project_id, decision_title, decision_summary, decision_reasoning, decision_owner, decision_date, created_at, updated_at, projects(id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, deleted_at)')
+        .select('id, project_id, decision_title, decision_summary, decision_reasoning, decision_owner, decision_date, created_at, updated_at, projects(id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, deleted_at, ownership_type, team_id)')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
@@ -303,7 +311,7 @@ export async function searchMeetingHistory(
     if (typeFilter === 'all' || typeFilter === 'actions') {
       const { data: actions, error: actErr } = await supabase
         .from('action_tracker')
-        .select('id, project_id, action_title, action_description, owner_name, due_date, status, created_at, updated_at, projects(id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, deleted_at)')
+        .select('id, project_id, action_title, action_description, owner_name, assigned_user_name, due_date, status, created_at, updated_at, projects(id, title, client_name, project_name, client_or_project, meeting_type, meeting_date, deleted_at, ownership_type, team_id)')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
@@ -322,10 +330,10 @@ export async function searchMeetingHistory(
             matchField = 'Action: Title';
             preview = a.action_title;
             relevance = a.action_title.toLowerCase() === qLower ? 95 : 85;
-          } else if (a.owner_name && a.owner_name.toLowerCase().includes(qLower)) {
+          } else if ((a.owner_name && a.owner_name.toLowerCase().includes(qLower)) || (a.assigned_user_name && a.assigned_user_name.toLowerCase().includes(qLower))) {
             matched = true;
             matchField = 'Action: Owner';
-            preview = a.owner_name;
+            preview = a.assigned_user_name || a.owner_name;
             relevance = 80;
           } else if (a.status && a.status.toLowerCase().includes(qLower)) {
             matched = true;
@@ -360,19 +368,18 @@ export async function searchMeetingHistory(
       }
     }
 
-    // Sort by relevance score descending, then by updatedAt descending
+    // Sort combined results by relevance score DESC, then date DESC
     results.sort((a, b) => {
       if (b.relevanceScore !== a.relevanceScore) {
         return b.relevanceScore - a.relevanceScore;
       }
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return timeB - timeA;
     });
 
     return { data: results, error: null };
   } catch (err: any) {
-    return {
-      data: null,
-      error: err instanceof Error ? err : new Error('Search failed'),
-    };
+    return { data: null, error: err instanceof Error ? err : new Error('Search failed') };
   }
 }

@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useFeatureAccess } from '../lib/permissions/usePermissions';
@@ -27,6 +28,8 @@ import {
   SearchFilterOptions,
   SearchRecordType,
 } from '../lib/search/searchClient';
+import { fetchUserTeams } from '../lib/teams/teamClient';
+import { Team, TeamRole } from '../lib/teams/types';
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +51,20 @@ export const SearchPage: React.FC = () => {
   const [meetingTypeFilter, setMeetingTypeFilter] = useState(searchParams.get('meetingType') || '');
   const [startDateFilter, setStartDateFilter] = useState(searchParams.get('startDate') || '');
   const [endDateFilter, setEndDateFilter] = useState(searchParams.get('endDate') || '');
+
+  // Workspace scope filters
+  const [workspaceFilter, setWorkspaceFilter] = useState<'all' | 'personal' | 'team'>('all');
+  const [userTeams, setUserTeams] = useState<(Team & { currentRole: TeamRole })[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+
+  useEffect(() => {
+    async function loadTeams() {
+      if (!supabase) return;
+      const res = await fetchUserTeams(supabase);
+      if (res.data) setUserTeams(res.data);
+    }
+    loadTeams();
+  }, [supabase]);
 
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,6 +94,8 @@ export const SearchPage: React.FC = () => {
         meetingType: meetingTypeFilter.trim() || undefined,
         startDate: startDateFilter || undefined,
         endDate: endDateFilter || undefined,
+        workspaceScope: workspaceFilter,
+        teamId: workspaceFilter === 'team' && selectedTeamId ? selectedTeamId : undefined,
       };
 
       const { data, error: searchErr } = await searchMeetingHistory(supabase, q, filterOpts);
@@ -89,7 +108,17 @@ export const SearchPage: React.FC = () => {
       }
       setLoading(false);
     },
-    [supabase, typeFilter, clientFilter, projectFilter, meetingTypeFilter, startDateFilter, endDateFilter]
+    [
+      supabase,
+      typeFilter,
+      clientFilter,
+      projectFilter,
+      meetingTypeFilter,
+      startDateFilter,
+      endDateFilter,
+      workspaceFilter,
+      selectedTeamId,
+    ]
   );
 
   useEffect(() => {
@@ -135,6 +164,8 @@ export const SearchPage: React.FC = () => {
     setMeetingTypeFilter('');
     setStartDateFilter('');
     setEndDateFilter('');
+    setWorkspaceFilter('all');
+    setSelectedTeamId('');
     setTypeFilter('all');
     if (searchTerm.trim()) {
       performSearch(searchTerm, 'all');
@@ -545,6 +576,57 @@ export const SearchPage: React.FC = () => {
               }}
             />
           </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>
+              Workspace Scope
+            </label>
+            <select
+              value={workspaceFilter}
+              onChange={(e) => setWorkspaceFilter(e.target.value as any)}
+              style={{
+                width: '100%',
+                backgroundColor: '#0f172a',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                color: '#f8fafc',
+                fontSize: '0.85rem',
+              }}
+            >
+              <option value="all">All Workspaces (Personal & Team)</option>
+              <option value="personal">Personal Workspace Only</option>
+              <option value="team">Team Workspace Only</option>
+            </select>
+          </div>
+
+          {workspaceFilter === 'team' && userTeams.length > 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>
+                Select Team
+              </label>
+              <select
+                value={selectedTeamId}
+                onChange={(e) => setSelectedTeamId(e.target.value)}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#0f172a',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  color: '#f8fafc',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <option value="">All My Teams</option>
+                {userTeams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
             <button

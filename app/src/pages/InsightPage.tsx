@@ -18,27 +18,50 @@ import {
   BarChart2,
   Calendar,
   Layers,
+  Users,
+  User,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { usePermissions } from '../lib/permissions/usePermissions';
-import { fetchUserInsights } from '../lib/intelligence/intelligenceClient';
+import { fetchUserInsights, fetchTeamInsights } from '../lib/intelligence/intelligenceClient';
 import { InsightData } from '../lib/intelligence/types';
+import { fetchUserTeams } from '../lib/teams/teamClient';
+import { Team, TeamRole } from '../lib/teams/types';
 
 export const InsightPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, supabase } = useAuth();
   const { hasAccess, loading: checkingPermissions } = usePermissions('insight');
+  const { hasAccess: hasTeamAccess } = usePermissions('team_workspace');
 
   const [insights, setInsights] = useState<InsightData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Workspace Scope
+  const [workspaceMode, setWorkspaceMode] = useState<'personal' | 'team'>('personal');
+  const [userTeams, setUserTeams] = useState<(Team & { currentRole: TeamRole })[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+
   useEffect(() => {
     document.title = 'Conversation Intelligence — Concludo Workspace';
   }, []);
 
+  // Load user teams if team access is enabled
+  useEffect(() => {
+    async function loadTeams() {
+      if (!supabase || !hasTeamAccess) return;
+      const res = await fetchUserTeams(supabase);
+      if (res.data && res.data.length > 0) {
+        setUserTeams(res.data);
+        setSelectedTeamId(res.data[0].id);
+      }
+    }
+    loadTeams();
+  }, [supabase, hasTeamAccess]);
+
   const loadData = useCallback(async (isRefresh = false) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -47,7 +70,12 @@ export const InsightPage: React.FC = () => {
     setError(null);
 
     try {
-      const data = await fetchUserInsights({ forceRefresh: isRefresh });
+      let data: InsightData;
+      if (workspaceMode === 'team' && selectedTeamId) {
+        data = await fetchTeamInsights(selectedTeamId, { supabase, forceRefresh: isRefresh });
+      } else {
+        data = await fetchUserInsights({ supabase, forceRefresh: isRefresh });
+      }
       setInsights(data);
     } catch (err: any) {
       console.error('Failed to load insights:', err);
@@ -56,7 +84,7 @@ export const InsightPage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [user, supabase, workspaceMode, selectedTeamId]);
 
   useEffect(() => {
     if (hasAccess) {
@@ -83,15 +111,15 @@ export const InsightPage: React.FC = () => {
               width: '64px',
               height: '64px',
               borderRadius: '50%',
-              background: 'rgba(226, 181, 60, 0.15)',
+              background: 'rgba(226, 181, 60, 0.1)',
+              border: '1px solid rgba(226, 181, 60, 0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 20px auto',
-              border: '1px solid #e2b53c',
             }}
           >
-            <Lock size={32} color="#e2b53c" />
+            <Lock size={28} color="#e2b53c" />
           </div>
 
           <div
@@ -191,6 +219,30 @@ export const InsightPage: React.FC = () => {
   if (!hasHistory || (insights?.keyThemes.length === 0 && insights?.topRisks.length === 0)) {
     return (
       <div className="page-container" style={{ padding: '40px 24px', maxWidth: '800px', margin: '0 auto' }}>
+        {/* Workspace Mode Bar */}
+        {hasTeamAccess && userTeams.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '24px' }}>
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode('personal')}
+              className={workspaceMode === 'personal' ? 'btn btn-primary' : 'btn btn-secondary'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            >
+              <User size={14} />
+              <span>Personal Intelligence</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode('team')}
+              className={workspaceMode === 'team' ? 'btn btn-primary' : 'btn btn-secondary'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            >
+              <Users size={14} />
+              <span>Team Intelligence</span>
+            </button>
+          </div>
+        )}
+
         <div
           style={{
             background: 'linear-gradient(145deg, #16263f 0%, #111d30 100%)',
@@ -198,23 +250,21 @@ export const InsightPage: React.FC = () => {
             borderRadius: '16px',
             padding: '48px 32px',
             textAlign: 'center',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
           }}
         >
           <div
             style={{
-              width: '64px',
-              height: '64px',
+              width: '56px',
+              height: '56px',
               borderRadius: '50%',
-              background: 'rgba(226, 181, 60, 0.15)',
+              background: 'rgba(226, 181, 60, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              margin: '0 auto 20px auto',
-              border: '1px solid rgba(226, 181, 60, 0.4)',
+              margin: '0 auto 16px auto',
             }}
           >
-            <Sparkles size={32} color="#e2b53c" />
+            <Lightbulb size={28} color="#e2b53c" />
           </div>
 
           <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc', marginBottom: '8px' }}>
@@ -230,7 +280,9 @@ export const InsightPage: React.FC = () => {
               lineHeight: 1.6,
             }}
           >
-            Create more projects to unlock insights. As you upload transcripts, record decisions, and track action items, Concludo Workspace will automatically map trends, recurring risks, and opportunities.
+            {workspaceMode === 'team'
+              ? 'Create more shared team projects to unlock team insights. Team intelligence maps patterns across all shared records in this team.'
+              : 'Create more projects to unlock insights. As you upload transcripts, record decisions, and track action items, Concludo Workspace will automatically map trends, recurring risks, and opportunities.'}
           </p>
 
           <Link
@@ -299,435 +351,322 @@ export const InsightPage: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              PRO INTELLIGENCE
+              {workspaceMode === 'team' ? 'TEAM INTELLIGENCE' : 'PRO INTELLIGENCE'}
             </span>
           </div>
           <p style={{ color: '#94a3b8', fontSize: '0.92rem', margin: 0 }}>
-            Structured patterns, recurring risks, and opportunities distilled across {summary.totalProjects} saved meeting projects.
+            Structured patterns, recurring risks, and opportunities distilled across {summary.totalProjects} {workspaceMode === 'team' ? 'team' : 'saved'} meeting projects.
           </p>
         </div>
 
-        <button
-          type="button"
-          className="action-button-secondary"
-          onClick={() => loadData(true)}
-          disabled={refreshing}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}
-        >
-          {refreshing ? (
-            <>
-              <Loader2 size={16} className="spin-animation" color="#e2b53c" />
-              <span>Refreshing intelligence...</span>
-            </>
-          ) : (
-            <>
-              <RefreshCw size={16} />
-              <span>Refresh Intelligence</span>
-            </>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Workspace Mode Selector */}
+          {hasTeamAccess && userTeams.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#16263f', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                type="button"
+                onClick={() => setWorkspaceMode('personal')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: workspaceMode === 'personal' ? '#e2b53c' : 'transparent',
+                  color: workspaceMode === 'personal' ? '#0f172a' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <User size={13} />
+                <span>Personal</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkspaceMode('team')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: workspaceMode === 'team' ? '#e2b53c' : 'transparent',
+                  color: workspaceMode === 'team' ? '#0f172a' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <Users size={13} />
+                <span>Team</span>
+              </button>
+
+              {workspaceMode === 'team' && userTeams.length > 1 && (
+                <select
+                  value={selectedTeamId}
+                  onChange={(e) => setSelectedTeamId(e.target.value)}
+                  style={{
+                    backgroundColor: '#0f172a',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    color: '#f8fafc',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  {userTeams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           )}
-        </button>
+
+          <button
+            type="button"
+            className="action-button-secondary"
+            onClick={() => loadData(true)}
+            disabled={refreshing}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}
+          >
+            {refreshing ? (
+              <>
+                <Loader2 size={16} className="spin-animation" color="#e2b53c" />
+                <span>Refreshing intelligence...</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw size={16} />
+                <span>Refresh Intelligence</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Project Intelligence Summary Banner */}
+      {/* Project Intelligence Summary Card */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(22, 38, 63, 0.9) 0%, rgba(33, 57, 92, 0.8) 100%)',
+          background: 'linear-gradient(135deg, #16263f 0%, #1a2f4d 100%)',
           border: '1px solid rgba(226, 181, 60, 0.3)',
           borderRadius: '14px',
-          padding: '24px',
-          marginBottom: '32px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '20px',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+          padding: '24px 28px',
+          marginBottom: '28px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
         }}
       >
-        <div style={{ gridColumn: 'span 2' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Award size={18} color="#e2b53c" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
-              Executive Intelligence Synthesis
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <Sparkles size={18} color="#e2b53c" />
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+            Executive Intelligence Summary
+          </h2>
+        </div>
+
+        <p style={{ color: '#cbd5e1', fontSize: '0.98rem', lineHeight: 1.6, margin: '0 0 20px 0' }}>
+          {summary.summaryText}
+        </p>
+
+        {/* Metric Badges */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+          <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Workspace Health
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: summary.meetingHealthScore > 70 ? '#4ade80' : summary.meetingHealthScore > 40 ? '#facc15' : '#f87171', marginTop: '2px' }}>
+              {summary.meetingHealthScore}/100
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Analyzed Projects
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', marginTop: '2px' }}>
+              {summary.totalProjects}
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Decisions / Project
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#e2b53c', marginTop: '2px' }}>
+              {summary.avgDecisionsPerProject.toFixed(1)}
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Actions / Project
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#38bdf8', marginTop: '2px' }}>
+              {summary.avgActionsPerProject.toFixed(1)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid: Themes, Risks, Opportunities */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '28px' }}>
+        {/* Key Themes */}
+        <div style={{ background: '#16263f', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '20px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <Layers size={18} color="#e2b53c" />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Key Themes
             </h3>
           </div>
-          <p style={{ color: '#cbd5e1', fontSize: '0.92rem', lineHeight: 1.55, margin: 0 }}>
-            {summary.summaryText}
-          </p>
-        </div>
-
-        <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.1)', paddingLeft: '20px' }}>
-          <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600, marginBottom: '4px' }}>
-            Meeting Health Score
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: summary.meetingHealthScore >= 75 ? '#4ade80' : '#f59e0b' }}>
-            {summary.meetingHealthScore}%
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-            Execution velocity & action reliability
-          </div>
-        </div>
-
-        <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.1)', paddingLeft: '20px' }}>
-          <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600, marginBottom: '4px' }}>
-            Avg Commitments / Meeting
-          </div>
-          <div style={{ fontSize: '1.7rem', fontWeight: 700, color: '#f8fafc' }}>
-            {summary.avgDecisionsPerProject} <span style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: 400 }}>dec</span> / {summary.avgActionsPerProject} <span style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: 400 }}>act</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-            Conversion from dialogue to output
-          </div>
-        </div>
-      </div>
-
-      {/* Grid: Key Themes & Top Opportunities */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-        {/* Key Themes Cards */}
-        <div className="section-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={18} color="#e2b53c" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
-                Key Themes
-              </h3>
-            </div>
-            <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              {keyThemes.length} identified
-            </span>
-          </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {keyThemes.map((theme: any) => (
-              <div
-                key={theme.id}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '10px',
-                  padding: '14px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>
-                    {theme.name}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      background: 'rgba(226, 181, 60, 0.15)',
-                      color: '#e2b53c',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {theme.relevance}% relevance
+            {keyThemes.map((th, idx) => (
+              <div key={idx} style={{ background: '#0f172a', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.92rem' }}>{th.name}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#e2b53c', background: 'rgba(226, 181, 60, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                    {th.count} mentions
                   </span>
                 </div>
-                <p style={{ color: '#94a3b8', fontSize: '0.82rem', margin: 0, lineHeight: 1.45 }}>
-                  {theme.description}
-                </p>
+                <div style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                  {th.description}
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Top Opportunities Cards */}
-        <div className="section-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendingUp size={18} color="#4ade80" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
-                Top Opportunities
-              </h3>
-            </div>
-            <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              {topOpportunities.length} high value
-            </span>
+        {/* Top Risks */}
+        <div style={{ background: '#16263f', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '20px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <ShieldAlert size={18} color="#f87171" />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Top Risks
+            </h3>
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {topOpportunities.map((opp: any) => (
-              <div
-                key={opp.id}
-                style={{
-                  background: 'rgba(74, 222, 128, 0.04)',
-                  border: '1px solid rgba(74, 222, 128, 0.2)',
-                  borderRadius: '10px',
-                  padding: '14px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>
-                    {opp.title}
-                  </span>
+            {topRisks.map((rk, idx) => (
+              <div key={idx} style={{ background: '#0f172a', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(248, 113, 113, 0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontWeight: 600, color: '#fecaca', fontSize: '0.92rem' }}>{rk.title}</span>
                   <span
                     style={{
                       fontSize: '0.72rem',
-                      background: 'rgba(74, 222, 128, 0.15)',
-                      color: '#4ade80',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
                       fontWeight: 700,
                       textTransform: 'uppercase',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      background: rk.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                      color: rk.severity === 'high' ? '#f87171' : '#facc15',
                     }}
                   >
-                    {opp.impact} impact
+                    {rk.severity}
                   </span>
                 </div>
-                <p style={{ color: '#cbd5e1', fontSize: '0.82rem', margin: '0 0 6px 0', lineHeight: 1.45 }}>
-                  {opp.description}
-                </p>
-                <div style={{ fontSize: '0.75rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>Next Step:</span>
-                  <span style={{ color: '#94a3b8' }}>{opp.nextStep}</span>
+                <div style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.4, marginBottom: '6px' }}>
+                  {rk.description}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Grid: Top Risks & Action Trends */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-        {/* Top Risks Cards */}
-        <div className="section-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldAlert size={18} color="#f87171" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
-                Top Risks & Blockers
-              </h3>
-            </div>
-            <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              {topRisks.length} flagged
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {topRisks.map((risk: any) => (
-              <div
-                key={risk.id}
-                style={{
-                  background: 'rgba(248, 113, 113, 0.05)',
-                  border: '1px solid rgba(248, 113, 113, 0.25)',
-                  borderRadius: '10px',
-                  padding: '14px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>
-                    {risk.title}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      background: risk.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                      color: risk.severity === 'high' ? '#f87171' : '#fbbf24',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {risk.severity} risk
-                  </span>
-                </div>
-                <p style={{ color: '#cbd5e1', fontSize: '0.82rem', margin: '0 0 6px 0', lineHeight: 1.45 }}>
-                  {risk.description}
-                </p>
-                <div style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ fontSize: '0.78rem', color: '#e2b53c', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span>Mitigation:</span>
-                  <span style={{ color: '#94a3b8' }}>{risk.mitigationRecommendation}</span>
+                  <span style={{ color: '#cbd5e1' }}>{rk.mitigationRecommendation}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Action Trends & Overdue Action Trends */}
-        <div className="section-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckSquare size={18} color="#e2b53c" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
-                Action Trends & Bottlenecks
-              </h3>
-            </div>
-            <Link to="/actions" style={{ color: '#e2b53c', fontSize: '0.82rem', textDecoration: 'none', fontWeight: 600 }}>
-              View all actions
-            </Link>
+        {/* Top Opportunities */}
+        <div style={{ background: '#16263f', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '20px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <Award size={18} color="#4ade80" />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Top Opportunities
+            </h3>
           </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '12px',
-              marginBottom: '16px',
-            }}
-          >
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '8px',
-                padding: '12px',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>Not Started</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc' }}>{openActionTrends.notStarted}</div>
-            </div>
-
-            <div
-              style={{
-                background: 'rgba(226, 181, 60, 0.05)',
-                border: '1px solid rgba(226, 181, 60, 0.2)',
-                borderRadius: '8px',
-                padding: '12px',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: '#e2b53c', marginBottom: '4px' }}>In Progress</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#e2b53c' }}>{openActionTrends.inProgress}</div>
-            </div>
-
-            <div
-              style={{
-                background: overdueActionTrends.count > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255, 255, 255, 0.03)',
-                border: overdueActionTrends.count > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '8px',
-                padding: '12px',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: overdueActionTrends.count > 0 ? '#f87171' : '#94a3b8', marginBottom: '4px' }}>
-                Overdue
-              </div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: overdueActionTrends.count > 0 ? '#f87171' : '#94a3b8' }}>
-                {overdueActionTrends.count}
-              </div>
-            </div>
-          </div>
-
-          {/* Frequently Assigned Owners */}
-          <div style={{ marginTop: '16px' }}>
-            <h4 style={{ fontSize: '0.85rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>
-              Frequently Assigned Owners
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {frequentlyAssigned.map((item: any, idx: number) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '6px',
-                    fontSize: '0.84rem',
-                  }}
-                >
-                  <span style={{ fontWeight: 600, color: '#f8fafc' }}>{item.owner}</span>
-                  <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem' }}>
-                    <span style={{ color: '#94a3b8' }}>{item.total} total</span>
-                    <span style={{ color: '#4ade80' }}>{item.completed} done</span>
-                    {item.overdue > 0 && <span style={{ color: '#f87171', fontWeight: 700 }}>{item.overdue} overdue</span>}
-                  </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {topOpportunities.map((op, idx) => (
+              <div key={idx} style={{ background: '#0f172a', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(74, 222, 128, 0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontWeight: 600, color: '#bbf7d0', fontSize: '0.92rem' }}>{op.title}</span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: '4px', background: 'rgba(74, 222, 128, 0.15)', color: '#4ade80' }}>
+                    {op.impact}
+                  </span>
                 </div>
-              ))}
-            </div>
+                <div style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.4, marginBottom: '6px' }}>
+                  {op.nextStep}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Grid: Recurring Decisions & Most Discussed Topics */}
+      {/* Decision Trends & Action Trends */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
         {/* Recurring Decisions */}
-        <div className="section-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BrainCircuit size={18} color="#e2b53c" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
-                Decision Patterns
-              </h3>
-            </div>
-            <Link to="/decision-memory" style={{ color: '#e2b53c', fontSize: '0.82rem', textDecoration: 'none', fontWeight: 600 }}>
-              Decision Memory
-            </Link>
+        <div style={{ background: '#16263f', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '20px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <BrainCircuit size={18} color="#e2b53c" />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Recurring Decisions
+            </h3>
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {recurringDecisions.map((dec: any) => (
-              <div
-                key={dec.id}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                }}
-              >
-                <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', marginBottom: '4px' }}>
+            {recurringDecisions.map((dec, idx) => (
+              <div key={idx} style={{ background: '#0f172a', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                <div style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.9rem', marginBottom: '4px' }}>
                   {dec.title}
                 </div>
-                {dec.summary && (
-                  <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 6px 0', lineHeight: 1.4 }}>
-                    {dec.summary}
-                  </p>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: '#64748b' }}>
-                  <span>Owner: {dec.owner || 'Executive Committee'}</span>
-                  {dec.date && <span>{dec.date}</span>}
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Owner: {dec.owner || 'Unassigned'}</span>
+                  <span>{dec.date || ''}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Most Discussed Topics */}
-        <div className="section-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BarChart2 size={18} color="#e2b53c" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
-                Most Discussed Topics
-              </h3>
-            </div>
-            <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              Frequency distribution
-            </span>
+        {/* Action Trends & Bottlenecks */}
+        <div style={{ background: '#16263f', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '20px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <CheckSquare size={18} color="#38bdf8" />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Action Trends & Bottlenecks
+            </h3>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {discussedTopics.map((topic: any, idx: number) => (
-              <div key={idx}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', marginBottom: '4px' }}>
-                  <span style={{ color: '#f8fafc', fontWeight: 500 }}>{topic.topic}</span>
-                  <span style={{ color: '#e2b53c', fontWeight: 600 }}>{topic.mentions} occurrences</span>
-                </div>
-                <div
-                  style={{
-                    width: '100%',
-                    height: '6px',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    borderRadius: '3px',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${Math.max(10, Math.min(100, topic.percentage))}%`,
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #e2b53c 0%, #bc8a1c 100%)',
-                      borderRadius: '3px',
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
+            <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Open</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38bdf8' }}>{openActionTrends.totalOpen}</div>
+            </div>
+            <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>In Progress</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#facc15' }}>{openActionTrends.inProgress}</div>
+            </div>
+            <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Overdue</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f87171' }}>{overdueActionTrends.count}</div>
+            </div>
           </div>
+
+          {frequentlyAssigned.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '8px' }}>
+                Frequently Assigned Owners:
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {frequentlyAssigned.map((as, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', background: '#0f172a', padding: '6px 10px', borderRadius: '6px' }}>
+                    <span style={{ color: '#f1f5f9' }}>{as.owner}</span>
+                    <span style={{ color: '#94a3b8' }}>{as.total} actions ({as.overdue} overdue)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

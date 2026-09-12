@@ -16,32 +16,60 @@ import {
   Loader2,
   AlertCircle,
   Filter,
+  Users,
+  User,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { usePermissions } from '../lib/permissions/usePermissions';
-import { fetchUserStats } from '../lib/intelligence/intelligenceClient';
+import { fetchUserStats, fetchTeamStats } from '../lib/intelligence/intelligenceClient';
 import { StatsData, StatsPeriodFilter, TrendDataPoint } from '../lib/intelligence/types';
+import { fetchUserTeams } from '../lib/teams/teamClient';
+import { Team, TeamRole } from '../lib/teams/types';
 
 export const StatsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, supabase } = useAuth();
   const { hasAccess, loading: checkingPermissions } = usePermissions('stats');
+  const { hasAccess: hasTeamAccess } = usePermissions('team_workspace');
 
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [filterPeriod, setFilterPeriod] = useState<StatsPeriodFilter>('all');
   const [error, setError] = useState<string | null>(null);
 
+  // Workspace Mode State
+  const [workspaceMode, setWorkspaceMode] = useState<'personal' | 'team'>('personal');
+  const [userTeams, setUserTeams] = useState<(Team & { currentRole: TeamRole })[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+
   useEffect(() => {
     document.title = 'Workspace Analytics & Stats — Concludo Workspace';
   }, []);
 
+  // Load user teams if team access is enabled
+  useEffect(() => {
+    async function loadTeams() {
+      if (!supabase || !hasTeamAccess) return;
+      const res = await fetchUserTeams(supabase);
+      if (res.data && res.data.length > 0) {
+        setUserTeams(res.data);
+        setSelectedTeamId(res.data[0].id);
+      }
+    }
+    loadTeams();
+  }, [supabase, hasTeamAccess]);
+
   const loadData = useCallback(async (period: StatsPeriodFilter, isRefresh = false) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     setLoading(true);
     setError(null);
 
     try {
-      const data = await fetchUserStats(period, { forceRefresh: isRefresh });
+      let data: StatsData;
+      if (workspaceMode === 'team' && selectedTeamId) {
+        data = await fetchTeamStats(selectedTeamId, period, { supabase, forceRefresh: isRefresh });
+      } else {
+        data = await fetchUserStats(period, { supabase, forceRefresh: isRefresh });
+      }
       setStats(data);
     } catch (err: any) {
       console.error('Failed to load stats:', err);
@@ -49,7 +77,7 @@ export const StatsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, supabase, workspaceMode, selectedTeamId]);
 
   useEffect(() => {
     if (hasAccess) {
@@ -319,6 +347,73 @@ export const StatsPage: React.FC = () => {
 
         {/* Filter buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Workspace Mode Selector */}
+          {hasTeamAccess && userTeams.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#16263f', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', marginRight: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setWorkspaceMode('personal')}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: workspaceMode === 'personal' ? '#e2b53c' : 'transparent',
+                  color: workspaceMode === 'personal' ? '#0f172a' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <User size={13} />
+                <span>Personal</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkspaceMode('team')}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: workspaceMode === 'team' ? '#e2b53c' : 'transparent',
+                  color: workspaceMode === 'team' ? '#0f172a' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Users size={13} />
+                <span>Team</span>
+              </button>
+
+              {workspaceMode === 'team' && userTeams.length > 1 && (
+                <select
+                  value={selectedTeamId}
+                  onChange={(e) => setSelectedTeamId(e.target.value)}
+                  style={{
+                    backgroundColor: '#0f172a',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '4px',
+                    padding: '3px 6px',
+                    color: '#f8fafc',
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  {userTeams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           <Filter size={15} color="#94a3b8" />
           <span style={{ fontSize: '0.82rem', color: '#94a3b8', marginRight: '4px' }}>Range:</span>
 
@@ -584,6 +679,53 @@ export const StatsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Team Participation & Member Accountability Section */}
+      {workspaceMode === 'team' && stats?.teamParticipation && stats.teamParticipation.length > 0 && (
+        <div className="section-card" style={{ marginTop: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <Users size={18} color="#e2b53c" />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
+              Team Member Participation & Execution
+            </h3>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left', color: '#94a3b8', fontSize: '0.78rem', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '10px 14px' }}>Member</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'center' }}>Projects Created</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'center' }}>Decisions Captured</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'center' }}>Actions Assigned</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'center' }}>Actions Completed</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'right' }}>Completion Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.teamParticipation.map((member) => {
+                  const compRate =
+                    member.actionsAssigned > 0
+                      ? Math.round((member.actionsCompleted / member.actionsAssigned) * 100)
+                      : 0;
+
+                  return (
+                    <tr key={member.memberId} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <td style={{ padding: '12px 14px', fontWeight: 600, color: '#f8fafc' }}>{member.name}</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'center', color: '#cbd5e1' }}>{member.projectsCount}</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'center', color: '#e2b53c' }}>{member.decisionsCount}</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'center', color: '#38bdf8' }}>{member.actionsAssigned}</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'center', color: '#4ade80' }}>{member.actionsCompleted}</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: compRate >= 80 ? '#4ade80' : compRate >= 50 ? '#facc15' : '#f87171' }}>
+                        {compRate}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

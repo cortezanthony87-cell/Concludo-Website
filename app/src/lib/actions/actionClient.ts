@@ -1,14 +1,24 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ActionRecord, CreateActionInput, UpdateActionInput, ActionStatus, isActionOverdue } from './types';
+import { logTeamActivity } from '../teams/teamClient';
 
 export interface ActionQueryResult<T> {
   data: T | null;
   error: Error | null;
 }
 
+export interface FetchActionsOptions {
+  projectId?: string;
+  status?: string;
+  owner?: string;
+  assignedUserId?: string;
+  limit?: number;
+  teamId?: string;
+  workspaceScope?: 'all' | 'personal' | 'team';
+}
+
 /**
  * Save a new action into Action Tracker.
- * Scoped to authenticated user (auth.uid()).
  */
 export async function saveAction(
   supabase: SupabaseClient,
@@ -29,6 +39,23 @@ export async function saveAction(
       initialStatus = 'overdue';
     }
 
+    // Determine ownership and team_id if not explicitly provided
+    let ownershipType = input.ownership_type || (input.team_id ? 'team' : 'personal');
+    let teamId = input.team_id || null;
+
+    if (!input.team_id) {
+      const { data: proj } = await supabase
+        .from('projects')
+        .select('ownership_type, team_id')
+        .eq('id', input.project_id)
+        .maybeSingle();
+
+      if (proj && proj.ownership_type === 'team' && proj.team_id) {
+        ownershipType = 'team';
+        teamId = proj.team_id;
+      }
+    }
+
     const { data, error } = await supabase
       .from('action_tracker')
       .insert({
@@ -40,12 +67,26 @@ export async function saveAction(
         due_date: input.due_date || null,
         status: initialStatus,
         source_output_id: input.source_output_id || null,
+        ownership_type: ownershipType,
+        team_id: teamId,
+        assigned_user_id: input.assigned_user_id || null,
+        assigned_user_name: input.assigned_user_name || null,
       })
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .single();
 
     if (error) {
       return { data: null, error: new Error(error.message) };
+    }
+
+    if (teamId && ownershipType === 'team') {
+      await logTeamActivity(supabase, teamId, {
+        activity_type: 'action_created',
+        title: 'Action created',
+        description: `Created action "${input.action_title.trim()}"`,
+        entity_id: data.id,
+        entity_type: 'action',
+      });
     }
 
     return { data: data as ActionRecord, error: null };
@@ -55,7 +96,7 @@ export async function saveAction(
 }
 
 /**
- * Fetch non-deleted actions owned by the authenticated user.
+ * Fetch non-deleted actions accessible to the authenticated user.
  * Default sort:
  * 1. Incomplete actions first (status != 'completed')
  * 2. Nearest due date (ascending, nulls last)
@@ -63,21 +104,31 @@ export async function saveAction(
  */
 export async function fetchActions(
   supabase: SupabaseClient,
-  options?: {
-    projectId?: string;
-    status?: string;
-    owner?: string;
-    limit?: number;
-  }
+  options?: FetchActionsOptions
 ): Promise<ActionQueryResult<ActionRecord[]>> {
   try {
     let query = supabase
       .from('action_tracker')
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .is('deleted_at', null);
 
     if (options?.projectId) {
       query = query.eq('project_id', options.projectId);
+    }
+
+    if (options?.workspaceScope === 'personal') {
+      query = query.or('ownership_type.eq.personal,team_id.is.null');
+    } else if (options?.workspaceScope === 'team') {
+      query = query.eq('ownership_type', 'team');
+      if (options.teamId) {
+        query = query.eq('team_id', options.teamId);
+      }
+    } else if (options?.teamId) {
+      query = query.eq('team_id', options.teamId);
+    }
+
+    if (options?.assignedUserId) {
+      query = query.eq('assigned_user_id', options.assignedUserId);
     }
 
     if (options?.status && options.status !== 'all') {
@@ -89,7 +140,7 @@ export async function fetchActions(
     }
 
     if (options?.owner) {
-      query = query.ilike('owner_name', `%${options.owner}%`);
+      query = query.or(`owner_name.ilike.%${options.owner}%,assigned_user_name.ilike.%${options.owner}%`);
     }
 
     const { data, error } = await query;
@@ -155,8 +206,9 @@ export async function fetchActionById(
   try {
     const { data, error } = await supabase
       .from('action_tracker')
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at), outputs(id, output_type, content)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id), outputs(id, output_type, content)')
       .eq('id', id)
+      .is('deleted_at', null)
       .single();
 
     if (error) {
@@ -192,6 +244,10 @@ export async function updateAction(
     if (input.owner_name !== undefined) updatePayload.owner_name = input.owner_name?.trim() || null;
     if (input.due_date !== undefined) updatePayload.due_date = input.due_date || null;
     if (input.status !== undefined) updatePayload.status = input.status;
+    if (input.assigned_user_id !== undefined) updatePayload.assigned_user_id = input.assigned_user_id;
+    if (input.assigned_user_name !== undefined) updatePayload.assigned_user_name = input.assigned_user_name;
+    if (input.ownership_type !== undefined) updatePayload.ownership_type = input.ownership_type;
+    if (input.team_id !== undefined) updatePayload.team_id = input.team_id;
 
     // Auto-overdue detection
     if (updatePayload.due_date && updatePayload.status !== 'completed') {
@@ -204,11 +260,31 @@ export async function updateAction(
       .from('action_tracker')
       .update(updatePayload)
       .eq('id', id)
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .single();
 
     if (error) {
       return { data: null, error: new Error(error.message) };
+    }
+
+    if (data?.team_id && data.ownership_type === 'team') {
+      if (input.status === 'completed') {
+        await logTeamActivity(supabase, data.team_id, {
+          activity_type: 'action_completed',
+          title: 'Action completed',
+          description: `Completed action "${data.action_title}"`,
+          entity_id: data.id,
+          entity_type: 'action',
+        });
+      } else {
+        await logTeamActivity(supabase, data.team_id, {
+          activity_type: 'action_updated',
+          title: 'Action updated',
+          description: `Updated action "${data.action_title}"`,
+          entity_id: data.id,
+          entity_type: 'action',
+        });
+      }
     }
 
     return { data: data as ActionRecord, error: null };
@@ -244,6 +320,7 @@ export async function softDeleteAction(
       return { success: true, error: null };
     }
 
+    // Direct fallback
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -319,8 +396,18 @@ export async function permanentDeleteAction(
       p_action_id: id,
     });
 
-    if (rpcErr) {
-      return { success: false, error: new Error(rpcErr.message) };
+    if (!rpcErr) {
+      return { success: true, error: null };
+    }
+
+    const { error } = await supabase
+      .from('action_tracker')
+      .delete()
+      .eq('id', id)
+      .not('deleted_at', 'is', null);
+
+    if (error) {
+      return { success: false, error: new Error(error.message) };
     }
 
     return { success: true, error: null };
@@ -330,7 +417,7 @@ export async function permanentDeleteAction(
 }
 
 /**
- * Fetch soft-deleted actions for the current authenticated user (Recently Deleted).
+ * Fetch deleted actions for Recently Deleted view.
  */
 export async function fetchDeletedActions(
   supabase: SupabaseClient
@@ -346,7 +433,7 @@ export async function fetchDeletedActions(
       return { data: null, error: new Error(error.message) };
     }
 
-    return { data: (data || []) as ActionRecord[], error: null };
+    return { data: (data as ActionRecord[]) || [], error: null };
   } catch (err: any) {
     return { data: null, error: err instanceof Error ? err : new Error('Failed to load deleted actions') };
   }

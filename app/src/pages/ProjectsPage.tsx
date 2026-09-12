@@ -14,11 +14,15 @@ import {
   Loader2,
   RefreshCw,
   FileText,
-  Search
+  Search,
+  Users,
+  User,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { Project } from '../lib/projects/types';
 import { fetchProjects, softDeleteProject } from '../lib/projects/projectClient';
+import { fetchUserTeams } from '../lib/teams/teamClient';
+import { Team, TeamRole } from '../lib/teams/types';
 
 export const ProjectsPage: React.FC = () => {
   const { supabase, user } = useAuth();
@@ -27,24 +31,45 @@ export const ProjectsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Workspace scope filter
+  const [workspaceScope, setWorkspaceScope] = useState<'all' | 'personal' | 'team'>('all');
+  const [userTeams, setUserTeams] = useState<(Team & { currentRole: TeamRole })[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+
   // Deletion modal state
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Load user teams once
+  useEffect(() => {
+    async function loadTeams() {
+      if (!supabase) return;
+      const res = await fetchUserTeams(supabase);
+      if (res.data) {
+        setUserTeams(res.data);
+      }
+    }
+    loadTeams();
+  }, [supabase]);
 
   const loadUserProjects = useCallback(async () => {
     if (!supabase || !user) return;
     setLoading(true);
     setLoadError(null);
 
-    const result = await fetchProjects(supabase);
+    const result = await fetchProjects(supabase, {
+      workspaceScope,
+      teamId: workspaceScope === 'team' && selectedTeamId ? selectedTeamId : undefined,
+    });
+
     if (result.error) {
       setLoadError(result.error.message || 'Failed to load projects');
     } else {
       setProjects(result.data || []);
     }
     setLoading(false);
-  }, [supabase, user]);
+  }, [supabase, user, workspaceScope, selectedTeamId]);
 
   useEffect(() => {
     loadUserProjects();
@@ -156,6 +181,69 @@ export const ProjectsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Workspace Scope Filters */}
+      {userTeams.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            marginBottom: '20px',
+            background: 'rgba(255, 255, 255, 0.02)',
+            padding: '10px 16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 500 }}>
+            Workspace:
+          </span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setWorkspaceScope('all')}
+              className={workspaceScope === 'all' ? 'btn-gold' : 'btn-secondary'}
+              style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+            >
+              All Projects
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkspaceScope('personal')}
+              className={workspaceScope === 'personal' ? 'btn-gold' : 'btn-secondary'}
+              style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+            >
+              Personal
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkspaceScope('team')}
+              className={workspaceScope === 'team' ? 'btn-gold' : 'btn-secondary'}
+              style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+            >
+              Team
+            </button>
+          </div>
+
+          {workspaceScope === 'team' && userTeams.length > 1 && (
+            <select
+              className="form-select"
+              style={{ width: 'auto', padding: '6px 12px', fontSize: '0.82rem' }}
+              value={selectedTeamId}
+              onChange={(e) => setSelectedTeamId(e.target.value)}
+            >
+              <option value="">All Teams</option>
+              {userTeams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
       {/* Loading State */}
       {loading && (
         <div className="content-card" style={{ textAlign: 'center', padding: '64px 24px' }}>
@@ -255,6 +343,7 @@ export const ProjectsPage: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {projects.map((project) => {
               const displayClient = project.client_name || project.client_or_project || 'Internal';
+              const isTeamProject = project.ownership_type === 'team' || !!project.team_id;
 
               return (
                 <div
@@ -295,6 +384,40 @@ export const ProjectsPage: React.FC = () => {
                         >
                           <span>{project.title}</span>
                         </Link>
+                        {isTeamProject ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: 'rgba(226, 181, 60, 0.15)',
+                              color: '#f3c958',
+                              fontSize: '0.74rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <Users size={12} />
+                            <span>Team</span>
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              color: '#94a3b8',
+                              fontSize: '0.74rem',
+                            }}
+                          >
+                            <User size={12} />
+                            <span>Personal</span>
+                          </span>
+                        )}
                       </div>
 
                       {/* Metadata row */}

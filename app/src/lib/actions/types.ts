@@ -23,6 +23,10 @@ export interface ActionRecord {
   due_date: string | null;
   status: ActionStatus;
   source_output_id: string | null;
+  ownership_type?: 'personal' | 'team';
+  team_id?: string | null;
+  assigned_user_id?: string | null;
+  assigned_user_name?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -35,6 +39,8 @@ export interface ActionRecord {
     project_name?: string | null;
     meeting_date?: string | null;
     deleted_at?: string | null;
+    ownership_type?: 'personal' | 'team';
+    team_id?: string | null;
   } | null;
   outputs?: {
     id: string;
@@ -51,6 +57,10 @@ export interface CreateActionInput {
   due_date?: string | null;
   status?: ActionStatus;
   source_output_id?: string | null;
+  ownership_type?: 'personal' | 'team';
+  team_id?: string | null;
+  assigned_user_id?: string | null;
+  assigned_user_name?: string | null;
 }
 
 export interface UpdateActionInput {
@@ -59,6 +69,10 @@ export interface UpdateActionInput {
   owner_name?: string | null;
   due_date?: string | null;
   status?: ActionStatus;
+  ownership_type?: 'personal' | 'team';
+  team_id?: string | null;
+  assigned_user_id?: string | null;
+  assigned_user_name?: string | null;
 }
 
 /**

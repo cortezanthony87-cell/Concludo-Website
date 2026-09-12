@@ -20,6 +20,7 @@ import {
   Lightbulb,
   BarChart3,
   FileBarChart,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -159,6 +160,14 @@ export const WorkspaceLayout: React.FC = () => {
                   <span>Account</span>
                 </Link>
                 <Link
+                  to="/team/settings"
+                  className="dropdown-link"
+                  onClick={() => setAccountMenuOpen(false)}
+                >
+                  <Users size={16} />
+                  <span>Team Settings</span>
+                </Link>
+                <Link
                   to="/settings"
                   className="dropdown-link"
                   onClick={() => setAccountMenuOpen(false)}
@@ -263,6 +272,19 @@ export const WorkspaceLayout: React.FC = () => {
             >
               <FileText size={18} />
               <span>New Transcript</span>
+            </NavLink>
+
+            <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+              Collaboration
+            </div>
+            <NavLink
+              to="/team"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Users size={18} />
+              <span>Team Workspace</span>
             </NavLink>
 
             <div className="sidebar-category-label" style={{ marginTop: '14px' }}>

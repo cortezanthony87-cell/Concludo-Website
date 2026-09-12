@@ -74,6 +74,50 @@ export async function fetchUserStats(
 }
 
 /**
+ * Fetch Team Insights aggregating across team-owned projects only
+ */
+export async function fetchTeamInsights(
+  teamId: string,
+  options?: IntelligenceClientOptions
+): Promise<InsightData> {
+  const supabase = options?.supabase || getSupabaseClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) throw new Error('Authentication required');
+
+  const { insight } = await processUserIntelligence(userId, {
+    supabase,
+    workspaceScope: 'team',
+    teamId,
+    forceRefresh: true,
+  });
+  return insight;
+}
+
+/**
+ * Fetch Team Stats aggregating across team-owned projects only with Team Participation breakdown
+ */
+export async function fetchTeamStats(
+  teamId: string,
+  periodFilter: StatsPeriodFilter = 'all',
+  options?: IntelligenceClientOptions
+): Promise<StatsData> {
+  const supabase = options?.supabase || getSupabaseClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) throw new Error('Authentication required');
+
+  const { stats } = await processUserIntelligence(userId, {
+    supabase,
+    workspaceScope: 'team',
+    teamId,
+    periodFilter,
+    forceRefresh: true,
+  });
+  return stats;
+}
+
+/**
  * Explicitly refresh and re-cache all intelligence for current user
  */
 export async function refreshAllIntelligence(

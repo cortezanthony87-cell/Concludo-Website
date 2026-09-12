@@ -89,6 +89,8 @@ export interface InsightData {
   overdueActionTrends: OverdueActionTrends;
   projectIntelligenceSummary: ProjectIntelligenceSummary;
   generatedAt: string;
+  workspaceScope?: 'personal' | 'team';
+  teamId?: string | null;
 }
 
 export interface TrendDataPoint {
@@ -105,6 +107,15 @@ export interface StatsTrends {
   outputGeneration: TrendDataPoint[];
 }
 
+export interface TeamMemberParticipation {
+  memberId: string;
+  name: string;
+  projectsCount: number;
+  decisionsCount: number;
+  actionsAssigned: number;
+  actionsCompleted: number;
+}
+
 export interface StatsData {
   totalProjects: number;
   totalTranscripts: number;
@@ -119,7 +130,10 @@ export interface StatsData {
   actionCompletionRate: number;
   decisionVelocity: number;
   trends: StatsTrends;
+  teamParticipation?: TeamMemberParticipation[];
   generatedAt: string;
+  workspaceScope?: 'personal' | 'team';
+  teamId?: string | null;
 }
 
 export interface GeneratedIntelligenceRecord {
@@ -127,6 +141,8 @@ export interface GeneratedIntelligenceRecord {
   user_id: string;
   intelligence_type: 'insight' | 'stats';
   data: InsightData | StatsData;
+  ownership_type?: 'personal' | 'team';
+  team_id?: string | null;
   generated_at: string;
   created_at: string;
   updated_at: string;

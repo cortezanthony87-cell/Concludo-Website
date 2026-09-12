@@ -1,3 +1,5 @@
+export type OwnershipType = 'personal' | 'team';
+
 export interface Project {
   id: string;
   user_id: string;
@@ -9,6 +11,8 @@ export interface Project {
   meeting_date: string | null;
   transcript?: string | null;
   notes?: string | null;
+  ownership_type?: OwnershipType;
+  team_id?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -25,6 +29,8 @@ export interface CreateProjectInput {
   meeting_date?: string | null;
   transcript?: string | null;
   notes?: string | null;
+  ownership_type?: OwnershipType;
+  team_id?: string | null;
 }
 
 export interface UpdateProjectInput {
@@ -36,6 +42,8 @@ export interface UpdateProjectInput {
   meeting_date?: string | null;
   transcript?: string | null;
   notes?: string | null;
+  ownership_type?: OwnershipType;
+  team_id?: string | null;
 }
 
 export const COMMON_MEETING_TYPES = [

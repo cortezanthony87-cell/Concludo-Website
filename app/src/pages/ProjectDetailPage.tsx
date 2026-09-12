@@ -371,6 +371,8 @@ export const ProjectDetailPage: React.FC = () => {
       decision_owner: newDecisionOwner.trim() || undefined,
       decision_date: newDecisionDate || undefined,
       source_output_id: newDecisionSourceOutputId || undefined,
+      ownership_type: project?.ownership_type,
+      team_id: project?.team_id,
     });
 
     if (result.error || !result.data) {
@@ -423,6 +425,8 @@ export const ProjectDetailPage: React.FC = () => {
       due_date: newActionDueDate || undefined,
       status: newActionStatus,
       source_output_id: newActionSourceOutputId || undefined,
+      ownership_type: project?.ownership_type,
+      team_id: project?.team_id,
     });
 
     if (result.error || !result.data) {
@@ -652,6 +656,21 @@ export const ProjectDetailPage: React.FC = () => {
           <div className="page-eyebrow">
             <Sparkles size={13} color="#e2b53c" />
             <span>PROJECT & MEETING MEMORY</span>
+            <span
+              style={{
+                marginLeft: '8px',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                background: project.ownership_type === 'team' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                color: project.ownership_type === 'team' ? '#38bdf8' : '#94a3b8',
+                border: project.ownership_type === 'team' ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              {project.ownership_type === 'team' ? 'Team Project' : 'Personal Project'}
+            </span>
           </div>
           <h1 className="page-title">{project.title}</h1>
           <p className="page-subtitle">

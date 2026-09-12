@@ -1,14 +1,21 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { DecisionRecord, CreateDecisionInput, UpdateDecisionInput } from './types';
+import { logTeamActivity } from '../teams/teamClient';
 
 export interface DecisionQueryResult<T> {
   data: T | null;
   error: Error | null;
 }
 
+export interface FetchDecisionsOptions {
+  projectId?: string;
+  limit?: number;
+  teamId?: string;
+  workspaceScope?: 'all' | 'personal' | 'team';
+}
+
 /**
  * Save a new decision into Decision Memory.
- * Scoped to authenticated user (auth.uid()).
  */
 export async function saveDecision(
   supabase: SupabaseClient,
@@ -24,6 +31,23 @@ export async function saveDecision(
       return { data: null, error: new Error('User session not found') };
     }
 
+    // Determine ownership and team_id if not explicitly provided
+    let ownershipType = input.ownership_type || (input.team_id ? 'team' : 'personal');
+    let teamId = input.team_id || null;
+
+    if (!input.team_id) {
+      const { data: proj } = await supabase
+        .from('projects')
+        .select('ownership_type, team_id')
+        .eq('id', input.project_id)
+        .maybeSingle();
+
+      if (proj && proj.ownership_type === 'team' && proj.team_id) {
+        ownershipType = 'team';
+        teamId = proj.team_id;
+      }
+    }
+
     const { data, error } = await supabase
       .from('decision_memory')
       .insert({
@@ -35,12 +59,24 @@ export async function saveDecision(
         decision_owner: input.decision_owner?.trim() || null,
         decision_date: input.decision_date || null,
         source_output_id: input.source_output_id || null,
+        ownership_type: ownershipType,
+        team_id: teamId,
       })
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .single();
 
     if (error) {
       return { data: null, error: new Error(error.message) };
+    }
+
+    if (teamId && ownershipType === 'team') {
+      await logTeamActivity(supabase, teamId, {
+        activity_type: 'decision_saved',
+        title: 'Decision recorded',
+        description: `Saved decision "${input.decision_title.trim()}"`,
+        entity_id: data.id,
+        entity_type: 'decision',
+      });
     }
 
     return { data: data as DecisionRecord, error: null };
@@ -50,25 +86,33 @@ export async function saveDecision(
 }
 
 /**
- * Fetch non-deleted decisions owned by the authenticated user.
+ * Fetch non-deleted decisions accessible to the authenticated user.
  */
 export async function fetchDecisions(
   supabase: SupabaseClient,
-  options?: {
-    projectId?: string;
-    limit?: number;
-  }
+  options?: FetchDecisionsOptions
 ): Promise<DecisionQueryResult<DecisionRecord[]>> {
   try {
     let query = supabase
       .from('decision_memory')
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .is('deleted_at', null)
       .order('decision_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     if (options?.projectId) {
       query = query.eq('project_id', options.projectId);
+    }
+
+    if (options?.workspaceScope === 'personal') {
+      query = query.or('ownership_type.eq.personal,team_id.is.null');
+    } else if (options?.workspaceScope === 'team') {
+      query = query.eq('ownership_type', 'team');
+      if (options.teamId) {
+        query = query.eq('team_id', options.teamId);
+      }
+    } else if (options?.teamId) {
+      query = query.eq('team_id', options.teamId);
     }
 
     if (options?.limit) {
@@ -102,8 +146,9 @@ export async function fetchDecisionById(
   try {
     const { data, error } = await supabase
       .from('decision_memory')
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at), outputs(id, output_type, content)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id), outputs(id, output_type, content)')
       .eq('id', id)
+      .is('deleted_at', null)
       .single();
 
     if (error) {
@@ -134,12 +179,14 @@ export async function updateDecision(
     if (input.decision_reasoning !== undefined) updatePayload.decision_reasoning = input.decision_reasoning?.trim() || null;
     if (input.decision_owner !== undefined) updatePayload.decision_owner = input.decision_owner?.trim() || null;
     if (input.decision_date !== undefined) updatePayload.decision_date = input.decision_date || null;
+    if (input.ownership_type !== undefined) updatePayload.ownership_type = input.ownership_type;
+    if (input.team_id !== undefined) updatePayload.team_id = input.team_id;
 
     const { data, error } = await supabase
       .from('decision_memory')
       .update(updatePayload)
       .eq('id', id)
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .single();
 
     if (error) {
@@ -244,8 +291,18 @@ export async function permanentDeleteDecision(
       p_decision_id: id,
     });
 
-    if (rpcErr) {
-      return { success: false, error: new Error(rpcErr.message) };
+    if (!rpcErr) {
+      return { success: true, error: null };
+    }
+
+    const { error } = await supabase
+      .from('decision_memory')
+      .delete()
+      .eq('id', id)
+      .not('deleted_at', 'is', null);
+
+    if (error) {
+      return { success: false, error: new Error(error.message) };
     }
 
     return { success: true, error: null };
@@ -255,7 +312,7 @@ export async function permanentDeleteDecision(
 }
 
 /**
- * Fetch soft-deleted decisions for the current authenticated user (Recently Deleted).
+ * Fetch deleted decisions for Recently Deleted view.
  */
 export async function fetchDeletedDecisions(
   supabase: SupabaseClient
@@ -271,7 +328,7 @@ export async function fetchDeletedDecisions(
       return { data: null, error: new Error(error.message) };
     }
 
-    return { data: (data || []) as DecisionRecord[], error: null };
+    return { data: (data as DecisionRecord[]) || [], error: null };
   } catch (err: any) {
     return { data: null, error: err instanceof Error ? err : new Error('Failed to load deleted decisions') };
   }

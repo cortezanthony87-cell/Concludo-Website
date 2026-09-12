@@ -8,6 +8,8 @@ export interface DecisionRecord {
   decision_owner: string | null;
   decision_date: string | null;
   source_output_id: string | null;
+  ownership_type?: 'personal' | 'team';
+  team_id?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -20,6 +22,8 @@ export interface DecisionRecord {
     project_name?: string | null;
     meeting_date?: string | null;
     deleted_at?: string | null;
+    ownership_type?: 'personal' | 'team';
+    team_id?: string | null;
   } | null;
   outputs?: {
     id: string;
@@ -36,6 +40,8 @@ export interface CreateDecisionInput {
   decision_owner?: string | null;
   decision_date?: string | null;
   source_output_id?: string | null;
+  ownership_type?: 'personal' | 'team';
+  team_id?: string | null;
 }
 
 export interface UpdateDecisionInput {
@@ -44,4 +50,6 @@ export interface UpdateDecisionInput {
   decision_reasoning?: string | null;
   decision_owner?: string | null;
   decision_date?: string | null;
+  ownership_type?: 'personal' | 'team';
+  team_id?: string | null;
 }
