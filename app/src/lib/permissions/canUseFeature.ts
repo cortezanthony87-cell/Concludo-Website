@@ -80,7 +80,6 @@ export async function canUseFeature(
       // In server/node/bun environment, use admin client
       client = getSupabaseAdminClient();
     } catch {
-      // Fallback: If running in an environment without admin client, error out
       return {
         allowed: false,
         statusCode: 500,
@@ -149,4 +148,19 @@ export async function canUseFeature(
     plan: userPlan,
     feature: cleanFeatureKey,
   };
+}
+
+/**
+ * Tasklet 12 Helper: hasFeature(userId, feature)
+ *
+ * Returns a boolean (true / false) based on the user's plan fetched authoritatively from the database.
+ * Never trusts values sent from the browser.
+ */
+export async function hasFeature(
+  userId: string,
+  feature: string,
+  options?: CanUseFeatureOptions
+): Promise<boolean> {
+  const result = await canUseFeature(userId, feature, options);
+  return result.allowed === true;
 }

@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicAuthRoute } from './components/PublicAuthRoute';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
 
+import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -25,7 +26,10 @@ export const App: React.FC = () => {
   return (
     <AuthProvider>
       <Routes>
-        {/* Public Authentication routes (redirect to /dashboard if already logged in) */}
+        {/* Public Home Route (renders HomePage or redirects to /dashboard if logged in) */}
+        <Route path="/" element={<HomePage />} />
+
+        {/* Public Auth routes (redirect to /dashboard if already logged in) */}
         <Route
           path="/login"
           element={
@@ -57,7 +61,6 @@ export const App: React.FC = () => {
         {/* Protected Workspace routes (redirect to /login if not authenticated) */}
         <Route element={<ProtectedRoute />}>
           <Route element={<WorkspaceLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/new" element={<NewProjectPage />} />
@@ -67,12 +70,13 @@ export const App: React.FC = () => {
             <Route path="/settings/deleted" element={<RecentlyDeletedPage />} />
             <Route path="/decision-memory" element={<DecisionMemoryPage />} />
             <Route path="/actions" element={<ActionsPage />} />
+            <Route path="/admin" element={<DashboardPage />} />
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>
         </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* Fallback: redirect to /login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>
   );

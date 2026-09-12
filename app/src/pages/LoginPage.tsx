@@ -109,7 +109,7 @@ export const LoginPage: React.FC = () => {
                 to="/forgot-password"
                 style={{ fontSize: '0.82rem', color: '#f3c958', fontWeight: 500 }}
               >
-                Forgot password?
+                Forgot Password
               </Link>
             </div>
             <input
@@ -136,19 +136,20 @@ export const LoginPage: React.FC = () => {
             {loading ? (
               <>
                 <Loader2 size={18} className="spin-animation" />
-                <span>Verifying credentials...</span>
+                <span>Signing in...</span>
               </>
             ) : (
               <>
-                <span>Sign in to Workspace</span>
+                <span>Sign In</span>
                 <ArrowRight size={18} />
               </>
             )}
           </button>
         </form>
 
-        <div className="auth-footer">
-          Don't have an account yet? <Link to="/signup">Create account</Link>
+        <div className="auth-footer" style={{ display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center' }}>
+          <span>Don't have an account yet?</span>
+          <Link to="/signup" style={{ color: '#f3c958', fontWeight: 600 }}>Create Account</Link>
         </div>
       </div>
     </div>

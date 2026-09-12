@@ -9,6 +9,16 @@ import {
   repairOrEnsureProfile,
 } from '../profiles/profileClient';
 
+export type AuthStatus =
+  | 'checking_session'
+  | 'loading_account'
+  | 'loading_profile'
+  | 'loading_permissions'
+  | 'signing_in'
+  | 'signing_out'
+  | 'creating_account'
+  | 'idle';
+
 interface AuthResponse {
   user: User | null;
   session: Session | null;
@@ -23,6 +33,10 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   profileLoading: boolean;
+  authStatus: AuthStatus;
+  authError: string | null;
+  clearAuthError: () => void;
+  retryAuth: () => Promise<void>;
   signUp: (email: string, password: string, fullName?: string) => Promise<AuthResponse>;
   signIn: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<{ error: Error | null }>;
@@ -41,6 +55,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [profileLoading, setProfileLoading] = useState<boolean>(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('checking_session');
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const clearAuthError = useCallback(() => {
+    setAuthError(null);
+  }, []);
 
   const loadProfile = useCallback(async (targetUser: User | null) => {
     if (!targetUser) {
@@ -50,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setProfileLoading(true);
+    setAuthStatus('loading_profile');
     try {
       const res = await fetchUserProfile(targetUser.id);
       if (res.profile) {
@@ -67,61 +88,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err) {
       console.error('Error loading user profile:', err);
+      setAuthError('Failed to load profile. Please refresh the page to retry.');
     } finally {
       setProfileLoading(false);
+      setAuthStatus('idle');
     }
   }, []);
+
+  const initSession = useCallback(async () => {
+    setLoading(true);
+    setAuthStatus('checking_session');
+    setAuthError(null);
+
+    try {
+      const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error retrieving session:', error);
+        setAuthError(getAuthErrorMessage(error));
+      }
+      setSession(initialSession);
+      const currentUser = initialSession?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        await loadProfile(currentUser);
+      }
+    } catch (err) {
+      console.error('Failed to get session:', err);
+      setAuthError(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+      setAuthStatus('idle');
+    }
+  }, [supabase, loadProfile]);
 
   useEffect(() => {
     let isMounted = true;
 
-    try {
-      // Fetch active session on mount
-      supabase.auth
-        .getSession()
-        .then(async ({ data: { session: initialSession }, error }) => {
-          if (!isMounted) return;
-          if (error) {
-            console.error('Error retrieving session:', error);
-          }
-          setSession(initialSession);
-          const currentUser = initialSession?.user ?? null;
-          setUser(currentUser);
-          if (currentUser) {
-            await loadProfile(currentUser);
-          }
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error('Failed to get session:', err);
-          if (isMounted) setLoading(false);
-        });
+    initSession();
 
-      // Listen for authentication changes (SIGN_IN, SIGN_OUT, TOKEN_REFRESHED, USER_UPDATED, PASSWORD_RECOVERY)
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-        if (!isMounted) return;
-        setSession(currentSession);
-        const currentUser = currentSession?.user ?? null;
-        setUser(currentUser);
-        if (currentUser) {
-          await loadProfile(currentUser);
-        } else {
-          setProfile(null);
-        }
-        setLoading(false);
-      });
-
-      return () => {
-        isMounted = false;
-        subscription.unsubscribe();
-      };
-    } catch (err) {
-      console.error('Supabase initialization failed in AuthProvider:', err);
+    // Listen for authentication changes (SIGN_IN, SIGN_OUT, TOKEN_REFRESHED, USER_UPDATED, PASSWORD_RECOVERY)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (!isMounted) return;
+      setSession(currentSession);
+      const currentUser = currentSession?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        await loadProfile(currentUser);
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
-    }
-  }, [supabase, loadProfile]);
+      setAuthStatus('idle');
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, loadProfile, initSession]);
 
   const refreshProfile = useCallback(async () => {
     if (user) {
@@ -155,14 +181,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!password) {
       return { user: null, session: null, error: new Error('Please enter your password.') };
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       return {
         user: null,
         session: null,
-        error: new Error('Password is too weak. Please choose a password with at least 6 characters.'),
+        error: new Error('Password is too weak. Please choose a password with at least 8 characters.'),
       };
     }
 
+    setAuthStatus('creating_account');
     try {
       const redirectTo = `${window.location.origin}/dashboard`;
       const metadata: Record<string, any> = {};
@@ -180,6 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
+        setAuthStatus('idle');
         return {
           user: null,
           session: null,
@@ -190,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Check if user already exists
       if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setAuthStatus('idle');
         return {
           user: null,
           session: null,
@@ -207,6 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      setAuthStatus('idle');
       return {
         user: data.user,
         session: data.session,
@@ -214,6 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: null,
       };
     } catch (err) {
+      setAuthStatus('idle');
       return {
         user: null,
         session: null,
@@ -232,6 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { user: null, session: null, error: new Error('Please enter your password.') };
     }
 
+    setAuthStatus('signing_in');
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
@@ -239,6 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
+        setAuthStatus('idle');
         return {
           user: null,
           session: null,
@@ -252,12 +285,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await loadProfile(data.user);
       }
 
+      setAuthStatus('idle');
       return {
         user: data.user,
         session: data.session,
         error: null,
       };
     } catch (err) {
+      setAuthStatus('idle');
       return {
         user: null,
         session: null,
@@ -267,11 +302,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async (): Promise<{ error: Error | null }> => {
+    setAuthStatus('signing_out');
     try {
       const { error } = await supabase.auth.signOut();
       setSession(null);
       setUser(null);
       setProfile(null);
+      setAuthStatus('idle');
 
       if (error) {
         return { error: new Error(getAuthErrorMessage(error)) };
@@ -281,6 +318,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setUser(null);
       setProfile(null);
+      setAuthStatus('idle');
       return { error: new Error(getAuthErrorMessage(err)) };
     }
   };
@@ -312,9 +350,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!password) {
       return { error: new Error('Please enter your new password.') };
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       return {
-        error: new Error('Password is too weak. Please choose a password with at least 6 characters.'),
+        error: new Error('Password is too weak. Please choose a password with at least 8 characters.'),
       };
     }
 
@@ -340,6 +378,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         loading,
         profileLoading,
+        authStatus,
+        authError,
+        clearAuthError,
+        retryAuth: initSession,
         signUp,
         signIn,
         signOut,

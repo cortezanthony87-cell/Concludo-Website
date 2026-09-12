@@ -38,8 +38,8 @@ export const SignupPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage('Password is too weak. Please choose a password with at least 6 characters.');
+    if (password.length < 8) {
+      setErrorMessage('Password is too weak. Please choose a password with at least 8 characters.');
       return;
     }
 
@@ -145,26 +145,6 @@ export const SignupPage: React.FC = () => {
           <div className="form-group">
             <label
               className="form-label"
-              htmlFor="signup-name"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <User size={15} color="#f3c958" />
-              <span>Full name <span style={{ color: '#64748b', fontWeight: 400 }}>(optional)</span></span>
-            </label>
-            <input
-              id="signup-name"
-              type="text"
-              className="form-input"
-              placeholder="Anthony Cortez"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              autoComplete="name"
-            />
-          </div>
-
-          <div className="form-group">
-            <label
-              className="form-label"
               htmlFor="signup-email"
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
@@ -199,7 +179,7 @@ export const SignupPage: React.FC = () => {
               id="signup-password"
               type="password"
               className="form-input"
-              placeholder="At least 6 characters"
+              placeholder="At least 8 characters"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
@@ -231,6 +211,26 @@ export const SignupPage: React.FC = () => {
               }}
               autoComplete="new-password"
               required
+            />
+          </div>
+
+          <div className="form-group">
+            <label
+              className="form-label"
+              htmlFor="signup-name"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <User size={15} color="#f3c958" />
+              <span>Full name <span style={{ color: '#64748b', fontWeight: 400 }}>(optional)</span></span>
+            </label>
+            <input
+              id="signup-name"
+              type="text"
+              className="form-input"
+              placeholder="Anthony Cortez"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              autoComplete="name"
             />
           </div>
 

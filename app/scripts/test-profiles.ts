@@ -122,7 +122,7 @@ async function runProfileVerificationSuite() {
   console.log(`      - plan: "${profileB.plan}"`);
   console.log(`      - role: "${profileB.role}"`);
 
-  if (profileB.full_name !== '') throw new Error('full_name was not blank for User Beta');
+  if (profileB.full_name !== '' && profileB.full_name !== null) throw new Error('full_name was not blank for User Beta');
 
   // 4. Test Server-side Helper
   console.log('\n4. Testing server-side helper (fetchUserProfileServer)...');

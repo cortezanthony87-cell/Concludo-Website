@@ -14,15 +14,17 @@ import {
   Zap,
   Database,
   Shield,
-  Trash2
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
 
 export const WorkspaceLayout: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, authStatus } = useAuth();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,8 +42,10 @@ export const WorkspaceLayout: React.FC = () => {
 
   const handleLogout = async () => {
     setAccountMenuOpen(false);
+    setLoggingOut(true);
     await signOut();
-    navigate('/login', { replace: true });
+    setLoggingOut(false);
+    navigate('/', { replace: true });
   };
 
   const userEmail = user?.email || 'User';
@@ -179,6 +183,7 @@ export const WorkspaceLayout: React.FC = () => {
                   type="button"
                   className="dropdown-link"
                   onClick={handleLogout}
+                  disabled={loggingOut || authStatus === 'signing_out'}
                   style={{
                     width: '100%',
                     background: 'none',
@@ -186,10 +191,22 @@ export const WorkspaceLayout: React.FC = () => {
                     cursor: 'pointer',
                     textAlign: 'left',
                     color: '#f87171',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
                   }}
                 >
-                  <LogOut size={16} color="#f87171" />
-                  <span>Log out</span>
+                  {loggingOut ? (
+                    <>
+                      <Loader2 size={16} className="spin-animation" color="#f87171" />
+                      <span>Signing out...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut size={16} color="#f87171" />
+                      <span>Log out</span>
+                    </>
+                  )}
                 </button>
               </div>
             )}

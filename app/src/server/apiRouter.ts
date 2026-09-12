@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { canUseFeature } from '../lib/permissions/canUseFeature';
+import { canUseFeature, hasFeature } from '../lib/permissions/canUseFeature';
 import {
   FeatureKey,
   ALL_FEATURE_KEYS,
@@ -263,6 +263,50 @@ export async function handleApiRequest(
         allowed: true,
         plan: result.plan,
         feature: result.feature,
+      },
+    };
+  }
+
+  // 4c. Feature Boolean Helper Endpoint: POST /api/features/has
+  if (pathname === '/api/features/has') {
+    if (req.method !== 'POST') {
+      return {
+        status: 405,
+        headers: jsonHeaders,
+        body: { error: 'method_not_allowed', message: 'Method Not Allowed' },
+      };
+    }
+
+    const featureKey = req.body?.feature || req.body?.featureKey;
+    if (!featureKey) {
+      return {
+        status: 400,
+        headers: jsonHeaders,
+        body: {
+          error: 'invalid_feature_key',
+          message: 'Feature key is required.',
+        },
+      };
+    }
+
+    const permResult = await canUseFeature(authenticatedUser.id, featureKey, {
+      supabase: adminClient,
+    });
+
+    if (permResult.statusCode === 400) {
+      return {
+        status: 400,
+        headers: jsonHeaders,
+        body: permResult.error,
+      };
+    }
+
+    return {
+      status: 200,
+      headers: jsonHeaders,
+      body: {
+        hasFeature: permResult.allowed,
+        feature: featureKey,
       },
     };
   }

@@ -24,7 +24,12 @@ export const ResetPasswordPage: React.FC = () => {
     const errorCode = fullParams.get('error_code');
     const errorDesc = fullParams.get('error_description');
 
-    if (errorCode === 'otp_expired' || (errorDesc && errorDesc.toLowerCase().includes('expired'))) {
+    if (
+      errorCode === 'otp_expired' ||
+      errorCode === 'access_denied' ||
+      (errorDesc && errorDesc.toLowerCase().includes('expired')) ||
+      (errorDesc && errorDesc.toLowerCase().includes('invalid'))
+    ) {
       setLinkExpired(true);
       setErrorMessage('This password reset link is invalid or has expired. Please request a new password reset.');
     }
@@ -39,8 +44,8 @@ export const ResetPasswordPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage('Password is too weak. Please choose a password with at least 6 characters.');
+    if (password.length < 8) {
+      setErrorMessage('Password is too weak. Please choose a password with at least 8 characters.');
       return;
     }
 
@@ -58,6 +63,7 @@ export const ResetPasswordPage: React.FC = () => {
       if (
         formatted.toLowerCase().includes('session') ||
         formatted.toLowerCase().includes('expired') ||
+        formatted.toLowerCase().includes('token') ||
         !session
       ) {
         setLinkExpired(true);
@@ -158,7 +164,7 @@ export const ResetPasswordPage: React.FC = () => {
                 id="new-password"
                 type="password"
                 className="form-input"
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);

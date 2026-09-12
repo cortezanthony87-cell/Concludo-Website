@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Sliders,
   Bell,
@@ -11,10 +11,25 @@ import {
   Clock,
   ShieldCheck,
   CheckCircle2,
-  Users
+  Users,
+  LogOut,
+  Loader2,
+  UserCheck,
 } from 'lucide-react';
+import { useAuth } from '../lib/auth/AuthContext';
 
 export const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, profile, signOut, authStatus } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await signOut();
+    setLoggingOut(false);
+    navigate('/', { replace: true });
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -27,6 +42,69 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '720px' }}>
+        {/* ACCOUNT & SESSION SECTION */}
+        <div className="content-card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: 'rgba(243, 201, 88, 0.1)',
+                  border: '1px solid rgba(243, 201, 88, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#f3c958',
+                }}
+              >
+                <UserCheck size={19} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Account & Session
+                </h2>
+                <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+                  Authenticated as <strong style={{ color: '#f8fafc' }}>{user?.email}</strong>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut || authStatus === 'signing_out'}
+              className="btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                fontSize: '0.86rem',
+                color: '#f87171',
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+              }}
+            >
+              {loggingOut ? (
+                <>
+                  <Loader2 size={16} className="spin-animation" />
+                  <span>Signing out...</span>
+                </>
+              ) : (
+                <>
+                  <LogOut size={16} />
+                  <span>Log out</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>
+            Active session secured with Supabase Auth. Logging out clears local credentials and returns to the home page.
+          </div>
+        </div>
+
         {/* DATA RETENTION SECTION */}
         <div className="content-card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
