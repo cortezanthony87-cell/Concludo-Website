@@ -1,6 +1,6 @@
 /**
  * Data Retention & Lifecycle Types
- * Concludo Workspace - Tasklet 11E
+ * Concludo Workspace - Tasklet 11E & Tasklet 14
  */
 
 export interface RetentionPolicy {
@@ -29,7 +29,7 @@ export interface RetentionPolicy {
   /**
    * Protected entity types covered under data retention.
    */
-  protected_types: ('projects' | 'outputs' | 'transcripts')[];
+  protected_types: ('projects' | 'outputs' | 'transcripts' | 'decisions' | 'actions')[];
 
   /**
    * Future Team Workspace Support:
@@ -49,6 +49,8 @@ export interface PurgeResult {
   executed_at: string;
   purged_projects: number;
   purged_outputs: number;
+  purged_decisions?: number;
+  purged_actions?: number;
   user_id?: string;
   error?: string;
 }
@@ -61,7 +63,7 @@ export const DEFAULT_RETENTION_POLICY: RetentionPolicy = {
   recovery_window_display: '30 days',
   purge_frequency: 'daily',
   purge_criteria: 'deleted_at is not null and purge_after < now()',
-  protected_types: ['projects', 'outputs', 'transcripts'],
+  protected_types: ['projects', 'outputs', 'transcripts', 'decisions', 'actions'],
   team_retention_override: false,
   team_retention_policy_days: null,
 };

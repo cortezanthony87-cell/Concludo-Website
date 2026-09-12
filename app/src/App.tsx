@@ -20,7 +20,9 @@ import { AccountPage } from './pages/AccountPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { RecentlyDeletedPage } from './pages/RecentlyDeletedPage';
 import { DecisionMemoryPage } from './pages/DecisionMemoryPage';
+import { DecisionDetailPage } from './pages/DecisionDetailPage';
 import { ActionsPage } from './pages/ActionsPage';
+import { ActionDetailPage } from './pages/ActionDetailPage';
 import { ConnectionTestPage } from './pages/ConnectionTestPage';
 
 export const App: React.FC = () => {
@@ -71,7 +73,9 @@ export const App: React.FC = () => {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/deleted" element={<RecentlyDeletedPage />} />
             <Route path="/decision-memory" element={<DecisionMemoryPage />} />
+            <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
             <Route path="/actions" element={<ActionsPage />} />
+            <Route path="/actions/:id" element={<ActionDetailPage />} />
             <Route path="/admin" element={<DashboardPage />} />
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

@@ -36,7 +36,7 @@ export async function handleApiRequest(
   options?: { adminClient?: SupabaseClient }
 ): Promise<ApiResponse> {
   const jsonHeaders = { 'Content-Type': 'application/json' };
-  const pathname = req.url.split('?')[0];
+  const pathname = req.url.startsWith('http') ? new URL(req.url).pathname : req.url.split('?')[0];
 
   const adminClient = options?.adminClient || getSupabaseAdminClient();
 
@@ -335,10 +335,33 @@ export async function handleApiRequest(
     // Output actions
     '/api/outputs/copy': [{ method: 'POST', feature: 'copy_output' }],
     '/api/outputs/export-json': [{ method: 'POST', feature: 'json_export' }],
-    // Intelligence endpoints
-    '/api/decision-memory': [{ method: 'GET', feature: 'decision_memory' }],
-    '/api/actions': [{ method: 'GET', feature: 'action_tracker' }],
-    '/api/search/keywords': [{ method: 'POST', feature: 'keyword_search' }],
+    // Intelligence endpoints (Tasklet 14 Pro Features)
+    '/api/search': [
+      { method: 'GET', feature: 'keyword_search' },
+      { method: 'POST', feature: 'keyword_search' },
+    ],
+    '/api/search/keywords': [
+      { method: 'GET', feature: 'keyword_search' },
+      { method: 'POST', feature: 'keyword_search' },
+    ],
+    '/api/decisions': [
+      { method: 'GET', feature: 'decision_memory' },
+      { method: 'POST', feature: 'decision_memory' },
+      { method: 'PUT', feature: 'decision_memory' },
+      { method: 'DELETE', feature: 'decision_memory' },
+    ],
+    '/api/decision-memory': [
+      { method: 'GET', feature: 'decision_memory' },
+      { method: 'POST', feature: 'decision_memory' },
+      { method: 'PUT', feature: 'decision_memory' },
+      { method: 'DELETE', feature: 'decision_memory' },
+    ],
+    '/api/actions': [
+      { method: 'GET', feature: 'action_tracker' },
+      { method: 'POST', feature: 'action_tracker' },
+      { method: 'PUT', feature: 'action_tracker' },
+      { method: 'DELETE', feature: 'action_tracker' },
+    ],
     '/api/insight': [{ method: 'GET', feature: 'insight' }],
     '/api/stats': [{ method: 'GET', feature: 'stats' }],
     '/api/reports/endpoint': [{ method: 'GET', feature: 'endpoint_report' }],

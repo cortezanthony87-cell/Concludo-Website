@@ -8,7 +8,8 @@ import { PurgeResult, RetentionPolicy, DEFAULT_RETENTION_POLICY } from './types'
  * Purge criteria:
  * deleted_at is not null AND purge_after < now()
  *
- * Permanently removes expired projects (and cascading child records) and expired outputs.
+ * Permanently removes expired projects (and cascading child records), expired outputs,
+ * expired decisions, and expired actions.
  */
 export async function executeRetentionPurge(
   adminClient: SupabaseClient
@@ -21,6 +22,8 @@ export async function executeRetentionPurge(
       executed_at: new Date().toISOString(),
       purged_projects: 0,
       purged_outputs: 0,
+      purged_decisions: 0,
+      purged_actions: 0,
       error: error.message,
     };
   }
@@ -30,6 +33,8 @@ export async function executeRetentionPurge(
     executed_at: data?.executed_at ?? new Date().toISOString(),
     purged_projects: data?.purged_projects ?? 0,
     purged_outputs: data?.purged_outputs ?? 0,
+    purged_decisions: data?.purged_decisions ?? 0,
+    purged_actions: data?.purged_actions ?? 0,
   };
 }
 
@@ -48,6 +53,8 @@ export async function executeUserRetentionPurge(
       executed_at: new Date().toISOString(),
       purged_projects: 0,
       purged_outputs: 0,
+      purged_decisions: 0,
+      purged_actions: 0,
       error: error.message,
     };
   }
@@ -57,6 +64,8 @@ export async function executeUserRetentionPurge(
     executed_at: data?.executed_at ?? new Date().toISOString(),
     purged_projects: data?.purged_projects ?? 0,
     purged_outputs: data?.purged_outputs ?? 0,
+    purged_decisions: data?.purged_decisions ?? 0,
+    purged_actions: data?.purged_actions ?? 0,
     user_id: data?.user_id,
   };
 }

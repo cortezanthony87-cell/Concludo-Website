@@ -28,8 +28,11 @@ import {
   GitBranch,
   BarChart3,
   ExternalLink,
+  BrainCircuit,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
+import { useFeatureAccess } from '../lib/permissions/usePermissions';
 import { Project, COMMON_MEETING_TYPES } from '../lib/projects/types';
 import { fetchProjectById, updateProject, softDeleteProject } from '../lib/projects/projectClient';
 import {
@@ -43,11 +46,33 @@ import {
   saveOutput,
   softDeleteOutput,
 } from '../lib/outputs/outputClient';
+import {
+  fetchDecisions,
+  saveDecision,
+  softDeleteDecision,
+} from '../lib/decisions/decisionClient';
+import { DecisionRecord, CreateDecisionInput } from '../lib/decisions/types';
+import {
+  fetchActions,
+  saveAction,
+  softDeleteAction,
+  updateActionStatus,
+} from '../lib/actions/actionClient';
+import {
+  ActionRecord,
+  CreateActionInput,
+  ActionStatus,
+  STATUS_LABELS,
+  isActionOverdue,
+} from '../lib/actions/types';
+
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { supabase } = useAuth();
+  const decisionAccess = useFeatureAccess('decision_memory');
+  const actionAccess = useFeatureAccess('action_tracker');
 
   // Project state
   const [project, setProject] = useState<Project | null>(null);
@@ -76,6 +101,40 @@ export const ProjectDetailPage: React.FC = () => {
   const [outputs, setOutputs] = useState<OutputRecord[]>([]);
   const [loadingOutputs, setLoadingOutputs] = useState<boolean>(false);
   const [outputsError, setOutputsError] = useState<string | null>(null);
+
+  // Decisions State
+  const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
+  const [loadingDecisions, setLoadingDecisions] = useState<boolean>(false);
+  const [decisionsError, setDecisionsError] = useState<string | null>(null);
+
+  // Create / Save Decision State
+  const [showSaveDecisionModal, setShowSaveDecisionModal] = useState<boolean>(false);
+  const [newDecisionTitle, setNewDecisionTitle] = useState<string>('');
+  const [newDecisionSummary, setNewDecisionSummary] = useState<string>('');
+  const [newDecisionReasoning, setNewDecisionReasoning] = useState<string>('');
+  const [newDecisionOwner, setNewDecisionOwner] = useState<string>('');
+  const [newDecisionDate, setNewDecisionDate] = useState<string>('');
+  const [newDecisionSourceOutputId, setNewDecisionSourceOutputId] = useState<string | null>(null);
+  const [savingDecision, setSavingDecision] = useState<boolean>(false);
+  const [saveDecisionError, setSaveDecisionError] = useState<string | null>(null);
+  const [deletingDecisionId, setDeletingDecisionId] = useState<string | null>(null);
+
+  // Actions State
+  const [actions, setActions] = useState<ActionRecord[]>([]);
+  const [loadingActions, setLoadingActions] = useState<boolean>(false);
+  const [actionsError, setActionsError] = useState<string | null>(null);
+
+  // Create / Save Action State
+  const [showSaveActionModal, setShowSaveActionModal] = useState<boolean>(false);
+  const [newActionTitle, setNewActionTitle] = useState<string>('');
+  const [newActionDescription, setNewActionDescription] = useState<string>('');
+  const [newActionOwner, setNewActionOwner] = useState<string>('');
+  const [newActionDueDate, setNewActionDueDate] = useState<string>('');
+  const [newActionStatus, setNewActionStatus] = useState<ActionStatus>('not_started');
+  const [newActionSourceOutputId, setNewActionSourceOutputId] = useState<string | null>(null);
+  const [savingAction, setSavingAction] = useState<boolean>(false);
+  const [saveActionError, setSaveActionError] = useState<string | null>(null);
+  const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
 
   // Create Output State
   const [showCreateOutputForm, setShowCreateOutputForm] = useState<boolean>(false);
@@ -133,10 +192,43 @@ export const ProjectDetailPage: React.FC = () => {
     setLoadingOutputs(false);
   }, [supabase, id]);
 
+  // Load Decisions
+  const loadDecisions = useCallback(async () => {
+    if (!supabase || !id) return;
+    setLoadingDecisions(true);
+    setDecisionsError(null);
+
+    const result = await fetchDecisions(supabase, { projectId: id });
+    if (result.error) {
+      setDecisionsError('Failed to load decisions');
+    } else {
+      setDecisions(result.data || []);
+    }
+    setLoadingDecisions(false);
+  }, [supabase, id]);
+
+  // Load Actions
+  const loadActions = useCallback(async () => {
+    if (!supabase || !id) return;
+    setLoadingActions(true);
+    setActionsError(null);
+
+    const result = await fetchActions(supabase, { projectId: id });
+    if (result.error) {
+      setActionsError('Failed to load actions');
+    } else {
+      setActions(result.data || []);
+    }
+    setLoadingActions(false);
+  }, [supabase, id]);
+
   useEffect(() => {
     loadProject();
     loadOutputs();
-  }, [loadProject, loadOutputs]);
+    loadDecisions();
+    loadActions();
+  }, [loadProject, loadOutputs, loadDecisions, loadActions]);
+
 
   // Handle Edit Project
   const handleStartEditing = () => {
@@ -254,6 +346,109 @@ export const ProjectDetailPage: React.FC = () => {
       }
     }
   };
+
+  // Handle Save Decision
+  const handleSaveDecision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !id) return;
+    const trimmedTitle = newDecisionTitle.trim();
+    if (!trimmedTitle) {
+      setSaveDecisionError('Decision title is required');
+      return;
+    }
+
+    setSavingDecision(true);
+    setSaveDecisionError(null);
+
+    const result = await saveDecision(supabase, {
+      project_id: id,
+      decision_title: trimmedTitle,
+      decision_summary: newDecisionSummary.trim() || undefined,
+      decision_reasoning: newDecisionReasoning.trim() || undefined,
+      decision_owner: newDecisionOwner.trim() || undefined,
+      decision_date: newDecisionDate || undefined,
+      source_output_id: newDecisionSourceOutputId || undefined,
+    });
+
+    if (result.error || !result.data) {
+      setSaveDecisionError(result.error?.message || 'Failed to save decision');
+    } else {
+      setShowSaveDecisionModal(false);
+      setNewDecisionTitle('');
+      setNewDecisionSummary('');
+      setNewDecisionReasoning('');
+      setNewDecisionOwner('');
+      setNewDecisionDate('');
+      setNewDecisionSourceOutputId(null);
+      await loadDecisions();
+    }
+    setSavingDecision(false);
+  };
+
+  // Handle Delete Decision
+  const handleDeleteDecision = async (decisionId: string) => {
+    if (!supabase) return;
+    setDeletingDecisionId(decisionId);
+    const result = await softDeleteDecision(supabase, decisionId);
+    if (!result.success) {
+      setDecisionsError('Failed to delete item');
+    } else {
+      setDecisions((prev) => prev.filter((d) => d.id !== decisionId));
+    }
+    setDeletingDecisionId(null);
+  };
+
+  // Handle Save Action
+  const handleSaveAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !id) return;
+    const trimmedTitle = newActionTitle.trim();
+    if (!trimmedTitle) {
+      setSaveActionError('Action title is required');
+      return;
+    }
+
+    setSavingAction(true);
+    setSaveActionError(null);
+
+    const result = await saveAction(supabase, {
+      project_id: id,
+      action_title: trimmedTitle,
+      action_description: newActionDescription.trim() || undefined,
+      owner_name: newActionOwner.trim() || undefined,
+      due_date: newActionDueDate || undefined,
+      status: newActionStatus,
+      source_output_id: newActionSourceOutputId || undefined,
+    });
+
+    if (result.error || !result.data) {
+      setSaveActionError(result.error?.message || 'Failed to save action');
+    } else {
+      setShowSaveActionModal(false);
+      setNewActionTitle('');
+      setNewActionDescription('');
+      setNewActionOwner('');
+      setNewActionDueDate('');
+      setNewActionStatus('not_started');
+      setNewActionSourceOutputId(null);
+      await loadActions();
+    }
+    setSavingAction(false);
+  };
+
+  // Handle Delete Action
+  const handleDeleteAction = async (actionId: string) => {
+    if (!supabase) return;
+    setDeletingActionId(actionId);
+    const result = await softDeleteAction(supabase, actionId);
+    if (!result.success) {
+      setActionsError('Failed to delete item');
+    } else {
+      setActions((prev) => prev.filter((a) => a.id !== actionId));
+    }
+    setDeletingActionId(null);
+  };
+
 
   // Handle Copy text
   const handleCopyText = async (text: string, identifier: string) => {
@@ -1214,6 +1409,562 @@ export const ProjectDetailPage: React.FC = () => {
         )}
       </section>
 
+
+      {/* SAVED DECISIONS SECTION (Tasklet 14 Decision Memory) */}
+      <section className="content-card" style={{ marginBottom: '32px', padding: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <BrainCircuit size={20} style={{ color: '#e2b53c' }} />
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Saved Decisions
+            </h2>
+            <span
+              style={{
+                fontSize: '0.8rem',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: 'rgba(226, 181, 60, 0.15)',
+                color: '#f3c958',
+                fontWeight: 600,
+              }}
+            >
+              {decisions.length}
+            </span>
+          </div>
+
+          {decisionAccess.isAllowed ? (
+            <button
+              type="button"
+              onClick={() => {
+                setNewDecisionTitle('');
+                setNewDecisionSummary('');
+                setNewDecisionReasoning('');
+                setNewDecisionOwner('');
+                setNewDecisionDate(new Date().toISOString().split('T')[0]);
+                setNewDecisionSourceOutputId(null);
+                setSaveDecisionError(null);
+                setShowSaveDecisionModal(true);
+              }}
+              className="btn btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            >
+              <Plus size={15} />
+              <span>Save Decision</span>
+            </button>
+          ) : (
+            <span
+              style={{
+                fontSize: '0.8rem',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                background: 'rgba(226, 181, 60, 0.1)',
+                border: '1px solid rgba(226, 181, 60, 0.3)',
+                color: '#e2b53c',
+                fontWeight: 600,
+              }}
+            >
+              Available on Pro
+            </span>
+          )}
+        </div>
+
+        {!decisionAccess.isAllowed ? (
+          <div
+            style={{
+              padding: '24px',
+              borderRadius: '8px',
+              background: 'rgba(15, 23, 42, 0.4)',
+              border: '1px dashed rgba(226, 181, 60, 0.3)',
+              textAlign: 'center',
+            }}
+          >
+            <BrainCircuit size={28} style={{ color: '#e2b53c', marginBottom: '8px', opacity: 0.8 }} />
+            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 4px 0', fontWeight: 500 }}>
+              Decision Memory is available on Pro
+            </p>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>
+              Track what was decided, by whom, and why across your meetings.
+            </p>
+          </div>
+        ) : loadingDecisions ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '36px', gap: '10px', color: '#94a3b8' }}>
+            <Loader2 size={20} className="spin-animation" style={{ color: '#e2b53c' }} />
+            <span>Loading decisions</span>
+          </div>
+        ) : decisionsError ? (
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171' }}>
+              <AlertCircle size={18} />
+              <span>Failed to load decisions</span>
+            </div>
+            <button
+              type="button"
+              onClick={loadDecisions}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : decisions.length === 0 ? (
+          <div
+            style={{
+              padding: '36px 20px',
+              borderRadius: '8px',
+              background: 'rgba(15, 23, 42, 0.3)',
+              border: '1px dashed rgba(148, 163, 184, 0.2)',
+              textAlign: 'center',
+            }}
+          >
+            <BrainCircuit size={32} style={{ color: '#64748b', marginBottom: '10px' }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#e2e8f0', margin: '0 0 6px 0' }}>
+              No decisions saved yet
+            </h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 16px 0' }}>
+              Saved decisions from Decision Logs will appear here.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setNewDecisionTitle('');
+                setNewDecisionSummary('');
+                setNewDecisionReasoning('');
+                setNewDecisionOwner('');
+                setNewDecisionDate(new Date().toISOString().split('T')[0]);
+                setNewDecisionSourceOutputId(null);
+                setSaveDecisionError(null);
+                setShowSaveDecisionModal(true);
+              }}
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            >
+              <Plus size={15} />
+              <span>Save Decision</span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {decisions.map((decision) => (
+              <div
+                key={decision.id}
+                style={{
+                  padding: '16px 20px',
+                  borderRadius: '8px',
+                  background: 'rgba(15, 23, 42, 0.5)',
+                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ flex: '1 1 300px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                      {decision.decision_title}
+                    </h3>
+                    {decision.source_output_id && (
+                      <span
+                        style={{
+                          fontSize: '0.7rem',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          color: '#38bdf8',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Linked to Output
+                      </span>
+                    )}
+                  </div>
+                  {decision.decision_summary && (
+                    <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                      {decision.decision_summary}
+                    </p>
+                  )}
+                  {decision.decision_reasoning && (
+                    <p style={{ color: '#94a3b8', fontSize: '0.82rem', margin: '0 0 8px 0', fontStyle: 'italic', lineHeight: 1.4 }}>
+                      <strong style={{ fontStyle: 'normal', color: '#cbd5e1' }}>Why: </strong>
+                      {decision.decision_reasoning}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+                    {decision.decision_owner && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <User size={13} style={{ color: '#e2b53c' }} />
+                        <span>{decision.decision_owner}</span>
+                      </span>
+                    )}
+                    {decision.decision_date && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Calendar size={13} />
+                        <span>{decision.decision_date}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Link
+                    to={`/decision-memory/${decision.id}`}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    <ExternalLink size={14} />
+                    <span>Open</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDecision(decision.id)}
+                    disabled={deletingDecisionId === decision.id}
+                    className="btn btn-secondary"
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '6px 10px',
+                      color: '#f87171',
+                      borderColor: 'rgba(239, 68, 68, 0.25)',
+                    }}
+                  >
+                    {deletingDecisionId === decision.id ? (
+                      <Loader2 size={14} className="spin-animation" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* SAVED ACTIONS SECTION (Tasklet 14 Action Tracker) */}
+      <section className="content-card" style={{ marginBottom: '32px', padding: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <CheckSquare size={20} style={{ color: '#e2b53c' }} />
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+              Saved Actions
+            </h2>
+            <span
+              style={{
+                fontSize: '0.8rem',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: 'rgba(226, 181, 60, 0.15)',
+                color: '#f3c958',
+                fontWeight: 600,
+              }}
+            >
+              {actions.length}
+            </span>
+          </div>
+
+          {actionAccess.isAllowed ? (
+            <button
+              type="button"
+              onClick={() => {
+                setNewActionTitle('');
+                setNewActionDescription('');
+                setNewActionOwner('');
+                setNewActionDueDate('');
+                setNewActionStatus('not_started');
+                setNewActionSourceOutputId(null);
+                setSaveActionError(null);
+                setShowSaveActionModal(true);
+              }}
+              className="btn btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            >
+              <Plus size={15} />
+              <span>Save Action</span>
+            </button>
+          ) : (
+            <span
+              style={{
+                fontSize: '0.8rem',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                background: 'rgba(226, 181, 60, 0.1)',
+                border: '1px solid rgba(226, 181, 60, 0.3)',
+                color: '#e2b53c',
+                fontWeight: 600,
+              }}
+            >
+              Available on Pro
+            </span>
+          )}
+        </div>
+
+        {!actionAccess.isAllowed ? (
+          <div
+            style={{
+              padding: '24px',
+              borderRadius: '8px',
+              background: 'rgba(15, 23, 42, 0.4)',
+              border: '1px dashed rgba(226, 181, 60, 0.3)',
+              textAlign: 'center',
+            }}
+          >
+            <CheckSquare size={28} style={{ color: '#e2b53c', marginBottom: '8px', opacity: 0.8 }} />
+            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 4px 0', fontWeight: 500 }}>
+              Action Accountability Tracker is available on Pro
+            </p>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>
+              Assign owners, track deadlines, and monitor completion across your meetings.
+            </p>
+          </div>
+        ) : loadingActions ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '36px', gap: '10px', color: '#94a3b8' }}>
+            <Loader2 size={20} className="spin-animation" style={{ color: '#e2b53c' }} />
+            <span>Loading actions</span>
+          </div>
+        ) : actionsError ? (
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171' }}>
+              <AlertCircle size={18} />
+              <span>Failed to load actions</span>
+            </div>
+            <button
+              type="button"
+              onClick={loadActions}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : actions.length === 0 ? (
+          <div
+            style={{
+              padding: '36px 20px',
+              borderRadius: '8px',
+              background: 'rgba(15, 23, 42, 0.3)',
+              border: '1px dashed rgba(148, 163, 184, 0.2)',
+              textAlign: 'center',
+            }}
+          >
+            <CheckSquare size={32} style={{ color: '#64748b', marginBottom: '10px' }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#e2e8f0', margin: '0 0 6px 0' }}>
+              No actions tracked yet
+            </h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 16px 0' }}>
+              Actions saved from meeting outputs will appear here.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setNewActionTitle('');
+                setNewActionDescription('');
+                setNewActionOwner('');
+                setNewActionDueDate('');
+                setNewActionStatus('not_started');
+                setNewActionSourceOutputId(null);
+                setSaveActionError(null);
+                setShowSaveActionModal(true);
+              }}
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            >
+              <Plus size={15} />
+              <span>Save Action</span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {actions.map((action) => {
+              const overdue = isActionOverdue(action);
+              return (
+                <div
+                  key={action.id}
+                  style={{
+                    padding: '16px 20px',
+                    borderRadius: '8px',
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    border: overdue
+                      ? '1px solid rgba(239, 68, 68, 0.4)'
+                      : '1px solid rgba(148, 163, 184, 0.15)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ flex: '1 1 300px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                        {action.action_title}
+                      </h3>
+                      {overdue && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 7px',
+                            borderRadius: '4px',
+                            background: 'rgba(239, 68, 68, 0.2)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Overdue
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          background:
+                            action.status === 'completed'
+                              ? 'rgba(34, 197, 94, 0.15)'
+                              : action.status === 'in_progress'
+                              ? 'rgba(56, 189, 248, 0.15)'
+                              : action.status === 'blocked'
+                              ? 'rgba(239, 68, 68, 0.15)'
+                              : 'rgba(148, 163, 184, 0.15)',
+                          color:
+                            action.status === 'completed'
+                              ? '#4ade80'
+                              : action.status === 'in_progress'
+                              ? '#38bdf8'
+                              : action.status === 'blocked'
+                              ? '#f87171'
+                              : '#94a3b8',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {STATUS_LABELS[action.status] || action.status}
+                      </span>
+                      {action.source_output_id && (
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: 'rgba(56, 189, 248, 0.15)',
+                            color: '#38bdf8',
+                            fontWeight: 500,
+                          }}
+                        >
+                          Linked to Output
+                        </span>
+                      )}
+                    </div>
+
+                    {action.action_description && (
+                      <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                        {action.action_description}
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+                      {action.owner_name && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <User size={13} style={{ color: '#e2b53c' }} />
+                          <span>{action.owner_name}</span>
+                        </span>
+                      )}
+                      {action.due_date && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: overdue ? '#f87171' : '#94a3b8' }}>
+                          <Calendar size={13} />
+                          <span>Due: {action.due_date}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <select
+                      value={action.status}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value as ActionStatus;
+                        if (!supabase) return;
+                        const res = await updateActionStatus(supabase, action.id, newStatus);
+                        if (res.data) {
+                          setActions((prev) =>
+                            prev.map((a) => (a.id === action.id ? res.data! : a))
+                          );
+                        }
+                      }}
+                      className="form-input"
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.8rem',
+                        borderRadius: '6px',
+                        background: 'rgba(15, 23, 42, 0.7)',
+                        color: '#f8fafc',
+                        border: '1px solid rgba(148, 163, 184, 0.25)',
+                      }}
+                    >
+                      <option value="not_started">Not Started</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                      <option value="blocked">Blocked</option>
+                      <option value="overdue">Overdue</option>
+                    </select>
+
+                    <Link
+                      to={`/actions/${action.id}`}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                    >
+                      <ExternalLink size={14} />
+                      <span>Open</span>
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAction(action.id)}
+                      disabled={deletingActionId === action.id}
+                      className="btn btn-secondary"
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '6px 10px',
+                        color: '#f87171',
+                        borderColor: 'rgba(239, 68, 68, 0.25)',
+                      }}
+                    >
+                      {deletingActionId === action.id ? (
+                        <Loader2 size={14} className="spin-animation" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+
       {/* VIEW OUTPUT MODAL */}
       {viewingOutput && (
         <div
@@ -1285,25 +2036,69 @@ export const ProjectDetailPage: React.FC = () => {
               {viewingOutput.content}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => handleCopyText(viewingOutput.content || '', viewingOutput.id)}
-                className="btn btn-secondary"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                {copiedId === viewingOutput.id ? (
-                  <>
-                    <Check size={14} color="#34d399" />
-                    <span>Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} />
-                    <span>Copy Output</span>
-                  </>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(viewingOutput.content || '', viewingOutput.id)}
+                  className="btn btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {copiedId === viewingOutput.id ? (
+                    <>
+                      <Check size={14} color="#34d399" />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Copy Output</span>
+                    </>
+                  )}
+                </button>
+
+                {viewingOutput.output_type === 'decision_log' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewDecisionTitle(project?.title ? `Decision: ${project.title}` : 'Meeting Decision');
+                      setNewDecisionSummary((viewingOutput.content || '').slice(0, 240));
+                      setNewDecisionReasoning((viewingOutput.content || '').slice(0, 400));
+                      setNewDecisionDate(project?.meeting_date || new Date().toISOString().slice(0, 10));
+                      setNewDecisionSourceOutputId(viewingOutput.id);
+                      setSaveDecisionError(null);
+                      setShowSaveDecisionModal(true);
+                      setViewingOutput(null);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f3c958', borderColor: 'rgba(226, 181, 60, 0.4)' }}
+                  >
+                    <BrainCircuit size={15} />
+                    <span>Save Decision</span>
+                  </button>
                 )}
-              </button>
+
+                {viewingOutput.output_type === 'action_items' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewActionTitle(project?.title ? `Action: ${project.title}` : 'Action Item');
+                      setNewActionDescription((viewingOutput.content || '').slice(0, 300));
+                      setNewActionSourceOutputId(viewingOutput.id);
+                      setNewActionStatus('not_started');
+                      setSaveActionError(null);
+                      setShowSaveActionModal(true);
+                      setViewingOutput(null);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f3c958', borderColor: 'rgba(226, 181, 60, 0.4)' }}
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>Save Actions</span>
+                  </button>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setViewingOutput(null)}
@@ -1430,6 +2225,371 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* SAVE DECISION MODAL (Tasklet 14 Decision Memory) */}
+      {showSaveDecisionModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '600px',
+              width: '100%',
+              padding: '28px',
+              borderRadius: '14px',
+              border: '1px solid rgba(226, 181, 60, 0.3)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BrainCircuit size={20} style={{ color: '#e2b53c' }} />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Save Decision
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaveDecisionModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {saveDecisionError && (
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '6px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  color: '#f87171',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertCircle size={16} />
+                  <span>{saveDecisionError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => handleSaveDecision(e)}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveDecision} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                  Decision Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Approve Q4 Vendor Contract"
+                  value={newDecisionTitle}
+                  onChange={(e) => setNewDecisionTitle(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                  Decision Summary
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="What was agreed upon..."
+                  value={newDecisionSummary}
+                  onChange={(e) => setNewDecisionSummary(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                  Reasoning / Why
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Key rationale, trade-offs, or justification..."
+                  value={newDecisionReasoning}
+                  onChange={(e) => setNewDecisionReasoning(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                    Decision Owner
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Anthony Cortez"
+                    value={newDecisionOwner}
+                    onChange={(e) => setNewDecisionOwner(e.target.value)}
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                    Decision Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newDecisionDate}
+                    onChange={(e) => setNewDecisionDate(e.target.value)}
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSaveDecisionModal(false)}
+                  className="btn btn-secondary"
+                  disabled={savingDecision}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingDecision || !newDecisionTitle.trim()}
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {savingDecision ? (
+                    <>
+                      <Loader2 size={16} className="spin-animation" />
+                      <span>Saving decisions</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      <span>Save Decision</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SAVE ACTION MODAL (Tasklet 14 Action Tracker) */}
+      {showSaveActionModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '600px',
+              width: '100%',
+              padding: '28px',
+              borderRadius: '14px',
+              border: '1px solid rgba(226, 181, 60, 0.3)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckSquare size={20} style={{ color: '#e2b53c' }} />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Save Action
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaveActionModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {saveActionError && (
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '6px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  color: '#f87171',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertCircle size={16} />
+                  <span>{saveActionError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => handleSaveAction(e)}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveAction} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                  Action Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Send finalized proposal"
+                  value={newActionTitle}
+                  onChange={(e) => setNewActionTitle(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Details, requirements, or scope..."
+                  value={newActionDescription}
+                  onChange={(e) => setNewActionDescription(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                    Owner
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sarah Jenkins"
+                    value={newActionOwner}
+                    onChange={(e) => setNewActionOwner(e.target.value)}
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newActionDueDate}
+                    onChange={(e) => setNewActionDueDate(e.target.value)}
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                    Status
+                  </label>
+                  <select
+                    value={newActionStatus}
+                    onChange={(e) => setNewActionStatus(e.target.value as ActionStatus)}
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                  >
+                    <option value="not_started">Not Started</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSaveActionModal(false)}
+                  className="btn btn-secondary"
+                  disabled={savingAction}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingAction || !newActionTitle.trim()}
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {savingAction ? (
+                    <>
+                      <Loader2 size={16} className="spin-animation" />
+                      <span>Saving actions</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      <span>Save Actions</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

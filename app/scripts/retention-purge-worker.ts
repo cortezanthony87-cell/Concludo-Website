@@ -49,6 +49,8 @@ async function runDailyRetentionPurge() {
   console.log(`   - Execution Timestamp: ${result.executed_at}`);
   console.log(`   - Expired Projects Purged: ${result.purged_projects}`);
   console.log(`   - Expired Outputs Purged: ${result.purged_outputs}`);
+  console.log(`   - Expired Decisions Purged: ${result.purged_decisions ?? 0}`);
+  console.log(`   - Expired Actions Purged: ${result.purged_actions ?? 0}`);
   console.log('   - Retention Policy: 30 days recovery window enforced\n');
 }
 
