@@ -8,6 +8,11 @@ import {
   PlanType,
 } from '../lib/permissions/types';
 import { getSupabaseAdminClient } from '../lib/supabase/admin';
+import {
+  executeRetentionPurge,
+  executeUserRetentionPurge,
+  getRetentionPolicy,
+} from '../lib/retention';
 
 export interface ApiRequest {
   method: string;
@@ -47,6 +52,40 @@ export async function handleApiRequest(
     };
   }
 
+  // Data Retention Policy endpoint
+  if (req.method === 'GET' && pathname === '/api/retention/policy') {
+    return {
+      status: 200,
+      headers: jsonHeaders,
+      body: getRetentionPolicy(),
+    };
+  }
+
+  // Automated Retention Purge Endpoint (Background worker / Cron / Scheduled function)
+  // Can be called via cron secret or service key, or via authenticated user session
+  if (pathname === '/api/retention/purge') {
+    if (req.method !== 'POST') {
+      return {
+        status: 405,
+        headers: jsonHeaders,
+        body: { error: 'method_not_allowed', message: 'Method Not Allowed' },
+      };
+    }
+
+    const cronSecret = req.headers['x-cron-secret'] || req.headers['x-retention-secret'];
+    const expectedSecret = process.env.CRON_SECRET || 'concludo-retention-daily-purge';
+
+    // If authorized via background worker secret
+    if (cronSecret && cronSecret === expectedSecret) {
+      const purgeResult = await executeRetentionPurge(adminClient);
+      return {
+        status: purgeResult.success ? 200 : 500,
+        headers: jsonHeaders,
+        body: purgeResult,
+      };
+    }
+  }
+
   // 2. Authentication extraction
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
   let token: string | null = null;
@@ -65,6 +104,19 @@ export async function handleApiRequest(
     };
   }
 
+  // Check if token is the service role key directly (for server-to-server calls)
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey && token === serviceKey) {
+    if (pathname === '/api/retention/purge') {
+      const purgeResult = await executeRetentionPurge(adminClient);
+      return {
+        status: purgeResult.success ? 200 : 500,
+        headers: jsonHeaders,
+        body: purgeResult,
+      };
+    }
+  }
+
   // 3. Verify user session with Supabase
   const { data: userData, error: authError } = await adminClient.auth.getUser(token);
   if (authError || !userData?.user) {
@@ -79,6 +131,45 @@ export async function handleApiRequest(
   }
 
   const authenticatedUser = userData.user;
+
+  // Authenticated retention purge
+  if (pathname === '/api/retention/purge') {
+    // Authoritative check if user is admin
+    const { data: profile } = await adminClient
+      .from('profiles')
+      .select('plan, role')
+      .eq('id', authenticatedUser.id)
+      .single();
+
+    if (profile?.role === 'admin' || profile?.plan === 'admin') {
+      const purgeResult = await executeRetentionPurge(adminClient);
+      return {
+        status: purgeResult.success ? 200 : 500,
+        headers: jsonHeaders,
+        body: purgeResult,
+      };
+    } else {
+      // User-scoped purge
+      const userPurgeResult = await adminClient.rpc('purge_user_expired_records', {
+        p_user_id: authenticatedUser.id,
+      });
+      if (userPurgeResult.error) {
+        return {
+          status: 500,
+          headers: jsonHeaders,
+          body: {
+            success: false,
+            error: userPurgeResult.error.message,
+          },
+        };
+      }
+      return {
+        status: 200,
+        headers: jsonHeaders,
+        body: userPurgeResult.data,
+      };
+    }
+  }
 
   // 4a. Batch Feature Permission Status Endpoint: GET /api/features/status
   if (pathname === '/api/features/status' || pathname === '/api/features/permissions') {

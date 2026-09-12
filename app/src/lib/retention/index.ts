@@ -1,7 +1,10 @@
 /**
  * Data Retention & Recently Deleted Utilities
- * Concludo Workspace - Tasklet 11C
+ * Concludo Workspace - Tasklet 11C, 11D, 11E
  */
+
+export * from './types';
+export * from './purgeWorker';
 
 /**
  * Calculates remaining days before a soft-deleted record is permanently purged.
