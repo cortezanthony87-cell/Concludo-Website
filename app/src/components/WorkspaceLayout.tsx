@@ -17,6 +17,9 @@ import {
   Shield,
   Trash2,
   Loader2,
+  Lightbulb,
+  BarChart3,
+  FileBarChart,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -283,6 +286,36 @@ export const WorkspaceLayout: React.FC = () => {
             >
               <CheckSquare size={18} />
               <span>Actions</span>
+            </NavLink>
+
+            <NavLink
+              to="/insight"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Lightbulb size={18} />
+              <span>Insight</span>
+            </NavLink>
+
+            <NavLink
+              to="/stats"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <BarChart3 size={18} />
+              <span>Stats</span>
+            </NavLink>
+
+            <NavLink
+              to="/endpoint-report"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <FileBarChart size={18} />
+              <span>Endpoint Report</span>
             </NavLink>
 
             <NavLink

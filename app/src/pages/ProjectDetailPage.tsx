@@ -65,6 +65,7 @@ import {
   STATUS_LABELS,
   isActionOverdue,
 } from '../lib/actions/types';
+import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
 
 
 export const ProjectDetailPage: React.FC = () => {
@@ -277,6 +278,7 @@ export const ProjectDetailPage: React.FC = () => {
     } else {
       setProject(result.data);
       setIsEditingProject(false);
+      refreshAllIntelligence({ supabase }).catch(() => {});
     }
     setSavingProject(false);
   };
@@ -322,6 +324,7 @@ export const ProjectDetailPage: React.FC = () => {
       setOutputs((prev) => [result.data!, ...prev]);
       setNewOutputContent('');
       setShowCreateOutputForm(false);
+      refreshAllIntelligence({ supabase }).catch(() => {});
     }
     setSavingOutput(false);
   };
@@ -381,6 +384,7 @@ export const ProjectDetailPage: React.FC = () => {
       setNewDecisionDate('');
       setNewDecisionSourceOutputId(null);
       await loadDecisions();
+      refreshAllIntelligence({ supabase }).catch(() => {});
     }
     setSavingDecision(false);
   };
@@ -432,6 +436,7 @@ export const ProjectDetailPage: React.FC = () => {
       setNewActionStatus('not_started');
       setNewActionSourceOutputId(null);
       await loadActions();
+      refreshAllIntelligence({ supabase }).catch(() => {});
     }
     setSavingAction(false);
   };
@@ -1910,6 +1915,7 @@ export const ProjectDetailPage: React.FC = () => {
                           setActions((prev) =>
                             prev.map((a) => (a.id === action.id ? res.data! : a))
                           );
+                          refreshAllIntelligence({ supabase }).catch(() => {});
                         }
                       }}
                       className="form-input"

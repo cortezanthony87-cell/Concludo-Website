@@ -23,6 +23,9 @@ import { DecisionMemoryPage } from './pages/DecisionMemoryPage';
 import { DecisionDetailPage } from './pages/DecisionDetailPage';
 import { ActionsPage } from './pages/ActionsPage';
 import { ActionDetailPage } from './pages/ActionDetailPage';
+import { InsightPage } from './pages/InsightPage';
+import { StatsPage } from './pages/StatsPage';
+import { EndpointReportPage } from './pages/EndpointReportPage';
 import { ConnectionTestPage } from './pages/ConnectionTestPage';
 
 export const App: React.FC = () => {
@@ -76,6 +79,10 @@ export const App: React.FC = () => {
             <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
             <Route path="/actions" element={<ActionsPage />} />
             <Route path="/actions/:id" element={<ActionDetailPage />} />
+            <Route path="/insight" element={<InsightPage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/endpoint-report" element={<EndpointReportPage />} />
+            <Route path="/endpoint-report/:id" element={<EndpointReportPage />} />
             <Route path="/admin" element={<DashboardPage />} />
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

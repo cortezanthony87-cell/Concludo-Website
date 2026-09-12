@@ -24,6 +24,7 @@ import { useAuth } from '../lib/auth/AuthContext';
 import { useFeatureAccess } from '../lib/permissions/usePermissions';
 import { fetchActions, updateActionStatus } from '../lib/actions/actionClient';
 import { ActionRecord, ActionStatus, isActionOverdue } from '../lib/actions/types';
+import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
 
 export const ActionsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -80,6 +81,7 @@ export const ActionsPage: React.FC = () => {
       setActions((prev) =>
         prev.map((a) => (a.id === actionId ? { ...a, status: data.status, updated_at: data.updated_at } : a))
       );
+      refreshAllIntelligence({ supabase }).catch(() => {});
     }
   };
 

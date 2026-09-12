@@ -362,9 +362,32 @@ export async function handleApiRequest(
       { method: 'PUT', feature: 'action_tracker' },
       { method: 'DELETE', feature: 'action_tracker' },
     ],
-    '/api/insight': [{ method: 'GET', feature: 'insight' }],
-    '/api/stats': [{ method: 'GET', feature: 'stats' }],
-    '/api/reports/endpoint': [{ method: 'GET', feature: 'endpoint_report' }],
+    // Tasklet 15 Conversation Intelligence Endpoints
+    '/api/insight': [
+      { method: 'GET', feature: 'insight' },
+      { method: 'POST', feature: 'insight' },
+    ],
+    '/api/stats': [
+      { method: 'GET', feature: 'stats' },
+      { method: 'POST', feature: 'stats' },
+    ],
+    '/api/intelligence/refresh': [
+      { method: 'POST', feature: 'insight' },
+    ],
+    '/api/endpoint-reports': [
+      { method: 'GET', feature: 'endpoint_report' },
+      { method: 'POST', feature: 'endpoint_report' },
+      { method: 'DELETE', feature: 'endpoint_report' },
+    ],
+    '/api/endpoint-report': [
+      { method: 'GET', feature: 'endpoint_report' },
+      { method: 'POST', feature: 'endpoint_report' },
+      { method: 'DELETE', feature: 'endpoint_report' },
+    ],
+    '/api/reports/endpoint': [
+      { method: 'GET', feature: 'endpoint_report' },
+      { method: 'POST', feature: 'endpoint_report' },
+    ],
     '/api/export/automation': [{ method: 'POST', feature: 'automation_export' }],
   };
 

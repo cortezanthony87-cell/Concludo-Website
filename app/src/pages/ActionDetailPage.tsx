@@ -23,6 +23,7 @@ import { useAuth } from '../lib/auth/AuthContext';
 import { useFeatureAccess } from '../lib/permissions/usePermissions';
 import { fetchActionById, updateActionStatus } from '../lib/actions/actionClient';
 import { ActionRecord, ActionStatus, isActionOverdue } from '../lib/actions/types';
+import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
 
 export const ActionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -72,6 +73,7 @@ export const ActionDetailPage: React.FC = () => {
       setError(updateErr.message || 'Failed to update action');
     } else if (data) {
       setAction(data);
+      refreshAllIntelligence({ supabase }).catch(() => {});
     }
   };
 

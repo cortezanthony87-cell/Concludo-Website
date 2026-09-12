@@ -18,6 +18,7 @@ import {
   CheckSquare,
   User,
   Calendar,
+  FileBarChart,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { Project } from '../lib/projects/types';
@@ -46,6 +47,12 @@ import {
 } from '../lib/actions/actionClient';
 import { ActionRecord, STATUS_LABELS, isActionOverdue } from '../lib/actions/types';
 import {
+  fetchDeletedEndpointReports,
+  restoreEndpointReport,
+  permanentDeleteEndpointReport,
+} from '../lib/reports/reportClient';
+import { EndpointReport } from '../lib/reports/types';
+import {
   calculateDaysRemaining,
   formatDaysRemaining,
   formatDeletedDate,
@@ -60,13 +67,16 @@ interface ActionErrorState {
     | 'restore_decision'
     | 'delete_decision'
     | 'restore_action'
-    | 'delete_action';
+    | 'delete_action'
+    | 'restore_report'
+    | 'delete_report';
   title: 'Failed to restore item' | 'Failed to delete item';
   message: string;
   targetProject?: Project;
   targetOutput?: DeletedOutputRecord;
   targetDecision?: DecisionRecord;
   targetAction?: ActionRecord;
+  targetReport?: EndpointReport & { days_remaining: number };
 }
 
 interface ActionProgressState {
@@ -81,11 +91,13 @@ export const RecentlyDeletedPage: React.FC = () => {
   const [deletedOutputs, setDeletedOutputs] = useState<DeletedOutputRecord[]>([]);
   const [deletedDecisions, setDeletedDecisions] = useState<DecisionRecord[]>([]);
   const [deletedActions, setDeletedActions] = useState<ActionRecord[]>([]);
+  const [deletedReports, setDeletedReports] = useState<Array<EndpointReport & { days_remaining: number }>>([]);
 
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const [loadingOutputs, setLoadingOutputs] = useState<boolean>(true);
   const [loadingDecisions, setLoadingDecisions] = useState<boolean>(true);
   const [loadingActions, setLoadingActions] = useState<boolean>(true);
+  const [loadingReports, setLoadingReports] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Action feedback & state
@@ -98,6 +110,7 @@ export const RecentlyDeletedPage: React.FC = () => {
   const [confirmDeleteOutput, setConfirmDeleteOutput] = useState<DeletedOutputRecord | null>(null);
   const [confirmDeleteDecision, setConfirmDeleteDecision] = useState<DecisionRecord | null>(null);
   const [confirmDeleteAction, setConfirmDeleteAction] = useState<ActionRecord | null>(null);
+  const [confirmDeleteReport, setConfirmDeleteReport] = useState<(EndpointReport & { days_remaining: number }) | null>(null);
 
   const loadDeletedItems = async () => {
     if (!supabase || !user) return;
@@ -105,15 +118,17 @@ export const RecentlyDeletedPage: React.FC = () => {
     setLoadingOutputs(true);
     setLoadingDecisions(true);
     setLoadingActions(true);
+    setLoadingReports(true);
     setLoadError(null);
     setActionError(null);
 
     try {
-      const [projectsRes, outputsRes, decisionsRes, actionsRes] = await Promise.all([
+      const [projectsRes, outputsRes, decisionsRes, actionsRes, reportsRes] = await Promise.all([
         fetchDeletedProjects(supabase),
         fetchDeletedOutputs(supabase),
         fetchDeletedDecisions(supabase),
         fetchDeletedActions(supabase),
+        fetchDeletedEndpointReports({ supabase }),
       ]);
 
       if (projectsRes.error || outputsRes.error || decisionsRes.error || actionsRes.error) {
@@ -129,6 +144,7 @@ export const RecentlyDeletedPage: React.FC = () => {
         setDeletedOutputs(outputsRes.data || []);
         setDeletedDecisions(decisionsRes.data || []);
         setDeletedActions(actionsRes.data || []);
+        setDeletedReports(reportsRes || []);
       }
     } catch (err: any) {
       setLoadError(err.message || 'Failed to load deleted items');
@@ -137,6 +153,7 @@ export const RecentlyDeletedPage: React.FC = () => {
       setLoadingOutputs(false);
       setLoadingDecisions(false);
       setLoadingActions(false);
+      setLoadingReports(false);
     }
   };
 
@@ -337,6 +354,53 @@ export const RecentlyDeletedPage: React.FC = () => {
     }
   };
 
+  // Handle Restore Report
+  const handleRestoreReport = async (report: EndpointReport & { days_remaining: number }) => {
+    if (!supabase) return;
+    setActionProgress({ type: 'restoring', id: report.id });
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      await restoreEndpointReport(report.id, { supabase });
+      setDeletedReports((prev) => prev.filter((r) => r.id !== report.id));
+      setActionSuccess(`Report "${report.title}" has been restored.`);
+    } catch (err: any) {
+      setActionError({
+        action: 'restore_report',
+        title: 'Failed to restore item',
+        message: err.message || 'Failed to restore item',
+        targetReport: report,
+      });
+    } finally {
+      setActionProgress(null);
+    }
+  };
+
+  // Handle Permanent Delete Report
+  const handlePermanentDeleteReport = async (report: EndpointReport & { days_remaining: number }) => {
+    if (!supabase) return;
+    setActionProgress({ type: 'deleting', id: report.id });
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      await permanentDeleteEndpointReport(report.id, { supabase });
+      setDeletedReports((prev) => prev.filter((r) => r.id !== report.id));
+      setActionSuccess(`Report "${report.title}" was permanently deleted.`);
+      setConfirmDeleteReport(null);
+    } catch (err: any) {
+      setActionError({
+        action: 'delete_report',
+        title: 'Failed to delete item',
+        message: err.message || 'Failed to delete item',
+        targetReport: report,
+      });
+    } finally {
+      setActionProgress(null);
+    }
+  };
+
   // Handle Retry Action for Failed Restores or Deletions
   const handleRetryAction = () => {
     if (!actionError) return;
@@ -359,18 +423,23 @@ export const RecentlyDeletedPage: React.FC = () => {
       handleRestoreAction(current.targetAction);
     } else if (current.action === 'delete_action' && current.targetAction) {
       handlePermanentDeleteAction(current.targetAction);
+    } else if (current.action === 'restore_report' && current.targetReport) {
+      handleRestoreReport(current.targetReport);
+    } else if (current.action === 'delete_report' && current.targetReport) {
+      handlePermanentDeleteReport(current.targetReport);
     }
   };
 
   const isLoading =
-    loadingProjects || loadingOutputs || loadingDecisions || loadingActions;
+    loadingProjects || loadingOutputs || loadingDecisions || loadingActions || loadingReports;
   const isOverallEmpty =
     !isLoading &&
     !loadError &&
     deletedProjects.length === 0 &&
     deletedOutputs.length === 0 &&
     deletedDecisions.length === 0 &&
-    deletedActions.length === 0;
+    deletedActions.length === 0 &&
+    deletedReports.length === 0;
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
@@ -1140,6 +1209,126 @@ export const RecentlyDeletedPage: React.FC = () => {
               </div>
             </section>
           )}
+
+          {/* SECTION 5: DELETED ENDPOINT REPORTS */}
+          {deletedReports.length > 0 && (
+            <section style={{ marginBottom: '36px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <FileBarChart size={18} color="#e2b53c" />
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Endpoint Reports ({deletedReports.length})
+                </h2>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {deletedReports.map((report) => {
+                  const daysRemaining = report.days_remaining ?? 30;
+                  const isCritical = daysRemaining <= 3;
+                  const isProcessing = actionProgress?.id === report.id;
+
+                  return (
+                    <div
+                      key={report.id}
+                      className="content-card"
+                      style={{
+                        padding: '16px 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '16px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ flex: '1 1 300px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                          <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                            {report.title}
+                          </h3>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: 'rgba(226, 181, 60, 0.15)',
+                              color: '#e2b53c',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {report.report_period}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', fontSize: '0.82rem', color: '#94a3b8' }}>
+                          <span>Deleted: {formatDeletedDate(report.deleted_at)}</span>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              color: isCritical ? '#f87171' : '#f3c958',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <Clock size={12} />
+                            {formatDaysRemaining(daysRemaining)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button
+                          type="button"
+                          disabled={actionProgress !== null}
+                          onClick={() => handleRestoreReport(report)}
+                          className="btn-secondary"
+                          style={{
+                            padding: '8px 14px',
+                            fontSize: '0.84rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          {isProcessing && actionProgress?.type === 'restoring' ? (
+                            <>
+                              <Loader2 size={14} className="spin-animation" />
+                              <span>Restoring record...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw size={14} />
+                              <span>Restore</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={actionProgress !== null}
+                          onClick={() => setConfirmDeleteReport(report)}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            color: '#f87171',
+                            cursor: actionProgress !== null ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.84rem',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
         </div>
       )}
 
@@ -1538,6 +1727,108 @@ export const RecentlyDeletedPage: React.FC = () => {
                 }}
               >
                 {actionProgress?.type === 'deleting' && actionProgress.id === confirmDeleteAction.id ? (
+                  <>
+                    <Loader2 size={16} className="spin-animation" />
+                    <span>Deleting record...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Delete Permanently</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Permanent Delete Report Confirmation Prompt */}
+      {confirmDeleteReport && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '480px',
+              width: '100%',
+              padding: '32px',
+              borderRadius: '16px',
+              background: '#16263F',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <AlertTriangle size={22} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Permanently delete?
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '8px' }}>
+              Are you sure you want to permanently delete report{' '}
+              <strong>"{confirmDeleteReport.title}"</strong>?
+            </p>
+            <p style={{ color: '#f87171', fontSize: '0.9rem', fontWeight: 500, lineHeight: 1.5, marginBottom: '24px' }}>
+              This action cannot be undone.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                disabled={actionProgress !== null}
+                onClick={() => setConfirmDeleteReport(null)}
+                className="btn-secondary"
+                style={{ padding: '10px 18px', fontSize: '0.9rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionProgress !== null}
+                onClick={() => handlePermanentDeleteReport(confirmDeleteReport)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  background: '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: actionProgress !== null ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                {actionProgress?.type === 'deleting' && actionProgress.id === confirmDeleteReport.id ? (
                   <>
                     <Loader2 size={16} className="spin-animation" />
                     <span>Deleting record...</span>

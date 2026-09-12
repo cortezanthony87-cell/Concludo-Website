@@ -54,6 +54,15 @@ export function useFeatureAccess(featureKey: FeatureKey): FeatureAccessDisplay {
 }
 
 /**
+ * Ergonomic hook returning { hasAccess, loading } for page gating
+ */
+export function usePermissions(featureKey: FeatureKey): { hasAccess: boolean; loading: boolean } {
+  const { isAllowed } = useFeatureAccess(featureKey);
+  const { loading } = useAuth();
+  return { hasAccess: isAllowed, loading };
+}
+
+/**
  * Pure helper function for client-side presentation without React hooks.
  */
 export function checkClientFeatureDisplay(

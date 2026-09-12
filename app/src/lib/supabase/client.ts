@@ -53,6 +53,8 @@ export function getSupabaseBrowserClient(): SupabaseClient {
   return browserClient;
 }
 
+export const getSupabaseClient = getSupabaseBrowserClient;
+
 export const supabase = {
   get client() {
     return getSupabaseBrowserClient();

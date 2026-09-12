@@ -23,6 +23,11 @@ import {
   Share2,
   Users,
   Zap,
+  FileBarChart,
+  Award,
+  TrendingUp,
+  ShieldAlert,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS, PlanType } from '../lib/profiles/types';
@@ -36,6 +41,10 @@ import { fetchDecisions } from '../lib/decisions/decisionClient';
 import { DecisionRecord } from '../lib/decisions/types';
 import { fetchActions } from '../lib/actions/actionClient';
 import { ActionRecord, isActionOverdue, STATUS_LABELS } from '../lib/actions/types';
+import { fetchUserInsights, fetchUserStats } from '../lib/intelligence/intelligenceClient';
+import { InsightData, StatsData } from '../lib/intelligence/types';
+import { fetchEndpointReports } from '../lib/reports/reportClient';
+import { EndpointReport } from '../lib/reports/types';
 
 interface DashboardProject {
   id: string;
@@ -69,6 +78,9 @@ export const DashboardPage: React.FC = () => {
   const [recentOutputs, setRecentOutputs] = useState<DashboardOutput[]>([]);
   const [recentDecisions, setRecentDecisions] = useState<DecisionRecord[]>([]);
   const [recentActions, setRecentActions] = useState<ActionRecord[]>([]);
+  const [insights, setInsights] = useState<InsightData | null>(null);
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [recentReports, setRecentReports] = useState<EndpointReport[]>([]);
   const [backendPerms, setBackendPerms] = useState<BackendPermissionsResponse | null>(null);
 
   // Loading states
@@ -78,6 +90,9 @@ export const DashboardPage: React.FC = () => {
   const [loadingOutputs, setLoadingOutputs] = useState<boolean>(true);
   const [loadingDecisions, setLoadingDecisions] = useState<boolean>(false);
   const [loadingActions, setLoadingActions] = useState<boolean>(false);
+  const [loadingInsights, setLoadingInsights] = useState<boolean>(false);
+  const [loadingStats, setLoadingStats] = useState<boolean>(false);
+  const [loadingReports, setLoadingReports] = useState<boolean>(false);
   const [loadingPermissions, setLoadingPermissions] = useState<boolean>(true);
 
   // Error states
@@ -223,6 +238,45 @@ export const DashboardPage: React.FC = () => {
       }
     }
 
+    // 7. Fetch Insights if allowed
+    if (permDataResult?.allowedFeatures.includes('insight')) {
+      setLoadingInsights(true);
+      try {
+        const insData = await fetchUserInsights({ supabase });
+        setInsights(insData);
+      } catch (err) {
+        console.warn('Could not load dashboard insights:', err);
+      } finally {
+        setLoadingInsights(false);
+      }
+    }
+
+    // 8. Fetch Stats if allowed
+    if (permDataResult?.allowedFeatures.includes('stats')) {
+      setLoadingStats(true);
+      try {
+        const statsData = await fetchUserStats('all', { supabase });
+        setStats(statsData);
+      } catch (err) {
+        console.warn('Could not load dashboard stats:', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    }
+
+    // 9. Fetch Recent Endpoint Reports (limit 3) if allowed
+    if (permDataResult?.allowedFeatures.includes('endpoint_report')) {
+      setLoadingReports(true);
+      try {
+        const reports = await fetchEndpointReports({ supabase });
+        setRecentReports(reports.slice(0, 3));
+      } catch (err) {
+        console.warn('Could not load dashboard reports:', err);
+      } finally {
+        setLoadingReports(false);
+      }
+    }
+
     setLoadingDashboard(false);
   }, [supabase, user, profile, authLoading]);
 
@@ -280,6 +334,9 @@ export const DashboardPage: React.FC = () => {
 
   const isActionTrackerAllowed = isFeatureAllowed('action_tracker');
   const isDecisionMemoryAllowed = isFeatureAllowed('decision_memory');
+  const isInsightAllowed = isFeatureAllowed('insight');
+  const isStatsAllowed = isFeatureAllowed('stats');
+  const isEndpointReportAllowed = isFeatureAllowed('endpoint_report');
 
   // Locked features list definitions
   const lockedFeatureDefinitions: {
@@ -1140,51 +1197,242 @@ export const DashboardPage: React.FC = () => {
         </section>
       </div>
 
-      {/* SECTION 6: USAGE */}
-      <section className="content-card" style={{ padding: '24px', marginBottom: '40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+      {/* SECTION 6: CONVERSATION INTELLIGENCE SNAPSHOT */}
+      <section className="content-card" style={{ padding: '24px', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
           <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={19} color="#f3c958" />
-            <span>Usage</span>
+            <Lightbulb size={19} color="#e2b53c" />
+            <span>Conversation Intelligence Snapshot</span>
           </h2>
-          <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-            Usage tracking coming soon
-          </span>
+          {isInsightAllowed ? (
+            <Link to="/insight" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>Explore Insights</span>
+              <ArrowRight size={14} />
+            </Link>
+          ) : (
+            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              Available on Pro
+            </span>
+          )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '10px',
-              background: 'rgba(14, 23, 41, 0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-            }}
-          >
-            <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-              Transcript conversions used
-            </div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', fontFamily: 'var(--font-heading)' }}>
-              —
-            </div>
+        {!isInsightAllowed ? (
+          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
+              Upgrade to Pro to unlock automated synthesis of recurring themes, risks, and meeting opportunities.
+            </p>
+            <Link to="/insight" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
+              <Lock size={14} color="#e2b53c" />
+              <span>Learn about Conversation Intelligence</span>
+            </Link>
           </div>
+        ) : loadingInsights ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
+            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
+            <span>Loading intelligence snapshot...</span>
+          </div>
+        ) : insights ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+            {/* Health Score */}
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
+                <Award size={14} color="#e2b53c" />
+                <span>Meeting Health Score</span>
+              </div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 700, color: insights.projectIntelligenceSummary.meetingHealthScore >= 75 ? '#4ade80' : '#f59e0b' }}>
+                {insights.projectIntelligenceSummary.meetingHealthScore}%
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>
+                Execution velocity & action reliability
+              </div>
+            </div>
 
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '10px',
-              background: 'rgba(14, 23, 41, 0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-            }}
-          >
-            <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-              Monthly allowance
+            {/* Key Theme */}
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
+                <Layers size={14} color="#e2b53c" />
+                <span>Top Key Theme</span>
+              </div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {insights.keyThemes[0]?.name || 'Baseline Operations'}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>
+                {insights.keyThemes[0]?.relevance ? `${insights.keyThemes[0].relevance}% relevance` : 'Recurring organizational focus'}
+              </div>
             </div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', fontFamily: 'var(--font-heading)' }}>
-              —
+
+            {/* Top Opportunity / Risk */}
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
+                <TrendingUp size={14} color="#4ade80" />
+                <span>Top Opportunity</span>
+              </div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {insights.topOpportunities[0]?.title || 'Standardised Automation'}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#4ade80', marginTop: '4px' }}>
+                {insights.topOpportunities[0]?.impact ? `${insights.topOpportunities[0].impact.toUpperCase()} impact` : 'High value'}
+              </div>
             </div>
           </div>
+        ) : (
+          <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '12px 0' }}>
+            Create projects with meeting transcripts to generate conversation intelligence.
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 7: WORKSPACE ANALYTICS & STATS SNAPSHOT */}
+      <section className="content-card" style={{ padding: '24px', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 size={19} color="#e2b53c" />
+            <span>Workspace Analytics Snapshot</span>
+          </h2>
+          {isStatsAllowed ? (
+            <Link to="/stats" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>View Full Analytics</span>
+              <ArrowRight size={14} />
+            </Link>
+          ) : (
+            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              Available on Pro
+            </span>
+          )}
         </div>
+
+        {!isStatsAllowed ? (
+          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
+              Upgrade to Pro to track longitudinal trends, meeting volumes, and action completion rates.
+            </p>
+            <Link to="/stats" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
+              <Lock size={14} color="#e2b53c" />
+              <span>Learn about Workspace Analytics</span>
+            </Link>
+          </div>
+        ) : loadingStats ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
+            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
+            <span>Loading workspace metrics...</span>
+          </div>
+        ) : stats ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Total Projects</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc' }}>{stats.totalProjects}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>{stats.totalTranscripts} with transcript</div>
+            </div>
+
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Decisions Recorded</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#e2b53c' }}>{stats.totalDecisions}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>Audit-ready memory</div>
+            </div>
+
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Actions Tracked</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc' }}>{stats.totalActions}</div>
+              <div style={{ fontSize: '0.75rem', color: stats.overdueActions > 0 ? '#f87171' : '#94a3b8', marginTop: '2px' }}>
+                {stats.overdueActions > 0 ? `${stats.overdueActions} overdue` : `${stats.completedActions} completed`}
+              </div>
+            </div>
+
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Action Completion</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: stats.actionCompletionRate >= 70 ? '#4ade80' : '#f59e0b' }}>
+                {stats.actionCompletionRate}%
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>Organizational throughput</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '12px 0' }}>
+            No workspace activity recorded yet.
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 8: RECENT ENDPOINT REPORTS */}
+      <section className="content-card" style={{ padding: '24px', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileBarChart size={19} color="#e2b53c" />
+            <span>Executive Endpoint Reports</span>
+          </h2>
+          {isEndpointReportAllowed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Link to="/endpoint-report" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>All Reports</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          ) : (
+            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              Available on Pro
+            </span>
+          )}
+        </div>
+
+        {!isEndpointReportAllowed ? (
+          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
+              Generate comprehensive executive briefings synthesizing meeting decisions, action throughput, risks, and performance ratings.
+            </p>
+            <Link to="/endpoint-report" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
+              <Lock size={14} color="#e2b53c" />
+              <span>Learn about Endpoint Reports</span>
+            </Link>
+          </div>
+        ) : loadingReports ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
+            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
+            <span>Loading recent reports...</span>
+          </div>
+        ) : recentReports.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {recentReports.map((report) => (
+              <div
+                key={report.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  background: 'rgba(14, 23, 41, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>{report.title}</div>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.78rem', color: '#94a3b8', marginTop: '3px' }}>
+                    <span style={{ color: '#e2b53c', fontWeight: 600 }}>{report.report_period}</span>
+                    <span>Generated {formatDate(report.generated_at || report.created_at)}</span>
+                  </div>
+                </div>
+
+                <Link
+                  to={`/endpoint-report`}
+                  className="btn-secondary"
+                  style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <span>View Report</span>
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px' }}>
+            <span style={{ color: '#94a3b8', fontSize: '0.88rem' }}>No executive endpoint reports generated yet.</span>
+            <Link to="/endpoint-report" className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.84rem', textDecoration: 'none' }}>
+              + Generate Report
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* SECTION 7: LOCKED FEATURES */}
