@@ -45,7 +45,13 @@ export type FeatureKey =
   | 'manual_outputs'
   | 'next_best_action'
   | 'meeting_health_dashboard'
-  | 'admin_tools';
+  | 'admin_tools'
+  // Tasklet 19 Features
+  | 'ai_agents'
+  | 'workflow_orchestration'
+  | 'intelligent_automation'
+  | 'agent_memory'
+  | 'workflow_approvals';
 
 export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'workspace_basic',
@@ -85,6 +91,11 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'next_best_action',
   'meeting_health_dashboard',
   'admin_tools',
+  'ai_agents',
+  'workflow_orchestration',
+  'intelligent_automation',
+  'agent_memory',
+  'workflow_approvals',
 ] as const;
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
@@ -125,6 +136,11 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   next_best_action: 'Next Best Action',
   meeting_health_dashboard: 'Meeting Health Dashboard',
   admin_tools: 'Admin Tools',
+  ai_agents: 'AI Agents',
+  workflow_orchestration: 'Workflow Orchestration',
+  intelligent_automation: 'Intelligent Automation',
+  agent_memory: 'Agent Memory',
+  workflow_approvals: 'Workflow Approvals',
 };
 
 /**
@@ -256,6 +272,12 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'manual_outputs',
     'next_best_action',
     'meeting_health_dashboard',
+    // Tasklet 19 features unlocked on enterprise
+    'ai_agents',
+    'workflow_orchestration',
+    'intelligent_automation',
+    'agent_memory',
+    'workflow_approvals',
   ],
   admin: [
     'workspace_basic',
@@ -295,6 +317,11 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'next_best_action',
     'meeting_health_dashboard',
     'admin_tools',
+    'ai_agents',
+    'workflow_orchestration',
+    'intelligent_automation',
+    'agent_memory',
+    'workflow_approvals',
   ],
 };
 
@@ -336,6 +363,11 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   transcript_archive: 'Available on Pro',
   manual_outputs: 'Available on Pro',
   json_export: 'Available on Starter',
+  ai_agents: 'Available on Enterprise',
+  workflow_orchestration: 'Available on Enterprise',
+  intelligent_automation: 'Available on Enterprise',
+  agent_memory: 'Available on Enterprise',
+  workflow_approvals: 'Available on Enterprise',
 };
 
 export interface PermissionErrorResponse {

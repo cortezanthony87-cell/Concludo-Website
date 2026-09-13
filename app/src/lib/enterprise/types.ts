@@ -1,6 +1,6 @@
 /**
  * Enterprise Governance, SSO, Compliance & Org Controls Types
- * Concludo Workspace - Tasklet 17
+ * Concludo Workspace - Tasklet 17 & 19
  */
 
 export type OrganizationRole =
@@ -20,6 +20,7 @@ export interface Organization {
   deleted_at?: string | null;
   deleted_by?: string | null;
   purge_after?: string | null;
+  allow_team_agents?: boolean;
 }
 
 export interface OrganizationMember {
@@ -101,7 +102,16 @@ export type AuditActionType =
   | 'api_key_created'
   | 'api_key_revoked'
   | 'sync_executed'
-  | 'export_failed';
+  | 'export_failed'
+  // Tasklet 19 Audited Events
+  | 'agent_execution'
+  | 'workflow_execution'
+  | 'approval_request'
+  | 'approval_granted'
+  | 'approval_rejected'
+  | 'automation_failure'
+  | 'configuration_change'
+  | 'workflow_change';
 
 export interface AuditLog {
   id: string;
@@ -122,7 +132,9 @@ export type RetentionEntityType =
   | 'decision'
   | 'action'
   | 'output'
-  | 'endpoint_report';
+  | 'endpoint_report'
+  | 'agent_memory'
+  | 'workflow';
 
 export type RetentionPeriodDays = 30 | 90 | 180 | 365 | -1; // -1 = Indefinite
 

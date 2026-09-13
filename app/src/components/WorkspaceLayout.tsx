@@ -28,6 +28,10 @@ import {
   Webhook as WebhookIcon,
   Code2,
   Layers,
+  Bot,
+  Workflow,
+  CheckCircle,
+  Gauge,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -403,6 +407,55 @@ export const WorkspaceLayout: React.FC = () => {
               <Code2 size={18} />
               <span>Public API</span>
             </NavLink>
+
+            {/* Tasklet 19 AI Agents & Workflow Orchestration */}
+            {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.plan === 'team') && (
+              <>
+                <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+                  Automation & Agents
+                </div>
+                <NavLink
+                  to="/agents"
+                  end
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Bot size={18} />
+                  <span>AI Agents</span>
+                </NavLink>
+
+                <NavLink
+                  to="/workflows"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Workflow size={18} />
+                  <span>Workflows</span>
+                </NavLink>
+
+                <NavLink
+                  to="/approvals"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <CheckCircle size={18} />
+                  <span>Approvals</span>
+                </NavLink>
+
+                <NavLink
+                  to="/agents/dashboard"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Gauge size={18} />
+                  <span>Agent Dashboard</span>
+                </NavLink>
+              </>
+            )}
 
             {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.role === 'admin') && (
               <>

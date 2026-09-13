@@ -12,6 +12,25 @@ import {
   executeRetentionPurge,
   getRetentionPolicy,
 } from '../lib/retention';
+import { INITIAL_AGENTS } from '../lib/agents/types';
+import { runAgent } from '../lib/agents/agentRunner';
+import {
+  getAgentMemory,
+  setAgentMemory,
+  listAgentMemory,
+  deleteAgentMemory,
+  fetchAgentActivity,
+} from '../lib/agents/agentMemoryService';
+import {
+  fetchWorkflows,
+  createWorkflow,
+  updateWorkflow,
+  deleteWorkflow,
+  triggerWorkflow,
+  fetchWorkflowExecutions,
+  fetchWorkflowApprovals,
+  respondToApproval,
+} from '../lib/workflows/workflowService';
 
 export interface ApiRequest {
   method: string;
@@ -602,6 +621,42 @@ export async function handleApiRequest(
     '/api/v1': [
       { method: 'GET', feature: 'api_access' },
     ],
+
+    // Tasklet 19 AI Agents, Workflow Orchestration & Approvals
+    '/api/agents/dashboard': [
+      { method: 'GET', feature: 'ai_agents' },
+    ],
+    '/api/agents/activity': [
+      { method: 'GET', feature: 'ai_agents' },
+      { method: 'POST', feature: 'ai_agents' },
+    ],
+    '/api/agents/memory': [
+      { method: 'GET', feature: 'agent_memory' },
+      { method: 'POST', feature: 'agent_memory' },
+      { method: 'DELETE', feature: 'agent_memory' },
+    ],
+    '/api/agents/run': [
+      { method: 'POST', feature: 'ai_agents' },
+    ],
+    '/api/agents': [
+      { method: 'GET', feature: 'ai_agents' },
+      { method: 'POST', feature: 'ai_agents' },
+    ],
+    '/api/workflows/executions': [
+      { method: 'GET', feature: 'workflow_orchestration' },
+      { method: 'POST', feature: 'workflow_orchestration' },
+    ],
+    '/api/workflows': [
+      { method: 'GET', feature: 'workflow_orchestration' },
+      { method: 'POST', feature: 'workflow_orchestration' },
+      { method: 'PUT', feature: 'workflow_orchestration' },
+      { method: 'DELETE', feature: 'workflow_orchestration' },
+    ],
+    '/api/approvals': [
+      { method: 'GET', feature: 'workflow_approvals' },
+      { method: 'POST', feature: 'workflow_approvals' },
+      { method: 'PUT', feature: 'workflow_approvals' },
+    ],
   };
 
   // Match route: sort route patterns by longest first so more specific routes match before prefixes
@@ -923,6 +978,223 @@ export async function handleApiRequest(
                 signingSecret: secret_key, // Returned ONLY once
               },
             };
+          }
+        }
+
+        // =============================================================
+        // Tasklet 19: AI Agents, Workflows, Memory & Approvals Handlers
+        // =============================================================
+        if (pathname === '/api/agents') {
+          if (req.method === 'GET') {
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: { data: INITIAL_AGENTS },
+            };
+          }
+        }
+
+        if (pathname === '/api/agents/dashboard') {
+          if (req.method === 'GET') {
+            const { count: pendingApprovalsCount } = await adminClient
+              .from('workflow_approvals')
+              .select('*', { count: 'exact', head: true })
+              .eq('status', 'pending');
+
+            const { count: executionsCount } = await adminClient
+              .from('workflow_executions')
+              .select('*', { count: 'exact', head: true });
+
+            const { count: successExecutionsCount } = await adminClient
+              .from('workflow_executions')
+              .select('*', { count: 'exact', head: true })
+              .eq('status', 'completed');
+
+            const { data: recentExecutions } = await adminClient
+              .from('workflow_executions')
+              .select('*, workflow:workflows(name, trigger_type)')
+              .order('created_at', { ascending: false })
+              .limit(10);
+
+            const successRate = executionsCount && executionsCount > 0
+              ? Math.round(((successExecutionsCount || 0) / executionsCount) * 100)
+              : 100;
+
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: {
+                activeAgents: INITIAL_AGENTS.length,
+                runningWorkflows: executionsCount || 0,
+                pendingApprovals: pendingApprovalsCount || 0,
+                successRate: `${successRate}%`,
+                recentExecutions: recentExecutions || [],
+              },
+            };
+          }
+        }
+
+        if (pathname === '/api/agents/run') {
+          if (req.method === 'POST') {
+            const { agentType, projectId, teamId, organizationId, parameters } = req.body || {};
+            if (!agentType) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'agent_type_required' } };
+            }
+
+            const result = await runAgent({
+              agentType,
+              userId: authenticatedUserId,
+              projectId,
+              teamId,
+              organizationId,
+              parameters,
+              admin: true,
+            });
+
+            return {
+              status: result.status === 'failed' ? 500 : 200,
+              headers: jsonHeaders,
+              body: { data: result },
+            };
+          }
+        }
+
+        if (pathname === '/api/agents/activity') {
+          if (req.method === 'GET') {
+            const activities = await fetchAgentActivity({
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: activities } };
+          }
+        }
+
+        if (pathname === '/api/agents/memory' || pathname.startsWith('/api/agents/memory/')) {
+          if (req.method === 'GET') {
+            const memories = await listAgentMemory({
+              ownerId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: memories } };
+          }
+
+          if (req.method === 'POST') {
+            const { agentType, memoryKey, memoryValue, teamId, organizationId } = req.body || {};
+            if (!agentType || !memoryKey) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'invalid_memory_payload' } };
+            }
+            const record = await setAgentMemory({
+              agentType,
+              memoryKey,
+              memoryValue: memoryValue || {},
+              ownerId: authenticatedUserId,
+              teamId,
+              organizationId,
+              admin: true,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: record } };
+          }
+
+          if (req.method === 'DELETE') {
+            const parts = pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            await deleteAgentMemory(id, authenticatedUserId, true);
+            return { status: 200, headers: jsonHeaders, body: { success: true } };
+          }
+        }
+
+        if (pathname === '/api/workflows/executions') {
+          if (req.method === 'GET') {
+            const executions = await fetchWorkflowExecutions({
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: executions } };
+          }
+
+          if (req.method === 'POST') {
+            const { workflowId, triggerData } = req.body || {};
+            if (!workflowId) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'workflow_id_required' } };
+            }
+            const executionResult = await triggerWorkflow({
+              workflowId,
+              userId: authenticatedUserId,
+              triggerData,
+              admin: true,
+            });
+            return { status: 201, headers: jsonHeaders, body: { data: executionResult } };
+          }
+        }
+
+        if (pathname === '/api/workflows' || pathname.startsWith('/api/workflows/')) {
+          if (req.method === 'GET') {
+            const workflows = await fetchWorkflows({
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: workflows } };
+          }
+
+          if (req.method === 'POST') {
+            const { name, description, trigger_type, trigger_config, conditions, actions, execution_type, team_id, organization_id } = req.body || {};
+            if (!name || !trigger_type) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'name_and_trigger_type_required' } };
+            }
+            const workflow = await createWorkflow({
+              owner_id: authenticatedUserId,
+              team_id,
+              organization_id,
+              name,
+              description,
+              trigger_type,
+              trigger_config,
+              conditions,
+              actions,
+              execution_type: execution_type || 'approval_required',
+            }, true);
+            return { status: 201, headers: jsonHeaders, body: { data: workflow } };
+          }
+
+          if (req.method === 'PUT') {
+            const parts = pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            const updated = await updateWorkflow(id, req.body || {}, authenticatedUserId, true);
+            return { status: 200, headers: jsonHeaders, body: { data: updated } };
+          }
+
+          if (req.method === 'DELETE') {
+            const parts = pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            await deleteWorkflow(id, authenticatedUserId, true);
+            return { status: 200, headers: jsonHeaders, body: { success: true } };
+          }
+        }
+
+        if (pathname === '/api/approvals' || pathname.startsWith('/api/approvals/')) {
+          if (req.method === 'GET') {
+            const approvals = await fetchWorkflowApprovals({
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: approvals } };
+          }
+
+          if (req.method === 'PUT') {
+            const parts = pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            const { decision, notes } = req.body || {};
+            if (!decision || (decision !== 'approve' && decision !== 'reject')) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'invalid_decision' } };
+            }
+            const updated = await respondToApproval({
+              approvalId: id,
+              approverId: authenticatedUserId,
+              decision,
+              notes,
+              admin: true,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: updated } };
           }
         }
 

@@ -39,6 +39,12 @@ import { AutomationExportPage } from './pages/automation/AutomationExportPage';
 import { WebhooksPage } from './pages/automation/WebhooksPage';
 import { ApiAccessPage } from './pages/api/ApiAccessPage';
 
+// Tasklet 19 AI Agents, Workflow Orchestration & Approvals Pages
+import { AgentsPage } from './pages/agents/AgentsPage';
+import { AgentDashboardPage } from './pages/agents/AgentDashboardPage';
+import { WorkflowsPage } from './pages/workflows/WorkflowsPage';
+import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -46,7 +52,7 @@ export const App: React.FC = () => {
         {/* Public Home Route (renders HomePage or redirects to /dashboard if logged in) */}
         <Route path="/" element={<HomePage />} />
 
-        {/* Public Auth routes (redirect to /dashboard if already logged in) */}
+        {/* Public auth routes with session redirect */}
         <Route
           path="/login"
           element={
@@ -71,11 +77,9 @@ export const App: React.FC = () => {
             </PublicAuthRoute>
           }
         />
-
-        {/* Password reset route (accessible via recovery email link) */}
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Protected Workspace routes (redirect to /login if not authenticated) */}
+        {/* Protected App Routes */}
         <Route element={<ProtectedRoute />}>
           <Route element={<WorkspaceLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -113,6 +117,12 @@ export const App: React.FC = () => {
             <Route path="/webhooks" element={<WebhooksPage />} />
             <Route path="/api" element={<ApiAccessPage />} />
 
+            {/* Tasklet 19 AI Agents, Workflows & Approvals Routes */}
+            <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
+            <Route path="/workflows" element={<WorkflowsPage />} />
+            <Route path="/approvals" element={<ApprovalsPage />} />
+
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>
         </Route>
@@ -123,3 +133,4 @@ export const App: React.FC = () => {
     </AuthProvider>
   );
 };
+export default App;

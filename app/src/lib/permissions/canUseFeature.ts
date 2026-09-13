@@ -13,6 +13,14 @@ export interface CanUseFeatureOptions {
   supabase?: SupabaseClient;
 }
 
+const AI_AGENT_FEATURES: readonly FeatureKey[] = [
+  'ai_agents',
+  'workflow_orchestration',
+  'intelligent_automation',
+  'agent_memory',
+  'workflow_approvals',
+] as const;
+
 /**
  * Server-side permission helper: canUseFeature(userId, featureKey)
  *
@@ -23,6 +31,7 @@ export interface CanUseFeatureOptions {
  * - Returns allowed or denied with 403 Forbidden details
  * - Never trusts any plan value passed from the browser/client
  * - Never relies only on front-end hiding
+ * - Optional Team access: If plan is 'team', checks if an organization administrator has enabled team agents
  */
 export async function canUseFeature(
   userId: string,
@@ -96,7 +105,7 @@ export async function canUseFeature(
   // 4. Fetch the user's profile directly from the database
   const { data: profile, error: dbError } = await client
     .from('profiles')
-    .select('id, plan')
+    .select('id, plan, is_suspended')
     .eq('id', cleanUserId)
     .maybeSingle();
 
@@ -127,26 +136,63 @@ export async function canUseFeature(
     };
   }
 
-  const userPlan = (profile.plan as PlanType) || 'free_preview';
-  const allowedFeatures = PLAN_PERMISSIONS[userPlan] || [];
-
-  // 6. Check if the user's plan permits access to the requested feature
-  if (!allowedFeatures.includes(cleanFeatureKey)) {
+  // 6. Check user suspension
+  if (profile.is_suspended) {
     return {
       allowed: false,
       statusCode: 403,
-      plan: userPlan,
+      plan: (profile.plan as PlanType) || 'free_preview',
       feature: cleanFeatureKey,
-      error: createFeatureForbiddenError(cleanFeatureKey),
+      error: {
+        error: 'user_suspended',
+        message: 'Your account has been suspended by an administrator. Please contact your organization owner.',
+        feature: cleanFeatureKey,
+      },
     };
   }
 
-  // 7. Allowed
+  const userPlan = (profile.plan as PlanType) || 'free_preview';
+  const allowedFeatures = PLAN_PERMISSIONS[userPlan] || [];
+
+  // 7. Check if user plan permits access directly
+  if (allowedFeatures.includes(cleanFeatureKey)) {
+    return {
+      allowed: true,
+      statusCode: 200,
+      plan: userPlan,
+      feature: cleanFeatureKey,
+    };
+  }
+
+  // 8. Optional Team Access for AI Agents & Workflow Orchestration
+  // If plan is 'team', check if user belongs to an organization where allow_team_agents is enabled
+  if (userPlan === 'team' && AI_AGENT_FEATURES.includes(cleanFeatureKey)) {
+    const { data: memberships } = await client
+      .from('organization_members')
+      .select('organization_id, organizations!inner(allow_team_agents)')
+      .eq('user_id', cleanUserId);
+
+    const hasOrgOverride = memberships?.some(
+      (m: any) => m.organizations && m.organizations.allow_team_agents === true
+    );
+
+    if (hasOrgOverride) {
+      return {
+        allowed: true,
+        statusCode: 200,
+        plan: userPlan,
+        feature: cleanFeatureKey,
+      };
+    }
+  }
+
+  // 9. Forbidden
   return {
-    allowed: true,
-    statusCode: 200,
+    allowed: false,
+    statusCode: 403,
     plan: userPlan,
     feature: cleanFeatureKey,
+    error: createFeatureForbiddenError(cleanFeatureKey),
   };
 }
 
