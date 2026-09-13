@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { canUseFeature, hasFeature } from '../lib/permissions/canUseFeature';
+import { canUseFeature } from '../lib/permissions/canUseFeature';
 import {
   FeatureKey,
   ALL_FEATURE_KEYS,
@@ -10,7 +10,6 @@ import {
 import { getSupabaseAdminClient } from '../lib/supabase/admin';
 import {
   executeRetentionPurge,
-  executeUserRetentionPurge,
   getRetentionPolicy,
 } from '../lib/retention';
 
@@ -27,9 +26,44 @@ export interface ApiResponse {
   body: any;
 }
 
+async function sha256Hex(text: string): Promise<string> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  try {
+    const nodeCrypto = await import('crypto');
+    return nodeCrypto.createHash('sha256').update(text).digest('hex');
+  } catch {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = (hash << 5) - hash + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(16).padStart(64, '0');
+  }
+}
+
+function generateRandomHex(length: number): string {
+  const bytes = new Uint8Array(length / 2);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 /**
  * Server-side API Router for Concludo Workspace.
- * Protects backend actions by verifying user credentials, suspension status, and authoritative profile plan.
+ * Protects backend actions by verifying user credentials or API keys, suspension status, and authoritative profile plan.
  */
 export async function handleApiRequest(
   req: ApiRequest,
@@ -85,11 +119,15 @@ export async function handleApiRequest(
     }
   }
 
-  // 2. Authentication extraction
+  // 2. Authentication extraction (Support Bearer JWT, Service Role Key, or Concludo API Key)
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  const apiKeyHeader = req.headers['x-api-key'] || req.headers['X-Api-Key'];
+
   let token: string | null = null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.slice(7).trim();
+  } else if (apiKeyHeader) {
+    token = apiKeyHeader.trim();
   }
 
   if (!token) {
@@ -98,7 +136,7 @@ export async function handleApiRequest(
       headers: jsonHeaders,
       body: {
         error: 'unauthorized',
-        message: 'Authentication required: Missing Bearer token.',
+        message: 'Authentication required: Missing Bearer token or API key.',
       },
     };
   }
@@ -116,26 +154,72 @@ export async function handleApiRequest(
     }
   }
 
-  // 3. Verify user session with Supabase
-  const { data: userData, error: authError } = await adminClient.auth.getUser(token);
-  if (authError || !userData?.user) {
-    return {
-      status: 401,
-      headers: jsonHeaders,
-      body: {
-        error: 'unauthorized',
-        message: 'Authentication failed: Invalid or expired token.',
-      },
-    };
-  }
+  let authenticatedUserId: string = '';
+  let authType: 'jwt' | 'api_key' = 'jwt';
 
-  const authenticatedUser = userData.user;
+  // Check if token is an API key (e.g. starts with "cnc_live_")
+  if (token.startsWith('cnc_live_')) {
+    authType = 'api_key';
+    const keyHash = await sha256Hex(token);
+
+    const { data: apiKeyRecord, error: keyError } = await adminClient
+      .from('api_keys')
+      .select('*')
+      .eq('key_hash', keyHash)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (keyError || !apiKeyRecord) {
+      return {
+        status: 401,
+        headers: jsonHeaders,
+        body: {
+          error: 'invalid_api_key',
+          message: 'The provided API key is invalid or has been revoked.',
+        },
+      };
+    }
+
+    if (apiKeyRecord.expires_at && new Date(apiKeyRecord.expires_at).getTime() < Date.now()) {
+      return {
+        status: 401,
+        headers: jsonHeaders,
+        body: {
+          error: 'api_key_expired',
+          message: 'The provided API key has expired.',
+        },
+      };
+    }
+
+    authenticatedUserId = apiKeyRecord.owner_id;
+
+    // Update last_used_at in background
+    adminClient
+      .from('api_keys')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', apiKeyRecord.id)
+      .then();
+  } else {
+    // Standard Supabase Auth JWT
+    const { data: userData, error: authError } = await adminClient.auth.getUser(token);
+    if (authError || !userData?.user) {
+      return {
+        status: 401,
+        headers: jsonHeaders,
+        body: {
+          error: 'unauthorized',
+          message: 'Authentication failed: Invalid or expired token.',
+        },
+      };
+    }
+    authenticatedUserId = userData.user.id;
+  }
 
   // 3b. Check User Suspension Status
   const { data: userProfile } = await adminClient
     .from('profiles')
     .select('plan, role, is_suspended')
-    .eq('id', authenticatedUser.id)
+    .eq('id', authenticatedUserId)
     .single();
 
   if (userProfile?.is_suspended) {
@@ -159,9 +243,8 @@ export async function handleApiRequest(
         body: purgeResult,
       };
     } else {
-      // User-scoped purge
       const userPurgeResult = await adminClient.rpc('purge_user_expired_records', {
-        p_user_id: authenticatedUser.id,
+        p_user_id: authenticatedUserId,
       });
       if (userPurgeResult.error) {
         return {
@@ -215,7 +298,7 @@ export async function handleApiRequest(
       status: 200,
       headers: jsonHeaders,
       body: {
-        userId: authenticatedUser.id,
+        userId: authenticatedUserId,
         plan,
         allowedFeatures,
         lockedFeatures: ALL_FEATURE_KEYS.filter((k) => !allowedFeatures.includes(k)),
@@ -246,8 +329,7 @@ export async function handleApiRequest(
       };
     }
 
-    // Call server-side canUseFeature
-    const result = await canUseFeature(authenticatedUser.id, featureKey, {
+    const result = await canUseFeature(authenticatedUserId, featureKey, {
       supabase: adminClient,
     });
 
@@ -292,7 +374,7 @@ export async function handleApiRequest(
       };
     }
 
-    const permResult = await canUseFeature(authenticatedUser.id, featureKey, {
+    const permResult = await canUseFeature(authenticatedUserId, featureKey, {
       supabase: adminClient,
     });
 
@@ -316,29 +398,24 @@ export async function handleApiRequest(
 
   // 5. Mapping of Protected API Endpoints to their required feature keys
   const endpointRequirements: Record<string, { method: string; feature: FeatureKey }[]> = {
-    // Projects endpoints require 'saved_projects'
     '/api/projects': [
       { method: 'GET', feature: 'saved_projects' },
       { method: 'POST', feature: 'saved_projects' },
     ],
-    // Transcripts endpoints require 'transcript_archive'
     '/api/transcripts': [
       { method: 'GET', feature: 'transcript_archive' },
       { method: 'POST', feature: 'transcript_archive' },
       { method: 'PUT', feature: 'transcript_archive' },
       { method: 'DELETE', feature: 'transcript_archive' },
     ],
-    // Outputs endpoints require 'manual_outputs'
     '/api/outputs': [
       { method: 'GET', feature: 'manual_outputs' },
       { method: 'POST', feature: 'manual_outputs' },
       { method: 'PUT', feature: 'manual_outputs' },
       { method: 'DELETE', feature: 'manual_outputs' },
     ],
-    // Output actions
     '/api/outputs/copy': [{ method: 'POST', feature: 'copy_output' }],
     '/api/outputs/export-json': [{ method: 'POST', feature: 'json_export' }],
-    // Intelligence endpoints (Tasklet 14 Pro Features)
     '/api/search': [
       { method: 'GET', feature: 'keyword_search' },
       { method: 'POST', feature: 'keyword_search' },
@@ -365,7 +442,6 @@ export async function handleApiRequest(
       { method: 'PUT', feature: 'action_tracker' },
       { method: 'DELETE', feature: 'action_tracker' },
     ],
-    // Tasklet 15 Conversation Intelligence Endpoints
     '/api/insight': [
       { method: 'GET', feature: 'insight' },
       { method: 'POST', feature: 'insight' },
@@ -393,7 +469,7 @@ export async function handleApiRequest(
     ],
     '/api/export/automation': [{ method: 'POST', feature: 'automation_export' }],
 
-    // Tasklet 16 Team Workspace & Collaboration Endpoints
+    // Team Workspace & Collaboration
     '/api/team': [
       { method: 'GET', feature: 'team_workspace' },
       { method: 'POST', feature: 'team_workspace' },
@@ -428,7 +504,7 @@ export async function handleApiRequest(
       { method: 'GET', feature: 'shared_insights' },
     ],
 
-    // Tasklet 17 Enterprise Endpoints
+    // Enterprise Administration
     '/api/admin': [
       { method: 'GET', feature: 'organization_admin' },
       { method: 'POST', feature: 'organization_admin' },
@@ -473,6 +549,59 @@ export async function handleApiRequest(
     '/api/admin/analytics': [
       { method: 'GET', feature: 'organization_analytics' },
     ],
+
+    // Tasklet 18 Integrations & Connectivity
+    '/api/integrations/history': [
+      { method: 'GET', feature: 'third_party_integrations' },
+    ],
+    '/api/integrations': [
+      { method: 'GET', feature: 'third_party_integrations' },
+      { method: 'POST', feature: 'third_party_integrations' },
+      { method: 'PUT', feature: 'third_party_integrations' },
+      { method: 'DELETE', feature: 'third_party_integrations' },
+    ],
+    '/api/automation-export': [
+      { method: 'GET', feature: 'automation_export' },
+      { method: 'POST', feature: 'automation_export' },
+    ],
+    '/api/webhooks': [
+      { method: 'GET', feature: 'webhooks' },
+      { method: 'POST', feature: 'webhooks' },
+      { method: 'PUT', feature: 'webhooks' },
+      { method: 'DELETE', feature: 'webhooks' },
+    ],
+    '/api/api-keys': [
+      { method: 'GET', feature: 'api_access' },
+      { method: 'POST', feature: 'api_access' },
+      { method: 'PUT', feature: 'api_access' },
+      { method: 'DELETE', feature: 'api_access' },
+    ],
+
+    // Public API Endpoints (/api/v1/...)
+    '/api/v1/projects': [
+      { method: 'GET', feature: 'api_access' },
+    ],
+    '/api/v1/outputs': [
+      { method: 'GET', feature: 'api_access' },
+    ],
+    '/api/v1/decisions': [
+      { method: 'GET', feature: 'api_access' },
+    ],
+    '/api/v1/actions': [
+      { method: 'GET', feature: 'api_access' },
+    ],
+    '/api/v1/reports': [
+      { method: 'GET', feature: 'api_access' },
+    ],
+    '/api/v1/insights': [
+      { method: 'GET', feature: 'api_access' },
+    ],
+    '/api/v1/stats': [
+      { method: 'GET', feature: 'api_access' },
+    ],
+    '/api/v1': [
+      { method: 'GET', feature: 'api_access' },
+    ],
   };
 
   // Match route: sort route patterns by longest first so more specific routes match before prefixes
@@ -488,7 +617,7 @@ export async function handleApiRequest(
 
       if (matchingRule) {
         // Enforce backend permission check
-        const permCheck = await canUseFeature(authenticatedUser.id, matchingRule.feature, {
+        const permCheck = await canUseFeature(authenticatedUserId, matchingRule.feature, {
           supabase: adminClient,
         });
 
@@ -500,6 +629,303 @@ export async function handleApiRequest(
           };
         }
 
+        // =============================================================
+        // Tasklet 18: Public API /v1 data queries with strict retention
+        // =============================================================
+        if (pathname.startsWith('/api/v1/')) {
+          if (pathname.startsWith('/api/v1/projects')) {
+            const parts = pathname.split('/').filter(Boolean);
+            const projectId = parts.length > 3 ? parts[3] : null;
+
+            if (projectId) {
+              const { data: project } = await adminClient
+                .from('projects')
+                .select('id, title, client_name, project_name, meeting_date, transcript, notes, created_at, updated_at')
+                .eq('id', projectId)
+                .is('deleted_at', null)
+                .maybeSingle();
+
+              return {
+                status: project ? 200 : 404,
+                headers: jsonHeaders,
+                body: project ? { data: project, auth: authType } : { error: 'not_found', message: 'Project not found' },
+              };
+            }
+
+            const { data } = await adminClient
+              .from('projects')
+              .select('id, title, client_name, project_name, meeting_date, created_at, updated_at')
+              .eq('user_id', authenticatedUserId)
+              .is('deleted_at', null)
+              .order('updated_at', { ascending: false });
+
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: { data: data || [], auth: authType, count: data?.length || 0 },
+            };
+          }
+
+          if (pathname.startsWith('/api/v1/outputs')) {
+            const { data } = await adminClient
+              .from('outputs')
+              .select('id, project_id, output_type, content, created_at')
+              .eq('user_id', authenticatedUserId)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false });
+
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: { data: data || [], auth: authType, count: data?.length || 0 },
+            };
+          }
+
+          if (pathname.startsWith('/api/v1/decisions')) {
+            const { data } = await adminClient
+              .from('decision_memory')
+              .select('id, decision_title, decision_summary, decision_reasoning, decision_owner, decision_date, project_id, created_at')
+              .eq('user_id', authenticatedUserId)
+              .is('deleted_at', null)
+              .order('decision_date', { ascending: false });
+
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: { data: data || [], auth: authType, count: data?.length || 0 },
+            };
+          }
+
+          if (pathname.startsWith('/api/v1/actions')) {
+            const { data } = await adminClient
+              .from('action_tracker')
+              .select('id, action_title, action_description, owner_name, due_date, status, project_id, created_at')
+              .eq('user_id', authenticatedUserId)
+              .is('deleted_at', null)
+              .order('due_date', { ascending: true });
+
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: { data: data || [], auth: authType, count: data?.length || 0 },
+            };
+          }
+
+          if (pathname.startsWith('/api/v1/reports')) {
+            const { data } = await adminClient
+              .from('endpoint_reports')
+              .select('id, title, report_content, report_period, generated_at, created_at')
+              .eq('user_id', authenticatedUserId)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false });
+
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: { data: data || [], auth: authType, count: data?.length || 0 },
+            };
+          }
+
+          if (pathname.startsWith('/api/v1/insights') || pathname.startsWith('/api/v1/stats')) {
+            const { data } = await adminClient
+              .from('generated_intelligence')
+              .select('*')
+              .eq('user_id', authenticatedUserId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            return {
+              status: 200,
+              headers: jsonHeaders,
+              body: { data: data || {}, auth: authType },
+            };
+          }
+
+          return {
+            status: 200,
+            headers: jsonHeaders,
+            body: {
+              version: 'v1',
+              endpoints: [
+                '/api/v1/projects',
+                '/api/v1/outputs',
+                '/api/v1/decisions',
+                '/api/v1/actions',
+                '/api/v1/reports',
+                '/api/v1/insights',
+                '/api/v1/stats',
+              ],
+              auth: authType,
+            },
+          };
+        }
+
+        // =============================================================
+        // Tasklet 18: Specific Integration CRUD, Exports, Webhooks & API Keys Handlers
+        // =============================================================
+        if (pathname === '/api/integrations') {
+          if (req.method === 'GET') {
+            const { data, error } = await adminClient
+              .from('integrations')
+              .select('*')
+              .eq('user_id', authenticatedUserId)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false });
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+
+          if (req.method === 'POST') {
+            const { provider, settings, team_id, organization_id } = req.body || {};
+            if (!provider) return { status: 400, headers: jsonHeaders, body: { error: 'provider_required' } };
+
+            const { data, error } = await adminClient
+              .from('integrations')
+              .insert({
+                user_id: authenticatedUserId,
+                provider,
+                status: 'connected',
+                settings: settings || {},
+                team_id: team_id || null,
+                organization_id: organization_id || null,
+                connected_at: new Date().toISOString(),
+              })
+              .select()
+              .single();
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 201, headers: jsonHeaders, body: { data } };
+          }
+        }
+
+        if (pathname === '/api/integrations/history') {
+          if (req.method === 'GET') {
+            const { data, error } = await adminClient
+              .from('integration_sync_logs')
+              .select('*')
+              .eq('user_id', authenticatedUserId)
+              .order('created_at', { ascending: false });
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+        }
+
+        if (pathname === '/api/automation-export') {
+          if (req.method === 'GET') {
+            const { data, error } = await adminClient
+              .from('automation_exports')
+              .select('*')
+              .eq('user_id', authenticatedUserId)
+              .order('created_at', { ascending: false });
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+        }
+
+        if (pathname === '/api/api-keys') {
+          if (req.method === 'GET') {
+            // Strictly exclude key_hash
+            const { data, error } = await adminClient
+              .from('api_keys')
+              .select('id, owner_id, team_id, organization_id, name, key_prefix, status, created_at, expires_at, last_used_at')
+              .eq('owner_id', authenticatedUserId)
+              .order('created_at', { ascending: false });
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+
+          if (req.method === 'POST') {
+            const { name, expiresInDays } = req.body || {};
+            if (!name) return { status: 400, headers: jsonHeaders, body: { error: 'name_required' } };
+
+            const rawSecret = `cnc_live_${generateRandomHex(32)}`;
+            const key_prefix = rawSecret.slice(0, 16) + '...';
+            const key_hash = await sha256Hex(rawSecret);
+
+            let expires_at: string | null = null;
+            if (expiresInDays && expiresInDays > 0) {
+              const expDate = new Date();
+              expDate.setDate(expDate.getDate() + expiresInDays);
+              expires_at = expDate.toISOString();
+            }
+
+            const { data, error } = await adminClient
+              .from('api_keys')
+              .insert({
+                owner_id: authenticatedUserId,
+                name,
+                key_hash,
+                key_prefix,
+                status: 'active',
+                expires_at,
+              })
+              .select('id, owner_id, team_id, organization_id, name, key_prefix, status, created_at, expires_at, last_used_at')
+              .single();
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return {
+              status: 201,
+              headers: jsonHeaders,
+              body: {
+                apiKey: rawSecret, // Returned ONLY once
+                keyRecord: data,
+              },
+            };
+          }
+        }
+
+        if (pathname === '/api/webhooks') {
+          if (req.method === 'GET') {
+            // Exclude secret_key in normal list
+            const { data, error } = await adminClient
+              .from('webhooks')
+              .select('id, owner_id, team_id, organization_id, name, endpoint_url, status, events, created_at, updated_at')
+              .eq('owner_id', authenticatedUserId)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false });
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+
+          if (req.method === 'POST') {
+            const { name, endpoint_url, events } = req.body || {};
+            if (!name || !endpoint_url) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'name_and_endpoint_required' } };
+            }
+
+            const secret_key = `whsec_${generateRandomHex(32)}`;
+
+            const { data, error } = await adminClient
+              .from('webhooks')
+              .insert({
+                owner_id: authenticatedUserId,
+                name,
+                endpoint_url,
+                events: events || ['action_created', 'decision_created', 'report_generated'],
+                status: 'active',
+                secret_key,
+              })
+              .select('id, owner_id, team_id, organization_id, name, endpoint_url, status, events, created_at, updated_at')
+              .single();
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return {
+              status: 201,
+              headers: jsonHeaders,
+              body: {
+                webhook: data,
+                signingSecret: secret_key, // Returned ONLY once
+              },
+            };
+          }
+        }
+
         // Action is permitted for this user
         return {
           status: 200,
@@ -509,7 +935,8 @@ export async function handleApiRequest(
             action: `${req.method} ${pathname}`,
             feature: matchingRule.feature,
             plan: permCheck.plan,
-            user_id: authenticatedUser.id,
+            user_id: authenticatedUserId,
+            auth: authType,
             timestamp: new Date().toISOString(),
           },
         };

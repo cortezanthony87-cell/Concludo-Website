@@ -18,6 +18,9 @@ export type FeatureKey =
   | 'stats'
   | 'endpoint_report'
   | 'automation_export'
+  | 'third_party_integrations'
+  | 'webhooks'
+  | 'api_access'
   | 'team_workspace'
   | 'team_administration'
   | 'shared_projects'
@@ -54,6 +57,9 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'stats',
   'endpoint_report',
   'automation_export',
+  'third_party_integrations',
+  'webhooks',
+  'api_access',
   'team_workspace',
   'team_administration',
   'shared_projects',
@@ -91,6 +97,9 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   stats: 'Stats',
   endpoint_report: 'Endpoint Report',
   automation_export: 'Automation Export',
+  third_party_integrations: 'Third-Party Integrations',
+  webhooks: 'Webhooks',
+  api_access: 'API Access',
   team_workspace: 'Team Workspace',
   team_administration: 'Team Administration',
   shared_projects: 'Shared Projects',
@@ -149,6 +158,9 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'stats',
     'endpoint_report',
     'automation_export',
+    'third_party_integrations',
+    'webhooks',
+    'api_access',
     'core_outputs',
     'copy_output',
     'json_export',
@@ -168,6 +180,9 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'stats',
     'endpoint_report',
     'automation_export',
+    'third_party_integrations',
+    'webhooks',
+    'api_access',
     'core_outputs',
     'copy_output',
     'json_export',
@@ -187,6 +202,9 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'stats',
     'endpoint_report',
     'automation_export',
+    'third_party_integrations',
+    'webhooks',
+    'api_access',
     'team_workspace',
     'team_administration',
     'shared_projects',
@@ -212,6 +230,9 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'stats',
     'endpoint_report',
     'automation_export',
+    'third_party_integrations',
+    'webhooks',
+    'api_access',
     'team_workspace',
     'team_administration',
     'shared_projects',
@@ -246,6 +267,9 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'stats',
     'endpoint_report',
     'automation_export',
+    'third_party_integrations',
+    'webhooks',
+    'api_access',
     'team_workspace',
     'team_administration',
     'shared_projects',
@@ -288,6 +312,9 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   next_best_action: 'Available on Pro',
   meeting_health_dashboard: 'Available on Pro',
   automation_export: 'Available on Pro',
+  third_party_integrations: 'Available on Pro',
+  webhooks: 'Available on Pro',
+  api_access: 'Available on Pro',
   team_workspace: 'Available on Team',
   team_administration: 'Available on Team',
   shared_projects: 'Available on Team',

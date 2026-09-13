@@ -32,6 +32,13 @@ import { CreateTeamPage } from './pages/CreateTeamPage';
 import { TeamSettingsPage } from './pages/TeamSettingsPage';
 import { AdminPortalPage } from './pages/admin/AdminPortalPage';
 
+// Tasklet 18 Integrations, Automation & Connectivity Pages
+import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
+import { IntegrationHistoryPage } from './pages/integrations/IntegrationHistoryPage';
+import { AutomationExportPage } from './pages/automation/AutomationExportPage';
+import { WebhooksPage } from './pages/automation/WebhooksPage';
+import { ApiAccessPage } from './pages/api/ApiAccessPage';
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -98,6 +105,13 @@ export const App: React.FC = () => {
             <Route path="/admin/audit" element={<AdminPortalPage initialTab="audit" />} />
             <Route path="/admin/compliance" element={<AdminPortalPage initialTab="compliance" />} />
             <Route path="/admin/security" element={<AdminPortalPage initialTab="security" />} />
+
+            {/* Tasklet 18 Integration, Automation & Public API Routes */}
+            <Route path="/integrations" element={<IntegrationsPage />} />
+            <Route path="/integrations/history" element={<IntegrationHistoryPage />} />
+            <Route path="/automation-export" element={<AutomationExportPage />} />
+            <Route path="/webhooks" element={<WebhooksPage />} />
+            <Route path="/api" element={<ApiAccessPage />} />
 
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

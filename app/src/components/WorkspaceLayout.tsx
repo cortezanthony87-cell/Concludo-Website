@@ -24,6 +24,10 @@ import {
   FileSpreadsheet,
   Scale,
   KeyRound,
+  Share2,
+  Webhook as WebhookIcon,
+  Code2,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -354,6 +358,50 @@ export const WorkspaceLayout: React.FC = () => {
             >
               <FileBarChart size={18} />
               <span>Endpoint Report</span>
+            </NavLink>
+
+            {/* Connectivity & Automation */}
+            <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+              Connectivity
+            </div>
+            <NavLink
+              to="/integrations"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Share2 size={18} />
+              <span>Integrations</span>
+            </NavLink>
+
+            <NavLink
+              to="/automation-export"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Layers size={18} />
+              <span>Automation Export</span>
+            </NavLink>
+
+            <NavLink
+              to="/webhooks"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <WebhookIcon size={18} />
+              <span>Webhooks</span>
+            </NavLink>
+
+            <NavLink
+              to="/api"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Code2 size={18} />
+              <span>Public API</span>
             </NavLink>
 
             {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.role === 'admin') && (
