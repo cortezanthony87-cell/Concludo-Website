@@ -279,9 +279,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      setSession(data.session);
-      setUser(data.user);
       if (data.user) {
+        const { profile: userProfile } = await fetchUserProfile(data.user.id);
+        if (userProfile?.is_suspended) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setAuthStatus('idle');
+          return {
+            user: null,
+            session: null,
+            error: new Error('Your account has been suspended by your enterprise administrator. Access is blocked.'),
+          };
+        }
         await loadProfile(data.user);
       }
 

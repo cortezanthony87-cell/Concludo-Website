@@ -30,6 +30,7 @@ import { ConnectionTestPage } from './pages/ConnectionTestPage';
 import { TeamDashboardPage } from './pages/TeamDashboardPage';
 import { CreateTeamPage } from './pages/CreateTeamPage';
 import { TeamSettingsPage } from './pages/TeamSettingsPage';
+import { AdminPortalPage } from './pages/admin/AdminPortalPage';
 
 export const App: React.FC = () => {
   return (
@@ -92,7 +93,12 @@ export const App: React.FC = () => {
             <Route path="/team/create" element={<CreateTeamPage />} />
             <Route path="/team/settings" element={<TeamSettingsPage />} />
 
-            <Route path="/admin" element={<DashboardPage />} />
+            {/* Enterprise Admin, Audit, Compliance & Security Routes */}
+            <Route path="/admin" element={<AdminPortalPage initialTab="overview" />} />
+            <Route path="/admin/audit" element={<AdminPortalPage initialTab="audit" />} />
+            <Route path="/admin/compliance" element={<AdminPortalPage initialTab="compliance" />} />
+            <Route path="/admin/security" element={<AdminPortalPage initialTab="security" />} />
+
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>
         </Route>

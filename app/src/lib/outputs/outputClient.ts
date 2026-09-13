@@ -394,12 +394,16 @@ export async function permanentDeleteOutput(
       return { success: false, error: new Error('Output ID is required') };
     }
 
-    const { error } = await supabase.rpc('permanent_delete_output', {
+    const { data, error } = await supabase.rpc('permanent_delete_output', {
       p_output_id: id
     });
 
     if (error) {
       return { success: false, error: new Error(error.message || 'Failed to permanently delete output') };
+    }
+
+    if (data && typeof data === 'object' && (data as any).success === false) {
+      return { success: false, error: new Error((data as any).error || 'Failed to permanently delete output') };
     }
 
     return { success: true, error: null };

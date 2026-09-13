@@ -29,7 +29,7 @@ export interface ApiResponse {
 
 /**
  * Server-side API Router for Concludo Workspace.
- * Protects backend actions by verifying user credentials and authoritative profile plan.
+ * Protects backend actions by verifying user credentials, suspension status, and authoritative profile plan.
  */
 export async function handleApiRequest(
   req: ApiRequest,
@@ -131,16 +131,27 @@ export async function handleApiRequest(
 
   const authenticatedUser = userData.user;
 
+  // 3b. Check User Suspension Status
+  const { data: userProfile } = await adminClient
+    .from('profiles')
+    .select('plan, role, is_suspended')
+    .eq('id', authenticatedUser.id)
+    .single();
+
+  if (userProfile?.is_suspended) {
+    return {
+      status: 403,
+      headers: jsonHeaders,
+      body: {
+        error: 'user_suspended',
+        message: 'This user account has been suspended by an enterprise administrator.',
+      },
+    };
+  }
+
   // Authenticated retention purge
   if (pathname === '/api/retention/purge') {
-    // Authoritative check if user is admin
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('plan, role')
-      .eq('id', authenticatedUser.id)
-      .single();
-
-    if (profile?.role === 'admin' || profile?.plan === 'admin') {
+    if (userProfile?.role === 'admin' || userProfile?.plan === 'admin') {
       const purgeResult = await executeRetentionPurge(adminClient);
       return {
         status: purgeResult.success ? 200 : 500,
@@ -180,14 +191,7 @@ export async function handleApiRequest(
       };
     }
 
-    // Authoritative lookup from database profiles table
-    const { data: profileData, error: profileErr } = await adminClient
-      .from('profiles')
-      .select('*')
-      .eq('id', authenticatedUser.id)
-      .single();
-
-    if (profileErr || !profileData) {
+    if (!userProfile) {
       return {
         status: 404,
         headers: jsonHeaders,
@@ -195,7 +199,7 @@ export async function handleApiRequest(
       };
     }
 
-    const plan = (profileData.plan as PlanType) || 'free_preview';
+    const plan = (userProfile.plan as PlanType) || 'free_preview';
     const allowedFeatures = PLAN_PERMISSIONS[plan] || [];
 
     const featureStatus: Record<string, { allowed: boolean; badge?: string }> = {};
@@ -423,10 +427,60 @@ export async function handleApiRequest(
     '/api/team/stats': [
       { method: 'GET', feature: 'shared_insights' },
     ],
+
+    // Tasklet 17 Enterprise Endpoints
+    '/api/admin': [
+      { method: 'GET', feature: 'organization_admin' },
+      { method: 'POST', feature: 'organization_admin' },
+      { method: 'PUT', feature: 'organization_admin' },
+      { method: 'DELETE', feature: 'organization_admin' },
+    ],
+    '/api/admin/audit': [
+      { method: 'GET', feature: 'audit_logging' },
+    ],
+    '/api/admin/compliance': [
+      { method: 'GET', feature: 'compliance_controls' },
+      { method: 'POST', feature: 'compliance_controls' },
+    ],
+    '/api/admin/security': [
+      { method: 'GET', feature: 'security_controls' },
+    ],
+    '/api/admin/governance': [
+      { method: 'GET', feature: 'advanced_governance' },
+      { method: 'POST', feature: 'advanced_governance' },
+    ],
+    '/api/admin/retention': [
+      { method: 'GET', feature: 'retention_policies' },
+      { method: 'POST', feature: 'retention_policies' },
+    ],
+    '/api/admin/legal-holds': [
+      { method: 'GET', feature: 'legal_hold' },
+      { method: 'POST', feature: 'legal_hold' },
+      { method: 'PUT', feature: 'legal_hold' },
+    ],
+    '/api/admin/sso': [
+      { method: 'GET', feature: 'enterprise_sso' },
+      { method: 'POST', feature: 'enterprise_sso' },
+    ],
+    '/api/sso': [
+      { method: 'GET', feature: 'enterprise_sso' },
+      { method: 'POST', feature: 'enterprise_sso' },
+    ],
+    '/api/organizations': [
+      { method: 'GET', feature: 'organization_admin' },
+      { method: 'POST', feature: 'organization_admin' },
+    ],
+    '/api/admin/analytics': [
+      { method: 'GET', feature: 'organization_analytics' },
+    ],
   };
 
-  // Match route
-  for (const [routePattern, ruleList] of Object.entries(endpointRequirements)) {
+  // Match route: sort route patterns by longest first so more specific routes match before prefixes
+  const sortedPatterns = Object.entries(endpointRequirements).sort(
+    (a, b) => b[0].length - a[0].length
+  );
+
+  for (const [routePattern, ruleList] of sortedPatterns) {
     if (pathname === routePattern || pathname.startsWith(routePattern + '/')) {
       const matchingRule = ruleList.find(
         (r) => r.method === req.method || r.method === '*'

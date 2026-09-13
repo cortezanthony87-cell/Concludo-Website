@@ -442,12 +442,16 @@ export async function permanentDeleteProject(
       return { success: false, error: new Error('Project ID is required') };
     }
 
-    const { error } = await supabase.rpc('permanent_delete_project', {
+    const { data, error } = await supabase.rpc('permanent_delete_project', {
       p_project_id: id
     });
 
     if (error) {
       return { success: false, error: new Error(error.message || 'Failed to permanently delete project') };
+    }
+
+    if (data && typeof data === 'object' && (data as any).success === false) {
+      return { success: false, error: new Error((data as any).error || 'Failed to permanently delete project') };
     }
 
     return { success: true, error: null };

@@ -5,6 +5,7 @@ export type PlanType =
   | 'pro_trial'
   | 'pro'
   | 'team'
+  | 'enterprise'
   | 'admin';
 
 export type FeatureKey =
@@ -23,6 +24,15 @@ export type FeatureKey =
   | 'shared_decisions'
   | 'shared_actions'
   | 'shared_insights'
+  | 'enterprise_sso'
+  | 'audit_logging'
+  | 'advanced_governance'
+  | 'compliance_controls'
+  | 'organization_admin'
+  | 'retention_policies'
+  | 'legal_hold'
+  | 'security_controls'
+  | 'organization_analytics'
   | 'admin_dashboard'
   | 'core_outputs'
   | 'copy_output'
@@ -50,6 +60,15 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'shared_decisions',
   'shared_actions',
   'shared_insights',
+  'enterprise_sso',
+  'audit_logging',
+  'advanced_governance',
+  'compliance_controls',
+  'organization_admin',
+  'retention_policies',
+  'legal_hold',
+  'security_controls',
+  'organization_analytics',
   'admin_dashboard',
   'core_outputs',
   'copy_output',
@@ -78,6 +97,15 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   shared_decisions: 'Shared Decision Memory',
   shared_actions: 'Shared Action Tracker',
   shared_insights: 'Shared Insights',
+  enterprise_sso: 'Enterprise SSO',
+  audit_logging: 'Audit Logging',
+  advanced_governance: 'Advanced Governance',
+  compliance_controls: 'Compliance Controls',
+  organization_admin: 'Organization Administration',
+  retention_policies: 'Retention Policies',
+  legal_hold: 'Legal Hold',
+  security_controls: 'Security Controls',
+  organization_analytics: 'Organization Analytics',
   admin_dashboard: 'Admin Dashboard',
   core_outputs: 'Core Outputs',
   copy_output: 'Copy Output',
@@ -174,6 +202,40 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'next_best_action',
     'meeting_health_dashboard',
   ],
+  enterprise: [
+    'workspace_basic',
+    'meeting_memory',
+    'decision_memory',
+    'action_tracker',
+    'keyword_search',
+    'insight',
+    'stats',
+    'endpoint_report',
+    'automation_export',
+    'team_workspace',
+    'team_administration',
+    'shared_projects',
+    'shared_decisions',
+    'shared_actions',
+    'shared_insights',
+    'enterprise_sso',
+    'audit_logging',
+    'advanced_governance',
+    'compliance_controls',
+    'organization_admin',
+    'retention_policies',
+    'legal_hold',
+    'security_controls',
+    'organization_analytics',
+    'core_outputs',
+    'copy_output',
+    'json_export',
+    'saved_projects',
+    'transcript_archive',
+    'manual_outputs',
+    'next_best_action',
+    'meeting_health_dashboard',
+  ],
   admin: [
     'workspace_basic',
     'meeting_memory',
@@ -190,6 +252,15 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'shared_decisions',
     'shared_actions',
     'shared_insights',
+    'enterprise_sso',
+    'audit_logging',
+    'advanced_governance',
+    'compliance_controls',
+    'organization_admin',
+    'retention_policies',
+    'legal_hold',
+    'security_controls',
+    'organization_analytics',
     'admin_dashboard',
     'core_outputs',
     'copy_output',
@@ -223,6 +294,15 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   shared_decisions: 'Available on Team',
   shared_actions: 'Available on Team',
   shared_insights: 'Available on Team',
+  enterprise_sso: 'Available on Enterprise',
+  audit_logging: 'Available on Enterprise',
+  advanced_governance: 'Available on Enterprise',
+  compliance_controls: 'Available on Enterprise',
+  organization_admin: 'Available on Enterprise',
+  retention_policies: 'Available on Enterprise',
+  legal_hold: 'Available on Enterprise',
+  security_controls: 'Available on Enterprise',
+  organization_analytics: 'Available on Enterprise',
   admin_dashboard: 'Available on Admin',
   admin_tools: 'Available on Admin',
   saved_projects: 'Available on Pro',

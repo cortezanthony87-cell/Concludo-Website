@@ -21,6 +21,9 @@ import {
   BarChart3,
   FileBarChart,
   Users,
+  FileSpreadsheet,
+  Scale,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -42,21 +45,24 @@ export const WorkspaceLayout: React.FC = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleLogout = async () => {
-    setAccountMenuOpen(false);
     setLoggingOut(true);
+    setAccountMenuOpen(false);
     await signOut();
     setLoggingOut(false);
-    navigate('/', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   const userEmail = user?.email || 'User';
   const fullName = profile?.full_name?.trim();
   const displayName = fullName || userEmail;
-  const userInitial = (fullName ? fullName.charAt(0) : userEmail.charAt(0)).toUpperCase();
+  const userInitial = (fullName ? fullName[0] : userEmail[0]).toUpperCase();
+
   const currentPlan = profile?.plan || 'free_preview';
   const planBadgeText = PLAN_LABELS[currentPlan] || 'Free Preview';
 
@@ -167,6 +173,16 @@ export const WorkspaceLayout: React.FC = () => {
                   <Users size={16} />
                   <span>Team Settings</span>
                 </Link>
+                {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.role === 'admin') && (
+                  <Link
+                    to="/admin"
+                    className="dropdown-link"
+                    onClick={() => setAccountMenuOpen(false)}
+                  >
+                    <Shield size={16} />
+                    <span>Enterprise Admin</span>
+                  </Link>
+                )}
                 <Link
                   to="/settings"
                   className="dropdown-link"
@@ -340,6 +356,54 @@ export const WorkspaceLayout: React.FC = () => {
               <span>Endpoint Report</span>
             </NavLink>
 
+            {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.role === 'admin') && (
+              <>
+                <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+                  Enterprise
+                </div>
+                <NavLink
+                  to="/admin"
+                  end
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Shield size={18} />
+                  <span>Enterprise Admin</span>
+                </NavLink>
+                <NavLink
+                  to="/admin/audit"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <FileSpreadsheet size={18} />
+                  <span>Audit Logs</span>
+                </NavLink>
+                <NavLink
+                  to="/admin/compliance"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Scale size={18} />
+                  <span>Compliance</span>
+                </NavLink>
+                <NavLink
+                  to="/admin/security"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <KeyRound size={18} />
+                  <span>Security</span>
+                </NavLink>
+              </>
+            )}
+
+            <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+              System
+            </div>
             <NavLink
               to="/settings"
               className={({ isActive }) =>
