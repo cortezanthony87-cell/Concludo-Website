@@ -61,6 +61,13 @@ import { KnowledgeAnalyticsPage } from './pages/knowledge/KnowledgeAnalyticsPage
 // Tasklet 22 Concludo Copilot & Conversational Intelligence Page
 import { CopilotPage } from './pages/copilot/CopilotPage';
 
+// Tasklet 23 Strategic Operations, Digital Twin & Executive Command Center Pages
+import { DigitalTwinPage } from './pages/strategic/DigitalTwinPage';
+import { ExecutiveCommandCenterPage } from './pages/strategic/ExecutiveCommandCenterPage';
+import { ScenarioModelingPage } from './pages/strategic/ScenarioModelingPage';
+import { PerformanceDashboardPage } from './pages/strategic/PerformanceDashboardPage';
+import { ExecutiveBriefingCenterPage } from './pages/strategic/ExecutiveBriefingCenterPage';
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -154,6 +161,13 @@ export const App: React.FC = () => {
 
             {/* Tasklet 22 Concludo Copilot Route */}
             <Route path="/copilot" element={<CopilotPage />} />
+
+            {/* Tasklet 23 Strategic Operations, Digital Twin & Command Center Routes */}
+            <Route path="/digital-twin" element={<DigitalTwinPage />} />
+            <Route path="/executive-command-center" element={<ExecutiveCommandCenterPage />} />
+            <Route path="/scenario-modeling" element={<ScenarioModelingPage />} />
+            <Route path="/performance" element={<PerformanceDashboardPage />} />
+            <Route path="/executive-center" element={<ExecutiveBriefingCenterPage />} />
 
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

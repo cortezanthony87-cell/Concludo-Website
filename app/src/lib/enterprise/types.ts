@@ -126,7 +126,22 @@ export type AuditActionType =
   | 'knowledge_explorer_access'
   | 'knowledge_visualization_access'
   | 'knowledge_cluster_creation'
-  | 'knowledge_analytics_access';
+  | 'knowledge_analytics_access'
+  // Tasklet 22 Audited Events
+  | 'question_asked'
+  | 'answer_generated'
+  | 'conversation_created'
+  | 'conversation_deleted'
+  | 'prompt_saved'
+  | 'execution_request'
+  // Tasklet 23 Audited Events
+  | 'scenario_created'
+  | 'simulation_executed'
+  | 'executive_briefing_generated'
+  | 'digital_twin_access'
+  | 'executive_dashboard_access'
+  | 'strategic_recommendation_generated'
+  | 'strategic_alert_generated';
 
 export interface AuditLog {
   id: string;

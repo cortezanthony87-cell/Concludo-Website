@@ -36,6 +36,8 @@ import {
   Clock,
   Compass,
   Sparkles,
+  Cpu,
+  Sliders,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -571,6 +573,64 @@ export const WorkspaceLayout: React.FC = () => {
                 >
                   <BarChart3 size={18} />
                   <span>Knowledge Analytics</span>
+                </NavLink>
+              </>
+            )}
+
+            {/* Tasklet 23 Strategic Operations & Command Center */}
+            {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.role === 'admin') && (
+              <>
+                <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+                  Strategic Operations
+                </div>
+                <NavLink
+                  to="/executive-command-center"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Compass size={18} />
+                  <span>Command Centre</span>
+                </NavLink>
+
+                <NavLink
+                  to="/digital-twin"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Cpu size={18} />
+                  <span>Digital Twin</span>
+                </NavLink>
+
+                <NavLink
+                  to="/scenario-modeling"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Sliders size={18} />
+                  <span>Scenario Modeling</span>
+                </NavLink>
+
+                <NavLink
+                  to="/performance"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <BarChart3 size={18} />
+                  <span>Performance</span>
+                </NavLink>
+
+                <NavLink
+                  to="/executive-center"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <FileText size={18} />
+                  <span>Executive Center</span>
                 </NavLink>
               </>
             )}

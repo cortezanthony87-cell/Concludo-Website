@@ -71,7 +71,13 @@ export type FeatureKey =
   | 'decision_assistant'
   | 'knowledge_assistant'
   | 'executive_assistant'
-  | 'natural_language_search';
+  | 'natural_language_search'
+  // Tasklet 23 Features
+  | 'executive_command_center'
+  | 'digital_twin'
+  | 'scenario_modeling'
+  | 'strategic_operations'
+  | 'executive_simulations';
 
 export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'workspace_basic',
@@ -136,6 +142,12 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'knowledge_assistant',
   'executive_assistant',
   'natural_language_search',
+  // Tasklet 23
+  'executive_command_center',
+  'digital_twin',
+  'scenario_modeling',
+  'strategic_operations',
+  'executive_simulations',
 ] as const;
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
@@ -201,6 +213,12 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   knowledge_assistant: 'Knowledge Assistant',
   executive_assistant: 'Executive Assistant',
   natural_language_search: 'Natural Language Search',
+  // Tasklet 23 Labels
+  executive_command_center: 'Executive Command Centre',
+  digital_twin: 'Digital Twin Organisation',
+  scenario_modeling: 'Scenario Modeling',
+  strategic_operations: 'Strategic Operations Monitoring',
+  executive_simulations: 'Executive Simulations',
 };
 
 /**
@@ -358,6 +376,12 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'knowledge_assistant',
     'executive_assistant',
     'natural_language_search',
+    // Tasklet 23 features unlocked on enterprise
+    'executive_command_center',
+    'digital_twin',
+    'scenario_modeling',
+    'strategic_operations',
+    'executive_simulations',
   ],
   admin: [
     'workspace_basic',
@@ -422,6 +446,12 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'knowledge_assistant',
     'executive_assistant',
     'natural_language_search',
+    // Tasklet 23 features unlocked on admin
+    'executive_command_center',
+    'digital_twin',
+    'scenario_modeling',
+    'strategic_operations',
+    'executive_simulations',
   ],
 };
 
@@ -488,6 +518,12 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   knowledge_assistant: 'Available on Enterprise',
   executive_assistant: 'Available on Enterprise',
   natural_language_search: 'Available on Enterprise',
+  // Tasklet 23 Tier Badges
+  executive_command_center: 'Available on Enterprise',
+  digital_twin: 'Available on Enterprise',
+  scenario_modeling: 'Available on Enterprise',
+  strategic_operations: 'Available on Enterprise',
+  executive_simulations: 'Available on Enterprise',
 };
 
 export interface PermissionErrorResponse {

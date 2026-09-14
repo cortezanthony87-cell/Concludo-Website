@@ -56,6 +56,14 @@ import {
   softDeletePrompt,
 } from '../lib/copilot/copilotService';
 import { SpecializedAssistants } from '../lib/copilot/specializedAssistants';
+import { StrategicService } from '../lib/strategic/strategicService';
+import { StrategicHealthEngine } from '../lib/strategic/strategicHealthEngine';
+import { DigitalTwinEngine } from '../lib/strategic/digitalTwinEngine';
+import { ScenarioEngine } from '../lib/strategic/scenarioEngine';
+import { PerformanceModelEngine } from '../lib/strategic/performanceModel';
+import { RiskNetworkEngine } from '../lib/strategic/riskNetworkEngine';
+import { DependencyMapEngine } from '../lib/strategic/dependencyMapEngine';
+import { StrategicBriefingService } from '../lib/strategic/strategicBriefingService';
 
 export interface ApiRequest {
   method: string;
@@ -806,6 +814,44 @@ export async function handleApiRequest(
     ],
     '/api/copilot/execute-request': [
       { method: 'POST', feature: 'concludo_copilot' },
+    ],
+    // Tasklet 23 Strategic Operations & Command Center Routes
+    '/api/strategic/digital-twin': [
+      { method: 'GET', feature: 'digital_twin' },
+      { method: 'POST', feature: 'digital_twin' },
+    ],
+    '/api/strategic/health': [
+      { method: 'GET', feature: 'strategic_operations' },
+      { method: 'POST', feature: 'strategic_operations' },
+    ],
+    '/api/strategic/scenarios/simulate': [
+      { method: 'POST', feature: 'executive_simulations' },
+    ],
+    '/api/strategic/scenarios': [
+      { method: 'GET', feature: 'scenario_modeling' },
+      { method: 'POST', feature: 'scenario_modeling' },
+      { method: 'DELETE', feature: 'scenario_modeling' },
+    ],
+    '/api/strategic/performance': [
+      { method: 'GET', feature: 'strategic_operations' },
+    ],
+    '/api/strategic/risk-network': [
+      { method: 'GET', feature: 'strategic_operations' },
+    ],
+    '/api/strategic/dependency-map': [
+      { method: 'GET', feature: 'strategic_operations' },
+    ],
+    '/api/strategic/recommendations': [
+      { method: 'GET', feature: 'executive_command_center' },
+    ],
+    '/api/strategic/briefings': [
+      { method: 'GET', feature: 'executive_command_center' },
+      { method: 'POST', feature: 'executive_command_center' },
+      { method: 'DELETE', feature: 'executive_command_center' },
+    ],
+    '/api/strategic/alerts': [
+      { method: 'GET', feature: 'executive_command_center' },
+      { method: 'POST', feature: 'executive_command_center' },
     ],
   };
 
@@ -2428,6 +2474,264 @@ export async function handleApiRequest(
               },
             },
           };
+        }
+
+        // =============================================================
+        // Tasklet 23: Autonomous Strategic Operations & Executive Command Center
+        // =============================================================
+        if (pathname === '/api/strategic/digital-twin') {
+          if (req.method === 'GET') {
+            await recordAuditLog({
+              action: 'digital_twin_access',
+              entityType: 'strategic_digital_twin',
+              details: { method: 'GET' },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            const twin = await StrategicService.getLatestDigitalTwin(
+              adminClient,
+              authenticatedUserId,
+              requestedOrgId || null,
+              requestedTeamId || null
+            );
+            return { status: 200, headers: jsonHeaders, body: { data: twin } };
+          }
+          if (req.method === 'POST') {
+            await recordAuditLog({
+              action: 'digital_twin_access',
+              entityType: 'strategic_digital_twin',
+              details: { method: 'POST', refresh: true },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            const twin = await StrategicService.refreshDigitalTwin(
+              adminClient,
+              authenticatedUserId,
+              requestedOrgId || null,
+              requestedTeamId || null
+            );
+            return { status: 200, headers: jsonHeaders, body: { data: twin } };
+          }
+        }
+
+        if (pathname === '/api/strategic/health') {
+          await recordAuditLog({
+            action: 'executive_dashboard_access',
+            entityType: 'strategic_health',
+            details: { view: 'health_score' },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+          const health = await StrategicService.recordHealthScore(
+            adminClient,
+            authenticatedUserId,
+            requestedOrgId || null,
+            requestedTeamId || null
+          );
+          return { status: 200, headers: jsonHeaders, body: { data: health } };
+        }
+
+        if (pathname === '/api/strategic/scenarios/simulate' && req.method === 'POST') {
+          const { scenarioType, parameters } = req.body || {};
+          let pQuery = adminClient.from('projects').select('id, title').is('deleted_at', null).limit(10);
+          let aQuery = adminClient.from('action_tracker').select('id, due_date, status').is('deleted_at', null);
+          if (requestedTeamId) {
+            pQuery = pQuery.eq('team_id', requestedTeamId);
+            aQuery = aQuery.eq('team_id', requestedTeamId);
+          } else if (requestedOrgId) {
+            pQuery = pQuery.eq('organization_id', requestedOrgId);
+            aQuery = aQuery.eq('organization_id', requestedOrgId);
+          } else {
+            pQuery = pQuery.eq('user_id', authenticatedUserId);
+            aQuery = aQuery.eq('user_id', authenticatedUserId);
+          }
+          const [{ data: pData }, { data: aData }] = await Promise.all([pQuery, aQuery]);
+          const actions = aData || [];
+          const overdueCount = actions.filter((a: any) => a.status !== 'completed' && a.due_date && new Date(a.due_date) < new Date()).length;
+
+          const results = ScenarioEngine.simulateScenario(
+            scenarioType || 'delivery_slowdown',
+            parameters || {},
+            {
+              projects: pData && pData.length > 0 ? pData : undefined,
+              actionsCount: actions.length > 0 ? actions.length : undefined,
+              overdueCount,
+            }
+          );
+          await recordAuditLog({
+            action: 'simulation_executed',
+            entityType: 'strategic_simulation',
+            details: { scenarioType, confidence: results.confidence_level },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+          return { status: 200, headers: jsonHeaders, body: { data: results } };
+        }
+
+        if (pathname === '/api/strategic/scenarios') {
+          if (req.method === 'GET') {
+            const list = await StrategicService.fetchScenarios(
+              adminClient,
+              authenticatedUserId,
+              requestedOrgId || null,
+              requestedTeamId || null
+            );
+            return { status: 200, headers: jsonHeaders, body: { data: list } };
+          }
+          if (req.method === 'POST') {
+            const { title, scenarioType, parameters, description } = req.body || {};
+            if (!title || !scenarioType) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'invalid_scenario', message: 'Title and scenarioType are required.' } };
+            }
+            const created = await StrategicService.createScenario(
+              adminClient,
+              authenticatedUserId,
+              title,
+              scenarioType,
+              parameters || {},
+              description,
+              requestedOrgId || null,
+              requestedTeamId || null
+            );
+            await recordAuditLog({
+              action: 'scenario_created',
+              entityType: 'strategic_scenario',
+              entityId: created.id,
+              details: { title, scenarioType },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 201, headers: jsonHeaders, body: { data: created } };
+          }
+          if (req.method === 'DELETE') {
+            const { id } = req.body || {};
+            if (!id) return { status: 400, headers: jsonHeaders, body: { error: 'missing_id' } };
+            await StrategicService.softDeleteScenario(adminClient, id, authenticatedUserId);
+            return { status: 200, headers: jsonHeaders, body: { success: true } };
+          }
+        }
+
+        if (pathname === '/api/strategic/performance') {
+          await recordAuditLog({
+            action: 'executive_dashboard_access',
+            entityType: 'strategic_performance',
+            details: { view: 'performance' },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+          const perf = PerformanceModelEngine.calculatePerformanceModel();
+          return { status: 200, headers: jsonHeaders, body: { data: perf } };
+        }
+
+        if (pathname === '/api/strategic/risk-network') {
+          await recordAuditLog({
+            action: 'executive_dashboard_access',
+            entityType: 'strategic_risk_network',
+            details: { view: 'risk_network' },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+          const riskNet = RiskNetworkEngine.computeRiskNetwork();
+          return { status: 200, headers: jsonHeaders, body: { data: riskNet } };
+        }
+
+        if (pathname === '/api/strategic/dependency-map') {
+          await recordAuditLog({
+            action: 'executive_dashboard_access',
+            entityType: 'strategic_dependency_map',
+            details: { view: 'dependency_map' },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+          const depMap = DependencyMapEngine.computeDependencyMap();
+          return { status: 200, headers: jsonHeaders, body: { data: depMap } };
+        }
+
+        if (pathname === '/api/strategic/recommendations') {
+          const recs = StrategicService.getStrategicRecommendations();
+          await recordAuditLog({
+            action: 'strategic_recommendation_generated',
+            entityType: 'strategic_recommendations',
+            details: { count: recs.length },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+          return { status: 200, headers: jsonHeaders, body: { data: recs } };
+        }
+
+        if (pathname === '/api/strategic/briefings') {
+          if (req.method === 'GET') {
+            const list = await StrategicService.fetchBriefings(
+              adminClient,
+              authenticatedUserId,
+              requestedOrgId || null,
+              requestedTeamId || null
+            );
+            return { status: 200, headers: jsonHeaders, body: { data: list } };
+          }
+          if (req.method === 'POST') {
+            const { briefingType, title } = req.body || {};
+            const created = await StrategicService.createBriefing(
+              adminClient,
+              authenticatedUserId,
+              briefingType || 'board_update',
+              title,
+              requestedOrgId || null,
+              requestedTeamId || null
+            );
+            await recordAuditLog({
+              action: 'executive_briefing_generated',
+              entityType: 'strategic_briefing',
+              entityId: created.id,
+              details: { briefingType, title: created.title },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 201, headers: jsonHeaders, body: { data: created } };
+          }
+          if (req.method === 'DELETE') {
+            const { id } = req.body || {};
+            if (!id) return { status: 400, headers: jsonHeaders, body: { error: 'missing_id' } };
+            await StrategicService.softDeleteBriefing(adminClient, id, authenticatedUserId);
+            return { status: 200, headers: jsonHeaders, body: { success: true } };
+          }
+        }
+
+        if (pathname === '/api/strategic/alerts') {
+          if (req.method === 'GET') {
+            const alerts = await StrategicService.fetchAlerts(
+              adminClient,
+              requestedOrgId || null,
+              requestedTeamId || null
+            );
+            return { status: 200, headers: jsonHeaders, body: { data: alerts } };
+          }
+          if (req.method === 'POST') {
+            const { alertType, severity, title, description, details, dismissId } = req.body || {};
+            if (dismissId) {
+              await StrategicService.dismissAlert(adminClient, dismissId);
+              return { status: 200, headers: jsonHeaders, body: { success: true } };
+            }
+            const alert = await StrategicService.createAlert(
+              adminClient,
+              alertType || 'critical_risk_emerging',
+              severity || 'medium',
+              title || 'Strategic Alert',
+              description || 'System generated informational alert',
+              requestedOrgId || null,
+              requestedTeamId || null,
+              details || {}
+            );
+            await recordAuditLog({
+              action: 'strategic_alert_generated',
+              entityType: 'strategic_alert',
+              entityId: alert.id,
+              details: { alertType, severity, title },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+            return { status: 201, headers: jsonHeaders, body: { data: alert } };
+          }
         }
 
         // Action is permitted for this user
