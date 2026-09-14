@@ -37,6 +37,13 @@ const KNOWLEDGE_FEATURES: readonly FeatureKey[] = [
   'knowledge_analytics',
 ] as const;
 
+const COPILOT_FEATURES: readonly FeatureKey[] = [
+  'concludo_copilot',
+  'decision_assistant',
+  'knowledge_assistant',
+  'natural_language_search',
+] as const;
+
 /**
  * Server-side permission helper: canUseFeature(userId, featureKey)
  *
@@ -246,7 +253,29 @@ export async function canUseFeature(
     }
   }
 
-  // 10. Forbidden
+  // 11. Optional Team Access for Concludo Copilot & Natural Language Intelligence (Tasklet 22)
+  // If plan is 'team', check if user belongs to an organization where allow_team_copilot is enabled
+  if (userPlan === 'team' && COPILOT_FEATURES.includes(cleanFeatureKey)) {
+    const { data: memberships } = await client
+      .from('organization_members')
+      .select('organization_id, organizations!inner(allow_team_copilot)')
+      .eq('user_id', cleanUserId);
+
+    const hasOrgOverride = memberships?.some(
+      (m: any) => m.organizations && m.organizations.allow_team_copilot === true
+    );
+
+    if (hasOrgOverride) {
+      return {
+        allowed: true,
+        statusCode: 200,
+        plan: userPlan,
+        feature: cleanFeatureKey,
+      };
+    }
+  }
+
+  // 12. Forbidden
   return {
     allowed: false,
     statusCode: 403,

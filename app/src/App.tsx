@@ -58,6 +58,9 @@ import { KnowledgeTimelinePage } from './pages/knowledge/KnowledgeTimelinePage';
 import { ExecutiveKnowledgeExplorerPage } from './pages/knowledge/ExecutiveKnowledgeExplorerPage';
 import { KnowledgeAnalyticsPage } from './pages/knowledge/KnowledgeAnalyticsPage';
 
+// Tasklet 22 Concludo Copilot & Conversational Intelligence Page
+import { CopilotPage } from './pages/copilot/CopilotPage';
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -148,6 +151,9 @@ export const App: React.FC = () => {
             <Route path="/knowledge/timeline" element={<KnowledgeTimelinePage />} />
             <Route path="/executive-explorer" element={<ExecutiveKnowledgeExplorerPage />} />
             <Route path="/knowledge-analytics" element={<KnowledgeAnalyticsPage />} />
+
+            {/* Tasklet 22 Concludo Copilot Route */}
+            <Route path="/copilot" element={<CopilotPage />} />
 
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

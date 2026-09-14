@@ -35,6 +35,7 @@ import {
   TrendingUp,
   Clock,
   Compass,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -268,6 +269,22 @@ export const WorkspaceLayout: React.FC = () => {
             >
               <LayoutDashboard size={18} />
               <span>Dashboard</span>
+            </NavLink>
+
+            {/* Concludo Copilot (Tasklet 22) */}
+            <NavLink
+              to="/copilot"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+              style={{
+                background: 'linear-gradient(90deg, rgba(226, 181, 60, 0.12) 0%, transparent 100%)',
+                borderLeft: '3px solid #e2b53c',
+              }}
+            >
+              <Sparkles size={18} color="#e2b53c" />
+              <span style={{ fontWeight: 600, color: '#f8fafc' }}>Concludo Copilot</span>
+              <span style={{ fontSize: '0.65rem', background: '#e2b53c', color: '#0f172a', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, marginLeft: 'auto' }}>AI</span>
             </NavLink>
 
             <NavLink
@@ -507,6 +524,54 @@ export const WorkspaceLayout: React.FC = () => {
                     <span>Executive Intelligence</span>
                   </NavLink>
                 )}
+              </>
+            )}
+
+            {/* Tasklet 21 Knowledge Network & Organizational Memory */}
+            {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.plan === 'team') && (
+              <>
+                <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+                  Knowledge Network
+                </div>
+                <NavLink
+                  to="/knowledge"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Database size={18} />
+                  <span>Knowledge Explorer</span>
+                </NavLink>
+
+                <NavLink
+                  to="/organizational-memory"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <BrainCircuit size={18} />
+                  <span>Organizational Memory</span>
+                </NavLink>
+
+                <NavLink
+                  to="/knowledge/timeline"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Clock size={18} />
+                  <span>Knowledge Timeline</span>
+                </NavLink>
+
+                <NavLink
+                  to="/knowledge-analytics"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <BarChart3 size={18} />
+                  <span>Knowledge Analytics</span>
+                </NavLink>
               </>
             )}
 

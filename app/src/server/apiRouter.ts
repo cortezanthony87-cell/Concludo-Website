@@ -41,6 +41,21 @@ import {
 import { KnowledgeEngine } from '../lib/knowledge/knowledgeEngine';
 import { KnowledgeClient } from '../lib/knowledge/knowledgeClient';
 import { recordAuditLog } from '../lib/enterprise/auditService';
+import { CopilotEngine } from '../lib/copilot/copilotEngine';
+import { AssistantType } from '../lib/copilot/types';
+import {
+  fetchConversations,
+  fetchConversationById,
+  createConversation,
+  updateConversation,
+  softDeleteConversation,
+  fetchMessages,
+  createMessage,
+  fetchPrompts,
+  createPrompt,
+  softDeletePrompt,
+} from '../lib/copilot/copilotService';
+import { SpecializedAssistants } from '../lib/copilot/specializedAssistants';
 
 export interface ApiRequest {
   method: string;
@@ -753,6 +768,44 @@ export async function handleApiRequest(
     ],
     '/api/executive-explorer': [
       { method: 'GET', feature: 'executive_knowledge_explorer' },
+    ],
+    // Tasklet 22 Copilot Routes
+    '/api/copilot/chat': [
+      { method: 'POST', feature: 'concludo_copilot' },
+    ],
+    '/api/copilot/query': [
+      { method: 'POST', feature: 'natural_language_search' },
+    ],
+    '/api/copilot/conversations': [
+      { method: 'GET', feature: 'concludo_copilot' },
+      { method: 'POST', feature: 'concludo_copilot' },
+      { method: 'DELETE', feature: 'concludo_copilot' },
+    ],
+    '/api/copilot/prompts': [
+      { method: 'GET', feature: 'concludo_copilot' },
+      { method: 'POST', feature: 'concludo_copilot' },
+      { method: 'DELETE', feature: 'concludo_copilot' },
+    ],
+    '/api/copilot/decision-assistant': [
+      { method: 'POST', feature: 'decision_assistant' },
+    ],
+    '/api/copilot/action-assistant': [
+      { method: 'POST', feature: 'concludo_copilot' },
+    ],
+    '/api/copilot/risk-assistant': [
+      { method: 'POST', feature: 'concludo_copilot' },
+    ],
+    '/api/copilot/executive-assistant': [
+      { method: 'POST', feature: 'executive_assistant' },
+    ],
+    '/api/copilot/knowledge-assistant': [
+      { method: 'POST', feature: 'knowledge_assistant' },
+    ],
+    '/api/copilot/briefing': [
+      { method: 'POST', feature: 'executive_assistant' },
+    ],
+    '/api/copilot/execute-request': [
+      { method: 'POST', feature: 'concludo_copilot' },
     ],
   };
 
@@ -1954,6 +2007,427 @@ export async function handleApiRequest(
             if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
             return { status: 200, headers: jsonHeaders, body: { success: true } };
           }
+        }
+
+        // Tasklet 22: Copilot Handlers
+        if (pathname === '/api/copilot/chat' || pathname === '/api/copilot/query') {
+          const { query, message, conversationId, assistantType, sessionId } = req.body || {};
+          const promptText = (query || message || '').trim();
+          if (!promptText) {
+            return { status: 400, headers: jsonHeaders, body: { error: 'query_required', message: 'Query or message string is required.' } };
+          }
+
+          const copilotEngine = new CopilotEngine(adminClient);
+
+          // 1. Audit question asked
+          await recordAuditLog({
+            action: 'question_asked',
+            entityType: 'copilot_query',
+            details: { query: promptText, assistantType },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          // 2. Resolve or create conversation
+          let conv: any = null;
+          if (conversationId) {
+            conv = await fetchConversationById(adminClient, conversationId);
+            if (conv && conv.user_id !== authenticatedUserId) {
+              let hasAccess = false;
+              if (conv.organization_id) {
+                const { data: mem } = await adminClient
+                  .from('organization_members')
+                  .select('id')
+                  .eq('organization_id', conv.organization_id)
+                  .eq('user_id', authenticatedUserId)
+                  .maybeSingle();
+                if (mem) hasAccess = true;
+              }
+              if (!hasAccess && conv.team_id) {
+                const { data: tMem } = await adminClient
+                  .from('team_members')
+                  .select('id')
+                  .eq('team_id', conv.team_id)
+                  .eq('user_id', authenticatedUserId)
+                  .maybeSingle();
+                if (tMem) hasAccess = true;
+              }
+              if (!hasAccess) {
+                return { status: 403, headers: jsonHeaders, body: { error: 'forbidden', message: 'You do not have access to this conversation.' } };
+              }
+            }
+          }
+          if (!conv) {
+            const autoTitle = promptText.length > 40 ? `${promptText.slice(0, 37)}...` : promptText;
+            conv = await createConversation(adminClient, {
+              userId: authenticatedUserId,
+              organizationId: requestedOrgId || null,
+              teamId: requestedTeamId || null,
+              title: autoTitle,
+              sessionId: sessionId || null,
+            });
+          }
+
+          // 3. Fetch past messages for continuity
+          const history = await fetchMessages(adminClient, conv.id);
+
+          // 4. Record user message
+          const userMessage = await createMessage(adminClient, {
+            conversationId: conv.id,
+            role: 'user',
+            message: promptText,
+          });
+
+          // 5. Run Copilot Engine
+          const response = await copilotEngine.processQuery(promptText, {
+            userId: authenticatedUserId,
+            organizationId: requestedOrgId || null,
+            teamId: requestedTeamId || null,
+            assistantType,
+            history,
+            sessionId,
+          });
+
+          // 6. Record assistant message
+          const assistantMessage = await createMessage(adminClient, {
+            conversationId: conv.id,
+            role: 'assistant',
+            message: response.answer,
+            response,
+          });
+
+          // 7. Audit answer generated
+          await recordAuditLog({
+            action: 'answer_generated',
+            entityType: 'copilot_response',
+            entityId: assistantMessage.id,
+            details: {
+              intent: response.intent,
+              confidence: response.confidence,
+              confidenceScore: response.confidenceScore,
+            },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          // 8. Audit knowledge search if applicable
+          if (response.knowledgeGraphConnections.length > 0 || response.intent === 'knowledge_discovery') {
+            await recordAuditLog({
+              action: 'knowledge_search',
+              entityType: 'copilot_knowledge',
+              details: { query: promptText, intent: response.intent },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+          }
+
+          // 9. Audit execution request if draft exists
+          if (response.executionDraft) {
+            await recordAuditLog({
+              action: 'execution_request',
+              entityType: 'copilot_execution_draft',
+              details: {
+                draftAction: response.executionDraft.actionType,
+                title: response.executionDraft.title,
+              },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+          }
+
+          return {
+            status: 200,
+            headers: jsonHeaders,
+            body: {
+              data: {
+                conversation: conv,
+                userMessage,
+                assistantMessage,
+                response,
+              },
+            },
+          };
+        }
+
+        if (pathname === '/api/copilot/conversations' || pathname.startsWith('/api/copilot/conversations/')) {
+          const parts = pathname.split('/').filter(Boolean);
+          if (parts.length >= 4 && parts[3] === 'messages') {
+            const convId = parts[2];
+            const conv = await fetchConversationById(adminClient, convId);
+            if (!conv) {
+              return { status: 404, headers: jsonHeaders, body: { error: 'not_found', message: 'Conversation not found.' } };
+            }
+            if (conv.user_id !== authenticatedUserId) {
+              let hasAccess = false;
+              if (conv.organization_id) {
+                const { data: mem } = await adminClient
+                  .from('organization_members')
+                  .select('id')
+                  .eq('organization_id', conv.organization_id)
+                  .eq('user_id', authenticatedUserId)
+                  .maybeSingle();
+                if (mem) hasAccess = true;
+              }
+              if (!hasAccess && conv.team_id) {
+                const { data: tMem } = await adminClient
+                  .from('team_members')
+                  .select('id')
+                  .eq('team_id', conv.team_id)
+                  .eq('user_id', authenticatedUserId)
+                  .maybeSingle();
+                if (tMem) hasAccess = true;
+              }
+              if (!hasAccess) {
+                return { status: 403, headers: jsonHeaders, body: { error: 'forbidden', message: 'You do not have access to this conversation.' } };
+              }
+            }
+
+            if (req.method === 'GET') {
+              const messages = await fetchMessages(adminClient, convId);
+              return { status: 200, headers: jsonHeaders, body: { data: messages } };
+            }
+            if (req.method === 'POST') {
+              const { role, message, response } = req.body || {};
+              const msg = await createMessage(adminClient, {
+                conversationId: convId,
+                role: role || 'user',
+                message: message || '',
+                response: response || {},
+              });
+              return { status: 201, headers: jsonHeaders, body: { data: msg } };
+            }
+          }
+
+          if (req.method === 'GET') {
+            const search = (req.body?.search as string) || undefined;
+            const isArchived = req.body?.isArchived !== undefined ? Boolean(req.body.isArchived) : undefined;
+            const convs = await fetchConversations(adminClient, {
+              userId: authenticatedUserId,
+              organizationId: requestedOrgId || null,
+              teamId: requestedTeamId || null,
+              search,
+              isArchived,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: convs } };
+          }
+          if (req.method === 'POST') {
+            const { title, sessionId, metadata } = req.body || {};
+            const conv = await createConversation(adminClient, {
+              userId: authenticatedUserId,
+              organizationId: requestedOrgId || null,
+              teamId: requestedTeamId || null,
+              title: title || 'New Conversation',
+              sessionId: sessionId || null,
+              metadata: metadata || {},
+            });
+            return { status: 201, headers: jsonHeaders, body: { data: conv } };
+          }
+          if (req.method === 'DELETE') {
+            const convId = parts[parts.length - 1];
+            const conv = await fetchConversationById(adminClient, convId);
+            if (!conv) {
+              return { status: 404, headers: jsonHeaders, body: { error: 'not_found', message: 'Conversation not found.' } };
+            }
+            if (conv.user_id !== authenticatedUserId) {
+              let isOrgAdmin = false;
+              if (conv.organization_id) {
+                const { data: mem } = await adminClient
+                  .from('organization_members')
+                  .select('role')
+                  .eq('organization_id', conv.organization_id)
+                  .eq('user_id', authenticatedUserId)
+                  .maybeSingle();
+                if (mem && (mem.role === 'owner' || mem.role === 'admin')) isOrgAdmin = true;
+              }
+              if (!isOrgAdmin) {
+                return { status: 403, headers: jsonHeaders, body: { error: 'forbidden', message: 'You do not have permission to delete this conversation.' } };
+              }
+            }
+            await softDeleteConversation(adminClient, convId, authenticatedUserId);
+            return { status: 200, headers: jsonHeaders, body: { success: true } };
+          }
+        }
+
+        if (pathname === '/api/copilot/prompts' || pathname.startsWith('/api/copilot/prompts/')) {
+          if (req.method === 'GET') {
+            const { category, scope } = req.body || {};
+            const prompts = await fetchPrompts(adminClient, {
+              userId: authenticatedUserId,
+              organizationId: requestedOrgId || null,
+              teamId: requestedTeamId || null,
+              category,
+              scope,
+            });
+            return { status: 200, headers: jsonHeaders, body: { data: prompts } };
+          }
+          if (req.method === 'POST') {
+            const { title, promptText, prompt_text, category, scope, targetRole, target_role } = req.body || {};
+            const prompt = await createPrompt(adminClient, {
+              userId: authenticatedUserId,
+              organizationId: requestedOrgId || null,
+              teamId: requestedTeamId || null,
+              title: title || 'Saved Prompt',
+              promptText: promptText || prompt_text || '',
+              category: category || 'general',
+              scope: scope || 'personal',
+              targetRole: targetRole || target_role || null,
+            });
+            return { status: 201, headers: jsonHeaders, body: { data: prompt } };
+          }
+          if (req.method === 'DELETE') {
+            const parts = pathname.split('/').filter(Boolean);
+            const promptId = parts[parts.length - 1];
+            const { data: pRec } = await adminClient
+              .from('copilot_prompts')
+              .select('*')
+              .eq('id', promptId)
+              .is('deleted_at', null)
+              .maybeSingle();
+            if (!pRec) {
+              return { status: 404, headers: jsonHeaders, body: { error: 'not_found', message: 'Prompt not found.' } };
+            }
+            if (pRec.user_id !== authenticatedUserId) {
+              let isOrgAdmin = false;
+              if (pRec.organization_id) {
+                const { data: mem } = await adminClient
+                  .from('organization_members')
+                  .select('role')
+                  .eq('organization_id', pRec.organization_id)
+                  .eq('user_id', authenticatedUserId)
+                  .maybeSingle();
+                if (mem && (mem.role === 'owner' || mem.role === 'admin')) isOrgAdmin = true;
+              }
+              if (!isOrgAdmin) {
+                return { status: 403, headers: jsonHeaders, body: { error: 'forbidden', message: 'You do not have permission to delete this prompt.' } };
+              }
+            }
+            await softDeletePrompt(adminClient, promptId, authenticatedUserId);
+            return { status: 200, headers: jsonHeaders, body: { success: true } };
+          }
+        }
+
+        if (
+          pathname === '/api/copilot/decision-assistant' ||
+          pathname === '/api/copilot/action-assistant' ||
+          pathname === '/api/copilot/risk-assistant' ||
+          pathname === '/api/copilot/executive-assistant' ||
+          pathname === '/api/copilot/knowledge-assistant'
+        ) {
+          const { query, message, history } = req.body || {};
+          const promptText = (query || message || '').trim();
+          if (!promptText) {
+            return { status: 400, headers: jsonHeaders, body: { error: 'query_required', message: 'Query is required.' } };
+          }
+
+          let assistantType: AssistantType = 'copilot';
+          if (pathname.includes('decision')) assistantType = 'decision_assistant';
+          else if (pathname.includes('action')) assistantType = 'action_assistant';
+          else if (pathname.includes('risk')) assistantType = 'risk_assistant';
+          else if (pathname.includes('executive')) assistantType = 'executive_assistant';
+          else if (pathname.includes('knowledge')) assistantType = 'knowledge_assistant';
+
+          const copilotEngine = new CopilotEngine(adminClient);
+          const response = await copilotEngine.processQuery(promptText, {
+            userId: authenticatedUserId,
+            organizationId: requestedOrgId || null,
+            teamId: requestedTeamId || null,
+            assistantType,
+            history: history || [],
+          });
+
+          await recordAuditLog({
+            action: 'question_asked',
+            entityType: 'copilot_assistant_query',
+            details: { query: promptText, assistantType },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          await recordAuditLog({
+            action: 'answer_generated',
+            entityType: 'copilot_assistant_response',
+            details: { assistantType, intent: response.intent, confidence: response.confidence },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return { status: 200, headers: jsonHeaders, body: { data: response } };
+        }
+
+        if (pathname === '/api/copilot/briefing') {
+          const { topic, title, report_type } = req.body || {};
+          const briefingTitle = title || `Executive Briefing: ${topic || 'Strategic Operations'}`;
+          const briefingType = report_type || 'executive_summary';
+
+          const copilotEngine = new CopilotEngine(adminClient);
+          const response = await copilotEngine.processQuery(
+            `Prepare an executive briefing on ${topic || 'organizational health and strategic priorities'}`,
+            {
+              userId: authenticatedUserId,
+              organizationId: requestedOrgId || null,
+              teamId: requestedTeamId || null,
+              assistantType: 'executive_assistant',
+            }
+          );
+
+          const { data: briefing, error: briefErr } = await adminClient
+            .from('executive_briefings')
+            .insert({
+              organization_id: requestedOrgId || null,
+              generated_by: authenticatedUserId,
+              title: briefingTitle,
+              report_type: briefingType,
+              content: {
+                summary: response.answer,
+                evidence: response.supportingEvidence,
+                confidence: response.confidence,
+                sources: response.sourceRecords,
+              },
+            })
+            .select()
+            .single();
+
+          if (briefErr) {
+            return { status: 500, headers: jsonHeaders, body: { error: briefErr.message } };
+          }
+
+          await recordAuditLog({
+            action: 'report_generated',
+            entityType: 'executive_briefing',
+            entityId: briefing.id,
+            details: { title: briefingTitle, report_type: briefingType },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return { status: 201, headers: jsonHeaders, body: { data: briefing } };
+        }
+
+        if (pathname === '/api/copilot/execute-request') {
+          const { actionType, title, payload } = req.body || {};
+
+          await recordAuditLog({
+            action: 'execution_request',
+            entityType: 'copilot_action_dispatch',
+            details: { actionType, title },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return {
+            status: 200,
+            headers: jsonHeaders,
+            body: {
+              data: {
+                status: 'pending_approval',
+                requiresApproval: true,
+                message: 'Action staged under human approval controls in Approval Center (/approvals). Autonomous unreviewed execution is blocked.',
+                actionType,
+                title,
+                payload,
+              },
+            },
+          };
         }
 
         // Action is permitted for this user

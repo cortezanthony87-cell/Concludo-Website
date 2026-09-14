@@ -65,7 +65,13 @@ export type FeatureKey =
   | 'relationship_discovery'
   | 'evidence_networks'
   | 'executive_knowledge_explorer'
-  | 'knowledge_analytics';
+  | 'knowledge_analytics'
+  // Tasklet 22 Features
+  | 'concludo_copilot'
+  | 'decision_assistant'
+  | 'knowledge_assistant'
+  | 'executive_assistant'
+  | 'natural_language_search';
 
 export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'workspace_basic',
@@ -124,6 +130,12 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'evidence_networks',
   'executive_knowledge_explorer',
   'knowledge_analytics',
+  // Tasklet 22
+  'concludo_copilot',
+  'decision_assistant',
+  'knowledge_assistant',
+  'executive_assistant',
+  'natural_language_search',
 ] as const;
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
@@ -183,6 +195,12 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   evidence_networks: 'Evidence Networks',
   executive_knowledge_explorer: 'Executive Knowledge Explorer',
   knowledge_analytics: 'Knowledge Analytics',
+  // Tasklet 22 Labels
+  concludo_copilot: 'Concludo Copilot',
+  decision_assistant: 'Decision Assistant',
+  knowledge_assistant: 'Knowledge Assistant',
+  executive_assistant: 'Executive Assistant',
+  natural_language_search: 'Natural Language Search',
 };
 
 /**
@@ -334,6 +352,12 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'evidence_networks',
     'executive_knowledge_explorer',
     'knowledge_analytics',
+    // Tasklet 22 features unlocked on enterprise
+    'concludo_copilot',
+    'decision_assistant',
+    'knowledge_assistant',
+    'executive_assistant',
+    'natural_language_search',
   ],
   admin: [
     'workspace_basic',
@@ -392,6 +416,12 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'evidence_networks',
     'executive_knowledge_explorer',
     'knowledge_analytics',
+    // Tasklet 22 features unlocked on admin
+    'concludo_copilot',
+    'decision_assistant',
+    'knowledge_assistant',
+    'executive_assistant',
+    'natural_language_search',
   ],
 };
 
@@ -452,6 +482,12 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   evidence_networks: 'Available on Enterprise',
   executive_knowledge_explorer: 'Available on Enterprise',
   knowledge_analytics: 'Available on Enterprise',
+  // Tasklet 22 Tier Badges
+  concludo_copilot: 'Available on Enterprise',
+  decision_assistant: 'Available on Enterprise',
+  knowledge_assistant: 'Available on Enterprise',
+  executive_assistant: 'Available on Enterprise',
+  natural_language_search: 'Available on Enterprise',
 };
 
 export interface PermissionErrorResponse {
