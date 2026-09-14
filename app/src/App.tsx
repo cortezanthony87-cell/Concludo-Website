@@ -45,6 +45,12 @@ import { AgentDashboardPage } from './pages/agents/AgentDashboardPage';
 import { WorkflowsPage } from './pages/workflows/WorkflowsPage';
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
 
+// Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Pages
+import { PredictiveIntelligencePage } from './pages/predictive/PredictiveIntelligencePage';
+import { ExecutiveIntelligencePage } from './pages/predictive/ExecutiveIntelligencePage';
+import { ForecastsPage } from './pages/predictive/ForecastsPage';
+import { ExecutiveBriefingsPage } from './pages/predictive/ExecutiveBriefingsPage';
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -122,6 +128,12 @@ export const App: React.FC = () => {
             <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
             <Route path="/workflows" element={<WorkflowsPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
+
+            {/* Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Routes */}
+            <Route path="/predictive-intelligence" element={<PredictiveIntelligencePage />} />
+            <Route path="/executive-intelligence" element={<ExecutiveIntelligencePage />} />
+            <Route path="/forecasts" element={<ForecastsPage />} />
+            <Route path="/executive-briefings" element={<ExecutiveBriefingsPage />} />
 
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

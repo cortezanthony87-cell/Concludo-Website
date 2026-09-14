@@ -32,6 +32,9 @@ import {
   Workflow,
   CheckCircle,
   Gauge,
+  TrendingUp,
+  Clock,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -454,6 +457,56 @@ export const WorkspaceLayout: React.FC = () => {
                   <Gauge size={18} />
                   <span>Agent Dashboard</span>
                 </NavLink>
+              </>
+            )}
+
+            {/* Tasklet 20 Predictive Intelligence & Strategy */}
+            {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.plan === 'team') && (
+              <>
+                <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+                  Strategic Intelligence
+                </div>
+                <NavLink
+                  to="/predictive-intelligence"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <TrendingUp size={18} />
+                  <span>Predictive Intelligence</span>
+                </NavLink>
+
+                <NavLink
+                  to="/forecasts"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Clock size={18} />
+                  <span>Forecasts</span>
+                </NavLink>
+
+                <NavLink
+                  to="/executive-briefings"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <FileSpreadsheet size={18} />
+                  <span>Executive Briefings</span>
+                </NavLink>
+
+                {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.role === 'admin') && (
+                  <NavLink
+                    to="/executive-intelligence"
+                    className={({ isActive }) =>
+                      isActive ? 'sidebar-link active' : 'sidebar-link'
+                    }
+                  >
+                    <Compass size={18} />
+                    <span>Executive Intelligence</span>
+                  </NavLink>
+                )}
               </>
             )}
 

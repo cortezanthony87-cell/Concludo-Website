@@ -21,6 +21,13 @@ const AI_AGENT_FEATURES: readonly FeatureKey[] = [
   'workflow_approvals',
 ] as const;
 
+const PREDICTIVE_FEATURES: readonly FeatureKey[] = [
+  'predictive_intelligence',
+  'strategic_recommendations',
+  'forecasting',
+  'organizational_health_scoring',
+] as const;
+
 /**
  * Server-side permission helper: canUseFeature(userId, featureKey)
  *
@@ -31,7 +38,7 @@ const AI_AGENT_FEATURES: readonly FeatureKey[] = [
  * - Returns allowed or denied with 403 Forbidden details
  * - Never trusts any plan value passed from the browser/client
  * - Never relies only on front-end hiding
- * - Optional Team access: If plan is 'team', checks if an organization administrator has enabled team agents
+ * - Optional Team access: If plan is 'team', checks if an organization administrator has enabled team agents or predictive intelligence
  */
 export async function canUseFeature(
   userId: string,
@@ -145,7 +152,7 @@ export async function canUseFeature(
       feature: cleanFeatureKey,
       error: {
         error: 'user_suspended',
-        message: 'Your account has been suspended by an administrator. Please contact your organization owner.',
+        message: 'Your account has been suspended by an enterprise administrator. Please contact your organization owner.',
         feature: cleanFeatureKey,
       },
     };
@@ -186,7 +193,29 @@ export async function canUseFeature(
     }
   }
 
-  // 9. Forbidden
+  // 9. Optional Team Access for Predictive Intelligence & Forecasting (Tasklet 20)
+  // If plan is 'team', check if user belongs to an organization where allow_team_predictive is enabled
+  if (userPlan === 'team' && PREDICTIVE_FEATURES.includes(cleanFeatureKey)) {
+    const { data: memberships } = await client
+      .from('organization_members')
+      .select('organization_id, organizations!inner(allow_team_predictive)')
+      .eq('user_id', cleanUserId);
+
+    const hasOrgOverride = memberships?.some(
+      (m: any) => m.organizations && m.organizations.allow_team_predictive === true
+    );
+
+    if (hasOrgOverride) {
+      return {
+        allowed: true,
+        statusCode: 200,
+        plan: userPlan,
+        feature: cleanFeatureKey,
+      };
+    }
+  }
+
+  // 10. Forbidden
   return {
     allowed: false,
     statusCode: 403,

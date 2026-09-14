@@ -47,6 +47,8 @@ import { fetchEndpointReports } from '../lib/reports/reportClient';
 import { EndpointReport } from '../lib/reports/types';
 import { fetchUserTeams } from '../lib/teams/teamClient';
 import { Team, TeamRole } from '../lib/teams/types';
+import { getPredictiveAnalysis } from '../lib/predictive/predictiveService';
+import { PredictiveAnalysisResult } from '../lib/predictive/types';
 
 interface DashboardProject {
   id: string;
@@ -97,6 +99,8 @@ export const DashboardPage: React.FC = () => {
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
   const [loadingReports, setLoadingReports] = useState<boolean>(false);
   const [loadingPermissions, setLoadingPermissions] = useState<boolean>(true);
+  const [predictiveData, setPredictiveData] = useState<PredictiveAnalysisResult | null>(null);
+  const [loadingPredictive, setLoadingPredictive] = useState<boolean>(false);
 
   // Error states
   const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -292,6 +296,19 @@ export const DashboardPage: React.FC = () => {
       }
     }
 
+    // 11. Fetch Predictive Intelligence Snapshot if allowed
+    if (permDataResult?.allowedFeatures.includes('predictive_intelligence')) {
+      setLoadingPredictive(true);
+      try {
+        const pred = await getPredictiveAnalysis({ scope: 'individual', userId: user.id }, supabase);
+        setPredictiveData(pred);
+      } catch (err) {
+        console.warn('Could not load predictive intelligence:', err);
+      } finally {
+        setLoadingPredictive(false);
+      }
+    }
+
     setLoadingDashboard(false);
   }, [supabase, user, profile, authLoading]);
 
@@ -352,6 +369,7 @@ export const DashboardPage: React.FC = () => {
   const isInsightAllowed = isFeatureAllowed('insight');
   const isStatsAllowed = isFeatureAllowed('stats');
   const isEndpointReportAllowed = isFeatureAllowed('endpoint_report');
+  const isPredictiveAllowed = isFeatureAllowed('predictive_intelligence');
 
   // Locked features list definitions
   const lockedFeatureDefinitions: {
@@ -416,6 +434,13 @@ export const DashboardPage: React.FC = () => {
       description: 'Shared organizational workspaces, multi-seat governance, and role-based access for departments.',
       tierBadge: 'Available on Team',
       icon: <Users size={20} />,
+    },
+    {
+      key: 'predictive_intelligence',
+      title: 'Predictive Intelligence',
+      description: 'Continuous machine-assisted risk predictions, strategic recommendations, and 30-to-365 day operational trajectory forecasts.',
+      tierBadge: 'Available on Team',
+      icon: <TrendingUp size={20} />,
     },
   ];
 
@@ -1533,6 +1558,146 @@ export const DashboardPage: React.FC = () => {
             <Link to="/endpoint-report" className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.84rem', textDecoration: 'none' }}>
               + Generate Report
             </Link>
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 9: PREDICTIVE INTELLIGENCE & STRATEGIC HEALTH SNAPSHOT */}
+      <section className="content-card" style={{ padding: '24px', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <TrendingUp size={19} color="#e2b53c" />
+            <span>Predictive Intelligence & Organizational Health</span>
+          </h2>
+          {isPredictiveAllowed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Link to="/predictive-intelligence" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>Open Intelligence Hub</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          ) : (
+            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              Available on Enterprise & Team
+            </span>
+          )}
+        </div>
+
+        {!isPredictiveAllowed ? (
+          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
+              Unlock machine-assisted risk prediction, 30-to-365 day completion forecasts, and strategic leadership recommendations.
+            </p>
+            <Link to="/predictive-intelligence" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
+              <Lock size={14} color="#e2b53c" />
+              <span>Learn about Predictive Intelligence</span>
+            </Link>
+          </div>
+        ) : loadingPredictive ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
+            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
+            <span>Calculating organizational health score and predictive trajectories...</span>
+          </div>
+        ) : predictiveData ? (
+          <div>
+            {/* Top row: Health score + Top Risk + Top Opportunity */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+              {/* Organizational Health Score */}
+              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                    <ShieldAlert size={14} color="#e2b53c" />
+                    <span>Health Score</span>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      background: predictiveData.healthScore.overallScore >= 75 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                      color: predictiveData.healthScore.overallScore >= 75 ? '#4ade80' : '#facc15',
+                    }}
+                  >
+                    {predictiveData.healthScore.category.replace('_', ' ')}
+                  </span>
+                </div>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: predictiveData.healthScore.overallScore >= 75 ? '#4ade80' : '#facc15' }}>
+                  {predictiveData.healthScore.overallScore}<span style={{ fontSize: '1rem', color: '#94a3b8' }}>/100</span>
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>
+                  Execution: {predictiveData.healthScore.categoryScores.execution}% • Delivery: {predictiveData.healthScore.categoryScores.delivery}%
+                </div>
+              </div>
+
+              {/* Emerging Risk Indicator */}
+              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                    <AlertCircle size={14} color="#f87171" />
+                    <span>Top Predicted Risk</span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>
+                    {predictiveData.riskPredictions[0]?.riskLevel || 'Low'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {predictiveData.riskPredictions[0]?.title || 'No critical risks detected'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px', lineHeight: 1.4 }}>
+                  {predictiveData.riskPredictions[0]?.explanation || 'All operational workstreams are tracking within delivery windows.'}
+                </div>
+              </div>
+
+              {/* Opportunity Indicator */}
+              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                    <Sparkles size={14} color="#38bdf8" />
+                    <span>Top Opportunity</span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                    High Impact
+                  </span>
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {predictiveData.opportunitySignals[0]?.title || 'Cross-Workstream Scaling'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#38bdf8', marginTop: '4px', lineHeight: 1.4 }}>
+                  {predictiveData.opportunitySignals[0]?.potentialGain || 'Documented rationale drives faster team execution.'}
+                </div>
+              </div>
+            </div>
+
+            {/* Strategic Recommendations Snapshot */}
+            {predictiveData.strategicRecommendations.length > 0 && (
+              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e2b53c', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Lightbulb size={15} />
+                  <span>Strategic Leadership Recommendation</span>
+                </div>
+                <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#f8fafc', marginBottom: '4px' }}>
+                  {predictiveData.strategicRecommendations[0].title}
+                </div>
+                <p style={{ color: '#94a3b8', fontSize: '0.84rem', margin: '0 0 10px 0', lineHeight: 1.5 }}>
+                  {predictiveData.strategicRecommendations[0].summary}
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '0.76rem', color: '#64748b' }}>
+                    Confidence: <strong>{predictiveData.strategicRecommendations[0].confidenceIndicator.replace(/_/g, ' ')}</strong>
+                  </span>
+                  <Link to="/predictive-intelligence" style={{ color: '#e2b53c', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span>View all recommendations</span>
+                    <ArrowRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '12px 0' }}>
+            No predictive data available. Add projects and decisions to generate predictive trajectories.
           </div>
         )}
       </section>

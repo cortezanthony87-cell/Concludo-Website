@@ -51,7 +51,13 @@ export type FeatureKey =
   | 'workflow_orchestration'
   | 'intelligent_automation'
   | 'agent_memory'
-  | 'workflow_approvals';
+  | 'workflow_approvals'
+  // Tasklet 20 Features
+  | 'predictive_intelligence'
+  | 'executive_intelligence'
+  | 'strategic_recommendations'
+  | 'forecasting'
+  | 'organizational_health_scoring';
 
 export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'workspace_basic',
@@ -96,6 +102,12 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'intelligent_automation',
   'agent_memory',
   'workflow_approvals',
+  // Tasklet 20
+  'predictive_intelligence',
+  'executive_intelligence',
+  'strategic_recommendations',
+  'forecasting',
+  'organizational_health_scoring',
 ] as const;
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
@@ -141,6 +153,12 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   intelligent_automation: 'Intelligent Automation',
   agent_memory: 'Agent Memory',
   workflow_approvals: 'Workflow Approvals',
+  // Tasklet 20 Labels
+  predictive_intelligence: 'Predictive Intelligence',
+  executive_intelligence: 'Executive Intelligence',
+  strategic_recommendations: 'Strategic Recommendations',
+  forecasting: 'Forecasting',
+  organizational_health_scoring: 'Organisational Health Scoring',
 };
 
 /**
@@ -278,6 +296,12 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'intelligent_automation',
     'agent_memory',
     'workflow_approvals',
+    // Tasklet 20 features unlocked on enterprise
+    'predictive_intelligence',
+    'executive_intelligence',
+    'strategic_recommendations',
+    'forecasting',
+    'organizational_health_scoring',
   ],
   admin: [
     'workspace_basic',
@@ -322,6 +346,12 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'intelligent_automation',
     'agent_memory',
     'workflow_approvals',
+    // Tasklet 20 features unlocked on admin
+    'predictive_intelligence',
+    'executive_intelligence',
+    'strategic_recommendations',
+    'forecasting',
+    'organizational_health_scoring',
   ],
 };
 
@@ -368,6 +398,12 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   intelligent_automation: 'Available on Enterprise',
   agent_memory: 'Available on Enterprise',
   workflow_approvals: 'Available on Enterprise',
+  // Tasklet 20 Tier Badges
+  predictive_intelligence: 'Available on Enterprise',
+  executive_intelligence: 'Available on Enterprise',
+  strategic_recommendations: 'Available on Enterprise',
+  forecasting: 'Available on Enterprise',
+  organizational_health_scoring: 'Available on Enterprise',
 };
 
 export interface PermissionErrorResponse {

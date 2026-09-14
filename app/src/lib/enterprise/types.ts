@@ -111,7 +111,14 @@ export type AuditActionType =
   | 'approval_rejected'
   | 'automation_failure'
   | 'configuration_change'
-  | 'workflow_change';
+  | 'workflow_change'
+  // Tasklet 20 Audited Events
+  | 'prediction_generation'
+  | 'forecast_generation'
+  | 'recommendation_generation'
+  | 'executive_briefing_generation'
+  | 'health_score_update'
+  | 'strategic_report_creation';
 
 export interface AuditLog {
   id: string;

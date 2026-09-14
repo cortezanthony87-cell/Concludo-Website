@@ -170,4 +170,5 @@ export interface AgentRunResult {
   requiresReview?: boolean;
   approvalId?: string;
   executionDurationMs: number;
+  error?: string;
 }

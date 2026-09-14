@@ -27,9 +27,15 @@ import {
   ShieldAlert,
   Search,
   Filter,
+  TrendingUp,
+  Sparkles,
+  AlertTriangle,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { usePermissions } from '../../lib/permissions/usePermissions';
+import { getPredictiveAnalysis } from '../../lib/predictive/predictiveService';
+import { PredictiveAnalysisResult } from '../../lib/predictive/types';
 import {
   Organization,
   OrganizationMember,
@@ -122,6 +128,8 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
   const [retentionPolicies, setRetentionPolicies] = useState<RetentionPolicy[]>([]);
   const [legalHolds, setLegalHolds] = useState<LegalHold[]>([]);
   const [accessReviews, setAccessReviews] = useState<AccessReview[]>([]);
+  const [orgPredictive, setOrgPredictive] = useState<PredictiveAnalysisResult | null>(null);
+  const [loadingOrgPredictive, setLoadingOrgPredictive] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
@@ -239,6 +247,16 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
       if (retentionRes.data) setRetentionPolicies(retentionRes.data);
       if (holdsRes.data) setLegalHolds(holdsRes.data);
       if (reviewsRes.data) setAccessReviews(reviewsRes.data);
+
+      try {
+        setLoadingOrgPredictive(true);
+        const pred = await getPredictiveAnalysis({ scope: 'organization', scopeId: selectedOrgId, userId: user!.id }, supabase);
+        setOrgPredictive(pred);
+      } catch (e) {
+        console.warn('Could not load org predictive analysis:', e);
+      } finally {
+        setLoadingOrgPredictive(false);
+      }
     } catch (err: any) {
       setDataError(err.message || 'Failed to load compliance data');
     } finally {
@@ -727,6 +745,116 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                     {(analytics?.activeLegalHolds || 0) > 0 ? 'Purges Suspended' : 'Standard Retention'}
                   </div>
                 </div>
+              </div>
+
+              {/* Organization Health & Strategic Intelligence Panel */}
+              <div className="content-card" style={{ padding: '24px 28px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TrendingUp size={20} color="#e2b53c" />
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                      Organizational Health & Strategic Trajectory
+                    </h3>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <Link
+                      to="/executive-intelligence"
+                      className="btn-gold"
+                      style={{ padding: '6px 14px', fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Compass size={14} />
+                      <span>Executive Intelligence</span>
+                    </Link>
+                    <Link
+                      to="/predictive-intelligence"
+                      className="btn-secondary"
+                      style={{ padding: '6px 14px', fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <TrendingUp size={14} />
+                      <span>Predictive Hub</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {loadingOrgPredictive ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', padding: '16px 0', fontSize: '0.88rem' }}>
+                    <Loader2 size={16} className="spin-animation" color="#e2b53c" />
+                    <span>Calculating organizational health score and risk vectors...</span>
+                  </div>
+                ) : orgPredictive ? (
+                  <div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+                      {/* Health Score */}
+                      <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                          Overall Health Score
+                        </div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 700, color: orgPredictive.healthScore.overallScore >= 75 ? '#4ade80' : '#facc15', marginTop: '4px' }}>
+                          {orgPredictive.healthScore.overallScore}/100
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px', textTransform: 'capitalize' }}>
+                          Rating: {orgPredictive.healthScore.category.replace('_', ' ')}
+                        </div>
+                      </div>
+
+                      {/* Strategic Risks */}
+                      <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                          Strategic Risks
+                        </div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: orgPredictive.riskPredictions[0]?.riskLevel === 'critical' || orgPredictive.riskPredictions[0]?.riskLevel === 'high' ? '#f87171' : '#4ade80', marginTop: '6px' }}>
+                          {orgPredictive.riskPredictions[0]?.riskLevel.toUpperCase() || 'LOW RISK'}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {orgPredictive.riskPredictions[0]?.title || 'No active risk flags'}
+                        </div>
+                      </div>
+
+                      {/* Operational Trends */}
+                      <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                          Decision Velocity
+                        </div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc', marginTop: '4px' }}>
+                          {orgPredictive.decisionQuality.decisionVelocityDaysAverage}d avg
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                          Effectiveness: {orgPredictive.decisionQuality.decisionEffectivenessRatePercent}%
+                        </div>
+                      </div>
+
+                      {/* Forecast Summary */}
+                      <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                          90-Day Trajectory
+                        </div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#38bdf8', marginTop: '4px' }}>
+                          {orgPredictive.forecasts['90_day']?.expectedCompletionRates.projectedPercent}%
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                          Projected Completion
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Top Recommendation */}
+                    {orgPredictive.strategicRecommendations.length > 0 && (
+                      <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(226, 181, 60, 0.06)', border: '1px solid rgba(226, 181, 60, 0.25)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#e2b53c', fontWeight: 600 }}>
+                          <Sparkles size={14} />
+                          <span>Top Executive Recommendation: {orgPredictive.strategicRecommendations[0].title}</span>
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginTop: '4px', lineHeight: 1.5 }}>
+                          {orgPredictive.strategicRecommendations[0].summary}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ color: '#94a3b8', fontSize: '0.86rem' }}>
+                    Connect projects, decisions, and actions across teams to activate organization-wide strategic forecasting.
+                  </div>
+                )}
               </div>
 
               {/* Quick Hub Navigation Cards */}

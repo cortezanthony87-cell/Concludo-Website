@@ -31,6 +31,13 @@ import {
   fetchWorkflowApprovals,
   respondToApproval,
 } from '../lib/workflows/workflowService';
+import { getPredictiveAnalysis } from '../lib/predictive/predictiveService';
+import {
+  createExecutiveBriefing,
+  fetchExecutiveBriefings,
+  fetchExecutiveBriefingById,
+  softDeleteExecutiveBriefing,
+} from '../lib/predictive/executiveBriefingService';
 
 export interface ApiRequest {
   method: string;
@@ -657,6 +664,38 @@ export async function handleApiRequest(
       { method: 'POST', feature: 'workflow_approvals' },
       { method: 'PUT', feature: 'workflow_approvals' },
     ],
+
+    // Tasklet 20 Predictive Intelligence & Strategic Recommendations
+    '/api/predictive/intelligence': [
+      { method: 'GET', feature: 'predictive_intelligence' },
+      { method: 'POST', feature: 'predictive_intelligence' },
+    ],
+    '/api/predictive/risks': [
+      { method: 'GET', feature: 'predictive_intelligence' },
+    ],
+    '/api/predictive/opportunities': [
+      { method: 'GET', feature: 'predictive_intelligence' },
+    ],
+    '/api/predictive/recommendations': [
+      { method: 'GET', feature: 'strategic_recommendations' },
+    ],
+    '/api/predictive/health': [
+      { method: 'GET', feature: 'organizational_health_scoring' },
+    ],
+    '/api/predictive/forecasts': [
+      { method: 'GET', feature: 'forecasting' },
+    ],
+    '/api/executive-intelligence': [
+      { method: 'GET', feature: 'executive_intelligence' },
+    ],
+    '/api/executive-briefings': [
+      { method: 'GET', feature: 'executive_intelligence' },
+      { method: 'POST', feature: 'executive_intelligence' },
+      { method: 'DELETE', feature: 'executive_intelligence' },
+    ],
+    '/api/decisions/outcomes': [
+      { method: 'GET', feature: 'predictive_intelligence' },
+    ],
   };
 
   // Match route: sort route patterns by longest first so more specific routes match before prefixes
@@ -1195,6 +1234,268 @@ export async function handleApiRequest(
               admin: true,
             });
             return { status: 200, headers: jsonHeaders, body: { data: updated } };
+          }
+        }
+
+        // =============================================================
+        // Tasklet 20: Predictive Intelligence, Briefings & Forecasting
+        // =============================================================
+        if (pathname === '/api/predictive/intelligence') {
+          const scope = (req.body?.scope as any) || 'individual';
+          const scopeId = req.body?.scopeId;
+          try {
+            const analysis = await getPredictiveAnalysis({
+              scope,
+              scopeId,
+              userId: authenticatedUserId,
+              saveSnapshot: req.method === 'POST',
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: analysis } };
+          } catch (err: any) {
+            if (err.message && err.message.includes('Unauthorized')) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+            }
+            return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+          }
+        }
+
+        if (pathname === '/api/predictive/risks') {
+          const scope = (req.body?.scope as any) || 'individual';
+          const scopeId = req.body?.scopeId;
+          try {
+            const analysis = await getPredictiveAnalysis({
+              scope,
+              scopeId,
+              userId: authenticatedUserId,
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: analysis.riskPredictions } };
+          } catch (err: any) {
+            if (err.message && err.message.includes('Unauthorized')) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+            }
+            return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+          }
+        }
+
+        if (pathname === '/api/predictive/opportunities') {
+          const scope = (req.body?.scope as any) || 'individual';
+          const scopeId = req.body?.scopeId;
+          try {
+            const analysis = await getPredictiveAnalysis({
+              scope,
+              scopeId,
+              userId: authenticatedUserId,
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: analysis.opportunitySignals } };
+          } catch (err: any) {
+            if (err.message && err.message.includes('Unauthorized')) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+            }
+            return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+          }
+        }
+
+        if (pathname === '/api/predictive/recommendations') {
+          const scope = (req.body?.scope as any) || 'individual';
+          const scopeId = req.body?.scopeId;
+          try {
+            const analysis = await getPredictiveAnalysis({
+              scope,
+              scopeId,
+              userId: authenticatedUserId,
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: analysis.strategicRecommendations } };
+          } catch (err: any) {
+            if (err.message && err.message.includes('Unauthorized')) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+            }
+            return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+          }
+        }
+
+        if (pathname === '/api/predictive/health') {
+          const scope = (req.body?.scope as any) || 'individual';
+          const scopeId = req.body?.scopeId;
+          try {
+            const analysis = await getPredictiveAnalysis({
+              scope,
+              scopeId,
+              userId: authenticatedUserId,
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: analysis.healthScore } };
+          } catch (err: any) {
+            if (err.message && err.message.includes('Unauthorized')) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+            }
+            return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+          }
+        }
+
+        if (pathname === '/api/predictive/forecasts') {
+          const scope = (req.body?.scope as any) || 'individual';
+          const scopeId = req.body?.scopeId;
+          try {
+            const analysis = await getPredictiveAnalysis({
+              scope,
+              scopeId,
+              userId: authenticatedUserId,
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: analysis.forecasts } };
+          } catch (err: any) {
+            if (err.message && err.message.includes('Unauthorized')) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+            }
+            return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+          }
+        }
+
+        if (pathname === '/api/decisions/outcomes') {
+          const scope = (req.body?.scope as any) || 'individual';
+          const scopeId = req.body?.scopeId;
+          try {
+            const analysis = await getPredictiveAnalysis({
+              scope,
+              scopeId,
+              userId: authenticatedUserId,
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: analysis.decisionQuality } };
+          } catch (err: any) {
+            if (err.message && err.message.includes('Unauthorized')) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+            }
+            return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+          }
+        }
+
+        if (pathname === '/api/executive-intelligence') {
+          // Look up user's organization for org-wide strategic view
+          const { data: memberRecord } = await adminClient
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', authenticatedUserId)
+            .limit(1)
+            .maybeSingle();
+
+          const analysis = await getPredictiveAnalysis({
+            scope: memberRecord?.organization_id ? 'organization' : 'individual',
+            scopeId: memberRecord?.organization_id || undefined,
+            userId: authenticatedUserId,
+          }, adminClient);
+
+          return { status: 200, headers: jsonHeaders, body: { data: analysis.executiveIntelligence } };
+        }
+
+        if (pathname === '/api/executive-briefings' || pathname.startsWith('/api/executive-briefings/')) {
+          if (req.method === 'GET') {
+            const parts = pathname.split('/').filter(Boolean);
+            if (parts.length > 2) {
+              const briefing = await fetchExecutiveBriefingById(parts[2], adminClient);
+              if (!briefing) return { status: 404, headers: jsonHeaders, body: { error: 'briefing_not_found' } };
+
+              // Authoritative scope verification for single briefing access
+              if (briefing.generated_by !== authenticatedUserId) {
+                let hasAccess = false;
+                if (briefing.organization_id) {
+                  const { data: org } = await adminClient
+                    .from('organizations')
+                    .select('owner_id')
+                    .eq('id', briefing.organization_id)
+                    .maybeSingle();
+
+                  if (org?.owner_id === authenticatedUserId) {
+                    hasAccess = true;
+                  } else {
+                    const { data: orgMem } = await adminClient
+                      .from('organization_members')
+                      .select('id')
+                      .eq('organization_id', briefing.organization_id)
+                      .eq('user_id', authenticatedUserId)
+                      .maybeSingle();
+                    if (orgMem) hasAccess = true;
+                  }
+                }
+                if (!hasAccess && briefing.team_id) {
+                  const { data: teamMem } = await adminClient
+                    .from('team_members')
+                    .select('id')
+                    .eq('team_id', briefing.team_id)
+                    .eq('user_id', authenticatedUserId)
+                    .maybeSingle();
+                  if (teamMem) hasAccess = true;
+                }
+                if (!hasAccess) {
+                  return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_briefing_access' } };
+                }
+              }
+
+              return { status: 200, headers: jsonHeaders, body: { data: briefing } };
+            }
+
+            const { data: memberRecord } = await adminClient
+              .from('organization_members')
+              .select('organization_id')
+              .eq('user_id', authenticatedUserId)
+              .limit(1)
+              .maybeSingle();
+
+            const briefings = await fetchExecutiveBriefings({
+              organizationId: memberRecord?.organization_id || null,
+              userId: authenticatedUserId,
+            }, adminClient);
+
+            return { status: 200, headers: jsonHeaders, body: { data: briefings } };
+          }
+
+          if (req.method === 'POST') {
+            const { title, reportType, organizationId, teamId } = req.body || {};
+            if (!title || !reportType) {
+              return { status: 400, headers: jsonHeaders, body: { error: 'title_and_report_type_required' } };
+            }
+
+            try {
+              const analysis = await getPredictiveAnalysis({
+                scope: organizationId ? 'organization' : teamId ? 'team' : 'individual',
+                scopeId: organizationId || teamId,
+                userId: authenticatedUserId,
+              }, adminClient);
+
+              const result = await createExecutiveBriefing({
+                title,
+                reportType,
+                organizationId,
+                teamId,
+                userId: authenticatedUserId,
+                analysis,
+              }, adminClient);
+
+              if (!result.success) {
+                return { status: 500, headers: jsonHeaders, body: { error: result.error } };
+              }
+              return { status: 201, headers: jsonHeaders, body: { data: result.data } };
+            } catch (err: any) {
+              if (err.message && err.message.includes('Unauthorized')) {
+                return { status: 403, headers: jsonHeaders, body: { error: 'forbidden_scope', message: err.message } };
+              }
+              return { status: 500, headers: jsonHeaders, body: { error: 'internal_error', message: err.message } };
+            }
+          }
+
+          if (req.method === 'DELETE') {
+            const parts = pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            try {
+              const deleted = await softDeleteExecutiveBriefing(id, authenticatedUserId, adminClient);
+              return { status: 200, headers: jsonHeaders, body: { success: deleted } };
+            } catch (err: any) {
+              return { status: 500, headers: jsonHeaders, body: { error: err.message } };
+            }
           }
         }
 

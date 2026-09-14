@@ -21,9 +21,12 @@ import {
   Check,
   X,
   Sparkles,
+  TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { usePermissions } from '../lib/permissions/usePermissions';
+import { getPredictiveAnalysis } from '../lib/predictive/predictiveService';
+import { PredictiveAnalysisResult } from '../lib/predictive/types';
 import {
   Team,
   TeamRole,
@@ -65,6 +68,8 @@ export const TeamDashboardPage: React.FC = () => {
   // Selected team data
   const [stats, setStats] = useState<TeamOverviewStats | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [teamPredictive, setTeamPredictive] = useState<PredictiveAnalysisResult | null>(null);
+  const [loadingPredictive, setLoadingPredictive] = useState<boolean>(false);
   const [activities, setActivities] = useState<TeamActivity[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [recentDecisions, setRecentDecisions] = useState<DecisionRecord[]>([]);
@@ -137,6 +142,17 @@ export const TeamDashboardPage: React.FC = () => {
       if (projectsRes.data) setRecentProjects(projectsRes.data.slice(0, 5));
       if (decisionsRes.data) setRecentDecisions(decisionsRes.data.slice(0, 5));
       if (actionsRes.data) setRecentActions(actionsRes.data.slice(0, 5));
+
+      // Fetch team predictive intelligence
+      try {
+        setLoadingPredictive(true);
+        const pred = await getPredictiveAnalysis({ scope: 'team', scopeId: teamId, userId: user!.id }, supabase);
+        setTeamPredictive(pred);
+      } catch (e) {
+        console.warn('Could not load team predictive analysis:', e);
+      } finally {
+        setLoadingPredictive(false);
+      }
     } catch (err: any) {
       setDashboardError(err.message || 'Failed to load team data');
     } finally {
@@ -588,6 +604,122 @@ export const TeamDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Team Predictive Intelligence & Performance Forecast */}
+          <div className="content-card" style={{ padding: '24px 28px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <TrendingUp size={20} color="#e2b53c" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Team Strategic Health & Forecasting
+                </h3>
+              </div>
+              <Link
+                to="/predictive-intelligence"
+                style={{
+                  color: '#e2b53c',
+                  fontSize: '0.84rem',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span>Full Intelligence Hub</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+
+            {loadingPredictive ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', padding: '16px 0', fontSize: '0.88rem' }}>
+                <Loader2 size={16} className="spin-animation" color="#e2b53c" />
+                <span>Forecasting team velocity and risk profiles...</span>
+              </div>
+            ) : teamPredictive ? (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+                  {/* Team Health Score */}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                      Team Health Score
+                    </div>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 700, color: teamPredictive.healthScore.overallScore >= 75 ? '#4ade80' : '#facc15', marginTop: '4px' }}>
+                      {teamPredictive.healthScore.overallScore}/100
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px', textTransform: 'capitalize' }}>
+                      Status: {teamPredictive.healthScore.category.replace('_', ' ')}
+                    </div>
+                  </div>
+
+                  {/* Decision Performance */}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                      Decision Performance
+                    </div>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc', marginTop: '4px' }}>
+                      {teamPredictive.decisionQuality.decisionEffectivenessRatePercent}%
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                      Avg Velocity: {teamPredictive.decisionQuality.decisionVelocityDaysAverage} days
+                    </div>
+                  </div>
+
+                  {/* Action Completion Forecast */}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                      90-Day Forecast
+                    </div>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#38bdf8', marginTop: '4px' }}>
+                      {teamPredictive.forecasts['90_day']?.expectedCompletionRates.projectedPercent}%
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                      Projected Completion Rate
+                    </div>
+                  </div>
+
+                  {/* Team Risk Profile */}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+                      Team Risk Profile
+                    </div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: teamPredictive.riskPredictions[0]?.riskLevel === 'critical' || teamPredictive.riskPredictions[0]?.riskLevel === 'high' ? '#f87171' : '#4ade80', marginTop: '6px' }}>
+                      {teamPredictive.riskPredictions[0]?.riskLevel.toUpperCase() || 'LOW RISK'}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {teamPredictive.riskPredictions[0]?.title || 'No active risk flags'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Team Opportunity Profile */}
+                {teamPredictive.opportunitySignals.length > 0 && (
+                  <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.06)', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#38bdf8', fontWeight: 600 }}>
+                      <Sparkles size={14} />
+                      <span>Team Opportunity: {teamPredictive.opportunitySignals[0].title}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginTop: '4px' }}>
+                      {teamPredictive.opportunitySignals[0].summary}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ color: '#94a3b8', fontSize: '0.86rem' }}>
+                Add team meeting transcripts and actions to generate team forecasts.
+              </div>
+            )}
           </div>
 
           {/* Two Column Layout: Content & Sidebar */}
