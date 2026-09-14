@@ -5,6 +5,7 @@ import { AgentType, AgentRunResult } from './types';
 import { logAgentActivity, setAgentMemory, getAgentMemory } from './agentMemoryService';
 import { recordAuditLog } from '../enterprise/auditService';
 import { runPredictiveEngine } from '../predictive/predictiveEngine';
+import { KnowledgeEngine } from '../knowledge/knowledgeEngine';
 
 function getClient(admin: boolean = false): SupabaseClient {
   if (admin && typeof window === 'undefined') {
@@ -332,10 +333,29 @@ async function executeProjectIntelligence(params: AgentRunParams, client: any): 
     actions: actions || [],
   });
 
+  // Consume knowledge graph clusters and memory
+  let knowledgeClusters: any[] = [];
+  try {
+    const knowledgeEngine = new KnowledgeEngine(client);
+    const clusters = await knowledgeEngine.getKnowledgeClusters({
+      userId: params.userId,
+      teamId: params.teamId,
+      organizationId: params.organizationId,
+    });
+    knowledgeClusters = clusters.map((c) => ({
+      category: c.category,
+      title: c.title,
+      nodesCount: c.node_count,
+    }));
+  } catch {
+    // Graceful fallback
+  }
+
   const payload = {
     projectsAnalyzed: projectList.length,
     healthScore: predictiveAnalysis.healthScore.overallScore,
     healthCategory: predictiveAnalysis.healthScore.category,
+    knowledgeClusters,
     repeatedThemes: [
       { theme: 'Enterprise Security & SSO Integration', frequency: 'High', trend: 'Accelerating' },
       { theme: 'Third-Party Integration Sync Latency', frequency: 'Medium', trend: 'Stable' },

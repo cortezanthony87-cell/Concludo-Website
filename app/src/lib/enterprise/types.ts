@@ -118,7 +118,15 @@ export type AuditActionType =
   | 'recommendation_generation'
   | 'executive_briefing_generation'
   | 'health_score_update'
-  | 'strategic_report_creation';
+  | 'strategic_report_creation'
+  // Tasklet 21 Audited Events
+  | 'knowledge_relationship_created'
+  | 'knowledge_relationship_updated'
+  | 'knowledge_search'
+  | 'knowledge_explorer_access'
+  | 'knowledge_visualization_access'
+  | 'knowledge_cluster_creation'
+  | 'knowledge_analytics_access';
 
 export interface AuditLog {
   id: string;

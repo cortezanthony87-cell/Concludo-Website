@@ -541,6 +541,27 @@ export const PredictiveIntelligencePage: React.FC = () => {
                   </ul>
                 </div>
               </div>
+
+              {rec.whyGenerated && (
+                <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+                  <div style={{ color: '#e2b53c', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    🔍 Recommendation Explainability & Evidence Trace:
+                  </div>
+                  <div style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '4px' }}>
+                    <strong style={{ color: '#f8fafc' }}>Why Generated:</strong> {rec.whyGenerated}
+                  </div>
+                  {rec.evidenceChain && rec.evidenceChain.length > 0 && (
+                    <div style={{ marginTop: '6px' }}>
+                      <div style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600 }}>Supporting Evidence Chain:</div>
+                      <ul style={{ margin: '4px 0 0 0', paddingLeft: '18px', color: '#94a3b8', fontSize: '0.78rem' }}>
+                        {rec.evidenceChain.map((ec, idx) => (
+                          <li key={idx}>{ec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

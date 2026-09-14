@@ -38,6 +38,9 @@ import {
   fetchExecutiveBriefingById,
   softDeleteExecutiveBriefing,
 } from '../lib/predictive/executiveBriefingService';
+import { KnowledgeEngine } from '../lib/knowledge/knowledgeEngine';
+import { KnowledgeClient } from '../lib/knowledge/knowledgeClient';
+import { recordAuditLog } from '../lib/enterprise/auditService';
 
 export interface ApiRequest {
   method: string;
@@ -97,6 +100,7 @@ export async function handleApiRequest(
 ): Promise<ApiResponse> {
   const jsonHeaders = { 'Content-Type': 'application/json' };
   const pathname = req.url.startsWith('http') ? new URL(req.url).pathname : req.url.split('?')[0];
+  const queryParams = new URL(req.url, 'http://localhost').searchParams;
 
   const adminClient = options?.adminClient || getSupabaseAdminClient();
 
@@ -146,8 +150,9 @@ export async function handleApiRequest(
   }
 
   // 2. Authentication extraction (Support Bearer JWT, Service Role Key, or Concludo API Key)
-  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-  const apiKeyHeader = req.headers['x-api-key'] || req.headers['X-Api-Key'];
+  const reqHeaders = req.headers || {};
+  const authHeader = reqHeaders['authorization'] || reqHeaders['Authorization'];
+  const apiKeyHeader = reqHeaders['x-api-key'] || reqHeaders['X-Api-Key'];
 
   let token: string | null = null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -695,6 +700,59 @@ export async function handleApiRequest(
     ],
     '/api/decisions/outcomes': [
       { method: 'GET', feature: 'predictive_intelligence' },
+    ],
+
+    // Tasklet 21 Knowledge Network & Organizational Memory
+    '/api/knowledge/sync': [
+      { method: 'POST', feature: 'knowledge_graph' },
+    ],
+    '/api/knowledge/nodes': [
+      { method: 'GET', feature: 'knowledge_graph' },
+      { method: 'POST', feature: 'knowledge_graph' },
+    ],
+    '/api/knowledge/relationships': [
+      { method: 'GET', feature: 'relationship_discovery' },
+      { method: 'POST', feature: 'relationship_discovery' },
+      { method: 'PATCH', feature: 'relationship_discovery' },
+      { method: 'PUT', feature: 'relationship_discovery' },
+    ],
+    '/api/knowledge/graph': [
+      { method: 'GET', feature: 'knowledge_graph' },
+    ],
+    '/api/knowledge/visualization': [
+      { method: 'GET', feature: 'knowledge_graph' },
+    ],
+    '/api/knowledge/search': [
+      { method: 'POST', feature: 'knowledge_explorer' },
+    ],
+    '/api/knowledge/decision-network': [
+      { method: 'GET', feature: 'evidence_networks' },
+    ],
+    '/api/knowledge/project-network': [
+      { method: 'GET', feature: 'evidence_networks' },
+    ],
+    '/api/knowledge/evidence': [
+      { method: 'GET', feature: 'evidence_networks' },
+    ],
+    '/api/knowledge/timeline': [
+      { method: 'GET', feature: 'organizational_memory' },
+    ],
+    '/api/knowledge/journey': [
+      { method: 'GET', feature: 'organizational_memory' },
+    ],
+    '/api/knowledge/clusters': [
+      { method: 'GET', feature: 'organizational_memory' },
+    ],
+    '/api/knowledge/lessons': [
+      { method: 'GET', feature: 'organizational_memory' },
+      { method: 'POST', feature: 'organizational_memory' },
+      { method: 'DELETE', feature: 'organizational_memory' },
+    ],
+    '/api/knowledge/analytics': [
+      { method: 'GET', feature: 'knowledge_analytics' },
+    ],
+    '/api/executive-explorer': [
+      { method: 'GET', feature: 'executive_knowledge_explorer' },
     ],
   };
 
@@ -1496,6 +1554,405 @@ export async function handleApiRequest(
             } catch (err: any) {
               return { status: 500, headers: jsonHeaders, body: { error: err.message } };
             }
+          }
+        }
+
+        // =============================================================
+        // Tasklet 21: Knowledge Graph, Organizational Memory & Explorer
+        // =============================================================
+        const knowledgeEngine = new KnowledgeEngine(adminClient);
+
+        // Tenant scope verification
+        const requestedOrgId = queryParams.get('organization_id') || req.body?.organizationId || req.body?.organization_id;
+        if (requestedOrgId) {
+          const { data: member } = await adminClient
+            .from('organization_members')
+            .select('id')
+            .eq('organization_id', requestedOrgId)
+            .eq('user_id', authenticatedUserId)
+            .maybeSingle();
+          if (!member) {
+            return { status: 403, headers: jsonHeaders, body: { error: 'Access denied: user is not an authorized member of this organization' } };
+          }
+        }
+
+        const requestedTeamId = queryParams.get('team_id') || req.body?.teamId || req.body?.team_id;
+        if (requestedTeamId) {
+          const { data: member } = await adminClient
+            .from('team_members')
+            .select('id')
+            .eq('team_id', requestedTeamId)
+            .eq('user_id', authenticatedUserId)
+            .maybeSingle();
+          if (!member) {
+            return { status: 403, headers: jsonHeaders, body: { error: 'Access denied: user is not an authorized member of this team' } };
+          }
+        }
+
+        if (pathname === '/api/knowledge/sync' && req.method === 'POST') {
+          const syncResult = await knowledgeEngine.syncKnowledgeGraph({
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+
+          await recordAuditLog({
+            action: 'knowledge_relationship_created',
+            entityType: 'knowledge_graph',
+            details: syncResult,
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return { status: 200, headers: jsonHeaders, body: { data: syncResult } };
+        }
+
+        if (pathname === '/api/knowledge/nodes') {
+          if (req.method === 'GET') {
+            let q = adminClient
+              .from('knowledge_nodes')
+              .select('*')
+              .is('deleted_at', null)
+              .order('updated_at', { ascending: false });
+
+            if (requestedOrgId) q = q.eq('organization_id', requestedOrgId);
+            else if (requestedTeamId) q = q.eq('team_id', requestedTeamId);
+            else q = q.eq('owner_id', authenticatedUserId);
+
+            const { data, error } = await q;
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+        }
+
+        if (pathname === '/api/knowledge/relationships' || pathname.startsWith('/api/knowledge/relationships/')) {
+          let nodeQuery = adminClient.from('knowledge_nodes').select('id').is('deleted_at', null);
+          if (requestedOrgId) {
+            nodeQuery = nodeQuery.eq('organization_id', requestedOrgId);
+          } else if (requestedTeamId) {
+            nodeQuery = nodeQuery.eq('team_id', requestedTeamId);
+          } else {
+            nodeQuery = nodeQuery.eq('owner_id', authenticatedUserId);
+          }
+          const { data: userNodes } = await nodeQuery;
+          const accessibleNodeIds = (userNodes || []).map((n: any) => n.id);
+
+          if (req.method === 'GET') {
+            if (accessibleNodeIds.length === 0) {
+              return { status: 200, headers: jsonHeaders, body: { data: [] } };
+            }
+
+            const { data, error } = await adminClient
+              .from('knowledge_relationships')
+              .select('*, source_node:knowledge_nodes!source_node_id(*), target_node:knowledge_nodes!target_node_id(*)')
+              .in('source_node_id', accessibleNodeIds)
+              .in('target_node_id', accessibleNodeIds)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false });
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+          if (req.method === 'POST') {
+            const { source_node_id, target_node_id, relationship_type, confidence_score, context_notes } = req.body || {};
+
+            if (!accessibleNodeIds.includes(source_node_id) || !accessibleNodeIds.includes(target_node_id)) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'Forbidden: source or target node outside authorized scope' } };
+            }
+
+            const { data, error } = await adminClient
+              .from('knowledge_relationships')
+              .insert({
+                source_node_id,
+                target_node_id,
+                relationship_type,
+                confidence_score: confidence_score || 85,
+                context_notes,
+              })
+              .select()
+              .single();
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+
+            await recordAuditLog({
+              action: 'knowledge_relationship_created',
+              entityType: 'knowledge_relationship',
+              entityId: data.id,
+              details: { relationship_type, confidence_score },
+              userId: authenticatedUserId,
+              admin: true,
+            });
+
+            return { status: 201, headers: jsonHeaders, body: { data } };
+          }
+          if (req.method === 'PATCH' || req.method === 'PUT') {
+            const parts = pathname.split('/').filter(Boolean);
+            const relId = parts[parts.length - 1];
+
+            // Verify relationship ownership / access
+            const { data: existingRel } = await adminClient
+              .from('knowledge_relationships')
+              .select('id, source_node_id, target_node_id')
+              .eq('id', relId)
+              .maybeSingle();
+
+            if (!existingRel) {
+              return { status: 404, headers: jsonHeaders, body: { error: 'Relationship not found' } };
+            }
+
+            if (!accessibleNodeIds.includes(existingRel.source_node_id)) {
+              return { status: 403, headers: jsonHeaders, body: { error: 'Forbidden: relationship outside authorized scope' } };
+            }
+
+            const { confidence_score, context_notes, relationship_type } = req.body || {};
+            const updateData: any = { updated_at: new Date().toISOString() };
+            if (confidence_score !== undefined) updateData.confidence_score = confidence_score;
+            if (context_notes !== undefined) updateData.context_notes = context_notes;
+            if (relationship_type !== undefined) updateData.relationship_type = relationship_type;
+
+            const { data, error } = await adminClient
+              .from('knowledge_relationships')
+              .update(updateData)
+              .eq('id', relId)
+              .select()
+              .single();
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+
+            await recordAuditLog({
+              action: 'knowledge_relationship_updated',
+              entityType: 'knowledge_relationship',
+              entityId: relId,
+              details: updateData,
+              userId: authenticatedUserId,
+              admin: true,
+            });
+
+            return { status: 200, headers: jsonHeaders, body: { data } };
+          }
+        }
+
+        if (pathname === '/api/knowledge/graph' || pathname === '/api/knowledge/visualization') {
+          const isVis = pathname === '/api/knowledge/visualization' || queryParams.get('view') === 'visualization';
+
+          let nodeQuery = adminClient.from('knowledge_nodes').select('*').is('deleted_at', null);
+          if (requestedOrgId) nodeQuery = nodeQuery.eq('organization_id', requestedOrgId);
+          else if (requestedTeamId) nodeQuery = nodeQuery.eq('team_id', requestedTeamId);
+          else nodeQuery = nodeQuery.eq('owner_id', authenticatedUserId);
+
+          const { data: nodes = [] } = await nodeQuery;
+          const accessibleIds = (nodes || []).map((n: any) => n.id);
+
+          let rels: any[] = [];
+          if (accessibleIds.length > 0) {
+            const { data: relData = [] } = await adminClient
+              .from('knowledge_relationships')
+              .select('*, source_node:knowledge_nodes!source_node_id(*), target_node:knowledge_nodes!target_node_id(*)')
+              .in('source_node_id', accessibleIds)
+              .in('target_node_id', accessibleIds)
+              .is('deleted_at', null);
+            rels = relData || [];
+          }
+
+          await recordAuditLog({
+            action: isVis ? 'knowledge_visualization_access' : 'knowledge_explorer_access',
+            entityType: isVis ? 'knowledge_visualization' : 'knowledge_graph',
+            details: { total_nodes: (nodes || []).length, total_relationships: rels.length },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return { status: 200, headers: jsonHeaders, body: { data: { nodes, relationships: rels } } };
+        }
+
+        if (pathname === '/api/knowledge/search' && req.method === 'POST') {
+          const query = req.body?.query || '';
+          const results = await knowledgeEngine.searchKnowledge(query, {
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+
+          await recordAuditLog({
+            action: 'knowledge_search',
+            entityType: 'knowledge_search',
+            details: { query, resultsCount: results.length },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return { status: 200, headers: jsonHeaders, body: { data: results } };
+        }
+
+        if (pathname.startsWith('/api/knowledge/decision-network/')) {
+          const decisionId = pathname.split('/api/knowledge/decision-network/')[1];
+          const net = await knowledgeEngine.getDecisionNetwork(decisionId, {
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+          if (!net) return { status: 404, headers: jsonHeaders, body: { error: 'decision_network_not_found' } };
+          return { status: 200, headers: jsonHeaders, body: { data: net } };
+        }
+
+        if (pathname.startsWith('/api/knowledge/project-network/')) {
+          const projectId = pathname.split('/api/knowledge/project-network/')[1];
+          const net = await knowledgeEngine.getProjectNetwork(projectId, {
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+          if (!net) return { status: 404, headers: jsonHeaders, body: { error: 'project_network_not_found' } };
+          return { status: 200, headers: jsonHeaders, body: { data: net } };
+        }
+
+        if (pathname.startsWith('/api/knowledge/evidence/')) {
+          const parts = pathname.replace('/api/knowledge/evidence/', '').split('/');
+          const entityType = parts[0] || 'recommendation';
+          const entityId = parts[1] || 'default';
+          const evidence = await knowledgeEngine.getEvidenceNetwork(entityType, entityId, {
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+          return { status: 200, headers: jsonHeaders, body: { data: evidence } };
+        }
+
+        if (pathname === '/api/knowledge/timeline') {
+          const timeline = await knowledgeEngine.getKnowledgeTimeline({
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+          return { status: 200, headers: jsonHeaders, body: { data: timeline } };
+        }
+
+        if (pathname.startsWith('/api/knowledge/journey/')) {
+          const targetId = pathname.split('/api/knowledge/journey/')[1];
+          const journey = await knowledgeEngine.getKnowledgeJourney(targetId, {
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+          return { status: 200, headers: jsonHeaders, body: { data: journey } };
+        }
+
+        if (pathname === '/api/knowledge/clusters') {
+          const clusters = await knowledgeEngine.getKnowledgeClusters({
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+
+          await recordAuditLog({
+            action: 'knowledge_cluster_creation',
+            entityType: 'knowledge_cluster',
+            details: { count: clusters.length, categories: clusters.map(c => c.category) },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return { status: 200, headers: jsonHeaders, body: { data: clusters } };
+        }
+
+        if (pathname === '/api/knowledge/analytics') {
+          const analytics = await knowledgeEngine.getKnowledgeAnalytics({
+            userId: authenticatedUserId,
+            teamId: requestedTeamId || null,
+            organizationId: requestedOrgId || null,
+          });
+
+          await recordAuditLog({
+            action: 'knowledge_analytics_access',
+            entityType: 'knowledge_analytics',
+            details: { total_nodes: analytics.total_nodes, total_relationships: analytics.total_relationships },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return { status: 200, headers: jsonHeaders, body: { data: analytics } };
+        }
+
+        if (pathname === '/api/executive-explorer') {
+          const [clusters, analytics, timeline] = await Promise.all([
+            knowledgeEngine.getKnowledgeClusters({ userId: authenticatedUserId, organizationId: requestedOrgId || null }),
+            knowledgeEngine.getKnowledgeAnalytics({ userId: authenticatedUserId, organizationId: requestedOrgId || null }),
+            knowledgeEngine.getKnowledgeTimeline({ userId: authenticatedUserId, organizationId: requestedOrgId || null }),
+          ]);
+
+          await recordAuditLog({
+            action: 'knowledge_explorer_access',
+            entityType: 'executive_explorer',
+            details: { clustersCount: clusters.length, totalNodes: analytics.total_nodes },
+            userId: authenticatedUserId,
+            admin: true,
+          });
+
+          return {
+            status: 200,
+            headers: jsonHeaders,
+            body: {
+              data: {
+                clusters,
+                analytics,
+                timeline: timeline.slice(0, 10),
+                strategicThemes: [
+                  'Meeting-to-Execution Automation Acceleration',
+                  'Enterprise Compliance, SSO and Data Governance',
+                  'Cross-Project Dependency Management & Risk Triage',
+                  'Decision Lineage Traceability & Audit Verification',
+                ],
+              },
+            },
+          };
+        }
+
+        if (pathname === '/api/knowledge/lessons' || pathname.startsWith('/api/knowledge/lessons/')) {
+          if (req.method === 'GET') {
+            let q = adminClient
+              .from('lessons_learned')
+              .select('*')
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false });
+
+            if (requestedOrgId) q = q.eq('organization_id', requestedOrgId);
+            else if (requestedTeamId) q = q.eq('team_id', requestedTeamId);
+            else q = q.eq('created_by', authenticatedUserId);
+
+            const { data, error } = await q;
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { data: data || [] } };
+          }
+          if (req.method === 'POST') {
+            const { title, summary, outcome, cluster_category, tags, project_id, team_id, organization_id } = req.body || {};
+            const { data, error } = await adminClient
+              .from('lessons_learned')
+              .insert({
+                title,
+                summary,
+                outcome,
+                cluster_category: cluster_category || 'operational_excellence',
+                tags: tags || [],
+                project_id: project_id || null,
+                team_id: requestedTeamId || team_id || null,
+                organization_id: requestedOrgId || organization_id || null,
+                created_by: authenticatedUserId,
+              })
+              .select()
+              .single();
+
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 201, headers: jsonHeaders, body: { data } };
+          }
+          if (req.method === 'DELETE') {
+            const parts = pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            const { error } = await adminClient.rpc('soft_delete_lesson_learned', {
+              p_lesson_id: id,
+              p_user_id: authenticatedUserId,
+            });
+            if (error) return { status: 500, headers: jsonHeaders, body: { error: error.message } };
+            return { status: 200, headers: jsonHeaders, body: { success: true } };
           }
         }
 

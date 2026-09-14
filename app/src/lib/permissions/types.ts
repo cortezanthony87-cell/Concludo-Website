@@ -57,7 +57,15 @@ export type FeatureKey =
   | 'executive_intelligence'
   | 'strategic_recommendations'
   | 'forecasting'
-  | 'organizational_health_scoring';
+  | 'organizational_health_scoring'
+  // Tasklet 21 Features
+  | 'knowledge_graph'
+  | 'knowledge_explorer'
+  | 'organizational_memory'
+  | 'relationship_discovery'
+  | 'evidence_networks'
+  | 'executive_knowledge_explorer'
+  | 'knowledge_analytics';
 
 export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'workspace_basic',
@@ -108,6 +116,14 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'strategic_recommendations',
   'forecasting',
   'organizational_health_scoring',
+  // Tasklet 21
+  'knowledge_graph',
+  'knowledge_explorer',
+  'organizational_memory',
+  'relationship_discovery',
+  'evidence_networks',
+  'executive_knowledge_explorer',
+  'knowledge_analytics',
 ] as const;
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
@@ -159,6 +175,14 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   strategic_recommendations: 'Strategic Recommendations',
   forecasting: 'Forecasting',
   organizational_health_scoring: 'Organisational Health Scoring',
+  // Tasklet 21 Labels
+  knowledge_graph: 'Knowledge Graph',
+  knowledge_explorer: 'Knowledge Explorer',
+  organizational_memory: 'Organizational Memory',
+  relationship_discovery: 'Relationship Discovery',
+  evidence_networks: 'Evidence Networks',
+  executive_knowledge_explorer: 'Executive Knowledge Explorer',
+  knowledge_analytics: 'Knowledge Analytics',
 };
 
 /**
@@ -302,6 +326,14 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'strategic_recommendations',
     'forecasting',
     'organizational_health_scoring',
+    // Tasklet 21 features unlocked on enterprise
+    'knowledge_graph',
+    'knowledge_explorer',
+    'organizational_memory',
+    'relationship_discovery',
+    'evidence_networks',
+    'executive_knowledge_explorer',
+    'knowledge_analytics',
   ],
   admin: [
     'workspace_basic',
@@ -352,6 +384,14 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'strategic_recommendations',
     'forecasting',
     'organizational_health_scoring',
+    // Tasklet 21 features unlocked on admin
+    'knowledge_graph',
+    'knowledge_explorer',
+    'organizational_memory',
+    'relationship_discovery',
+    'evidence_networks',
+    'executive_knowledge_explorer',
+    'knowledge_analytics',
   ],
 };
 
@@ -404,6 +444,14 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   strategic_recommendations: 'Available on Enterprise',
   forecasting: 'Available on Enterprise',
   organizational_health_scoring: 'Available on Enterprise',
+  // Tasklet 21 Tier Badges
+  knowledge_graph: 'Available on Enterprise',
+  knowledge_explorer: 'Available on Enterprise',
+  organizational_memory: 'Available on Enterprise',
+  relationship_discovery: 'Available on Enterprise',
+  evidence_networks: 'Available on Enterprise',
+  executive_knowledge_explorer: 'Available on Enterprise',
+  knowledge_analytics: 'Available on Enterprise',
 };
 
 export interface PermissionErrorResponse {

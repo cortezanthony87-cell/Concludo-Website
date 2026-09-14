@@ -51,6 +51,13 @@ import { ExecutiveIntelligencePage } from './pages/predictive/ExecutiveIntellige
 import { ForecastsPage } from './pages/predictive/ForecastsPage';
 import { ExecutiveBriefingsPage } from './pages/predictive/ExecutiveBriefingsPage';
 
+// Tasklet 21 Knowledge Network, Organizational Memory & Explorer Pages
+import { KnowledgeExplorerPage } from './pages/knowledge/KnowledgeExplorerPage';
+import { OrganizationalMemoryPage } from './pages/knowledge/OrganizationalMemoryPage';
+import { KnowledgeTimelinePage } from './pages/knowledge/KnowledgeTimelinePage';
+import { ExecutiveKnowledgeExplorerPage } from './pages/knowledge/ExecutiveKnowledgeExplorerPage';
+import { KnowledgeAnalyticsPage } from './pages/knowledge/KnowledgeAnalyticsPage';
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -134,6 +141,13 @@ export const App: React.FC = () => {
             <Route path="/executive-intelligence" element={<ExecutiveIntelligencePage />} />
             <Route path="/forecasts" element={<ForecastsPage />} />
             <Route path="/executive-briefings" element={<ExecutiveBriefingsPage />} />
+
+            {/* Tasklet 21 Knowledge Network, Organizational Memory & Explorer Routes */}
+            <Route path="/knowledge" element={<KnowledgeExplorerPage />} />
+            <Route path="/organizational-memory" element={<OrganizationalMemoryPage />} />
+            <Route path="/knowledge/timeline" element={<KnowledgeTimelinePage />} />
+            <Route path="/executive-explorer" element={<ExecutiveKnowledgeExplorerPage />} />
+            <Route path="/knowledge-analytics" element={<KnowledgeAnalyticsPage />} />
 
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

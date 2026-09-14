@@ -5,6 +5,7 @@ export type PlanType =
   | 'pro_trial'
   | 'pro'
   | 'team'
+  | 'enterprise'
   | 'admin';
 
 export type RoleType = 'user' | 'admin';
@@ -17,6 +18,7 @@ export interface UserProfile {
   role: RoleType;
   trial_start_date?: string | null;
   trial_end_date?: string | null;
+  is_suspended?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +30,7 @@ export const PLAN_LABELS: Record<PlanType, string> = {
   pro_trial: 'Pro Trial',
   pro: 'Pro',
   team: 'Team',
+  enterprise: 'Enterprise',
   admin: 'Admin',
 };
 

@@ -28,6 +28,15 @@ const PREDICTIVE_FEATURES: readonly FeatureKey[] = [
   'organizational_health_scoring',
 ] as const;
 
+const KNOWLEDGE_FEATURES: readonly FeatureKey[] = [
+  'knowledge_graph',
+  'knowledge_explorer',
+  'organizational_memory',
+  'relationship_discovery',
+  'evidence_networks',
+  'knowledge_analytics',
+] as const;
+
 /**
  * Server-side permission helper: canUseFeature(userId, featureKey)
  *
@@ -203,6 +212,28 @@ export async function canUseFeature(
 
     const hasOrgOverride = memberships?.some(
       (m: any) => m.organizations && m.organizations.allow_team_predictive === true
+    );
+
+    if (hasOrgOverride) {
+      return {
+        allowed: true,
+        statusCode: 200,
+        plan: userPlan,
+        feature: cleanFeatureKey,
+      };
+    }
+  }
+
+  // 10. Optional Team Access for Knowledge Graph & Organizational Memory (Tasklet 21)
+  // If plan is 'team', check if user belongs to an organization where allow_team_knowledge is enabled
+  if (userPlan === 'team' && KNOWLEDGE_FEATURES.includes(cleanFeatureKey)) {
+    const { data: memberships } = await client
+      .from('organization_members')
+      .select('organization_id, organizations!inner(allow_team_knowledge)')
+      .eq('user_id', cleanUserId);
+
+    const hasOrgOverride = memberships?.some(
+      (m: any) => m.organizations && m.organizations.allow_team_knowledge === true
     );
 
     if (hasOrgOverride) {

@@ -106,6 +106,13 @@ export interface StrategicRecommendation {
   priorityLevel: 'low' | 'medium' | 'high' | 'critical';
   confidenceIndicator: ConfidenceIndicator;
   category: RecommendationCategory;
+  // Tasklet 21 Traceable Explainability
+  whyGenerated?: string;
+  supportingDecisions?: { id: string; title: string }[];
+  supportingProjects?: { id: string; title: string }[];
+  supportingActions?: { id: string; title: string }[];
+  supportingRisks?: { id: string; title: string; score: string }[];
+  evidenceChain?: string[];
 }
 
 export interface ForecastDataPoint {
