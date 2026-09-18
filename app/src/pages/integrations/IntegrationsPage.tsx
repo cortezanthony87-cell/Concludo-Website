@@ -342,7 +342,7 @@ export const IntegrationsPage: React.FC = () => {
                     <button
                       onClick={() => handleConnect(provider.id)}
                       disabled={actionLoading !== null}
-                      className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1.5"
+                      className="btn-connect-gold w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1.5"
                     >
                       <Plus className="w-4 h-4" /> Connect {provider.name}
                     </button>
