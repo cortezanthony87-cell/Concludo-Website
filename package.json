@@ -1,0 +1,39 @@
+{
+  "name": "concludo-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Concludo Workspace SaaS App & Output Intelligence Engine",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "bun tests/run.mjs",
+    "build:sample": "node tools/build-sample.mjs",
+    "render:pdf": "node tools/render-pdf.mjs",
+    "registry:verify": "node tools/registry-verify.mjs",
+    "lint:roadmap": "node tools/roadmap-conformance.mjs",
+    "test:attack": "PGHOST=127.0.0.1 PGPORT=5432 PGUSER=postgres bun tests/attack.mjs",
+    "sql:check": "bun tools/sql-check.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "lucide-react": "^1.44.0",
+    "mammoth": "^1.12.3",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "pg": "^8.23.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}
