@@ -1,0 +1,2494 @@
+{
+  "registry_version": "1.2",
+  "spec_reference": "Concludo_Output_Intelligence_System_Spec_v1.md",
+  "schema_target": "Concludo MeetingRecord 1.1",
+  "authority_note": "This registry is authoritative for taxonomy, bundles, preconditions, weights and gates. The specification document is authoritative for everything else. Where they disagree on a value contained here, this file is correct and the document is corrected.",
+  "language": "en-AU",
+  "constraints": {
+    "evidence_enum": [
+      "confirmed",
+      "proposed",
+      "inferred",
+      "unknown"
+    ],
+    "inferred_cannot_satisfy_precondition": true,
+    "no_invented_figures": true,
+    "no_benchmark_assertions": true,
+    "no_consulting_firm_attribution": true,
+    "recommendations_binding": false,
+    "routing_human_check_required_default": true,
+    "generated_text_forbidden_characters": [
+      "U+2014 em dash",
+      "U+2013 en dash as a sentence break"
+    ],
+    "spelling": "en-AU"
+  },
+  "brand": {
+    "navy_primary": "#16263F",
+    "navy_secondary": "#21395C",
+    "gold_primary": "#E2B53C",
+    "gold_dark": "#BC8A1C",
+    "light": "#F4F6FA",
+    "heading_font": "Poppins",
+    "body_font": "Inter",
+    "note": "Brand colours are document chrome. Data colours are the validated chart palette below."
+  },
+  "chart_palette": {
+    "validated": true,
+    "validator": "dataviz validate_palette.js, six checks, both modes",
+    "assignment": "fixed order, sequential, never cycled",
+    "light_surface": "#F4F6FA",
+    "dark_surface": "#16263F",
+    "categorical": [
+      {
+        "slot": 1,
+        "hue": "blue (brand navy family)",
+        "light": "#2A6CB8",
+        "dark": "#4A8ED6"
+      },
+      {
+        "slot": 2,
+        "hue": "orange",
+        "light": "#E0662C",
+        "dark": "#E0713C"
+      },
+      {
+        "slot": 3,
+        "hue": "teal",
+        "light": "#12A183",
+        "dark": "#1FAA8A"
+      },
+      {
+        "slot": 4,
+        "hue": "gold (brand token)",
+        "light": "#BC8A1C",
+        "dark": "#B0851A"
+      },
+      {
+        "slot": 5,
+        "hue": "magenta",
+        "light": "#DE7AA2",
+        "dark": "#CE6B92"
+      },
+      {
+        "slot": 6,
+        "hue": "green",
+        "light": "#2E7D32",
+        "dark": "#3E8F4B"
+      },
+      {
+        "slot": 7,
+        "hue": "violet",
+        "light": "#4E3FA8",
+        "dark": "#7A6CDD"
+      },
+      {
+        "slot": 8,
+        "hue": "red",
+        "light": "#D6443F",
+        "dark": "#DE5A56"
+      }
+    ],
+    "relief_required_light": [
+      "#BC8A1C",
+      "#DE7AA2"
+    ],
+    "relief_mechanism": "visible direct labels or the table view",
+    "all_pairs_series_cap": 3,
+    "status": [
+      {
+        "state": "good",
+        "light": "#1F7A4D",
+        "dark": "#3DA06E",
+        "icon": "filled_circle",
+        "label_required": true
+      },
+      {
+        "state": "warning",
+        "light": "#B8860B",
+        "dark": "#D2A22A",
+        "icon": "half_circle",
+        "label_required": true
+      },
+      {
+        "state": "serious",
+        "light": "#C2561E",
+        "dark": "#DC7440",
+        "icon": "open_triangle",
+        "label_required": true
+      },
+      {
+        "state": "critical",
+        "light": "#B3261E",
+        "dark": "#D8544C",
+        "icon": "filled_triangle",
+        "label_required": true
+      },
+      {
+        "state": "not_rated",
+        "light": "#5B6B7F",
+        "dark": "#8A9AAE",
+        "icon": "open_square",
+        "label_required": true
+      }
+    ],
+    "status_reserved": true,
+    "rag_colour_alone_forbidden": true,
+    "uncertainty_rendering": {
+      "confirmed": "solid fill, full opacity",
+      "proposed": "solid fill with 2px dashed outline",
+      "inferred": "45 degree hatched fill plus 'inferred' legend entry",
+      "unknown": "not_rated grey, placed in an explicit unrated band outside the plot area"
+    }
+  },
+  "taxonomy": {
+    "families": {
+      "A": "Strategy and direction",
+      "B": "Governance and oversight",
+      "C": "Operations and performance",
+      "D": "Commercial and client",
+      "E": "Build and change",
+      "F": "People and knowledge"
+    },
+    "types": [
+      {
+        "id": "MT-A01",
+        "name": "Executive Strategy Session",
+        "family": "A",
+        "default_objective": "decide",
+        "restricted": false
+      },
+      {
+        "id": "MT-A02",
+        "name": "Strategy Workshop",
+        "family": "A",
+        "default_objective": "explore",
+        "restricted": false
+      },
+      {
+        "id": "MT-A03",
+        "name": "Business Planning",
+        "family": "A",
+        "default_objective": "plan",
+        "restricted": false
+      },
+      {
+        "id": "MT-A04",
+        "name": "New Business or Startup Planning",
+        "family": "A",
+        "default_objective": "plan",
+        "restricted": false
+      },
+      {
+        "id": "MT-A05",
+        "name": "Market Entry or Expansion Review",
+        "family": "A",
+        "default_objective": "recommend",
+        "restricted": false
+      },
+      {
+        "id": "MT-A06",
+        "name": "Acquisition or Merger Discussion",
+        "family": "A",
+        "default_objective": "explore",
+        "restricted": false
+      },
+      {
+        "id": "MT-A07",
+        "name": "Investment or Capital Allocation Review",
+        "family": "A",
+        "default_objective": "decide",
+        "restricted": false
+      },
+      {
+        "id": "MT-A08",
+        "name": "Board Meeting",
+        "family": "A",
+        "default_objective": "decide",
+        "restricted": false
+      },
+      {
+        "id": "MT-A09",
+        "name": "Board Subcommittee",
+        "family": "A",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-B01",
+        "name": "Steering Committee",
+        "family": "B",
+        "default_objective": "decide",
+        "restricted": false
+      },
+      {
+        "id": "MT-B02",
+        "name": "Program Governance Review",
+        "family": "B",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-B03",
+        "name": "Project Status Review",
+        "family": "B",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-B04",
+        "name": "Risk Workshop",
+        "family": "B",
+        "default_objective": "diagnose",
+        "restricted": false
+      },
+      {
+        "id": "MT-B05",
+        "name": "Audit or Compliance Review",
+        "family": "B",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-B06",
+        "name": "Incident or Post Incident Review",
+        "family": "B",
+        "default_objective": "diagnose",
+        "restricted": false
+      },
+      {
+        "id": "MT-B07",
+        "name": "Post Implementation Review or Retrospective",
+        "family": "B",
+        "default_objective": "learn",
+        "restricted": false
+      },
+      {
+        "id": "MT-C01",
+        "name": "Operational Review",
+        "family": "C",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-C02",
+        "name": "Leadership Team Meeting",
+        "family": "C",
+        "default_objective": "align",
+        "restricted": false
+      },
+      {
+        "id": "MT-C03",
+        "name": "Performance or KPI Review",
+        "family": "C",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-C04",
+        "name": "Resourcing and Capacity Planning",
+        "family": "C",
+        "default_objective": "plan",
+        "restricted": false
+      },
+      {
+        "id": "MT-C05",
+        "name": "Vendor or Supplier Review",
+        "family": "C",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-C06",
+        "name": "Budget and Forecast Review",
+        "family": "C",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-D01",
+        "name": "Sales Discovery",
+        "family": "D",
+        "default_objective": "diagnose",
+        "restricted": false
+      },
+      {
+        "id": "MT-D02",
+        "name": "Sales Proposal or Negotiation",
+        "family": "D",
+        "default_objective": "negotiate",
+        "restricted": false
+      },
+      {
+        "id": "MT-D03",
+        "name": "Client Onboarding or Kickoff",
+        "family": "D",
+        "default_objective": "align",
+        "restricted": false
+      },
+      {
+        "id": "MT-D04",
+        "name": "Client Progress or Service Review",
+        "family": "D",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-D05",
+        "name": "Client Advisory or Consulting Session",
+        "family": "D",
+        "default_objective": "recommend",
+        "restricted": false
+      },
+      {
+        "id": "MT-D06",
+        "name": "Renewal or Retention",
+        "family": "D",
+        "default_objective": "negotiate",
+        "restricted": false
+      },
+      {
+        "id": "MT-D07",
+        "name": "Complaint or Escalation",
+        "family": "D",
+        "default_objective": "diagnose",
+        "restricted": false
+      },
+      {
+        "id": "MT-D08",
+        "name": "Real Estate Appraisal or Listing Presentation",
+        "family": "D",
+        "default_objective": "recommend",
+        "restricted": false
+      },
+      {
+        "id": "MT-D09",
+        "name": "Real Estate Vendor Update or Price Review",
+        "family": "D",
+        "default_objective": "recommend",
+        "restricted": false
+      },
+      {
+        "id": "MT-D10",
+        "name": "Real Estate Buyer Consultation",
+        "family": "D",
+        "default_objective": "diagnose",
+        "restricted": false
+      },
+      {
+        "id": "MT-D11",
+        "name": "Partnership or Alliance Discussion",
+        "family": "D",
+        "default_objective": "explore",
+        "restricted": false
+      },
+      {
+        "id": "MT-E01",
+        "name": "Product Development or Roadmap",
+        "family": "E",
+        "default_objective": "plan",
+        "restricted": false
+      },
+      {
+        "id": "MT-E02",
+        "name": "Design or Technical Review",
+        "family": "E",
+        "default_objective": "review",
+        "restricted": false
+      },
+      {
+        "id": "MT-E03",
+        "name": "Marketing Planning or Campaign Review",
+        "family": "E",
+        "default_objective": "plan",
+        "restricted": false
+      },
+      {
+        "id": "MT-E04",
+        "name": "Transformation or Change Program Design",
+        "family": "E",
+        "default_objective": "plan",
+        "restricted": false
+      },
+      {
+        "id": "MT-E05",
+        "name": "Process Improvement Workshop",
+        "family": "E",
+        "default_objective": "diagnose",
+        "restricted": false
+      },
+      {
+        "id": "MT-E06",
+        "name": "Requirements or Scoping Workshop",
+        "family": "E",
+        "default_objective": "explore",
+        "restricted": false
+      },
+      {
+        "id": "MT-F01",
+        "name": "Hiring or Interview Panel Debrief",
+        "family": "F",
+        "default_objective": "decide",
+        "restricted": true
+      },
+      {
+        "id": "MT-F02",
+        "name": "Team Planning or Sprint Planning",
+        "family": "F",
+        "default_objective": "plan",
+        "restricted": false
+      },
+      {
+        "id": "MT-F03",
+        "name": "Training or Coaching Session, group",
+        "family": "F",
+        "default_objective": "learn",
+        "restricted": false
+      },
+      {
+        "id": "MT-F04",
+        "name": "One to One or Individual Coaching",
+        "family": "F",
+        "default_objective": "learn",
+        "restricted": true
+      },
+      {
+        "id": "MT-F05",
+        "name": "Performance Conversation",
+        "family": "F",
+        "default_objective": "learn",
+        "restricted": true
+      },
+      {
+        "id": "MT-F06",
+        "name": "Interview or Research Session",
+        "family": "F",
+        "default_objective": "explore",
+        "restricted": false
+      },
+      {
+        "id": "MT-F07",
+        "name": "Community, Association or Committee Meeting",
+        "family": "F",
+        "default_objective": "decide",
+        "restricted": false
+      },
+      {
+        "id": "MT-F08",
+        "name": "General or Unclassified",
+        "family": "F",
+        "default_objective": "inform",
+        "restricted": false
+      }
+    ],
+    "objectives": [
+      "decide",
+      "recommend",
+      "explore",
+      "align",
+      "review",
+      "inform",
+      "negotiate",
+      "diagnose",
+      "plan",
+      "learn"
+    ],
+    "confidence_bands": [
+      {
+        "band": "high",
+        "min": 0.8,
+        "behaviour": "full typed bundle, quiet type label"
+      },
+      {
+        "band": "medium",
+        "min": 0.55,
+        "behaviour": "typed bundle, prominent label with basis and change control"
+      },
+      {
+        "band": "low",
+        "min": 0.35,
+        "behaviour": "spine only, confirm type with user, offer top three"
+      },
+      {
+        "band": "unclassified",
+        "min": 0,
+        "behaviour": "MT-F08, spine only, ask the user"
+      }
+    ],
+    "hybrid_rule": {
+      "max_types": 2,
+      "second_within": 0.15,
+      "second_min_confidence": 0.45,
+      "three_plus_candidates": "report as a meeting with no clear purpose"
+    }
+  },
+  "outputs": {
+    "spine": [
+      {
+        "id": "OUT-01",
+        "name": "Executive Summary",
+        "precondition": "always",
+        "template": "T1"
+      },
+      {
+        "id": "OUT-02",
+        "name": "Decision log entries",
+        "precondition": "decisions present; never inferred"
+      },
+      {
+        "id": "OUT-03",
+        "name": "Action register",
+        "precondition": "actions present; five field Delegation Standard",
+        "template": "T7"
+      },
+      {
+        "id": "OUT-04",
+        "name": "Open questions",
+        "precondition": "always attempted"
+      },
+      {
+        "id": "OUT-05",
+        "name": "Risk and blocker entries",
+        "precondition": "risks present; mandatory above risk_index 50",
+        "template": "T10"
+      },
+      {
+        "id": "OUT-06",
+        "name": "Follow up email draft",
+        "precondition": "always; six sections"
+      },
+      {
+        "id": "OUT-07",
+        "name": "Action plan now next later",
+        "precondition": "actions present",
+        "template": "T7"
+      },
+      {
+        "id": "OUT-08",
+        "name": "Next best action",
+        "precondition": "supportable from a single action"
+      },
+      {
+        "id": "OUT-09",
+        "name": "Meeting Performance Report",
+        "precondition": "health score scoreable_weight >= 70"
+      },
+      {
+        "id": "OUT-10",
+        "name": "Evidence and inference appendix",
+        "precondition": "always"
+      }
+    ],
+    "catalogue": [
+      {
+        "id": "OUT-11",
+        "name": "Strategic decision pack",
+        "precondition": "1+ decision with materiality significant or above",
+        "template": "T15"
+      },
+      {
+        "id": "OUT-12",
+        "name": "Strategic risk assessment",
+        "precondition": "3+ risks or risk_index >= 50",
+        "template": "T10"
+      },
+      {
+        "id": "OUT-13",
+        "name": "Strategic opportunity assessment",
+        "precondition": "2+ stated opportunities with rationale",
+        "template": "T11"
+      },
+      {
+        "id": "OUT-14",
+        "name": "Recommended priorities ranked",
+        "precondition": "4+ candidates with a stated comparison basis"
+      },
+      {
+        "id": "OUT-15",
+        "name": "Executive dashboard",
+        "precondition": "6+ quantified indicators"
+      },
+      {
+        "id": "OUT-16",
+        "name": "Strategy paper",
+        "precondition": "strategic_importance >= 60 and a stated position",
+        "template": "T6"
+      },
+      {
+        "id": "OUT-17",
+        "name": "Options and trade off analysis",
+        "precondition": "2+ options with 1+ stated comparison dimension"
+      },
+      {
+        "id": "OUT-18",
+        "name": "Assumption register",
+        "precondition": "3+ statements classified as assumptions"
+      },
+      {
+        "id": "OUT-19",
+        "name": "Scenario outline",
+        "precondition": "2+ futures with distinguishing conditions"
+      },
+      {
+        "id": "OUT-20",
+        "name": "Business Model Canvas",
+        "precondition": "4 of 9 blocks evidenced"
+      },
+      {
+        "id": "OUT-21",
+        "name": "Market opportunity review",
+        "precondition": "market named plus 1+ sizing or demand statement"
+      },
+      {
+        "id": "OUT-22",
+        "name": "SWOT analysis",
+        "precondition": "2 of 4 quadrants populated"
+      },
+      {
+        "id": "OUT-23",
+        "name": "Business plan draft",
+        "precondition": "6 of 12 sections evidenced",
+        "template": "T4"
+      },
+      {
+        "id": "OUT-24",
+        "name": "Revenue and cost assumption sheet",
+        "precondition": "3+ stated figures with stated basis"
+      },
+      {
+        "id": "OUT-25",
+        "name": "Assumption sensitivity view",
+        "precondition": "OUT-24 present plus 1+ driver with a stated range"
+      },
+      {
+        "id": "OUT-26",
+        "name": "Go to market outline",
+        "precondition": "channel or audience plus 1+ motion described"
+      },
+      {
+        "id": "OUT-27",
+        "name": "Business case",
+        "precondition": "problem, options, cost or effort, benefit all evidenced",
+        "template": "T3"
+      },
+      {
+        "id": "OUT-28",
+        "name": "Validation gate plan",
+        "precondition": "unvalidated assumptions and maturity pre_revenue or early_stage"
+      },
+      {
+        "id": "OUT-29",
+        "name": "Status assessment with RAG",
+        "precondition": "status for 2+ workstreams or milestones"
+      },
+      {
+        "id": "OUT-30",
+        "name": "Dependency map",
+        "precondition": "3+ dependencies with both ends named"
+      },
+      {
+        "id": "OUT-31",
+        "name": "Escalation pack",
+        "precondition": "1+ item requiring a decision above the room"
+      },
+      {
+        "id": "OUT-32",
+        "name": "Milestone or roadmap view",
+        "precondition": "4+ dated items",
+        "template": "T8"
+      },
+      {
+        "id": "OUT-33",
+        "name": "Program report",
+        "precondition": "multiple workstreams plus status plus risks",
+        "template": "T12"
+      },
+      {
+        "id": "OUT-34",
+        "name": "Change request summary",
+        "precondition": "stated scope, schedule or cost change with a reason"
+      },
+      {
+        "id": "OUT-35",
+        "name": "Benefits tracking view",
+        "precondition": "named benefits with a measure"
+      },
+      {
+        "id": "OUT-36",
+        "name": "Resource and capacity view",
+        "precondition": "named resources with allocation or constraint"
+      },
+      {
+        "id": "OUT-37",
+        "name": "Client ready meeting record",
+        "precondition": "external or client participant present",
+        "template": "T2"
+      },
+      {
+        "id": "OUT-38",
+        "name": "Requirements and needs summary",
+        "precondition": "3+ stated needs, problems or requirements"
+      },
+      {
+        "id": "OUT-39",
+        "name": "Objection and concern register",
+        "precondition": "1+ stated objection, concern or hesitation"
+      },
+      {
+        "id": "OUT-40",
+        "name": "Proposal input brief",
+        "precondition": "needs plus scope signals plus 1+ commercial parameter"
+      },
+      {
+        "id": "OUT-41",
+        "name": "CRM update payload",
+        "precondition": "account identifiable and CRM destination configured"
+      },
+      {
+        "id": "OUT-42",
+        "name": "Recommendation log entry",
+        "precondition": "adviser and client asymmetry and a recommendation given"
+      },
+      {
+        "id": "OUT-43",
+        "name": "Commercial terms summary",
+        "precondition": "2+ stated terms"
+      },
+      {
+        "id": "OUT-44",
+        "name": "Account health snapshot",
+        "precondition": "prior records exist for the same account; tier T3"
+      },
+      {
+        "id": "OUT-45",
+        "name": "Operating model view",
+        "precondition": "3 of 5 views evidenced",
+        "template": "T5"
+      },
+      {
+        "id": "OUT-46",
+        "name": "Capability and maturity assessment",
+        "precondition": "4+ capabilities with a stated current state"
+      },
+      {
+        "id": "OUT-47",
+        "name": "Transformation plan",
+        "precondition": "current state, target state and 1+ phase",
+        "template": "T9"
+      },
+      {
+        "id": "OUT-48",
+        "name": "Process and handoff map",
+        "precondition": "4+ sequential steps with actors"
+      },
+      {
+        "id": "OUT-49",
+        "name": "Incident timeline and cause analysis",
+        "precondition": "time ordered events plus 1+ stated cause"
+      },
+      {
+        "id": "OUT-50",
+        "name": "Control and compliance summary",
+        "precondition": "named obligations or controls with a status each"
+      },
+      {
+        "id": "OUT-51",
+        "name": "Leadership brief",
+        "precondition": "strategic_importance >= 40",
+        "template": "T13"
+      },
+      {
+        "id": "OUT-52",
+        "name": "Board briefing paper",
+        "precondition": "board type or strategic_importance >= 75",
+        "template": "T14"
+      },
+      {
+        "id": "OUT-53",
+        "name": "Decision pack board grade",
+        "precondition": "material decision plus options plus rationale plus dissent",
+        "template": "T15"
+      },
+      {
+        "id": "OUT-54",
+        "name": "Recommendation paper",
+        "precondition": "recommendation with rationale and an alternative",
+        "template": "T16"
+      },
+      {
+        "id": "OUT-55",
+        "name": "Stakeholder communication draft",
+        "precondition": "a decision or change with an audience beyond the room"
+      },
+      {
+        "id": "OUT-56",
+        "name": "Candidate evaluation summary",
+        "precondition": "evaluation against criteria; restricted distribution"
+      },
+      {
+        "id": "OUT-57",
+        "name": "Coaching session record",
+        "precondition": "restricted path only; private to uploader"
+      },
+      {
+        "id": "OUT-58",
+        "name": "Training session summary",
+        "precondition": "learning objectives or content structure present"
+      }
+    ]
+  },
+  "bundles": [
+    {
+      "scenario": "S01",
+      "type": "MT-A01",
+      "objective": "decide",
+      "mandatory": [
+        "OUT-11",
+        "OUT-12",
+        "OUT-13",
+        "OUT-14",
+        "OUT-15",
+        "OUT-51"
+      ],
+      "conditional": [
+        "OUT-17",
+        "OUT-18",
+        "OUT-16",
+        "OUT-19"
+      ],
+      "visuals": [
+        "VIS-02",
+        "VIS-03",
+        "VIS-13",
+        "VIS-19"
+      ],
+      "primary_reader": "executive directing others",
+      "notes": "suppress dashboard below 6 quantified indicators"
+    },
+    {
+      "scenario": "S02",
+      "type": "MT-A02",
+      "objective": "explore",
+      "mandatory": [
+        "OUT-17",
+        "OUT-18",
+        "OUT-13",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-19",
+        "OUT-22",
+        "OUT-14"
+      ],
+      "visuals": [
+        "VIS-19",
+        "VIS-07",
+        "VIS-02",
+        "VIS-28"
+      ],
+      "primary_reader": "facilitator and sponsor",
+      "notes": "decision closure not penalised"
+    },
+    {
+      "scenario": "S03",
+      "type": "MT-A03",
+      "objective": "plan",
+      "mandatory": [
+        "OUT-23",
+        "OUT-24",
+        "OUT-14",
+        "OUT-32"
+      ],
+      "conditional": [
+        "OUT-27",
+        "OUT-36",
+        "OUT-25",
+        "OUT-35"
+      ],
+      "visuals": [
+        "VIS-06",
+        "VIS-13",
+        "VIS-15",
+        "VIS-20"
+      ],
+      "primary_reader": "owner or leadership group",
+      "notes": "no plan section written from inference"
+    },
+    {
+      "scenario": "S04",
+      "type": "MT-A04",
+      "objective": "plan",
+      "mandatory": [
+        "OUT-20",
+        "OUT-21",
+        "OUT-22",
+        "OUT-23",
+        "OUT-07",
+        "OUT-05",
+        "OUT-24",
+        "OUT-28"
+      ],
+      "conditional": [
+        "OUT-26",
+        "OUT-17"
+      ],
+      "visuals": [
+        "VIS-08",
+        "VIS-07",
+        "VIS-03",
+        "VIS-04",
+        "VIS-20"
+      ],
+      "primary_reader": "founder",
+      "notes": "highest invention risk; unfilled canvas blocks render as not discussed"
+    },
+    {
+      "scenario": "S05",
+      "type": "MT-A05",
+      "objective": "recommend",
+      "mandatory": [
+        "OUT-21",
+        "OUT-17",
+        "OUT-12",
+        "OUT-54"
+      ],
+      "conditional": [
+        "OUT-24",
+        "OUT-25",
+        "OUT-19",
+        "OUT-28"
+      ],
+      "visuals": [
+        "VIS-19",
+        "VIS-03",
+        "VIS-27",
+        "VIS-16"
+      ],
+      "primary_reader": "resource committer",
+      "notes": "market sizing only as stated in the room"
+    },
+    {
+      "scenario": "S06",
+      "type": "MT-A06",
+      "objective": "explore",
+      "mandatory": [
+        "OUT-11",
+        "OUT-12",
+        "OUT-17",
+        "OUT-18",
+        "OUT-43",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-53",
+        "OUT-30"
+      ],
+      "visuals": [
+        "VIS-19",
+        "VIS-03",
+        "VIS-04"
+      ],
+      "primary_reader": "principals and advisers",
+      "notes": "default variant restricted; requires_qualified_review on deal content"
+    },
+    {
+      "scenario": "S07",
+      "type": "MT-A07",
+      "objective": "decide",
+      "mandatory": [
+        "OUT-11",
+        "OUT-17",
+        "OUT-14",
+        "OUT-27",
+        "OUT-24"
+      ],
+      "conditional": [
+        "OUT-25",
+        "OUT-35",
+        "OUT-53"
+      ],
+      "visuals": [
+        "VIS-02",
+        "VIS-19",
+        "VIS-15",
+        "VIS-13"
+      ],
+      "primary_reader": "approver",
+      "notes": "no return calculation unless every input stated"
+    },
+    {
+      "scenario": "S08",
+      "type": "MT-A08",
+      "objective": "decide",
+      "mandatory": [
+        "OUT-52",
+        "OUT-53",
+        "OUT-02",
+        "OUT-12",
+        "OUT-31",
+        "OUT-29"
+      ],
+      "conditional": [
+        "OUT-50",
+        "OUT-15",
+        "OUT-55"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-03",
+        "VIS-13",
+        "VIS-23"
+      ],
+      "primary_reader": "directors",
+      "notes": "labelled a working record, never minutes"
+    },
+    {
+      "scenario": "S09",
+      "type": "MT-A09",
+      "objective": "review",
+      "mandatory": [
+        "OUT-52",
+        "OUT-12",
+        "OUT-31",
+        "OUT-50"
+      ],
+      "conditional": [
+        "OUT-54",
+        "OUT-29"
+      ],
+      "visuals": [
+        "VIS-03",
+        "VIS-01",
+        "VIS-24"
+      ],
+      "primary_reader": "committee chair then board",
+      "notes": "remuneration content routes to restricted path"
+    },
+    {
+      "scenario": "S10",
+      "type": "MT-B01",
+      "objective": "decide",
+      "mandatory": [
+        "OUT-29",
+        "OUT-05",
+        "OUT-30",
+        "OUT-02",
+        "OUT-31",
+        "OUT-07"
+      ],
+      "conditional": [
+        "OUT-34",
+        "OUT-32",
+        "OUT-35"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-03",
+        "VIS-14",
+        "VIS-04"
+      ],
+      "primary_reader": "sponsor",
+      "notes": "canonical governance bundle"
+    },
+    {
+      "scenario": "S11",
+      "type": "MT-B02",
+      "objective": "review",
+      "mandatory": [
+        "OUT-33",
+        "OUT-29",
+        "OUT-30",
+        "OUT-05",
+        "OUT-31",
+        "OUT-07"
+      ],
+      "conditional": [
+        "OUT-35",
+        "OUT-36",
+        "OUT-32",
+        "OUT-34"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-05",
+        "VIS-14",
+        "VIS-03",
+        "VIS-13"
+      ],
+      "primary_reader": "program director and sponsor",
+      "notes": "suppressed below mid_market without program vocabulary"
+    },
+    {
+      "scenario": "S12",
+      "type": "MT-B03",
+      "objective": "review",
+      "mandatory": [
+        "OUT-29",
+        "OUT-05",
+        "OUT-07",
+        "OUT-32"
+      ],
+      "conditional": [
+        "OUT-30",
+        "OUT-31",
+        "OUT-34"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-04",
+        "VIS-21"
+      ],
+      "primary_reader": "project manager",
+      "notes": "ninety second read; do not promote to OUT-33"
+    },
+    {
+      "scenario": "S13",
+      "type": "MT-B04",
+      "objective": "diagnose",
+      "mandatory": [
+        "OUT-05",
+        "OUT-12",
+        "OUT-30",
+        "OUT-07"
+      ],
+      "conditional": [
+        "OUT-31",
+        "OUT-50",
+        "OUT-49"
+      ],
+      "visuals": [
+        "VIS-03",
+        "VIS-14",
+        "VIS-01"
+      ],
+      "primary_reader": "risk owner",
+      "notes": "unrated risks plot in an explicit unrated column"
+    },
+    {
+      "scenario": "S14",
+      "type": "MT-B05",
+      "objective": "review",
+      "mandatory": [
+        "OUT-50",
+        "OUT-05",
+        "OUT-07",
+        "OUT-02"
+      ],
+      "conditional": [
+        "OUT-31",
+        "OUT-49",
+        "OUT-54"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-24",
+        "VIS-03"
+      ],
+      "primary_reader": "compliance owner",
+      "notes": "Concludo records findings, never assesses compliance"
+    },
+    {
+      "scenario": "S15",
+      "type": "MT-B06",
+      "objective": "diagnose",
+      "mandatory": [
+        "OUT-49",
+        "OUT-07",
+        "OUT-05",
+        "OUT-02"
+      ],
+      "conditional": [
+        "OUT-50",
+        "OUT-55",
+        "OUT-31"
+      ],
+      "visuals": [
+        "VIS-26",
+        "VIS-25",
+        "VIS-03"
+      ],
+      "primary_reader": "incident owner",
+      "notes": "no blame assignment; individual fault statements flagged for review"
+    },
+    {
+      "scenario": "S16",
+      "type": "MT-B07",
+      "objective": "learn",
+      "mandatory": [
+        "OUT-07",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-35",
+        "OUT-48",
+        "OUT-46"
+      ],
+      "visuals": [
+        "VIS-02",
+        "VIS-16"
+      ],
+      "primary_reader": "the team",
+      "notes": "closure not penalised; participation quality weighted in reading"
+    },
+    {
+      "scenario": "S17",
+      "type": "MT-C01",
+      "objective": "review",
+      "mandatory": [
+        "OUT-29",
+        "OUT-07",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-05",
+        "OUT-48",
+        "OUT-03"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-21",
+        "VIS-16"
+      ],
+      "primary_reader": "operations lead",
+      "notes": "recurrence detection is the key insight here"
+    },
+    {
+      "scenario": "S18",
+      "type": "MT-C02",
+      "objective": "align",
+      "mandatory": [
+        "OUT-51",
+        "OUT-02",
+        "OUT-07",
+        "OUT-14"
+      ],
+      "conditional": [
+        "OUT-15",
+        "OUT-12",
+        "OUT-55"
+      ],
+      "visuals": [
+        "VIS-13",
+        "VIS-02",
+        "VIS-01"
+      ],
+      "primary_reader": "leadership group",
+      "notes": "segment by agenda item, mark decided, informed, parked"
+    },
+    {
+      "scenario": "S19",
+      "type": "MT-C03",
+      "objective": "review",
+      "mandatory": [
+        "OUT-15",
+        "OUT-07",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-05",
+        "OUT-14",
+        "OUT-35"
+      ],
+      "visuals": [
+        "VIS-13",
+        "VIS-16",
+        "VIS-18",
+        "VIS-01"
+      ],
+      "primary_reader": "accountable manager",
+      "notes": "figures as stated only; contradictions surfaced not resolved"
+    },
+    {
+      "scenario": "S20",
+      "type": "MT-C04",
+      "objective": "plan",
+      "mandatory": [
+        "OUT-36",
+        "OUT-07",
+        "OUT-02",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-30",
+        "OUT-05",
+        "OUT-32"
+      ],
+      "visuals": [
+        "VIS-05",
+        "VIS-18",
+        "VIS-14"
+      ],
+      "primary_reader": "resourcing decision maker",
+      "notes": "individual performance segments route to restricted path"
+    },
+    {
+      "scenario": "S21",
+      "type": "MT-C05",
+      "objective": "review",
+      "mandatory": [
+        "OUT-29",
+        "OUT-43",
+        "OUT-07",
+        "OUT-39"
+      ],
+      "conditional": [
+        "OUT-05",
+        "OUT-31",
+        "OUT-50",
+        "OUT-34"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-13",
+        "VIS-16"
+      ],
+      "primary_reader": "contract owner",
+      "notes": "terms recorded, never interpreted"
+    },
+    {
+      "scenario": "S22",
+      "type": "MT-C06",
+      "objective": "review",
+      "mandatory": [
+        "OUT-24",
+        "OUT-02",
+        "OUT-07",
+        "OUT-15"
+      ],
+      "conditional": [
+        "OUT-25",
+        "OUT-05",
+        "OUT-27"
+      ],
+      "visuals": [
+        "VIS-15",
+        "VIS-16",
+        "VIS-13",
+        "VIS-20"
+      ],
+      "primary_reader": "budget owner and finance",
+      "notes": "no arithmetic the room did not perform"
+    },
+    {
+      "scenario": "S23",
+      "type": "MT-D01",
+      "objective": "diagnose",
+      "mandatory": [
+        "OUT-38",
+        "OUT-39",
+        "OUT-41",
+        "OUT-37",
+        "OUT-08"
+      ],
+      "conditional": [
+        "OUT-40",
+        "OUT-43",
+        "OUT-04"
+      ],
+      "visuals": [
+        "VIS-17"
+      ],
+      "primary_reader": "seller then proposal writer",
+      "notes": "buyer intent never inferred; list what was not established"
+    },
+    {
+      "scenario": "S24",
+      "type": "MT-D02",
+      "objective": "negotiate",
+      "mandatory": [
+        "OUT-43",
+        "OUT-39",
+        "OUT-02",
+        "OUT-37",
+        "OUT-41",
+        "OUT-07"
+      ],
+      "conditional": [
+        "OUT-40",
+        "OUT-17",
+        "OUT-05"
+      ],
+      "visuals": [
+        "VIS-19"
+      ],
+      "primary_reader": "seller and approver",
+      "notes": "each term tagged proposed, countered, accepted or open"
+    },
+    {
+      "scenario": "S25",
+      "type": "MT-D03",
+      "objective": "align",
+      "mandatory": [
+        "OUT-37",
+        "OUT-03",
+        "OUT-32",
+        "OUT-02",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-30",
+        "OUT-05",
+        "OUT-43",
+        "OUT-55"
+      ],
+      "visuals": [
+        "VIS-04",
+        "VIS-11",
+        "VIS-01"
+      ],
+      "primary_reader": "both delivery teams",
+      "notes": "accountability chart from named roles only"
+    },
+    {
+      "scenario": "S26",
+      "type": "MT-D04",
+      "objective": "review",
+      "mandatory": [
+        "OUT-37",
+        "OUT-29",
+        "OUT-07",
+        "OUT-02",
+        "OUT-39"
+      ],
+      "conditional": [
+        "OUT-44",
+        "OUT-05",
+        "OUT-35",
+        "OUT-42"
+      ],
+      "visuals": [
+        "VIS-01",
+        "VIS-13",
+        "VIS-21"
+      ],
+      "primary_reader": "client and account owner",
+      "notes": "client_safe mandatory and not overridable; two records never merged"
+    },
+    {
+      "scenario": "S27",
+      "type": "MT-D05",
+      "objective": "recommend",
+      "mandatory": [
+        "OUT-42",
+        "OUT-37",
+        "OUT-54",
+        "OUT-07",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-17",
+        "OUT-12",
+        "OUT-46",
+        "OUT-27"
+      ],
+      "visuals": [
+        "VIS-19",
+        "VIS-02",
+        "VIS-10"
+      ],
+      "primary_reader": "client decision maker",
+      "notes": "recommendation, acceptance and reason recorded separately"
+    },
+    {
+      "scenario": "S28",
+      "type": "MT-D06",
+      "objective": "negotiate",
+      "mandatory": [
+        "OUT-43",
+        "OUT-39",
+        "OUT-44",
+        "OUT-41",
+        "OUT-37"
+      ],
+      "conditional": [
+        "OUT-17",
+        "OUT-02",
+        "OUT-07"
+      ],
+      "visuals": [
+        "VIS-16",
+        "VIS-01"
+      ],
+      "primary_reader": "account owner",
+      "notes": "renewal likelihood never scored or predicted"
+    },
+    {
+      "scenario": "S29",
+      "type": "MT-D07",
+      "objective": "diagnose",
+      "mandatory": [
+        "OUT-39",
+        "OUT-49",
+        "OUT-07",
+        "OUT-02",
+        "OUT-37"
+      ],
+      "conditional": [
+        "OUT-31",
+        "OUT-05",
+        "OUT-55",
+        "OUT-34"
+      ],
+      "visuals": [
+        "VIS-26"
+      ],
+      "primary_reader": "account owner and their manager",
+      "notes": "neutral register; no fault assessment; assume hostile future reader"
+    },
+    {
+      "scenario": "S30",
+      "type": "MT-D08",
+      "objective": "recommend",
+      "mandatory": [
+        "OUT-42",
+        "OUT-37",
+        "OUT-02",
+        "OUT-03",
+        "OUT-43"
+      ],
+      "conditional": [
+        "OUT-39",
+        "OUT-26",
+        "OUT-32"
+      ],
+      "visuals": [
+        "VIS-04"
+      ],
+      "primary_reader": "vendor and agency file",
+      "notes": "no valuation or price opinion of its own; comparables as a table only"
+    },
+    {
+      "scenario": "S31",
+      "type": "MT-D09",
+      "objective": "recommend",
+      "mandatory": [
+        "OUT-42",
+        "OUT-37",
+        "OUT-02",
+        "OUT-07"
+      ],
+      "conditional": [
+        "OUT-39",
+        "OUT-15"
+      ],
+      "visuals": [
+        "VIS-16"
+      ],
+      "primary_reader": "vendor",
+      "notes": "recommendation and vendor response recorded separately"
+    },
+    {
+      "scenario": "S32",
+      "type": "MT-E01",
+      "objective": "plan",
+      "mandatory": [
+        "OUT-32",
+        "OUT-14",
+        "OUT-02",
+        "OUT-07",
+        "OUT-04"
+      ],
+      "conditional": [
+        "OUT-38",
+        "OUT-30",
+        "OUT-05",
+        "OUT-27"
+      ],
+      "visuals": [
+        "VIS-06",
+        "VIS-02",
+        "VIS-14"
+      ],
+      "primary_reader": "product owner",
+      "notes": "horizons only where assigned in the room"
+    },
+    {
+      "scenario": "S33",
+      "type": "MT-E03",
+      "objective": "plan",
+      "mandatory": [
+        "OUT-07",
+        "OUT-02",
+        "OUT-32",
+        "OUT-15"
+      ],
+      "conditional": [
+        "OUT-26",
+        "OUT-24",
+        "OUT-14",
+        "OUT-21"
+      ],
+      "visuals": [
+        "VIS-04",
+        "VIS-13",
+        "VIS-17",
+        "VIS-16"
+      ],
+      "primary_reader": "marketing owner",
+      "notes": "no attribution modelling or implied causation"
+    },
+    {
+      "scenario": "S34",
+      "type": "MT-E04",
+      "objective": "plan",
+      "mandatory": [
+        "OUT-47",
+        "OUT-45",
+        "OUT-46",
+        "OUT-32",
+        "OUT-05",
+        "OUT-14"
+      ],
+      "conditional": [
+        "OUT-30",
+        "OUT-35",
+        "OUT-27",
+        "OUT-55",
+        "OUT-36"
+      ],
+      "visuals": [
+        "VIS-09",
+        "VIS-10",
+        "VIS-06",
+        "VIS-14",
+        "VIS-27"
+      ],
+      "primary_reader": "transformation sponsor",
+      "notes": "full bundle gated to mid_market and above"
+    }
+  ],
+  "mapped_variants": [
+    {
+      "type": "MT-D10",
+      "base": "S23",
+      "changes": "OUT-38 as a buyer brief; no OUT-42; restricted handling of stated finance position"
+    },
+    {
+      "type": "MT-D11",
+      "base": "S06",
+      "changes": "OUT-17, OUT-43, OUT-13; no presumption of confidentiality"
+    },
+    {
+      "type": "MT-E02",
+      "base": "S16",
+      "changes": "OUT-04 promoted; acceptance decisions into OUT-02"
+    },
+    {
+      "type": "MT-E05",
+      "base": "S16",
+      "changes": "add OUT-48; VIS-25 is the lead visual"
+    },
+    {
+      "type": "MT-E06",
+      "base": "S23",
+      "changes": "OUT-38 expanded with in scope and out of scope; OUT-04 promoted"
+    },
+    {
+      "type": "MT-F01",
+      "base": "restricted",
+      "changes": "OUT-56 only; no distribution outputs; no individual scoring"
+    },
+    {
+      "type": "MT-F02",
+      "base": "S12",
+      "changes": "OUT-03, OUT-07, OUT-36 only; ninety second read"
+    },
+    {
+      "type": "MT-F03",
+      "base": "spine",
+      "changes": "add OUT-58; no participation scoring of learners"
+    },
+    {
+      "type": "MT-F06",
+      "base": "spine",
+      "changes": "add OUT-38; decisions not expected; closure never penalised"
+    },
+    {
+      "type": "MT-F07",
+      "base": "S08",
+      "changes": "OUT-02 with motions and movers, OUT-03, OUT-29; not minutes"
+    },
+    {
+      "type": "MT-F08",
+      "base": "spine",
+      "changes": "spine only; prompt the user for the type"
+    }
+  ],
+  "visuals": {
+    "four_tests": [
+      "job",
+      "sufficiency",
+      "integrity",
+      "reader"
+    ],
+    "fallback_mandatory": true,
+    "catalogue": [
+      {
+        "id": "VIS-01",
+        "name": "RAG status set",
+        "precondition": "2+ items with a stated or derivable status",
+        "fallback": "status table"
+      },
+      {
+        "id": "VIS-02",
+        "name": "Priority matrix 2x2",
+        "precondition": "4+ items with two stated comparison dimensions",
+        "fallback": "ranked list with stated basis"
+      },
+      {
+        "id": "VIS-03",
+        "name": "Risk heat map",
+        "precondition": "3+ risks with stated likelihood and consequence",
+        "fallback": "risk table with unrated column"
+      },
+      {
+        "id": "VIS-04",
+        "name": "Timeline milestone bar",
+        "precondition": "4+ dated items spanning 3+ weeks",
+        "fallback": "chronological table"
+      },
+      {
+        "id": "VIS-05",
+        "name": "Gantt view",
+        "precondition": "4+ items with start and end and 2+ dependencies",
+        "fallback": "VIS-04"
+      },
+      {
+        "id": "VIS-06",
+        "name": "Roadmap swimlane",
+        "precondition": "6+ items across 2+ horizons and 2+ streams",
+        "fallback": "horizon grouped list"
+      },
+      {
+        "id": "VIS-07",
+        "name": "SWOT quadrant",
+        "precondition": "2+ quadrants populated",
+        "fallback": "two column table with empty quadrants named"
+      },
+      {
+        "id": "VIS-08",
+        "name": "Business Model Canvas grid",
+        "precondition": "4+ of 9 blocks populated",
+        "fallback": "block list with gaps named"
+      },
+      {
+        "id": "VIS-09",
+        "name": "Capability map",
+        "precondition": "6+ capabilities in 2+ groupings",
+        "fallback": "grouped list"
+      },
+      {
+        "id": "VIS-10",
+        "name": "Maturity assessment",
+        "precondition": "4+ capabilities with a stated current level",
+        "fallback": "level table"
+      },
+      {
+        "id": "VIS-11",
+        "name": "Accountability or org chart",
+        "precondition": "3+ named roles with 2+ stated relationships",
+        "fallback": "role table"
+      },
+      {
+        "id": "VIS-12",
+        "name": "Decision tree",
+        "precondition": "a stated branching decision with 2+ branches and conditions",
+        "fallback": "conditional list"
+      },
+      {
+        "id": "VIS-13",
+        "name": "KPI tile row",
+        "precondition": "3+ quantified indicators stated in the record",
+        "fallback": "metric table"
+      },
+      {
+        "id": "VIS-14",
+        "name": "Dependency network",
+        "precondition": "3+ dependencies with both ends named",
+        "fallback": "dependency table"
+      },
+      {
+        "id": "VIS-15",
+        "name": "Waterfall bridge",
+        "precondition": "stated start, 2+ stated movements, stated end",
+        "fallback": "movement table"
+      },
+      {
+        "id": "VIS-16",
+        "name": "Trend line",
+        "precondition": "same measure stated for 3+ periods",
+        "fallback": "period table"
+      },
+      {
+        "id": "VIS-17",
+        "name": "Funnel or pipeline",
+        "precondition": "3+ ordered stages with stated volumes",
+        "fallback": "stage table"
+      },
+      {
+        "id": "VIS-18",
+        "name": "Stacked composition",
+        "precondition": "a stated total decomposed into 3+ stated parts",
+        "fallback": "composition table"
+      },
+      {
+        "id": "VIS-19",
+        "name": "Options trade off matrix",
+        "precondition": "2+ options across 2+ stated criteria",
+        "fallback": "options table"
+      },
+      {
+        "id": "VIS-20",
+        "name": "Sensitivity tornado",
+        "precondition": "3+ drivers with stated ranges",
+        "fallback": "assumption table with ranges"
+      },
+      {
+        "id": "VIS-21",
+        "name": "Action ageing",
+        "precondition": "5+ actions with due dates across 2+ buckets",
+        "fallback": "action table sorted by date"
+      },
+      {
+        "id": "VIS-22",
+        "name": "Meeting health radar",
+        "precondition": "all 10 health dimensions scoreable",
+        "fallback": "VIS-24"
+      },
+      {
+        "id": "VIS-23",
+        "name": "Decision closure gauge",
+        "precondition": "decision closure percentage computable",
+        "fallback": "stated fraction"
+      },
+      {
+        "id": "VIS-24",
+        "name": "Coverage bars",
+        "precondition": "ownership, date and definition of done coverage computable",
+        "fallback": "three stated percentages"
+      },
+      {
+        "id": "VIS-25",
+        "name": "Process and handoff flow",
+        "precondition": "4+ sequential steps with named actors",
+        "fallback": "numbered step table"
+      },
+      {
+        "id": "VIS-26",
+        "name": "Incident timeline",
+        "precondition": "4+ time ordered events",
+        "fallback": "chronological table"
+      },
+      {
+        "id": "VIS-27",
+        "name": "Stakeholder grid",
+        "precondition": "4+ stakeholders with stated influence and interest",
+        "fallback": "stakeholder table"
+      },
+      {
+        "id": "VIS-28",
+        "name": "Scenario comparison panel",
+        "precondition": "2+ scenarios with 3+ shared dimensions",
+        "fallback": "comparison table"
+      }
+    ],
+    "no_visual_outputs": [
+      "OUT-02",
+      "OUT-06",
+      "OUT-37",
+      "OUT-38",
+      "OUT-39",
+      "OUT-42",
+      "OUT-54",
+      "OUT-10"
+    ],
+    "rules": {
+      "single_axis": true,
+      "dual_axis_forbidden": true,
+      "legend_required_from_series": 2,
+      "direct_label_up_to_series": 4,
+      "greyscale_first": true,
+      "table_view_always_available": true
+    }
+  },
+  "health": {
+    "scale": "0 to 3 per dimension, weighted to 100",
+    "formula": "dimension_points = (raw / 3) * weight; total = round(sum)",
+    "not_a_benchmark": true,
+    "not_a_benchmark_statement": "Not a benchmark. No industry average, no pass mark, no comparison with any other organisation. The only useful comparison is against the same meeting, or the same type of meeting, scored at a different time.",
+    "partial_scoring": {
+      "scoreable_weight_floor": 70,
+      "below_floor": "score null, label 'Not scored. The record does not support assessment.', show scoreable dimensions without a total"
+    },
+    "dimensions": [
+      {
+        "id": "D1",
+        "name": "Purpose Clarity",
+        "weight": 12,
+        "workbook_chapters": [
+          1,
+          3
+        ],
+        "anchors": {
+          "0": "no purpose or objective stated; began with a topic",
+          "1": "a topic was named; no output, decision or outcome specified",
+          "2": "purpose stated but required output or decision left implicit",
+          "3": "one sentence purpose naming the decision or output, and the meeting worked to it"
+        }
+      },
+      {
+        "id": "D2",
+        "name": "Attendance Value",
+        "weight": 8,
+        "workbook_chapters": [
+          5
+        ],
+        "anchors": {
+          "0": "multiple participants made no contribution with no evident reason",
+          "1": "several contributed only to a small part with no partial attendance arrangement",
+          "2": "most contributed to the output; one or two did not",
+          "3": "every participant contributed or their presence was explicitly justified"
+        },
+        "unscoreable_when": "speaker_label_quality == limited"
+      },
+      {
+        "id": "D3",
+        "name": "Decision Quality",
+        "weight": 15,
+        "workbook_chapters": [
+          7
+        ],
+        "anchors": {
+          "0": "decisions needed and none made, or too vague to record",
+          "1": "decisions made without owner, rationale or clear wording",
+          "2": "decisions stated clearly with owners; rationale or rejected options missing",
+          "3": "confirmed aloud with owner, rationale, rejected options, conditions and review date where provisional"
+        },
+        "modifier": "objective in (explore, learn, diagnose): re-anchor to whether the next decision was identified and assigned; absence of closure does not score 0"
+      },
+      {
+        "id": "D4",
+        "name": "Action Quality",
+        "weight": 15,
+        "workbook_chapters": [
+          6
+        ],
+        "anchors": {
+          "0": "actions with no owner, or no actions where the meeting required them",
+          "1": "actions have owners; most lack dates or a definition of done",
+          "2": "most carry owner, verb, object and date; confirmation or definition of done missing",
+          "3": "every action carries all five fields and each owner confirmed it in the meeting"
+        }
+      },
+      {
+        "id": "D5",
+        "name": "Time Efficiency",
+        "weight": 8,
+        "workbook_chapters": [
+          2,
+          4
+        ],
+        "anchors": {
+          "0": "no structure, substantial unrelated time, ran over with work unfinished",
+          "1": "loose structure, significant drift or one item consuming disproportionate time",
+          "2": "structured and broadly to time; some drift or a rushed close",
+          "3": "time boxed, sequenced, held to the questions, closed with the recap inside the meeting"
+        },
+        "unscoreable_when": "duration unknown and record not time stamped"
+      },
+      {
+        "id": "D6",
+        "name": "Participation Quality",
+        "weight": 8,
+        "workbook_chapters": [
+          4,
+          5
+        ],
+        "anchors": {
+          "0": "one voice dominant throughout; no questions or challenge",
+          "1": "two or three voices; others only when directly addressed",
+          "2": "broad contribution with some imbalance, or challenge only from senior participants",
+          "3": "contribution spread, with questions and at least one genuine challenge or dissent recorded"
+        },
+        "unscoreable_when": "speaker_label_quality == limited"
+      },
+      {
+        "id": "D7",
+        "name": "Risk Identification",
+        "weight": 8,
+        "workbook_chapters": [
+          7,
+          10
+        ],
+        "anchors": {
+          "0": "material commitments made with no risk or failure mode raised",
+          "1": "risks mentioned in passing; none owned, rated or mitigated",
+          "2": "risks raised and discussed; some lack owner, mitigation or trigger",
+          "3": "risks raised, characterised as stated, owned, with mitigations and escalation triggers"
+        },
+        "modifier": "scored relative to what the meeting committed to; a meeting that committed to nothing is not scored 0"
+      },
+      {
+        "id": "D8",
+        "name": "Opportunity Identification",
+        "weight": 6,
+        "workbook_chapters": [
+          1,
+          10
+        ],
+        "anchors": {
+          "0": "purely reactive; no forward consideration where the type invites it",
+          "1": "opportunities mentioned without development or ownership",
+          "2": "identified and discussed but not prioritised or assigned",
+          "3": "identified, assessed against stated criteria, and assigned a next step"
+        },
+        "unscoreable_when": "type in (MT-B05, MT-B06, MT-D07) or restricted"
+      },
+      {
+        "id": "D9",
+        "name": "Strategic Alignment",
+        "weight": 8,
+        "workbook_chapters": [
+          1,
+          3
+        ],
+        "anchors": {
+          "0": "no connection made between decisions and any stated objective, plan or priority",
+          "1": "alignment referenced in passing without specifics",
+          "2": "decisions connected to stated objectives for some items",
+          "3": "decisions and priorities explicitly tested against stated objectives, including trade offs"
+        }
+      },
+      {
+        "id": "D10",
+        "name": "Outcome Quality",
+        "weight": 12,
+        "workbook_chapters": [
+          8,
+          10
+        ],
+        "anchors": {
+          "0": "produced nothing that exists now and did not before",
+          "1": "discussion occurred; the output is shared understanding with no artefact",
+          "2": "real output produced; distribution, recording or closure incomplete",
+          "3": "stated output produced, confirmed aloud, record and follow up set in motion"
+        },
+        "modifier": "follow up timing component scored only where the workspace can observe the send"
+      }
+    ],
+    "bands": [
+      {
+        "min": 85,
+        "max": 100,
+        "internal": "Excellent",
+        "display": "Excellent"
+      },
+      {
+        "min": 70,
+        "max": 84,
+        "internal": "Good",
+        "display": "Good"
+      },
+      {
+        "min": 50,
+        "max": 69,
+        "internal": "Average",
+        "display": "Average"
+      },
+      {
+        "min": 30,
+        "max": 49,
+        "internal": "Poor",
+        "display": "Poor"
+      },
+      {
+        "min": 0,
+        "max": 29,
+        "internal": "Waste of Time",
+        "display": "Did not justify the time",
+        "note": "display string is a workspace setting; softer string is the default at every tier"
+      }
+    ],
+    "sub_scores": [
+      {
+        "name": "Meeting Score",
+        "dimensions": [
+          "D1",
+          "D2",
+          "D3",
+          "D4",
+          "D5",
+          "D6",
+          "D7",
+          "D8",
+          "D9",
+          "D10"
+        ],
+        "points_available": 100
+      },
+      {
+        "name": "Participation Score",
+        "dimensions": [
+          "D2",
+          "D6"
+        ],
+        "points_available": 16
+      },
+      {
+        "name": "Decision Score",
+        "dimensions": [
+          "D3"
+        ],
+        "points_available": 15
+      },
+      {
+        "name": "Action Score",
+        "dimensions": [
+          "D4"
+        ],
+        "points_available": 15
+      },
+      {
+        "name": "Strategic Score",
+        "dimensions": [
+          "D9",
+          "D8"
+        ],
+        "points_available": 14
+      },
+      {
+        "name": "Efficiency Score",
+        "dimensions": [
+          "D5",
+          "D1"
+        ],
+        "points_available": 20
+      }
+    ],
+    "governance": {
+      "individual_scoring": "prohibited at every tier under every setting",
+      "individual_comparison": "prohibited",
+      "export_to_hr_or_performance_systems": "prohibited",
+      "restricted_types_scored": false,
+      "aggregate_minimum_meetings": 10,
+      "aggregate_minimum_distinct_chairs": 5,
+      "aggregate_reported_by": [
+        "meeting_type",
+        "meeting_series"
+      ],
+      "never_reported_by": [
+        "person"
+      ],
+      "client_safe_includes_report": false,
+      "auto_attach_to_follow_up": false
+    }
+  },
+  "gates": [
+    {
+      "order": 1,
+      "gate": "evidence_sufficiency",
+      "rule": "precondition met from confirmed or proposed evidence only"
+    },
+    {
+      "order": 2,
+      "gate": "coverage_floor",
+      "floors": {
+        "OUT-20": "4/9",
+        "OUT-22": "2/4",
+        "OUT-23": "6/12",
+        "OUT-45": "3/5"
+      }
+    },
+    {
+      "order": 3,
+      "gate": "confidentiality",
+      "rule": "restricted categories, consent signals and external participants constrain outputs and audience"
+    },
+    {
+      "order": 4,
+      "gate": "proportionality",
+      "rule": "maturity caps output weight; governance and board grade packs suppressed below mid_market without explicit signals"
+    }
+  ],
+  "stated_omission_format": [
+    "output_name",
+    "gate_failed",
+    "missing_evidence",
+    "what_would_be_needed_next_time"
+  ],
+  "variants": [
+    {
+      "id": "internal",
+      "trigger": "no external participants",
+      "rules": "full content including insight findings"
+    },
+    {
+      "id": "client_safe",
+      "trigger": "external or client participant present",
+      "user_overridable": false,
+      "rules": "no internal commentary, no participant assessment, no health content, no inferred client intent; recommendations attributed to the adviser"
+    },
+    {
+      "id": "executive",
+      "trigger": "seniority executive or strategic_importance >= 70",
+      "rules": "one page ceiling on the lead document; answer first; detail annexed"
+    },
+    {
+      "id": "restricted",
+      "trigger": "restricted path",
+      "rules": "private to uploader; no distribution ready formats"
+    }
+  ],
+  "insight_channels": [
+    {
+      "id": "INS-A",
+      "question": "What did participants miss?",
+      "detector": "expected element absence",
+      "tier": "T2",
+      "cap": 5,
+      "render": "observation"
+    },
+    {
+      "id": "INS-B",
+      "question": "Which assumptions are weak?",
+      "detector": "assumption classification and testing",
+      "tier": "T3",
+      "cap": 4,
+      "render": "observation",
+      "rule": "never states an assumption is wrong; states unevidenced, load bearing, and what would test it"
+    },
+    {
+      "id": "INS-C",
+      "question": "What risks were not discussed?",
+      "detector": "risk archetype absence",
+      "tier": "T3",
+      "cap": 3,
+      "render": "question"
+    },
+    {
+      "id": "INS-D",
+      "question": "What opportunities were not discussed?",
+      "detector": "opportunity archetype absence",
+      "tier": "T3",
+      "cap": 2,
+      "render": "question"
+    },
+    {
+      "id": "INS-E",
+      "question": "What dependencies exist?",
+      "detector": "dependency inference over actions and decisions",
+      "tier": "T2",
+      "cap": 6,
+      "render": "observation"
+    },
+    {
+      "id": "INS-F",
+      "question": "What should happen next?",
+      "detector": "gap to closure analysis",
+      "tier": "T2",
+      "cap": 3,
+      "render": "observation"
+    },
+    {
+      "id": "INS-G",
+      "question": "What patterns exist in prior work?",
+      "detector": "cross record pattern matching",
+      "tier": "T3",
+      "cap": 3,
+      "render": "observation",
+      "corpus_gated": true
+    },
+    {
+      "id": "INS-H",
+      "question": "What would an adviser likely recommend?",
+      "detector": "advisory frame library",
+      "tier": "T3",
+      "cap": 2,
+      "render": "observation",
+      "prohibition": "never names a consulting firm, claims a firm's methodology, or states what a firm would recommend"
+    }
+  ],
+  "corpus_thresholds": [
+    {
+      "records": "0-4",
+      "behaviour": "INS-G disabled and not surfaced"
+    },
+    {
+      "records": "5-19",
+      "behaviour": "exact match patterns only; no statistical claims"
+    },
+    {
+      "records": "20-39",
+      "behaviour": "adds recurrence detection with explicit counts"
+    },
+    {
+      "records": "40+",
+      "behaviour": "full channel including slippage and contradiction detection"
+    }
+  ],
+  "advisory_frames": [
+    "structured problem decomposition",
+    "mutually exclusive option sets",
+    "hypothesis led analysis",
+    "value driver tree",
+    "capability maturity assessment",
+    "stakeholder influence mapping",
+    "benefit dependency mapping",
+    "pre-mortem analysis",
+    "second order consequence analysis",
+    "cost of delay",
+    "SWOT",
+    "options trade off",
+    "scenario comparison"
+  ],
+  "tiers": [
+    {
+      "tier": "T1",
+      "scope": "deterministic spine, six templates, health scoring, performance report",
+      "gate": "build now"
+    },
+    {
+      "tier": "T2",
+      "scope": "detection, typed bundles, full template set, visual framework",
+      "gate": "Day 45 demand interviews"
+    },
+    {
+      "tier": "T3",
+      "scope": "insight channels, advisory frames, pattern matching",
+      "gate": "Day 90 AU$750 MRR and 40+ records"
+    },
+    {
+      "tier": "T4",
+      "scope": "knowledge networks, predictive, Copilot, digital twin",
+      "gate": "Month 6 converted Team pilot"
+    }
+  ],
+  "templates": [
+    {
+      "id": "T1",
+      "name": "Executive Summary",
+      "pages": 1
+    },
+    {
+      "id": "T2",
+      "name": "Meeting Report",
+      "pages": "2-4"
+    },
+    {
+      "id": "T3",
+      "name": "Business Case",
+      "pages": "3-5"
+    },
+    {
+      "id": "T4",
+      "name": "Business Plan",
+      "pages": "8-15"
+    },
+    {
+      "id": "T5",
+      "name": "Operating Model",
+      "pages": "4-8"
+    },
+    {
+      "id": "T6",
+      "name": "Strategy Paper",
+      "pages": "4-6"
+    },
+    {
+      "id": "T7",
+      "name": "Action Plan",
+      "pages": "1-2"
+    },
+    {
+      "id": "T8",
+      "name": "Roadmap",
+      "pages": "1-2"
+    },
+    {
+      "id": "T9",
+      "name": "Transformation Plan",
+      "pages": "6-12"
+    },
+    {
+      "id": "T10",
+      "name": "Risk Assessment",
+      "pages": "2-4"
+    },
+    {
+      "id": "T11",
+      "name": "Opportunity Assessment",
+      "pages": "2-4"
+    },
+    {
+      "id": "T12",
+      "name": "Program Report",
+      "pages": "3-6"
+    },
+    {
+      "id": "T13",
+      "name": "Leadership Brief",
+      "pages": 1
+    },
+    {
+      "id": "T14",
+      "name": "Board Briefing",
+      "pages": "2-4"
+    },
+    {
+      "id": "T15",
+      "name": "Decision Pack",
+      "pages": "2-4"
+    },
+    {
+      "id": "T16",
+      "name": "Recommendation Paper",
+      "pages": "2-4"
+    },
+    {
+      "id": "T17",
+      "name": "Meeting Performance Report",
+      "pages": "1-3",
+      "_added": "Correction 4, patch v1.0"
+    }
+  ],
+  "template_conflict_precedence": [
+    "external reader -> T16 or T2 client_safe",
+    "decision above the room -> T15 leads",
+    "strategic_importance >= 75 -> T14 or T13 leads",
+    "executive reader -> T13 leads",
+    "otherwise -> T2 leads"
+  ],
+  "restricted_path": {
+    "applies_to_types": [
+      "MT-F04",
+      "MT-F05",
+      "MT-F01"
+    ],
+    "also_triggered_by": [
+      "restricted_categories set at Stage 0",
+      "explicit consent objection",
+      "withdrawal of consent"
+    ],
+    "restricted_categories": [
+      "remuneration",
+      "performance_management",
+      "health",
+      "disciplinary",
+      "legally_privileged"
+    ],
+    "outputs_permitted": [
+      "OUT-57",
+      "OUT-56",
+      "actions owned by the uploader"
+    ],
+    "outputs_prohibited": [
+      "all client facing",
+      "all distribution ready",
+      "all board grade",
+      "OUT-09 Meeting Performance Report"
+    ],
+    "scoring": "none, at any tier",
+    "pattern_matching": "excluded from all cross record intelligence, organisational memory and analytics",
+    "notice": "State that performance, disciplinary, health and remuneration conversations are among the content the Workbook advises should not be recorded at all, and that consent and workplace policy obligations apply. Practical guidance, not legal advice."
+  }
+}

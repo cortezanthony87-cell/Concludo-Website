@@ -1,0 +1,259 @@
+{
+  "_note": "DERIVED from Concludo_Output_Registry_v1.json. The canonical name attached to every identifier the roadmap and the tasklets are allowed to use. The conformance linter reads this file. The full registry remains authoritative; regenerate this index from it, never edit it to match a document.",
+  "registry_version": "1.2",
+  "outputs": {
+    "OUT-01": "Executive Summary",
+    "OUT-02": "Decision log entries",
+    "OUT-03": "Action register",
+    "OUT-04": "Open questions",
+    "OUT-05": "Risk and blocker entries",
+    "OUT-06": "Follow up email draft",
+    "OUT-07": "Action plan now next later",
+    "OUT-08": "Next best action",
+    "OUT-09": "Meeting Performance Report",
+    "OUT-10": "Evidence and inference appendix",
+    "OUT-11": "Strategic decision pack",
+    "OUT-12": "Strategic risk assessment",
+    "OUT-13": "Strategic opportunity assessment",
+    "OUT-14": "Recommended priorities ranked",
+    "OUT-15": "Executive dashboard",
+    "OUT-16": "Strategy paper",
+    "OUT-17": "Options and trade off analysis",
+    "OUT-18": "Assumption register",
+    "OUT-19": "Scenario outline",
+    "OUT-20": "Business Model Canvas",
+    "OUT-21": "Market opportunity review",
+    "OUT-22": "SWOT analysis",
+    "OUT-23": "Business plan draft",
+    "OUT-24": "Revenue and cost assumption sheet",
+    "OUT-25": "Assumption sensitivity view",
+    "OUT-26": "Go to market outline",
+    "OUT-27": "Business case",
+    "OUT-28": "Validation gate plan",
+    "OUT-29": "Status assessment with RAG",
+    "OUT-30": "Dependency map",
+    "OUT-31": "Escalation pack",
+    "OUT-32": "Milestone or roadmap view",
+    "OUT-33": "Program report",
+    "OUT-34": "Change request summary",
+    "OUT-35": "Benefits tracking view",
+    "OUT-36": "Resource and capacity view",
+    "OUT-37": "Client ready meeting record",
+    "OUT-38": "Requirements and needs summary",
+    "OUT-39": "Objection and concern register",
+    "OUT-40": "Proposal input brief",
+    "OUT-41": "CRM update payload",
+    "OUT-42": "Recommendation log entry",
+    "OUT-43": "Commercial terms summary",
+    "OUT-44": "Account health snapshot",
+    "OUT-45": "Operating model view",
+    "OUT-46": "Capability and maturity assessment",
+    "OUT-47": "Transformation plan",
+    "OUT-48": "Process and handoff map",
+    "OUT-49": "Incident timeline and cause analysis",
+    "OUT-50": "Control and compliance summary",
+    "OUT-51": "Leadership brief",
+    "OUT-52": "Board briefing paper",
+    "OUT-53": "Decision pack board grade",
+    "OUT-54": "Recommendation paper",
+    "OUT-55": "Stakeholder communication draft",
+    "OUT-56": "Candidate evaluation summary",
+    "OUT-57": "Coaching session record",
+    "OUT-58": "Training session summary"
+  },
+  "visuals": {
+    "VIS-01": "RAG status set",
+    "VIS-02": "Priority matrix 2x2",
+    "VIS-03": "Risk heat map",
+    "VIS-04": "Timeline milestone bar",
+    "VIS-05": "Gantt view",
+    "VIS-06": "Roadmap swimlane",
+    "VIS-07": "SWOT quadrant",
+    "VIS-08": "Business Model Canvas grid",
+    "VIS-09": "Capability map",
+    "VIS-10": "Maturity assessment",
+    "VIS-11": "Accountability or org chart",
+    "VIS-12": "Decision tree",
+    "VIS-13": "KPI tile row",
+    "VIS-14": "Dependency network",
+    "VIS-15": "Waterfall bridge",
+    "VIS-16": "Trend line",
+    "VIS-17": "Funnel or pipeline",
+    "VIS-18": "Stacked composition",
+    "VIS-19": "Options trade off matrix",
+    "VIS-20": "Sensitivity tornado",
+    "VIS-21": "Action ageing",
+    "VIS-22": "Meeting health dimension bars",
+    "VIS-23": "Decision closure gauge",
+    "VIS-24": "Coverage bars",
+    "VIS-25": "Process and handoff flow",
+    "VIS-26": "Incident timeline",
+    "VIS-27": "Stakeholder grid",
+    "VIS-28": "Scenario comparison panel"
+  },
+  "dimensions": {
+    "D1": {
+      "name": "Purpose Clarity",
+      "weight": 12
+    },
+    "D2": {
+      "name": "Attendance Value",
+      "weight": 8
+    },
+    "D3": {
+      "name": "Decision Quality",
+      "weight": 15
+    },
+    "D4": {
+      "name": "Action Quality",
+      "weight": 15
+    },
+    "D5": {
+      "name": "Time Efficiency",
+      "weight": 8
+    },
+    "D6": {
+      "name": "Participation Quality",
+      "weight": 8
+    },
+    "D7": {
+      "name": "Risk Identification",
+      "weight": 8
+    },
+    "D8": {
+      "name": "Opportunity Identification",
+      "weight": 6
+    },
+    "D9": {
+      "name": "Strategic Alignment",
+      "weight": 8
+    },
+    "D10": {
+      "name": "Outcome Quality",
+      "weight": 12
+    }
+  },
+  "templates": {
+    "T1": "Executive Summary",
+    "T2": "Meeting Report",
+    "T3": "Business Case",
+    "T4": "Business Plan",
+    "T5": "Operating Model",
+    "T6": "Strategy Paper",
+    "T7": "Action Plan",
+    "T8": "Roadmap",
+    "T9": "Transformation Plan",
+    "T10": "Risk Assessment",
+    "T11": "Opportunity Assessment",
+    "T12": "Program Report",
+    "T13": "Leadership Brief",
+    "T14": "Board Briefing",
+    "T15": "Decision Pack",
+    "T16": "Recommendation Paper",
+    "T17": "Meeting Performance Report"
+  },
+  "bands": [
+    {
+      "min": 85,
+      "max": 100,
+      "internal": "Excellent",
+      "display": "Excellent"
+    },
+    {
+      "min": 70,
+      "max": 84,
+      "internal": "Good",
+      "display": "Good"
+    },
+    {
+      "min": 50,
+      "max": 69,
+      "internal": "Average",
+      "display": "Average"
+    },
+    {
+      "min": 30,
+      "max": 49,
+      "internal": "Poor",
+      "display": "Poor"
+    },
+    {
+      "min": 0,
+      "max": 29,
+      "internal": "Waste of Time",
+      "display": "Did not justify the time"
+    }
+  ],
+  "subscription_tiers": [
+    "starter",
+    "pro_subscription",
+    "team"
+  ],
+  "prohibited_terms": {
+    "enterprise_tier": "There is no Enterprise subscription tier. Governance features are capability flags with no price and no user facing tier name.",
+    "benchmark": "Benchmark and industry average claims are permanently closed in any output, chart, caption or interface string.",
+    "industry average": "Benchmark and industry average claims are permanently closed.",
+    "bare_pro": "Write 'Pro subscription' or 'Pro Edition'. The two carry close to opposite permissions.",
+    "individual scoring": "No per person score, ranking, contribution index or engagement metric is computed, stored or displayed, at any tier, under any setting.",
+    "minutes": "Concludo does not produce board minutes. Minutes are a governance instrument with legal weight."
+  },
+  "channels": {
+    "INS-A": {
+      "question": "What did participants miss?",
+      "detector": "expected element absence",
+      "tier": "T2",
+      "render": "observation",
+      "cap": 5
+    },
+    "INS-B": {
+      "question": "Which assumptions are weak?",
+      "detector": "assumption classification and testing",
+      "tier": "T3",
+      "render": "observation",
+      "cap": 4
+    },
+    "INS-C": {
+      "question": "What risks were not discussed?",
+      "detector": "risk archetype absence",
+      "tier": "T3",
+      "render": "question",
+      "cap": 3
+    },
+    "INS-D": {
+      "question": "What opportunities were not discussed?",
+      "detector": "opportunity archetype absence",
+      "tier": "T3",
+      "render": "question",
+      "cap": 2
+    },
+    "INS-E": {
+      "question": "What dependencies exist?",
+      "detector": "dependency inference over actions and decisions",
+      "tier": "T2",
+      "render": "observation",
+      "cap": 6
+    },
+    "INS-F": {
+      "question": "What should happen next?",
+      "detector": "gap to closure analysis",
+      "tier": "T2",
+      "render": "observation",
+      "cap": 3
+    },
+    "INS-G": {
+      "question": "What patterns exist in prior work?",
+      "detector": "cross record pattern matching",
+      "tier": "T3",
+      "render": "observation",
+      "cap": 3,
+      "corpus_gated": true
+    },
+    "INS-H": {
+      "question": "What would an adviser likely recommend?",
+      "detector": "advisory frame library",
+      "tier": "T3",
+      "render": "observation",
+      "cap": 2
+    }
+  }
+}

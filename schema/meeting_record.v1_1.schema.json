@@ -1,0 +1,766 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://concludo.com.au/schemas/meeting_record.v1_1.schema.json",
+  "title": "Concludo MeetingRecord 1.1",
+  "description": "Canonical machine-readable record of one meeting. Single source of truth for the Concludo Workspace. Version 1.1 is additive over 1.0: every new property is optional, so a 1.0 record validates unchanged apart from schema_version. Extensions follow specification section 10.7.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "meeting",
+    "transcript",
+    "executive_summary",
+    "topics",
+    "decisions",
+    "actions",
+    "open_questions",
+    "risks",
+    "insights",
+    "statistics",
+    "action_plan",
+    "recommendations",
+    "follow_up_email",
+    "next_meeting",
+    "quality_notes",
+    "next_business_action",
+    "routing"
+  ],
+  "additionalProperties": false,
+
+  "definitions": {
+    "evidence": {
+      "type": "string",
+      "enum": ["confirmed", "proposed", "inferred", "unknown"]
+    },
+    "value_status": {
+      "type": "string",
+      "enum": ["stated", "not_stated", "not_applicable", "withheld"]
+    },
+    "person": {
+      "type": "object",
+      "required": ["name", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "role": { "type": ["string", "null"] },
+        "organisation": { "type": ["string", "null"] },
+        "status": { "$ref": "#/definitions/value_status" }
+      }
+    },
+    "meeting_type_detailed": {
+      "type": "string",
+      "pattern": "^MT-[A-F]\\d{2}$",
+      "description": "Registry taxonomy id. The registry is authoritative for the permitted set."
+    },
+    "objective": {
+      "type": "string",
+      "enum": ["decide", "recommend", "explore", "align", "review", "inform", "negotiate", "diagnose", "plan", "learn"]
+    },
+    "confidence_label": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "unit_interval": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "index_0_100": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Null with a stated reason where two or more components cannot be computed. An uncomputable index and a low index are different findings and must never be conflated."
+    }
+  },
+
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0", "1.1"],
+      "description": "1.0 records remain valid. New writes use 1.1."
+    },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "supersedes": { "type": ["string", "null"] },
+
+    "meeting": {
+      "type": "object",
+      "required": ["id", "title", "date", "type", "purpose", "participants", "record_type", "record_quality"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "date": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "date_status": { "$ref": "#/definitions/value_status" },
+        "start_time": { "type": ["string", "null"] },
+        "duration_minutes": { "type": ["integer", "null"] },
+        "type": {
+          "type": "string",
+          "enum": ["client_or_consulting", "sales_or_discovery", "project", "leadership_or_board", "workshop_or_planning", "interview_or_research", "general"],
+          "description": "Retained from 1.0 and mapped from type_detailed so nothing downstream breaks."
+        },
+        "type_detailed": { "$ref": "#/definitions/meeting_type_detailed" },
+        "purpose": { "type": "string" },
+        "participants": { "type": "array", "items": { "$ref": "#/definitions/person" } },
+        "client_or_project": { "type": ["string", "null"] },
+        "record_type": {
+          "type": "string",
+          "enum": ["verbatim_transcript", "diarised_transcript", "edited_notes", "partial_extract", "combined_record"]
+        },
+        "record_quality": { "type": "string", "enum": ["high", "adequate", "limited"] },
+        "outcome_one_line": { "type": "string" }
+      }
+    },
+
+    "transcript": {
+      "type": "object",
+      "required": ["reference", "source_hint", "content_hash", "embedded"],
+      "additionalProperties": false,
+      "properties": {
+        "reference": { "type": ["string", "null"] },
+        "source_hint": { "type": ["string", "null"], "description": "How the record reached Concludo, as stated by the user. Capture agnostic." },
+        "content_hash": { "type": ["string", "null"] },
+        "word_count": { "type": ["integer", "null"] },
+        "embedded": { "type": "boolean", "default": false },
+        "body": { "type": ["string", "null"] }
+      }
+    },
+
+    "executive_summary": { "type": "string", "minLength": 1 },
+
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["topic", "summary", "status", "related_ids"],
+        "additionalProperties": false,
+        "properties": {
+          "topic": { "type": "string" },
+          "summary": { "type": "string" },
+          "status": { "type": "string", "enum": ["decided", "open", "parked", "escalated"] },
+          "related_ids": { "type": "array", "items": { "type": "string" } },
+          "contains_sensitive_content": { "type": "boolean", "default": false }
+        }
+      }
+    },
+
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "decision", "rationale", "approver", "effective", "conditions", "evidence", "source_basis"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^D-\\d{2}$" },
+          "decision": { "type": "string" },
+          "rationale": { "type": ["string", "null"] },
+          "approver": { "$ref": "#/definitions/person" },
+          "effective": { "type": ["string", "null"] },
+          "effective_raw": { "type": ["string", "null"] },
+          "conditions": { "type": ["string", "null"] },
+          "supersedes_position": { "type": ["string", "null"] },
+          "options_rejected": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Added at 1.1. Recorded only where stated. An empty array means none was stated, which is itself a finding."
+          },
+          "dissent": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "object",
+              "required": ["position", "raised_by"],
+              "additionalProperties": false,
+              "properties": {
+                "position": { "type": "string" },
+                "raised_by": { "$ref": "#/definitions/person" }
+              }
+            },
+            "description": "Added at 1.1. Null means not assessed. An empty array means none expressed, which is a meaningful entry and is rendered as such."
+          },
+          "review_date": { "type": ["string", "null"], "description": "Added at 1.1. Required in rendering where the decision is provisional." },
+          "materiality": { "type": ["string", "null"], "enum": ["routine", "significant", "material", "unknown", null] },
+          "reversibility": { "type": ["string", "null"], "enum": ["reversible", "costly_to_reverse", "irreversible", "unknown", null] },
+          "evidence": { "$ref": "#/definitions/evidence" },
+          "source_basis": { "type": "string" }
+        }
+      }
+    },
+
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action", "owner", "definition_of_done", "due_date", "dependencies", "confirmation_method", "priority", "evidence", "source_basis"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^A-\\d{2}$" },
+          "action": { "type": "string", "minLength": 1 },
+          "owner": { "$ref": "#/definitions/person" },
+          "definition_of_done": { "type": ["string", "null"] },
+          "definition_of_done_status": { "$ref": "#/definitions/value_status" },
+          "due_date": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "due_date_raw": { "type": ["string", "null"] },
+          "due_date_status": { "$ref": "#/definitions/value_status" },
+          "date_conversion_basis": { "type": ["string", "null"] },
+          "dependencies": { "type": "array", "items": { "type": "string" } },
+          "confirmation_method": { "type": ["string", "null"] },
+          "owner_confirmed_in_meeting": { "type": ["boolean", "null"], "description": "Added at 1.1. True only where the named owner accepted aloud." },
+          "priority": { "type": ["string", "null"], "enum": ["high", "medium", "low", null] },
+          "evidence": { "$ref": "#/definitions/evidence" },
+          "source_basis": { "type": "string" }
+        }
+      }
+    },
+
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "why_it_matters", "expected_resolver", "needed_by", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^Q-\\d{2}$" },
+          "question": { "type": "string" },
+          "why_it_matters": { "type": "string" },
+          "expected_resolver": { "$ref": "#/definitions/person" },
+          "needed_by": { "type": ["string", "null"] },
+          "needed_by_raw": { "type": ["string", "null"] },
+          "evidence": { "$ref": "#/definitions/evidence" }
+        }
+      }
+    },
+
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "risk", "type", "consequence_stated", "mitigation", "owner", "escalation_trigger", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^R-\\d{2}$" },
+          "risk": { "type": "string" },
+          "type": { "type": "string", "enum": ["risk", "blocker"] },
+          "consequence_stated": { "type": ["string", "null"] },
+          "likelihood_stated": {
+            "type": ["string", "null"],
+            "description": "Added at 1.1. Recorded only where the room stated it. Null places the risk in the unrated band, never at a guessed coordinate."
+          },
+          "mitigation": { "type": ["string", "null"] },
+          "owner": { "$ref": "#/definitions/person" },
+          "escalation_trigger": { "type": ["string", "null"] },
+          "evidence": { "$ref": "#/definitions/evidence" }
+        }
+      }
+    },
+
+    "opportunities": {
+      "type": "array",
+      "description": "Added at 1.1. Opportunities as stated in the room, with the proponent named. Required because health dimension D8 cannot otherwise be scored from the record, and because OUT-13 has no source without it. Never inferred: an opportunity Concludo thought of is an insight, not an opportunity.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "opportunity", "stated_by", "basis_given", "evidence", "source_basis"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^O-\\d{2}$" },
+          "opportunity": { "type": "string" },
+          "stated_by": { "$ref": "#/definitions/person" },
+          "basis_given": { "type": ["string", "null"] },
+          "what_would_need_to_be_true": { "type": ["string", "null"] },
+          "effort_stated": { "type": ["string", "null"] },
+          "value_stated": { "type": ["string", "null"] },
+          "next_step_action_id": { "type": ["string", "null"], "pattern": "^A-\\d{2}$" },
+          "evidence": { "$ref": "#/definitions/evidence" },
+          "source_basis": { "type": "string" }
+        }
+      }
+    },
+
+    "insights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "observation", "evidence_ids", "business_implication", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^I-\\d{2}$" },
+          "observation": { "type": "string" },
+          "evidence_ids": { "type": "array", "items": { "type": "string" } },
+          "metric_cited": { "type": ["string", "null"] },
+          "business_implication": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["confirmed", "proposed"] }
+        }
+      }
+    },
+
+    "statistics": {
+      "type": "object",
+      "required": [
+        "decisions_confirmed", "actions_committed", "actions_with_owner", "actions_with_due_date",
+        "actions_with_definition_of_done", "open_questions_count", "risks_count",
+        "ownership_coverage_pct", "date_coverage_pct", "definition_of_done_coverage_pct",
+        "evidence_quality_index_pct", "decision_closure_pct",
+        "follow_through_readiness_score", "follow_through_band",
+        "unresolved_load", "speaker_label_quality", "record_completeness"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "decisions_confirmed": { "type": "integer", "minimum": 0 },
+        "actions_committed": { "type": "integer", "minimum": 0 },
+        "actions_with_owner": { "type": "integer", "minimum": 0 },
+        "actions_with_due_date": { "type": "integer", "minimum": 0 },
+        "actions_with_definition_of_done": { "type": "integer", "minimum": 0 },
+        "open_questions_count": { "type": "integer", "minimum": 0 },
+        "risks_count": { "type": "integer", "minimum": 0 },
+        "ownership_coverage_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "date_coverage_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "definition_of_done_coverage_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "evidence_quality_index_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "decision_closure_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "follow_through_readiness_score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "follow_through_band": { "type": ["string", "null"], "enum": ["Strong", "Adequate", "Weak", "Poor", null] },
+        "unresolved_load": { "type": "integer", "minimum": 0 },
+        "unresolved_load_breakdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "open_questions": { "type": "integer", "minimum": 0 },
+            "unassigned_actions": { "type": "integer", "minimum": 0 },
+            "undated_actions": { "type": "integer", "minimum": 0 },
+            "unowned_risks": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "speaker_label_quality": { "type": "string", "enum": ["high", "adequate", "limited"] },
+        "record_completeness": { "type": "string", "enum": ["complete", "partial", "truncated"] }
+      }
+    },
+
+    "action_plan": {
+      "type": "object",
+      "required": ["now", "next", "later_or_undated", "critical_path"],
+      "additionalProperties": false,
+      "properties": {
+        "now": { "type": "array", "items": { "type": "string", "pattern": "^A-\\d{2}$" } },
+        "next": { "type": "array", "items": { "type": "string", "pattern": "^A-\\d{2}$" } },
+        "later_or_undated": { "type": "array", "items": { "type": "string", "pattern": "^A-\\d{2}$" } },
+        "critical_path": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "recommendation", "because_ids", "effort", "suggested_owner", "if_not_done", "binding"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^REC-\\d{2}$" },
+          "recommendation": { "type": "string" },
+          "because_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "effort": { "type": "string", "enum": ["low", "medium", "high"] },
+          "suggested_owner": { "$ref": "#/definitions/person" },
+          "if_not_done": { "type": "string" },
+          "workbook_chapter": { "type": ["integer", "null"], "minimum": 1, "maximum": 10, "description": "Added at 1.1. A pointer to the chapter, never a reproduction of its content." },
+          "failure_pattern_id": { "type": ["string", "null"], "description": "Added at 1.1. Specification 9.5. A recommendation with no failure pattern behind it is not generated." },
+          "binding": { "type": "boolean", "const": false }
+        }
+      }
+    },
+
+    "follow_up_email": {
+      "type": "object",
+      "required": ["subject", "body", "recipients_suggested", "commitments_referenced", "sensitive_content_excluded"],
+      "additionalProperties": false,
+      "properties": {
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "recipients_suggested": { "type": "array", "items": { "type": "string" } },
+        "commitments_referenced": { "type": "array", "items": { "type": "string" } },
+        "sensitive_content_excluded": { "type": "boolean" },
+        "send_status": { "type": "string", "enum": ["draft"], "default": "draft" }
+      }
+    },
+
+    "next_meeting": {
+      "type": ["object", "null"],
+      "required": ["required", "objective", "decisions_required", "attendees", "preparation", "suggested_timing"],
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "objective": { "type": ["string", "null"] },
+        "decisions_required": { "type": "array", "items": { "type": "string" } },
+        "attendees": { "type": "array", "items": { "type": "string" } },
+        "preparation": { "type": "array", "items": { "type": "string" } },
+        "suggested_timing": { "type": ["string", "null"] }
+      }
+    },
+
+    "quality_notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "speaker_ambiguity", "date_uncertainty", "contradiction", "assumption_labelled",
+              "section_omitted", "sensitive_content_withheld", "consent_or_confidentiality_signal",
+              "instruction_shaped_content", "truncated_record", "name_variant", "requires_qualified_review",
+              "segmented_extraction", "other"
+            ]
+          },
+          "note": { "type": "string" },
+          "related_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "redactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["location", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "location": { "type": "string" },
+          "reason": { "type": "string", "enum": ["credential", "identifier", "personal_sensitive", "privileged", "commercially_sensitive"] }
+        }
+      }
+    },
+
+    "next_business_action": {
+      "type": "object",
+      "required": ["supportable", "action_id", "statement"],
+      "additionalProperties": false,
+      "properties": {
+        "supportable": { "type": "boolean" },
+        "action_id": { "type": ["string", "null"] },
+        "statement": { "type": "string" },
+        "why_it_outranks": { "type": ["string", "null"] }
+      }
+    },
+
+    "routing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["output", "destination", "payload_path", "trigger", "human_check_required"],
+        "additionalProperties": false,
+        "properties": {
+          "output": { "type": "string" },
+          "destination": { "type": "string" },
+          "payload_path": { "type": "string" },
+          "trigger": { "type": "string", "enum": ["manual", "on_approval", "on_generation"] },
+          "human_check_required": { "type": "boolean", "const": true },
+          "configured": { "type": "boolean", "default": false }
+        }
+      }
+    },
+
+    "crm_update": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "account": { "type": ["string", "null"] },
+        "contacts": { "type": "array", "items": { "$ref": "#/definitions/person" } },
+        "meeting_summary": { "type": ["string", "null"] },
+        "stated_needs": { "type": "array", "items": { "type": "string" } },
+        "objections": { "type": "array", "items": { "type": "string" } },
+        "next_step": { "type": ["string", "null"] },
+        "next_step_date": { "type": ["string", "null"] },
+        "stage_change_proposed": { "type": ["string", "null"] }
+      }
+    },
+
+    "meeting_context": {
+      "type": "object",
+      "description": "Added at 1.1. Specification section 2.1. Emitted by the Detection Engine and the only input the Output Selection Engine reads.",
+      "additionalProperties": false,
+      "required": ["type_primary", "type_confidence", "objective", "participants", "decision_profile", "confidentiality", "record_fitness"],
+      "properties": {
+        "type_primary": { "$ref": "#/definitions/meeting_type_detailed" },
+        "type_secondary": { "oneOf": [{ "$ref": "#/definitions/meeting_type_detailed" }, { "type": "null" }] },
+        "type_confidence": { "$ref": "#/definitions/unit_interval" },
+        "type_basis": { "type": "array", "items": { "type": "string" }, "description": "Signal ids that fired, with record locations. A classification that cannot cite its basis is not shipped." },
+        "is_hybrid": { "type": "boolean", "default": false },
+        "objective": { "$ref": "#/definitions/objective" },
+        "objective_confidence": { "$ref": "#/definitions/unit_interval" },
+        "participants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count", "seniority_profile", "external_present", "client_present"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "seniority_profile": { "type": "string", "enum": ["executive", "senior", "mixed", "operational", "unknown"] },
+            "external_present": { "type": "boolean" },
+            "client_present": { "type": "boolean" },
+            "decision_authority_present": { "type": ["boolean", "null"] },
+            "role_coverage_gaps": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "decision_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count", "closure_pct", "materiality", "reversibility"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "closure_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+            "materiality": { "type": "string", "enum": ["routine", "significant", "material", "unknown"] },
+            "reversibility": { "type": "string", "enum": ["reversible", "costly_to_reverse", "irreversible", "unknown"] }
+          }
+        },
+        "strategic_importance_index": { "$ref": "#/definitions/index_0_100" },
+        "strategic_importance_uncomputable_reason": { "type": ["string", "null"] },
+        "risk_level_index": { "$ref": "#/definitions/index_0_100" },
+        "risk_level_uncomputable_reason": { "type": ["string", "null"] },
+        "industry": {
+          "type": "string",
+          "enum": ["professional_services", "real_estate", "construction", "technology", "financial_services", "health", "education", "government", "not_for_profit", "retail", "manufacturing", "other", "unknown"]
+        },
+        "industry_source": { "type": "string", "enum": ["workspace_setting", "record_signal", "user_override", "default"] },
+        "maturity": { "type": "string", "enum": ["pre_revenue", "early_stage", "established_small", "mid_market", "enterprise", "unknown"] },
+        "confidentiality": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["client_content", "sensitive_content", "consent_signal", "restricted_categories"],
+          "properties": {
+            "client_content": { "type": "boolean" },
+            "sensitive_content": { "type": "boolean" },
+            "consent_signal": { "type": "string", "enum": ["none_detected", "objection", "withdrawal", "off_the_record"] },
+            "restricted_categories": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["remuneration", "performance_management", "health", "disciplinary", "legally_privileged"] }
+            }
+          }
+        },
+        "record_fitness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["record_type", "record_quality", "speaker_label_quality", "completeness"],
+          "properties": {
+            "record_type": { "type": "string", "enum": ["verbatim_transcript", "diarised_transcript", "edited_notes", "partial_extract", "combined_record"] },
+            "record_quality": { "type": "string", "enum": ["high", "adequate", "limited"] },
+            "speaker_label_quality": { "type": "string", "enum": ["high", "adequate", "limited"] },
+            "completeness": { "type": "string", "enum": ["complete", "partial", "truncated"] },
+            "coverage_minutes_estimated": { "type": ["integer", "null"] },
+            "substantive_word_count": { "type": ["integer", "null"] }
+          }
+        },
+        "override": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "by_user": { "type": "boolean", "default": false },
+            "fields_overridden": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+
+    "health": {
+      "type": ["object", "null"],
+      "description": "Added at 1.1. Specification section 7. Null where the record does not support assessment.",
+      "additionalProperties": false,
+      "required": ["dimensions", "scoreable_weight", "total", "band", "not_a_benchmark"],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "weight", "scoreable", "raw", "points", "basis"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^D(10|[1-9])$" },
+              "name": { "type": "string" },
+              "weight": { "type": "integer", "minimum": 0, "maximum": 20 },
+              "scoreable": { "type": "boolean" },
+              "unscoreable_reason": { "type": ["string", "null"] },
+              "raw": { "type": ["integer", "null"], "minimum": 0, "maximum": 3 },
+              "points": { "type": ["number", "null"], "minimum": 0 },
+              "basis": { "type": "array", "items": { "type": "string" } },
+              "modifier_applied": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "scoreable_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "total": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "band_internal": { "type": ["string", "null"], "enum": ["Excellent", "Good", "Average", "Poor", "Waste of Time", null] },
+        "band": { "type": ["string", "null"] },
+        "partial_label": { "type": ["string", "null"] },
+        "sub_scores": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "points_achieved", "points_available"],
+            "properties": {
+              "name": { "type": "string" },
+              "points_achieved": { "type": ["number", "null"] },
+              "points_available": { "type": "integer" },
+              "not_assessed": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "not_a_benchmark": {
+          "type": "boolean",
+          "const": true,
+          "description": "Structural. The statement renders on every scored artefact. There is no code path that produces a comparison against another organisation."
+        },
+        "individual_scores": {
+          "type": "null",
+          "description": "Structurally null and must remain so. Specification 8.6 prohibits individual scoring at every tier under every setting."
+        }
+      }
+    },
+
+    "insights_v2": {
+      "type": "array",
+      "description": "Added at 1.1. Channel tagged findings. The 1.0 insights array is retained unchanged.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "channel", "comparison_basis", "statement", "evidence_ids", "confidence", "render_as", "attribution", "binding"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^INS-\\d{3}$" },
+          "channel": { "type": "string", "enum": ["INS-A", "INS-B", "INS-C", "INS-D", "INS-E", "INS-F", "INS-G", "INS-H"] },
+          "comparison_basis": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The expected element, archetype, named frame or prior record set the finding came from. A finding that cannot name its comparison is not shipped."
+          },
+          "frame_name": { "type": ["string", "null"] },
+          "statement": { "type": "string" },
+          "consequence": { "type": ["string", "null"] },
+          "proposed_next": { "type": ["string", "null"] },
+          "evidence_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "corpus_refs": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "$ref": "#/definitions/confidence_label" },
+          "render_as": { "type": "string", "enum": ["observation", "question"] },
+          "attribution": { "type": "string", "const": "Concludo analysis" },
+          "binding": { "type": "boolean", "const": false },
+          "about_an_individual": {
+            "type": "boolean",
+            "const": false,
+            "description": "Structural. No finding characterises an individual's contribution, competence, engagement or intent."
+          }
+        }
+      }
+    },
+
+    "assumptions": {
+      "type": "array",
+      "description": "Added at 1.1. Classified assumptions with load bearing references and test proposals.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "assumption", "classification", "stated_by", "evidenced", "load_bearing", "challenged"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^ASM-\\d{2}$" },
+          "assumption": { "type": "string" },
+          "classification": { "type": "string", "enum": ["fact_with_source", "fact_without_source", "forecast", "belief", "assumption"] },
+          "stated_by": { "$ref": "#/definitions/person" },
+          "evidenced": { "type": "boolean" },
+          "load_bearing": { "type": "array", "items": { "type": "string" }, "description": "Ids of the decisions, figures or outputs that depend on it. Empty means it is noise and is not reported." },
+          "challenged": { "type": "boolean" },
+          "proposed_test": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "dependencies": {
+      "type": "array",
+      "description": "Added at 1.1. Typed dependency edges across actions, decisions and open questions.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from_id", "to_id", "relation", "evidence"],
+        "properties": {
+          "from_id": { "type": "string" },
+          "to_id": { "type": "string" },
+          "relation": { "type": "string", "enum": ["blocks", "depends_on", "informs", "supersedes", "contradicts"] },
+          "evidence": { "$ref": "#/definitions/evidence" },
+          "source_basis": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "corpus_refs": {
+      "type": "array",
+      "description": "Added at 1.1. Prior record ids cited by any pattern finding. A pattern finding that cannot name its supporting records is not shipped.",
+      "items": { "type": "string" }
+    },
+
+    "bundle_plan": {
+      "type": ["object", "null"],
+      "description": "Added at 1.1. Makes a rendering reproducible without re-extraction.",
+      "additionalProperties": false,
+      "required": ["lead_template", "outputs", "variant", "stated_omissions"],
+      "properties": {
+        "lead_template": { "type": "string", "pattern": "^T(1[0-7]|[1-9])$" },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["output_id", "template", "visuals"],
+            "properties": {
+              "output_id": { "type": "string", "pattern": "^OUT-\\d{2}$" },
+              "template": { "type": ["string", "null"] },
+              "visuals": { "type": "array", "items": { "type": "string", "pattern": "^VIS-\\d{2}$" } },
+              "visual_fallbacks": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "variant": { "type": "string", "enum": ["internal", "client_safe", "executive", "restricted"] },
+        "variant_user_overridable": { "type": "boolean" },
+        "stated_omissions": {
+          "type": "array",
+          "description": "A first class part of the plan, rendered to the user. Not an error log.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["output_name", "gate_failed", "missing_evidence", "what_would_be_needed_next_time"],
+            "properties": {
+              "output_id": { "type": ["string", "null"] },
+              "output_name": { "type": "string" },
+              "gate_failed": { "type": "string", "enum": ["evidence_sufficiency", "coverage_floor", "confidentiality", "proportionality"] },
+              "missing_evidence": { "type": "string" },
+              "what_would_be_needed_next_time": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "provenance": {
+      "type": ["object", "null"],
+      "description": "Added at 1.1. Not optional in practice. Without it a customer cannot answer why a document produced in March differs from one produced in September.",
+      "additionalProperties": false,
+      "required": ["stages", "registry_version", "schema_version_written"],
+      "properties": {
+        "registry_version": { "type": "string" },
+        "schema_version_written": { "type": "string" },
+        "source_content_hash": { "type": ["string", "null"] },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stage", "engine_version", "at"],
+            "properties": {
+              "stage": { "type": "string", "enum": ["ingest", "detection", "extraction", "validation", "health", "insight", "selection", "visualisation", "rendering"] },
+              "engine_version": { "type": "string" },
+              "model_id": { "type": ["string", "null"] },
+              "prompt_version": { "type": ["string", "null"] },
+              "temperature": { "type": ["number", "null"] },
+              "deterministic": { "type": "boolean", "default": false },
+              "at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
