@@ -16,11 +16,21 @@ PGHOST="${PGHOST:-127.0.0.1}"
 PGPORT="${PGPORT:-5432}"
 PGUSER="${PGUSER:-postgres}"
 DB="${DB:-concludo_migration_replay}"
-MIGRATIONS="${MIGRATIONS:-supabase/migrations}"
+# Resolve relative to this script, not the working directory. A relative default
+# is what let round 1 pass against an orphan directory at the repository root.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MIGRATIONS="${MIGRATIONS:-$SCRIPT_DIR/../supabase/migrations}"
 export PGHOST PGPORT PGUSER PGPASSWORD
 
 if [ ! -d "$MIGRATIONS" ]; then
   echo "No migrations directory at $MIGRATIONS. Run this from the repository root."
+  exit 1
+fi
+
+count=$(ls "$MIGRATIONS"/*.sql 2>/dev/null | wc -l)
+if [ "$count" -lt 20 ]; then
+  echo "Only $count migrations at $MIGRATIONS. That is not the application set."
+  echo "Refusing to run, because a green result here would be meaningless."
   exit 1
 fi
 

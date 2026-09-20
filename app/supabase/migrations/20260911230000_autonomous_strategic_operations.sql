@@ -392,7 +392,8 @@ BEGIN
     UPDATE public.strategic_briefings
     SET deleted_at = now(),
         deleted_by = p_user_id,
-        purge_after = now() + INTERVAL '30 days',\n        updated_at = now()
+        purge_after = now() + INTERVAL '30 days',
+        updated_at = now()
     WHERE id = p_briefing_id
       AND deleted_at IS NULL;
     RETURN FOUND;

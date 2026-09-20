@@ -15,7 +15,9 @@ ALTER TABLE public.profiles ADD CONSTRAINT check_profiles_allowed_plan
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT false;
 
 -- 2. Update can_use_feature function in database to recognize enterprise features
-DROP FUNCTION IF EXISTS public.can_use_feature(UUID, TEXT);
+-- DROP removed. Functions created in migration 12 depend on can_use_feature,
+-- so the drop fails. CREATE OR REPLACE below is sufficient because the
+-- signature (UUID, TEXT) and the return type (BOOLEAN) are unchanged.
 CREATE OR REPLACE FUNCTION public.can_use_feature(p_user_id UUID, p_feature_key TEXT)
 RETURNS BOOLEAN AS $$
 DECLARE
