@@ -254,7 +254,7 @@ export const AutomationExportPage: React.FC = () => {
         >
           <CheckSquare className="w-5 h-5" />
           <div>
-            <div className="text-xs font-bold">Action Items</div>
+            <div className="text-xs font-bold text-slate-100">Action Items</div>
             <div className="text-[10px] text-slate-400">Planner, Jira, Asana</div>
           </div>
         </button>
@@ -269,7 +269,7 @@ export const AutomationExportPage: React.FC = () => {
         >
           <BookOpen className="w-5 h-5" />
           <div>
-            <div className="text-xs font-bold">Decisions</div>
+            <div className="text-xs font-bold text-slate-100">Decisions</div>
             <div className="text-[10px] text-slate-400">Notion, Teams, Slack</div>
           </div>
         </button>
@@ -284,7 +284,7 @@ export const AutomationExportPage: React.FC = () => {
         >
           <FolderKanban className="w-5 h-5" />
           <div>
-            <div className="text-xs font-bold">Projects</div>
+            <div className="text-xs font-bold text-slate-100">Projects</div>
             <div className="text-[10px] text-slate-400">Notion, SharePoint</div>
           </div>
         </button>
@@ -299,7 +299,7 @@ export const AutomationExportPage: React.FC = () => {
         >
           <FileText className="w-5 h-5" />
           <div>
-            <div className="text-xs font-bold">Endpoint Reports</div>
+            <div className="text-xs font-bold text-slate-100">Endpoint Reports</div>
             <div className="text-[10px] text-slate-400">Executive Channels</div>
           </div>
         </button>
@@ -314,7 +314,7 @@ export const AutomationExportPage: React.FC = () => {
         >
           <Boxes className="w-5 h-5" />
           <div>
-            <div className="text-xs font-bold">Bulk Export</div>
+            <div className="text-xs font-bold text-slate-100">Bulk Export</div>
             <div className="text-[10px] text-slate-400">Cross-Platform Sync</div>
           </div>
         </button>
