@@ -99,7 +99,7 @@ export const CheckoutSuccessPage: React.FC = () => {
       case 'workbook_standard':
         return 'Meeting Mastery Workbook | Standard Pack (Edition 3.0)';
       case 'workbook_pro_edition':
-        return 'Meeting Mastery Workbook | Pro Edition Pack (Edition 3.0)';
+        return 'Meeting Mastery Workbook | Pro Edition Pack + Workspace Team (Edition 3.0)';
       case 'workspace_starter':
         return 'Concludo Workspace | Starter Subscription';
       case 'workspace_pro_subscription':
@@ -271,8 +271,18 @@ export const CheckoutSuccessPage: React.FC = () => {
                 >
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#E2B53C', fontSize: '0.82rem', fontWeight: 700, marginBottom: '8px' }}>
                     <ShieldCheck size={16} />
-                    PERMANENT LICENCE ACTIVATED
+                    {status?.checkout.offer_key === 'workbook_pro_edition'
+                      ? 'ANNUAL ORGANISATION LICENCE & TEAM WORKSPACE ACTIVATED'
+                      : 'PERMANENT LICENCE ACTIVATED'}
                   </div>
+                  {status?.checkout.offer_key === 'workbook_pro_edition' && (
+                    <div style={{ backgroundColor: '#16263F', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px', border: '1px solid rgba(226, 181, 60, 0.25)', fontSize: '0.85rem' }}>
+                      <span style={{ color: '#E2B53C', fontWeight: 600 }}>Included Workspace Team Access: </span>
+                      <span style={{ color: '#f8fafc' }}>
+                        {status.checkout.variant_key === 'up_to_20' ? '5 Team Seats' : status.checkout.variant_key === '21_to_100' ? '10 Team Seats' : '25 Team Seats'}
+                      </span>
+                    </div>
+                  )}
                   <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px' }}>
                     Your Download Pack is Ready
                   </h3>

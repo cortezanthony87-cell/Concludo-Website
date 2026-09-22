@@ -88,9 +88,13 @@ export const CheckoutPage: React.FC = () => {
 
   const handleSelectOffer = (offerKey: string, variantKey: string) => {
     setSelectedOfferKey(offerKey);
-    setSelectedVariantKey(variantKey);
+    let effectiveVariant = variantKey;
+    if (offerKey === 'workbook_pro_edition' && (variantKey === 'one_time' || variantKey === 'monthly' || variantKey === 'annual')) {
+      effectiveVariant = 'up_to_20';
+    }
+    setSelectedVariantKey(effectiveVariant);
     setCheckoutError(null);
-    setSearchParams({ offer: offerKey, variant: variantKey });
+    setSearchParams({ offer: offerKey, variant: effectiveVariant });
   };
 
   const handleInitiateCheckout = async () => {
@@ -103,7 +107,7 @@ export const CheckoutPage: React.FC = () => {
         offerKey: selectedOfferKey,
         variantKey: selectedVariantKey,
         quantity: selectedOfferKey === 'workspace_team' ? teamSeats : 1,
-        teamName: selectedOfferKey === 'workspace_team' ? teamName || 'My Team' : undefined,
+        teamName: (selectedOfferKey === 'workspace_team' || selectedOfferKey === 'workbook_pro_edition') ? teamName || 'My Team Workspace' : undefined,
       };
 
       const { checkoutUrl } = await createCheckoutSession(options);
@@ -143,7 +147,7 @@ export const CheckoutPage: React.FC = () => {
         offerKey: selectedOfferKey,
         variantKey: selectedVariantKey,
         quantity: selectedOfferKey === 'workspace_team' ? teamSeats : 1,
-        teamName: selectedOfferKey === 'workspace_team' ? teamName || 'My Team' : undefined,
+        teamName: (selectedOfferKey === 'workspace_team' || selectedOfferKey === 'workbook_pro_edition') ? teamName || 'My Team Workspace' : undefined,
       };
 
       const { checkoutUrl } = await createCheckoutSession(options);
@@ -343,24 +347,26 @@ export const CheckoutPage: React.FC = () => {
 
                 {/* Workbook Pro Edition */}
                 <div
+                  onClick={() => handleSelectOffer('workbook_pro_edition', (selectedOfferKey === 'workbook_pro_edition' && selectedVariantKey !== 'one_time') ? selectedVariantKey : 'up_to_20')}
                   style={{
                     backgroundColor: selectedOfferKey === 'workbook_pro_edition' ? '#21395C' : 'rgba(33, 57, 92, 0.4)',
                     border: selectedOfferKey === 'workbook_pro_edition' ? '2px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: '12px',
                     padding: '20px',
+                    cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                     <div>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#E2B53C', letterSpacing: '0.05em' }}>
-                        ORGANISATION & TEAM LICENCE
+                        ORGANISATION & TEAM BUNDLE
                       </span>
                       <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0', color: '#f8fafc' }}>
-                        Meeting Mastery Workbook | Pro Edition
+                        Meeting Mastery Workbook | Pro Edition + Workspace Team
                       </h3>
                       <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: 0 }}>
-                        Workbook, Facilitator's Guide, Workshop Decks, and internal distribution licence.
+                        232-page Workbook, Facilitator Guide, Workshop Decks, Run Sheets, plus full Workspace Team access.
                       </p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -371,7 +377,7 @@ export const CheckoutPage: React.FC = () => {
                           ? 'AU$2,400'
                           : 'AU$4,800'}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>annual organisation licence</div>
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>per year (annual subscription)</div>
                     </div>
                   </div>
 
@@ -379,63 +385,103 @@ export const CheckoutPage: React.FC = () => {
                   <div style={{ display: 'flex', gap: '8px', marginTop: '12px', marginBottom: '12px' }}>
                     <button
                       type="button"
-                      onClick={() => handleSelectOffer('workbook_pro_edition', 'up_to_20')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectOffer('workbook_pro_edition', 'up_to_20');
+                      }}
                       style={{
                         flex: 1,
-                        padding: '8px',
+                        padding: '10px 6px',
                         borderRadius: '6px',
                         border: selectedVariantKey === 'up_to_20' && selectedOfferKey === 'workbook_pro_edition' ? '1px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.1)',
                         backgroundColor: selectedVariantKey === 'up_to_20' && selectedOfferKey === 'workbook_pro_edition' ? 'rgba(226, 181, 60, 0.15)' : 'transparent',
                         color: '#f8fafc',
-                        fontSize: '0.8rem',
+                        fontSize: '0.78rem',
                         fontWeight: 600,
                         cursor: 'pointer',
+                        lineHeight: 1.35,
                       }}
                     >
-                      Up to 20 People (AU$950/yr)
+                      Up to 20 People<br /><span style={{ color: '#E2B53C' }}>+ 5 Team Seats</span><br />(AU$950/yr)
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSelectOffer('workbook_pro_edition', '21_to_100')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectOffer('workbook_pro_edition', '21_to_100');
+                      }}
                       style={{
                         flex: 1,
-                        padding: '8px',
+                        padding: '10px 6px',
                         borderRadius: '6px',
                         border: selectedVariantKey === '21_to_100' && selectedOfferKey === 'workbook_pro_edition' ? '1px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.1)',
                         backgroundColor: selectedVariantKey === '21_to_100' && selectedOfferKey === 'workbook_pro_edition' ? 'rgba(226, 181, 60, 0.15)' : 'transparent',
                         color: '#f8fafc',
-                        fontSize: '0.8rem',
+                        fontSize: '0.78rem',
                         fontWeight: 600,
                         cursor: 'pointer',
+                        lineHeight: 1.35,
                       }}
                     >
-                      21 to 100 People (AU$2,400/yr)
+                      21 to 100 People<br /><span style={{ color: '#E2B53C' }}>+ 10 Team Seats</span><br />(AU$2,400/yr)
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSelectOffer('workbook_pro_edition', '101_to_500')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectOffer('workbook_pro_edition', '101_to_500');
+                      }}
                       style={{
                         flex: 1,
-                        padding: '8px',
+                        padding: '10px 6px',
                         borderRadius: '6px',
                         border: selectedVariantKey === '101_to_500' && selectedOfferKey === 'workbook_pro_edition' ? '1px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.1)',
                         backgroundColor: selectedVariantKey === '101_to_500' && selectedOfferKey === 'workbook_pro_edition' ? 'rgba(226, 181, 60, 0.15)' : 'transparent',
                         color: '#f8fafc',
-                        fontSize: '0.8rem',
+                        fontSize: '0.78rem',
                         fontWeight: 600,
                         cursor: 'pointer',
+                        lineHeight: 1.35,
                       }}
                     >
-                      101 to 500 People (AU$4,800/yr)
+                      101 to 500 People<br /><span style={{ color: '#E2B53C' }}>+ 25 Team Seats</span><br />(AU$4,800/yr)
                     </button>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', fontSize: '0.82rem', color: '#cbd5e1' }}>
                     <div>✓ 232-page Workbook + Facilitator Guide</div>
-                    <div>✓ Workshop Slides (Keynote & PPTX)</div>
-                    <div>✓ Run Sheets (90-min & Half-day)</div>
+                    <div>✓ Workshop Slides (Keynote & PPTX) + Run Sheets</div>
                     <div>✓ 12-Month Organisation Internal Licence</div>
+                    <div style={{ color: '#E2B53C', fontWeight: 600 }}>
+                      ✓ Included Workspace Team ({selectedVariantKey === 'up_to_20' ? '5 seats' : selectedVariantKey === '21_to_100' ? '10 seats' : '25 seats'})
+                    </div>
                   </div>
+
+                  {/* Team Workspace Name for Pro Edition */}
+                  {selectedOfferKey === 'workbook_pro_edition' && (
+                    <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '10px' }}>
+                      <label style={{ fontSize: '0.8rem', color: '#cbd5e1', display: 'block', marginBottom: '4px' }}>
+                        Team Workspace Name (for included Workspace subscription):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Acme Organisation Workspace"
+                        value={teamName}
+                        onChange={(e) => setTeamName(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          backgroundColor: '#16263F',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#f8fafc',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          width: '100%',
+                          maxWidth: '300px',
+                          fontSize: '0.85rem',
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
