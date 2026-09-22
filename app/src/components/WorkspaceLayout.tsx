@@ -38,6 +38,7 @@ import {
   Sparkles,
   Cpu,
   Sliders,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -178,6 +179,14 @@ export const WorkspaceLayout: React.FC = () => {
                 >
                   <User size={16} />
                   <span>Account</span>
+                </Link>
+                <Link
+                  to="/checkout"
+                  className="dropdown-link"
+                  onClick={() => setAccountMenuOpen(false)}
+                >
+                  <CreditCard size={16} />
+                  <span>Packages & Billing</span>
                 </Link>
                 <Link
                   to="/team/settings"
@@ -683,6 +692,15 @@ export const WorkspaceLayout: React.FC = () => {
             <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
               System
             </div>
+            <NavLink
+              to="/checkout"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <CreditCard size={18} />
+              <span>Packages & Plans</span>
+            </NavLink>
             <NavLink
               to="/settings"
               className={({ isActive }) =>

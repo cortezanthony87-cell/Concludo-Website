@@ -68,6 +68,11 @@ import { ScenarioModelingPage } from './pages/strategic/ScenarioModelingPage';
 import { PerformanceDashboardPage } from './pages/strategic/PerformanceDashboardPage';
 import { ExecutiveBriefingCenterPage } from './pages/strategic/ExecutiveBriefingCenterPage';
 
+// Billing & Checkout Pages
+import { CheckoutPage } from './pages/CheckoutPage';
+import { CheckoutSuccessPage } from './pages/billing/CheckoutSuccessPage';
+import { CheckoutCancelPage } from './pages/billing/CheckoutCancelPage';
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -101,6 +106,12 @@ export const App: React.FC = () => {
           }
         />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Checkout & Billing Routes (Accessible publicly or with auth) */}
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/pricing" element={<Navigate to="/checkout" replace />} />
+        <Route path="/billing/success" element={<CheckoutSuccessPage />} />
+        <Route path="/billing/cancel" element={<CheckoutCancelPage />} />
 
         {/* Protected App Routes */}
         <Route element={<ProtectedRoute />}>
