@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, Lock, Mail, AlertCircle, Loader2, Shield, KeyRound } from 'lucide-react';
+import { ArrowRight, Sparkles, Lock, Mail, AlertCircle, Loader2, Shield, KeyRound } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getAuthErrorMessage } from '../lib/auth/authErrors';
 import { lookupSSOByEmail, logAuditEvent } from '../lib/enterprise/enterpriseClient';
@@ -58,6 +58,26 @@ export const LoginPage: React.FC = () => {
     }, 400);
     return () => clearTimeout(timer);
   }, [email, checkEmailSSO]);
+
+
+  const handleQuickDemoAccess = async () => {
+    setLoading(true);
+    setErrorMessage("");
+    const { error } = await signIn("demo@concludo.au", "ConcludoDemo2026!");
+    setLoading(false);
+    if (error) {
+      setErrorMessage(getAuthErrorMessage(error));
+      return;
+    }
+    navigate("/dashboard", { replace: true });
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("demo") === "true") {
+      handleQuickDemoAccess();
+    }
+  }, [location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,6 +332,39 @@ export const LoginPage: React.FC = () => {
                 <ArrowRight size={18} />
               </>
             )}
+          </button>
+
+          <div style={{ marginTop: "18px", marginBottom: "16px", position: "relative", textAlign: "center" }}>
+            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: "1px", background: "rgba(226, 181, 60, 0.2)" }} />
+            <span style={{ position: "relative", background: "#0d1626", padding: "0 12px", fontSize: "0.78rem", color: "#94a3b8", letterSpacing: "0.04em" }}>
+              OR TRY THE WORKSPACE DIRECTLY
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleQuickDemoAccess}
+            disabled={loading}
+            className="btn-secondary"
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "11px 16px",
+              fontWeight: 600,
+              fontSize: "0.92rem",
+              background: "rgba(226, 181, 60, 0.12)",
+              border: "1px solid rgba(226, 181, 60, 0.45)",
+              color: "#f7d57a",
+              cursor: "pointer",
+              borderRadius: "8px",
+              transition: "all 0.2s ease"
+            }}
+          >
+            <Sparkles size={16} color="#e2b53c" />
+            <span>⚡ Quick Preview Access (Interactive Demo)</span>
           </button>
         </form>
 

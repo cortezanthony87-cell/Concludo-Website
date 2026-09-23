@@ -128,27 +128,42 @@ export const HomePage: React.FC = () => {
             }}
           >
             <Link
-              to="/login"
+              to="/login?demo=true"
               className="btn-gold"
               style={{
                 padding: '12px 28px',
                 fontSize: '0.98rem',
                 textDecoration: 'none',
+                background: 'linear-gradient(135deg, #e2b53c 0%, #bc8a1c 100%)',
+                color: '#060a12',
+                fontWeight: 700,
+                boxShadow: '0 4px 18px rgba(226, 181, 60, 0.4)',
               }}
             >
-              <span>Sign In to Workspace</span>
+              <span>⚡ Try Interactive Demo</span>
               <ArrowRight size={18} />
+            </Link>
+            <Link
+              to="/login"
+              className="btn-secondary"
+              style={{
+                padding: '12px 24px',
+                fontSize: '0.98rem',
+                textDecoration: 'none',
+              }}
+            >
+              Sign In
             </Link>
             <Link
               to="/signup"
               className="btn-secondary"
               style={{
-                padding: '12px 28px',
+                padding: '12px 24px',
                 fontSize: '0.98rem',
                 textDecoration: 'none',
               }}
             >
-              Create New Account
+              Create Account
             </Link>
           </div>
         </div>
