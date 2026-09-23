@@ -317,9 +317,7 @@ export const CheckoutPage: React.FC = () => {
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <div style={{ position: 'absolute', top: '-10px', right: '18px', backgroundColor: '#E2B53C', color: '#16263F', fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px' }}>
-                    MOST POPULAR
-                  </div>
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                     <div>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#E2B53C', letterSpacing: '0.05em' }}>
