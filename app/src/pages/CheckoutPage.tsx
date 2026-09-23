@@ -377,7 +377,7 @@ export const CheckoutPage: React.FC = () => {
                           ? 'AU$2,400'
                           : 'AU$4,800'}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>per year (annual subscription)</div>
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>per year (annual subscription, renews annually until cancelled)</div>
                     </div>
                   </div>
 
@@ -515,7 +515,7 @@ export const CheckoutPage: React.FC = () => {
                         {selectedVariantKey === 'annual' ? 'AU$99' : 'AU$12'}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                        {selectedVariantKey === 'annual' ? 'per year (annual billing)' : 'per month'}
+                        {selectedVariantKey === 'annual' ? 'per year (annual subscription, renews annually until cancelled)' : 'per month (renews monthly until cancelled)'}
                       </div>
                     </div>
                   </div>
@@ -602,7 +602,7 @@ export const CheckoutPage: React.FC = () => {
                         {selectedVariantKey === 'annual' ? 'AU$290' : 'AU$29'}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                        {selectedVariantKey === 'annual' ? 'per year (annual billing)' : 'per month'}
+                        {selectedVariantKey === 'annual' ? 'per year (annual subscription, renews annually until cancelled)' : 'per month (renews monthly until cancelled)'}
                       </div>
                     </div>
                   </div>
@@ -788,6 +788,13 @@ export const CheckoutPage: React.FC = () => {
                     : 'AU$49'}
                 </span>
               </div>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '8px', textAlign: 'right', lineHeight: 1.4 }}>
+                {selectedOfferKey === 'workbook_pro_edition' || selectedVariantKey === 'annual'
+                  ? 'Renews automatically annually until cancelled. Cancel anytime self-serve in the billing portal. A renewal reminder email is sent before each annual charge.'
+                  : selectedOfferKey === 'workspace_team' || selectedVariantKey === 'monthly'
+                  ? 'Renews automatically monthly until cancelled. Cancel anytime self-serve in the billing portal.'
+                  : 'One-off payment. Perpetual licence for version supplied. Does not renew.'}
+              </div>
             </div>
 
             {/* Entity & Tax Disclaimer */}
@@ -803,7 +810,7 @@ export const CheckoutPage: React.FC = () => {
                 border: '1px solid rgba(255, 255, 255, 0.06)',
               }}
             >
-              All prices are indicative and in Australian dollars. Concludo Pty Ltd is not registered for GST, so no GST is charged.
+              All prices are in Australian dollars. Concludo Pty Ltd is not registered for GST, so no GST is charged.
             </div>
 
             {checkoutError && (
