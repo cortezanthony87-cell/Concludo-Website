@@ -7,18 +7,24 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let browserClient: SupabaseClient | null = null;
 
+const DEFAULT_SUPABASE_URL = 'https://dikthezsghsssnwtctem.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa3RoZXpzZ2hzc3Nud3RjdGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwOTgzNzUsImV4cCI6MjEwNDY3NDM3NX0.k_ZM3EB3GSXnQevQemvI4G_BRV3NgHtpWVjBAklXOLs';
+
 export function getSupabaseEnv(): { supabaseUrl: string; supabaseAnonKey: string } {
   const supabaseUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.SUPABASE_URL) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.SUPABASE_URL) ||
+    (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) ||
     (typeof process !== 'undefined' && process.env?.SUPABASE_URL) ||
-    '';
+    DEFAULT_SUPABASE_URL;
 
   const supabaseAnonKey =
-    (typeof import.meta !== 'undefined' && import.meta.env?.SUPABASE_ANON_KEY) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.SUPABASE_ANON_KEY) ||
+    (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY) ||
     (typeof process !== 'undefined' && process.env?.SUPABASE_ANON_KEY) ||
-    '';
+    DEFAULT_SUPABASE_ANON_KEY;
 
   return { supabaseUrl, supabaseAnonKey };
 }
@@ -29,18 +35,6 @@ export function getSupabaseBrowserClient(): SupabaseClient {
   }
 
   const { supabaseUrl, supabaseAnonKey } = getSupabaseEnv();
-
-  if (!supabaseUrl) {
-    throw new Error(
-      'Missing SUPABASE_URL environment variable. Please configure SUPABASE_URL in .env.local for local development or in your hosting provider settings.'
-    );
-  }
-
-  if (!supabaseAnonKey) {
-    throw new Error(
-      'Missing SUPABASE_ANON_KEY environment variable. Please configure SUPABASE_ANON_KEY in .env.local for local development or in your hosting provider settings.'
-    );
-  }
 
   browserClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
