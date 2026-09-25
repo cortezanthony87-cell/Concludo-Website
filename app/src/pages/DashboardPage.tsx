@@ -492,7 +492,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <h1 className="page-title" style={{ fontSize: '2.2rem', marginBottom: '8px' }}>
+        <h1 className="page-title" style={{ marginBottom: '8px' }}>
           {welcomeGreeting}
         </h1>
         <p className="page-subtitle" style={{ fontSize: '0.96rem', color: '#94a3b8' }}>
@@ -840,7 +840,7 @@ export const DashboardPage: React.FC = () => {
       )}
 
       {/* TWO-COLUMN GRID: RECENT PROJECTS & RECENT OUTPUTS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px', marginBottom: '32px' }}>
         {/* SECTION 2: RECENT PROJECTS */}
         <section className="content-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
@@ -1034,7 +1034,7 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* TWO-COLUMN GRID: RECENT ACTIONS & DECISION MEMORY */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px', marginBottom: '32px' }}>
         {/* SECTION 4: RECENT ACTIONS */}
         <section className="content-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>

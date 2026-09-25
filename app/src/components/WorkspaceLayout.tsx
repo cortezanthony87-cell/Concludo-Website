@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
+  Menu,
+  X,
   LayoutDashboard,
   FolderKanban,
   Search,
@@ -46,9 +48,16 @@ import { PLAN_LABELS } from '../lib/profiles/types';
 export const WorkspaceLayout: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, authStatus } = useAuth();
+  const location = useLocation();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile sidebar whenever route changes
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -86,6 +95,16 @@ export const WorkspaceLayout: React.FC = () => {
       {/* Top navigation */}
       <header className="top-navbar">
         <div className="nav-brand-group">
+          <button
+            type="button"
+            className="mobile-menu-toggle"
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            aria-label={mobileSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileSidebarOpen}
+          >
+            {mobileSidebarOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
           <Link to="/dashboard" className="brand-logo-link">
             <div className="brand-emblem">
               <div className="brand-emblem-inner" />
@@ -266,10 +285,19 @@ export const WorkspaceLayout: React.FC = () => {
         </div>
       </header>
 
+      {/* Backdrop overlay for mobile drawer */}
+      {mobileSidebarOpen && (
+        <div
+          className="mobile-sidebar-backdrop"
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* App body: Left sidebar + Main content area */}
       <div className="app-shell-body">
         {/* Left sidebar */}
-        <aside className="left-sidebar">
+        <aside className={`left-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
           <div className="sidebar-content">
             <div className="sidebar-category-label">Navigation</div>
             <NavLink
@@ -732,6 +760,55 @@ export const WorkspaceLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile Bottom Quick Navigation Bar */}
+      <nav className="mobile-bottom-bar" aria-label="Mobile Navigation">
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <LayoutDashboard size={19} />
+          <span>Home</span>
+        </NavLink>
+        <NavLink
+          to="/projects"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <FolderKanban size={19} />
+          <span>Projects</span>
+        </NavLink>
+        <NavLink
+          to="/copilot"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <Sparkles size={19} />
+          <span>Copilot</span>
+        </NavLink>
+        <NavLink
+          to="/actions"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <CheckSquare size={19} />
+          <span>Actions</span>
+        </NavLink>
+        <button
+          type="button"
+          className={`mobile-nav-item ${mobileSidebarOpen ? 'active' : ''}`}
+          onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          aria-label="More sections"
+        >
+          <Menu size={19} />
+          <span>Menu</span>
+        </button>
+      </nav>
     </div>
   );
 };

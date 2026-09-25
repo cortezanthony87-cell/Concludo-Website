@@ -580,7 +580,7 @@ export const StatsPage: React.FC = () => {
       </div>
 
       {/* Visualisation Section: Interactive Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '24px', marginBottom: '32px' }}>
         {/* Monthly Project Activity & Meeting Volume */}
         <div className="section-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -634,7 +634,7 @@ export const StatsPage: React.FC = () => {
       </div>
 
       {/* Second Row of Charts: Monthly Decisions & Completion Rates */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '24px' }}>
         {/* Monthly Decisions */}
         <div className="section-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
