@@ -66,6 +66,7 @@ import {
   isActionOverdue,
 } from '../lib/actions/types';
 import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
+import { extractTranscriptIntelligence } from '../lib/intelligence/transcriptExtractor';
 
 
 export const ProjectDetailPage: React.FC = () => {
@@ -136,6 +137,11 @@ export const ProjectDetailPage: React.FC = () => {
   const [savingAction, setSavingAction] = useState<boolean>(false);
   const [saveActionError, setSaveActionError] = useState<string | null>(null);
   const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
+
+  // Generate Outputs from Transcript State
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
 
   // Create Output State
   const [showCreateOutputForm, setShowCreateOutputForm] = useState<boolean>(false);
@@ -327,6 +333,93 @@ export const ProjectDetailPage: React.FC = () => {
       refreshAllIntelligence({ supabase }).catch(() => {});
     }
     setSavingOutput(false);
+  };
+
+  // Handle Generate Outputs from Transcript
+  const handleGenerateOutputs = async () => {
+    if (!supabase || !project) return;
+    const rawTranscript = (project.transcript || '').trim();
+    if (!rawTranscript) {
+      setGenerateError('No transcript found. Please edit the project and add a transcript first.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerateError(null);
+    setGenerateSuccess(null);
+
+    try {
+      const intel = extractTranscriptIntelligence(rawTranscript, {
+        title: project.title,
+        meetingType: project.meeting_type,
+        clientName: project.client_name || (project as any).client_or_project,
+        projectName: project.project_name,
+        meetingDate: project.meeting_date,
+        notes: project.notes,
+      });
+
+      // 1. Save Summary Output
+      await saveOutput(supabase, {
+        project_id: project.id,
+        output_type: 'summary',
+        content: intel.summary,
+        model_used: 'Concludo Pipeline v1.0',
+      });
+
+      // 2. Save Action Plan Output
+      const actionPlanRes = await saveOutput(supabase, {
+        project_id: project.id,
+        output_type: 'action_plan',
+        content: intel.actionPlan,
+        model_used: 'Concludo Pipeline v1.0',
+      });
+
+      // 3. Save Decision Log Output
+      const decisionLogRes = await saveOutput(supabase, {
+        project_id: project.id,
+        output_type: 'decision_log',
+        content: intel.decisionLog,
+        model_used: 'Concludo Pipeline v1.0',
+      });
+
+      // 4. Save Decisions into decision_memory
+      const sourceDecOutputId = decisionLogRes.data?.id || null;
+      for (const dec of intel.decisions) {
+        await saveDecision(supabase, {
+          project_id: project.id,
+          decision_title: dec.title,
+          decision_summary: dec.summary,
+          decision_reasoning: dec.reasoning,
+          decision_owner: dec.owner,
+          decision_date: dec.date,
+          source_output_id: sourceDecOutputId,
+        });
+      }
+
+      // 5. Save Actions into action_tracker
+      const sourceActOutputId = actionPlanRes.data?.id || null;
+      for (const act of intel.actions) {
+        await saveAction(supabase, {
+          project_id: project.id,
+          action_title: act.title,
+          action_description: act.description,
+          owner_name: act.owner,
+          due_date: act.due_date,
+          status: 'not_started',
+          source_output_id: sourceActOutputId,
+        });
+      }
+
+      // 6. Refresh Project Data
+      await Promise.all([loadOutputs(), loadDecisions(), loadActions()]);
+      await refreshAllIntelligence({ supabase }).catch(() => {});
+
+      setGenerateSuccess("Successfully extracted and generated Executive Summary, Action Plan, and Decision Log from transcript.");
+    } catch (err: any) {
+      setGenerateError(err instanceof Error ? err.message : 'Failed to generate outputs from transcript');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // Handle Delete Output
@@ -997,26 +1090,62 @@ export const ProjectDetailPage: React.FC = () => {
               Transcript
             </h2>
           </div>
-          {project.transcript && (
-            <button
-              type="button"
-              onClick={() => handleCopyText(project.transcript || '', 'transcript')}
-              className="btn btn-secondary"
-              style={{ padding: '5px 12px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              {copiedId === 'transcript' ? (
-                <>
-                  <Check size={14} color="#34d399" />
-                  <span>Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={14} />
-                  <span>Copy Transcript</span>
-                </>
-              )}
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {project.transcript && (
+              <button
+                type="button"
+                onClick={handleGenerateOutputs}
+                disabled={isGenerating}
+                className="btn"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '0.82rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #e2b53c 0%, #ca8a04 100%)',
+                  color: '#090e1a',
+                  fontWeight: 600,
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer',
+                  opacity: isGenerating ? 0.7 : 1,
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 size={14} className="spin-animation" />
+                    <span>Extracting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    <span>Extract & Generate Outputs</span>
+                  </>
+                )}
+              </button>
+            )}
+            {project.transcript && (
+              <button
+                type="button"
+                onClick={() => handleCopyText(project.transcript || '', 'transcript')}
+                className="btn btn-secondary"
+                style={{ padding: '5px 12px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                {copiedId === 'transcript' ? (
+                  <>
+                    <Check size={14} color="#34d399" />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <span>Copy Transcript</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {project.transcript ? (
@@ -1079,21 +1208,117 @@ export const ProjectDetailPage: React.FC = () => {
             </p>
           </div>
 
-          {!showCreateOutputForm && (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => {
-                setShowCreateOutputForm(true);
-                setSaveOutputError(null);
+              onClick={handleGenerateOutputs}
+              disabled={isGenerating}
+              className="btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #e2b53c 0%, #ca8a04 100%)',
+                color: '#090e1a',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                opacity: isGenerating ? 0.7 : 1,
+                boxShadow: '0 2px 8px rgba(226, 181, 60, 0.25)',
               }}
-              className="btn btn-primary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.86rem' }}
             >
-              <Plus size={15} />
-              <span>Save Output</span>
+              {isGenerating ? (
+                <>
+                  <Loader2 size={15} className="spin-animation" />
+                  <span>Generating Outputs...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={15} />
+                  <span>Extract & Generate Outputs</span>
+                </>
+              )}
             </button>
-          )}
+
+            {!showCreateOutputForm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateOutputForm(true);
+                  setSaveOutputError(null);
+                }}
+                className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.86rem' }}
+              >
+                <Plus size={15} />
+                <span>Save Manual Output</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {generateSuccess && (
+          <div
+            style={{
+              padding: '12px 16px',
+              background: 'rgba(52, 211, 153, 0.15)',
+              border: '1px solid rgba(52, 211, 153, 0.4)',
+              borderRadius: '8px',
+              color: '#6ee7b7',
+              fontSize: '0.9rem',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle2 size={16} />
+              <span>{generateSuccess}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGenerateSuccess(null)}
+              style={{ background: 'transparent', border: 'none', color: '#6ee7b7', cursor: 'pointer' }}
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
+        {generateError && (
+          <div
+            style={{
+              padding: '12px 16px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '8px',
+              color: '#fca5a5',
+              fontSize: '0.9rem',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} />
+              <span>{generateError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGenerateError(null)}
+              style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer' }}
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
 
         {/* Output Error Banner with required Retry support */}
         {(outputsError || deleteOutputError) && (
@@ -1270,14 +1495,50 @@ export const ProjectDetailPage: React.FC = () => {
             <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginBottom: '18px' }}>
               Save summaries, action items, or decision logs linked to this project.
             </p>
-            <button
-              type="button"
-              onClick={() => setShowCreateOutputForm(true)}
-              className="btn btn-primary"
-            >
-              <Plus size={15} />
-              <span>Save Output</span>
-            </button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleGenerateOutputs}
+                disabled={isGenerating}
+                className="btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  background: 'linear-gradient(135deg, #e2b53c 0%, #ca8a04 100%)',
+                  color: '#090e1a',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer',
+                  opacity: isGenerating ? 0.7 : 1,
+                  boxShadow: '0 2px 8px rgba(226, 181, 60, 0.25)',
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 size={16} className="spin-animation" />
+                    <span>Extracting Outputs from Transcript...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} />
+                    <span>Extract & Generate Outputs from Transcript</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreateOutputForm(true)}
+                className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px', fontSize: '0.9rem' }}
+              >
+                <Plus size={16} />
+                <span>Save Manual Output</span>
+              </button>
+            </div>
           </div>
         )}
 
