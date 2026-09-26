@@ -1,3 +1,4 @@
+import { trackSignup } from '../lib/analytics';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Mail, Lock, User, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
@@ -58,8 +59,10 @@ export const SignupPage: React.FC = () => {
     }
 
     if (needsConfirmation) {
+      trackSignup();
       setConfirmationSent(true);
     } else if (session) {
+      trackSignup();
       navigate('/dashboard', { replace: true });
     }
   };

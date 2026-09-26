@@ -1,3 +1,4 @@
+import { trackPurchase } from '../../lib/analytics';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -53,6 +54,9 @@ export const CheckoutSuccessPage: React.FC = () => {
 
         if (isPaid || pollAttempts >= maxPollAttempts) {
           setLoading(false);
+          if (isPaid && checkoutSessionId) {
+            trackPurchase(checkoutSessionId, 49, 'AUD');
+          }
         } else {
           pollAttempts += 1;
           timeoutId = setTimeout(checkStatus, 2000);
