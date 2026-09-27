@@ -28,7 +28,6 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
   let docClassification = 'Commercial in confidence';
   let docKicker = 'Executive Paper · Decision & Action';
   let docSubheading = 'Governed Output Intelligence';
-  let docTitle = projectTitle;
 
   if (outputType === 'summary') {
     docClassification = 'Commercial in confidence';
@@ -44,10 +43,10 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
     docSubheading = 'Governed Decision Log';
   }
 
-  // Parse lines or markdown-like structure for presentation
+  // Parse lines
   const lines = rawContent.split('\n').filter((l) => l.trim().length > 0);
   const leadParagraph = lines[0]?.startsWith('#')
-    ? (lines[1]?.startsWith('###') ? lines[2] : lines[1]) || ''
+    ? (lines[1]?.startsWith('###') || lines[1]?.startsWith('- **Status:**') ? lines[2] : lines[1]) || ''
     : lines[0] || '';
 
   const handleDownloadPdf = async () => {
@@ -55,7 +54,7 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
     try {
       setDownloading(true);
       const opt = {
-        margin: [15, 15, 15, 15],
+        margin: [12, 12, 12, 12],
         filename: `${projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_${outputType}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
@@ -72,6 +71,21 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Helper function to render inline markdown formatting (**bold**)
+  const renderFormattedText = (text: string) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} style={{ color: '#16263F', fontWeight: 600 }}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
   };
 
   return (
@@ -162,18 +176,59 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
           boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5)',
         }}
       >
+        {/* Concludo Provenance Block (sits outside paper on dark navy ground) */}
+        <div
+          style={{
+            maxWidth: '190mm',
+            margin: '0 auto 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              background: '#FFFFFF',
+              padding: '8px 16px',
+              borderRadius: '2px',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            <img
+              src="/brand/Concludo_lockup_horizontal_760w.png"
+              alt="Concludo"
+              style={{ width: '135px', height: 'auto', display: 'block' }}
+            />
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '11px',
+              lineHeight: 1.5,
+              color: 'rgba(244, 246, 250, 0.7)',
+              maxWidth: '52ch',
+              textAlign: 'right',
+            }}
+          >
+            Concludo Governed Output Intelligence. Structured executive briefing compiled from verified meeting records under enterprise governance controls.
+          </p>
+        </div>
+
         <div
           ref={documentRef}
           className="sheet"
           style={{
-            maxWidth: '180mm',
+            maxWidth: '190mm',
             margin: '0 auto',
             background: '#FFFFFF',
             color: '#16263F',
             boxShadow: '0 8px 30px rgba(0,0,0,0.45)',
             boxSizing: 'border-box',
             fontFamily: 'Inter, system-ui, sans-serif',
-            fontSize: '10pt',
+            fontSize: '9.5pt',
             lineHeight: 1.5,
           }}
         >
@@ -306,13 +361,13 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
                   paddingBottom: '8px',
                 }}
               >
-                {leadParagraph.replace(/^#+\s*/, '')}
+                {renderFormattedText(leadParagraph.replace(/^#+\s*/, ''))}
               </p>
             )}
           </div>
 
           {/* DOCUMENT BODY */}
-          <div className="doc pad" style={{ padding: '10px 30px 30px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div className="doc pad" style={{ padding: '10px 30px 30px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {lines.slice(1).map((line, idx) => {
               const trimmed = line.trim();
               if (trimmed.startsWith('###') || trimmed.startsWith('##')) {
@@ -321,10 +376,10 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
                     key={idx}
                     style={{
                       fontFamily: 'Poppins, sans-serif',
-                      fontSize: '12pt',
+                      fontSize: '11.5pt',
                       fontWeight: 600,
                       color: '#16263F',
-                      margin: '14px 0 6px',
+                      margin: '14px 0 4px',
                       paddingBottom: '4px',
                       borderBottom: '1.5px solid #16263F',
                     }}
@@ -364,7 +419,7 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
                     }}
                   >
                     {cells.map((cell, cIdx) => (
-                      <span key={cIdx}>{cell}</span>
+                      <span key={cIdx}>{renderFormattedText(cell)}</span>
                     ))}
                   </div>
                 );
@@ -374,14 +429,14 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
                 return (
                   <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '9pt', color: '#16263F' }}>
                     <span style={{ color: '#BC8A1C', fontWeight: 'bold' }}>•</span>
-                    <span>{trimmed.replace(/^[-*]\s*/, '')}</span>
+                    <span>{renderFormattedText(trimmed.replace(/^[-*]\s*/, ''))}</span>
                   </div>
                 );
               }
 
               return (
                 <p key={idx} style={{ fontSize: '9.2pt', lineHeight: 1.6, color: '#16263F', margin: 0 }}>
-                  {trimmed}
+                  {renderFormattedText(trimmed)}
                 </p>
               );
             })}
