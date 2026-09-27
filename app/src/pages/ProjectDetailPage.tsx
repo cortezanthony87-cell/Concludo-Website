@@ -1878,16 +1878,18 @@ export const ProjectDetailPage: React.FC = () => {
                   {/* Concludo Boardroom Document Status & Matching Text Preview */}
                   <div
                     style={{
-                      background: 'rgba(15, 23, 42, 0.5)',
-                      padding: '12px 14px',
-                      borderRadius: '6px',
+                      background: '#ffffff',
+                      padding: '14px 16px',
+                      borderRadius: '8px',
                       fontSize: '0.85rem',
                       lineHeight: 1.5,
-                      color: '#cbd5e1',
-                      borderLeft: '3px solid #e2b53c',
+                      color: '#0f172a',
+                      border: '1px solid rgba(226, 181, 60, 0.6)',
+                      borderLeft: '4px solid #e2b53c',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '8px',
+                      gap: '10px',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
@@ -1897,27 +1899,29 @@ export const ProjectDetailPage: React.FC = () => {
                           alignItems: 'center',
                           gap: '6px',
                           fontSize: '0.75rem',
-                          fontWeight: 600,
-                          color: '#e2b53c',
-                          background: 'rgba(226, 181, 60, 0.12)',
-                          padding: '2px 8px',
+                          fontWeight: 700,
+                          color: '#b48316',
+                          background: 'rgba(226, 181, 60, 0.18)',
+                          border: '1px solid rgba(226, 181, 60, 0.4)',
+                          padding: '3px 9px',
                           borderRadius: '4px',
                         }}
                       >
-                        <Sparkles size={12} />
+                        <Sparkles size={12} color="#b48316" />
                         <span>Concludo Boardroom Document System (A4 Standard)</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => setViewingOutput(output)}
                         style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#93c5fd',
+                          background: 'rgba(16, 27, 46, 0.06)',
+                          border: '1px solid rgba(16, 27, 46, 0.15)',
+                          borderRadius: '4px',
+                          color: '#101b2e',
                           fontSize: '0.78rem',
-                          fontWeight: 500,
+                          fontWeight: 600,
                           cursor: 'pointer',
-                          padding: 0,
+                          padding: '3px 8px',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '4px',
@@ -1927,7 +1931,7 @@ export const ProjectDetailPage: React.FC = () => {
                         <ExternalLink size={12} />
                       </button>
                     </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#94a3b8' }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#1e293b', fontWeight: 500, lineHeight: 1.55 }}>
                       {previewText}
                     </div>
                   </div>
@@ -2090,8 +2094,9 @@ export const ProjectDetailPage: React.FC = () => {
                 style={{
                   padding: '16px 20px',
                   borderRadius: '8px',
-                  background: 'rgba(15, 23, 42, 0.5)',
-                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                  background: '#ffffff',
+                  border: '1px solid rgba(226, 181, 60, 0.5)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
                   display: 'flex',
                   alignItems: 'flex-start',
                   justifyContent: 'space-between',
@@ -2101,7 +2106,7 @@ export const ProjectDetailPage: React.FC = () => {
               >
                 <div style={{ flex: '1 1 300px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#b48316', margin: 0 }}>
                       {decision.decision_title}
                     </h3>
                     {decision.source_output_id && (
@@ -2120,17 +2125,17 @@ export const ProjectDetailPage: React.FC = () => {
                     )}
                   </div>
                   {decision.decision_summary && (
-                    <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                    <p style={{ color: '#0f172a', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5, fontWeight: 450 }}>
                       {decision.decision_summary}
                     </p>
                   )}
                   {decision.decision_reasoning && (
-                    <p style={{ color: '#94a3b8', fontSize: '0.82rem', margin: '0 0 8px 0', fontStyle: 'italic', lineHeight: 1.4 }}>
-                      <strong style={{ fontStyle: 'normal', color: '#cbd5e1' }}>Why: </strong>
+                    <p style={{ color: '#1e293b', fontSize: '0.82rem', margin: '0 0 8px 0', fontStyle: 'italic', lineHeight: 1.4 }}>
+                      <strong style={{ fontStyle: 'normal', color: '#0f172a', fontWeight: 600 }}>Why: </strong>
                       {decision.decision_reasoning}
                     </p>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: '#475569', flexWrap: 'wrap' }}>
                     {decision.decision_owner && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                         <User size={13} style={{ color: '#e2b53c' }} />
@@ -2512,14 +2517,14 @@ export const ProjectDetailPage: React.FC = () => {
         >
           <div
             style={{
-              maxWidth: "960px",
-              width: "100%",
+              maxWidth: "1200px",
+              width: "96%",
               padding: "24px",
               borderRadius: "14px",
               background: "#16263F",
               border: "1px solid rgba(226, 181, 60, 0.4)",
               boxShadow: "0 25px 60px -12px rgba(0, 0, 0, 0.85)",
-              maxHeight: "94vh",
+              maxHeight: "96vh",
               display: "flex",
               flexDirection: "column",
             }}

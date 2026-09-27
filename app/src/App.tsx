@@ -4,6 +4,7 @@ import { AuthProvider } from './lib/auth/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicAuthRoute } from './components/PublicAuthRoute';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
+import { ScrollToTop } from './components/ScrollToTop';
 
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -76,6 +77,7 @@ import { CheckoutCancelPage } from './pages/billing/CheckoutCancelPage';
 export const App: React.FC = () => {
   return (
     <AuthProvider>
+      <ScrollToTop />
       <Routes>
         {/* Public Home Route (renders HomePage or redirects to /dashboard if logged in) */}
         <Route path="/" element={<HomePage />} />

@@ -54,10 +54,15 @@ export const WorkspaceLayout: React.FC = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close mobile sidebar whenever route changes
+  // Reset scroll and close mobile sidebar whenever route changes
   useEffect(() => {
     setMobileSidebarOpen(false);
-  }, [location.pathname]);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+    const mainArea = document.querySelector('.main-content-area');
+    if (mainArea) {
+      mainArea.scrollTop = 0;
+    }
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

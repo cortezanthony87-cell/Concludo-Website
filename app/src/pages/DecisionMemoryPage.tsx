@@ -328,8 +328,8 @@ export const DecisionMemoryPage: React.FC = () => {
                   <h3
                     style={{
                       fontSize: '1.15rem',
-                      fontWeight: 600,
-                      color: '#f8fafc',
+                      color: '#b48316',
+                      fontWeight: 700,
                       marginBottom: '8px',
                     }}
                   >
@@ -337,7 +337,7 @@ export const DecisionMemoryPage: React.FC = () => {
                       to={`/decision-memory/${dec.id}`}
                       style={{ color: 'inherit', textDecoration: 'none' }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = '#e2b53c')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = '#f8fafc')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#b48316')}
                     >
                       {dec.decision_title}
                     </Link>
