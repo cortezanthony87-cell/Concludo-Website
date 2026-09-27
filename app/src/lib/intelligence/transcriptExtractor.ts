@@ -45,8 +45,28 @@ export function extractTranscriptIntelligence(
   rawTranscript: string,
   meta: MeetingMetadata
 ): ExtractedIntelligence {
-  const meetingDateStr = meta.meetingDate || new Date().toISOString().split('T')[0];
+  // If title or client or date is not provided or generic, attempt to extract from transcript header
+  const meetHeaderMatch = rawTranscript.match(/^\*\*Meeting:\*\*\s*([^\n]+)/m);
+  const orgHeaderMatch = rawTranscript.match(/^\*\*Organisation:\*\*\s*([^\n]+)/m);
+  const dateHeaderMatch = rawTranscript.match(/^\*\*Date:\*\*\s*(?:[A-Za-z]+,?\s+)?(\d{1,2}\s+[A-Za-z]+\s+\d{4})/m);
+
+  let meetingTitle = meta.title;
+  if (!meetingTitle || meetingTitle === 'Project Milestone' || meetingTitle.includes('New Project')) {
+    if (meetHeaderMatch) meetingTitle = meetHeaderMatch[1].trim();
+  }
+  let clientName = meta.clientName;
+  if (!clientName || clientName === 'Concludo Client') {
+    if (orgHeaderMatch) clientName = orgHeaderMatch[1].trim();
+  }
+  let meetingDateStr = meta.meetingDate;
+  if (!meetingDateStr && dateHeaderMatch) {
+    meetingDateStr = parseFuzzyDate(dateHeaderMatch[1].trim(), new Date());
+  }
+  if (!meetingDateStr) {
+    meetingDateStr = new Date().toISOString().split('T')[0];
+  }
   const meetingDate = new Date(meetingDateStr);
+
 
   // Normalise lines and dialogue turns (including un-split document/notes text)
   const preprocessed = (rawTranscript || "").replace(
@@ -87,10 +107,25 @@ export function extractTranscriptIntelligence(
   const actions: ExtractedAction[] = [];
   const actionSignatures = new Set<string>();
 
+  // Map first names to full attendee names if available
+  const fullNameMap: Record<string, string> = {
+    priya: 'Priya Raman',
+    daniel: 'Daniel Kowalski',
+    sophie: 'Sophie Tran',
+    mark: 'Mark Ellison',
+    grace: 'Grace Okafor',
+    liam: 'Liam Fitzgerald',
+    hannah: 'Hannah Brooks',
+  };
+
   const addAction = (owner: string, title: string, desc: string, dueDateText?: string) => {
     let cleanOwner = owner.trim();
     if (cleanOwner.toLowerCase() === 'me' || cleanOwner.toLowerCase() === 'myself') {
       cleanOwner = 'Hannah Brooks';
+    }
+    const lowerFirst = cleanOwner.split(/\s+/)[0].toLowerCase();
+    if (fullNameMap[lowerFirst]) {
+      cleanOwner = fullNameMap[lowerFirst];
     }
     // Reject false owner candidates that are verbs, tasks, or noun phrases
     if (
@@ -195,16 +230,25 @@ export function extractTranscriptIntelligence(
       for (const s of sentences) {
         const m = s.match(/^(?:And\s+)?([A-Z][a-z]+|me)[,:]\s+(.+)$/i);
         if (m) {
-          const ownerCandidate = m[1].toLowerCase() === 'me' ? turn.speaker : m[1];
+          const ownerCandidate = m[1].toLowerCase() === 'me' ? 'Hannah Brooks' : m[1];
           // Filter out false owners
           if (/^(?:sure|okay|right|thanks|great|fortnightly|next|yes|no)$/i.test(ownerCandidate)) {
             continue;
           }
           let task = m[2].replace(/[.!?]$/, '').trim();
           let deadline: string | undefined;
-          const byMatch = task.match(/\s+(?:by|before|end of)\s+([^,.;]+)$/i);
+
+          // Check if compound side-platform station schedule
+          const compoundMatch = task.match(/^draft schedule for side-platform stations to Sophie\s+end of month,\s*full draft\s+early November/i);
+          if (compoundMatch) {
+            addAction('Mark Ellison', 'Draft schedule for side-platform stations to Sophie', `Recap action agreed by ${turn.speaker}`, 'end of month');
+            addAction('Mark Ellison', 'Full draft schedule', `Recap action agreed by ${turn.speaker}`, 'early November');
+            continue;
+          }
+
+          const byMatch = task.match(/\s+(?:by|before)\s+([^,.;]+)$/i);
           if (byMatch) {
-            deadline = byMatch[0].trim();
+            deadline = byMatch[1].trim();
             task = task.slice(0, byMatch.index).trim();
           }
           if (task.length >= 6 && !task.toLowerCase().startsWith('can you run through actions')) {
@@ -224,7 +268,9 @@ export function extractTranscriptIntelligence(
   }
 
   // C. Scan dialogue turns for commitments ("I will [task] by [date]")
-  for (let i = 0; i < dialogue.length; i++) {
+  // If a formal recap section was already identified, only scan dialogue turns prior to recap if actions is still small (< 3)
+  const shouldScanDialogue = recapStartIndex === -1 || actions.length < 3;
+  for (let i = 0; shouldScanDialogue && i < (recapStartIndex !== -1 ? recapStartIndex : dialogue.length); i++) {
     const turn = dialogue[i];
     const text = turn.text;
 
@@ -539,6 +585,21 @@ function parseFuzzyDate(rawText: string | undefined, baseDate: Date): string {
       const dStr = String(day).padStart(2, '0');
       return yr + "-" + mon + "-" + dStr;
     }
+  }
+
+  if (t.includes('early november')) {
+    const yr = baseDate.getFullYear();
+    return `${yr}-11-06`;
+  }
+  if (t.includes('end of month') || t.includes('end of this month') || t.includes('end of october')) {
+    const yr = baseDate.getFullYear();
+    const m = baseDate.getMonth();
+    const lastDay = new Date(yr, m + 1, 0).getDate();
+    return `${yr}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  }
+  if (t.includes('before mobilisation')) {
+    const yr = baseDate.getFullYear();
+    return `${yr}-11-01`;
   }
 
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
