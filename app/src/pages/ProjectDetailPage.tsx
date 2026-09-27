@@ -427,27 +427,30 @@ export const ProjectDetailPage: React.FC = () => {
         notes: project.notes,
       });
 
-      // 1. Save Summary Output
+      // 1. Save Summary Output with Concludo Report Schema Payload
       await saveOutput(supabase, {
         project_id: project.id,
         output_type: 'summary',
         content: intel.summary,
+        json_content: intel.payload as any,
         model_used: 'Concludo Pipeline v1.0',
       });
 
-      // 2. Save Action Plan Output
+      // 2. Save Action Plan Output with Concludo Report Schema Payload
       const actionPlanRes = await saveOutput(supabase, {
         project_id: project.id,
         output_type: 'action_plan',
         content: intel.actionPlan,
+        json_content: intel.payload as any,
         model_used: 'Concludo Pipeline v1.0',
       });
 
-      // 3. Save Decision Log Output
+      // 3. Save Decision Log Output with Concludo Report Schema Payload
       const decisionLogRes = await saveOutput(supabase, {
         project_id: project.id,
         output_type: 'decision_log',
         content: intel.decisionLog,
+        json_content: intel.payload as any,
         model_used: 'Concludo Pipeline v1.0',
       });
 
