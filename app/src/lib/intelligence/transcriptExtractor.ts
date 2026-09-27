@@ -535,13 +535,14 @@ ${d.reasoning ? `- **Rationale:** ${d.reasoning}` : ''}
   )
   .join('\n')}`;
 
-  const effectiveMeta: MeetingMetadata = {
+  const effectiveMeta: MeetingMetadata & { rawContent?: string } = {
     title: meetingTitle,
     clientName: clientName,
     projectName: projectName,
     meetingType: meetingType,
     meetingDate: meetingDateStr,
     notes: meta.notes,
+    rawContent: rawTranscript,
   };
   const payload = buildConcludoPayload({ summary, actionPlan, decisionLog, actions, decisions, payload: null as any }, effectiveMeta, 'starter');
 

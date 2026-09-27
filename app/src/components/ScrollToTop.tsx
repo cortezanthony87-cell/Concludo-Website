@@ -1,16 +1,27 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
+export function resetAllScrollPositions() {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+  if (document.documentElement) document.documentElement.scrollTop = 0;
+  if (document.body) document.body.scrollTop = 0;
+  const mainArea = document.querySelector('.main-content-area');
+  if (mainArea) mainArea.scrollTop = 0;
+  const scrollContainers = document.querySelectorAll('.app-container, .app-shell-body, [data-scroll-container]');
+  scrollContainers.forEach((el) => {
+    (el as HTMLElement).scrollTop = 0;
+  });
+}
+
 /**
- * ScrollToTop ensures that whenever the route pathname or search parameters change
- * (such as clicking sidebar navigation links or sub-navigation tabs), the view automatically
- * scrolls all the way to the top of both the window and the main scrollable content area.
+ * ScrollToTop ensures that whenever the route pathname or search parameters change,
+ * the view automatically scrolls all the way to the top of both the window and
+ * all scrollable containers.
  */
 export const ScrollToTop = () => {
   const { pathname, search, hash } = useLocation();
 
   useEffect(() => {
-    // If a hash anchor is provided, scroll to the designated element smoothly
     if (hash) {
       const targetElement = document.querySelector(hash);
       if (targetElement) {
@@ -19,22 +30,21 @@ export const ScrollToTop = () => {
       }
     }
 
-    // Scroll browser window to the top
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+    resetAllScrollPositions();
 
-    // Scroll main-content-area to top (in case layout overflow is on the container)
-    const mainArea = document.querySelector('.main-content-area');
-    if (mainArea) {
-      mainArea.scrollTop = 0;
-    }
+    // Rerun on next animation frame in case content takes a tick to mount
+    const rafId = requestAnimationFrame(() => {
+      resetAllScrollPositions();
+    });
 
-    // Also check documentElement and body
-    if (document.documentElement) {
-      document.documentElement.scrollTop = 0;
-    }
-    if (document.body) {
-      document.body.scrollTop = 0;
-    }
+    const timer = setTimeout(() => {
+      resetAllScrollPositions();
+    }, 60);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+    };
   }, [pathname, search, hash]);
 
   return null;

@@ -127,6 +127,19 @@ export function wrapText(txt: string, font: PDFFont, size: number, maxWidth: num
   return out.length ? out : [''];
 }
 
+export function fitText(txt: string, font: PDFFont, size: number, maxW: number): string {
+  let str = String(txt || '').trim();
+  try {
+    if (font.widthOfTextAtSize(str, size) <= maxW) return str;
+    while (str.length > 2 && font.widthOfTextAtSize(str + '...', size) > maxW) {
+      str = str.slice(0, -1).trim();
+    }
+    return str + '...';
+  } catch {
+    return str.slice(0, Math.floor(maxW / (size * 0.55)));
+  }
+}
+
 interface LoadedFonts {
   H: PDFFont;
   HB: PDFFont;
@@ -563,7 +576,12 @@ function renderCover(d: Doc) {
   d.tracked((m.kicker || 'CONCLUDO WORKSPACE · EXTRACT AND GENERATE OUTPUTS').toUpperCase(), XL, y, 'M', 6.0, 1.6, mix(LIGHT, NAVY, 0.45));
   y -= 16 * MM;
 
-  const lines = m.title_lines || [];
+  const rawLines = m.title_lines || [];
+  const lines: string[] = [];
+  for (const rawLine of rawLines) {
+    const wrapped = wrapText(rawLine, d.fonts.HB, 30, CW);
+    lines.push(...wrapped);
+  }
   for (let i = 0; i < lines.length; i++) {
     d.currentPage.drawText(lines[i], {
       x: XL,
@@ -573,7 +591,7 @@ function renderCover(d: Doc) {
       color: LIGHT,
     });
   }
-  y -= (lines.length - 1) * 13 * MM;
+  y -= Math.max(lines.length - 1, 0) * 13 * MM;
 
   if (m.accent_line) {
     d.currentPage.drawText(m.accent_line, {
@@ -612,14 +630,17 @@ function renderCover(d: Doc) {
       const cell = meta[i];
       const cx = XL + i * cwid + 6 * MM;
       d.tracked((cell.label || '').toUpperCase(), cx, ys - 8 * MM, 'M', 5.2, 1.3, mix(LIGHT, NAVY, 0.50));
-      d.currentPage.drawText(String(cell.value || ''), {
+      const maxCellTextW = cwid - 10 * MM;
+      const fitVal = fitText(String(cell.value || ''), d.fonts.H, 9.6, maxCellTextW);
+      const fitNote = fitText(String(cell.note || ''), d.fonts.B, 7.4, maxCellTextW);
+      d.currentPage.drawText(fitVal, {
         x: cx,
         y: ys - 14.4 * MM,
         size: 9.6,
         font: d.fonts.H,
         color: LIGHT,
       });
-      d.currentPage.drawText(String(cell.note || ''), {
+      d.currentPage.drawText(fitNote, {
         x: cx,
         y: ys - 19.6 * MM,
         size: 7.4,
@@ -671,7 +692,7 @@ function renderCover(d: Doc) {
     d.tracked(notices[i].toUpperCase(), XL, FOOTRULE + 19 * MM - i * 5.6 * MM, 'M', 5.4, 1.2, i === 1 ? GOLD : mix(LIGHT, NAVY, 0.46));
   }
 
-  d.chrome();
+  // Cover does not call d.chrome() so logo band remains pristine
 }
 
 function renderInputs(d: Doc, s: any) {

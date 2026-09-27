@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
+import { resetAllScrollPositions } from './ScrollToTop';
 
 export const WorkspaceLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -302,7 +303,16 @@ export const WorkspaceLayout: React.FC = () => {
       {/* App body: Left sidebar + Main content area */}
       <div className="app-shell-body">
         {/* Left sidebar */}
-        <aside className={`left-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
+        <aside
+          className={`left-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest('a') || target.closest('.sidebar-link')) {
+              resetAllScrollPositions();
+              setMobileSidebarOpen(false);
+            }
+          }}
+        >
           <div className="sidebar-content">
             <div className="sidebar-category-label">Navigation</div>
             <NavLink
