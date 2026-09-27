@@ -1,3 +1,15 @@
+function b64ToUint8Array(b64: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    return b64ToUint8Array(b64);
+  }
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    bytes[i] = bin.charCodeAt(i);
+  }
+  return bytes;
+}
+
 /**
  * Concludo output document renderer, boardroom edition (TypeScript Port).
  * Faithful implementation of concludo_report.py and DESIGN_SPEC.md.
@@ -146,12 +158,12 @@ class Doc {
   async init() {
     this.pdf.registerFontkit((fontkit as any).default || fontkit);
 
-    const poppinsBold = await this.pdf.embedFont(Uint8Array.from(Buffer.from(FONT_POPPINS_BOLD_TTF_B64, 'base64')));
-    const poppinsMed = await this.pdf.embedFont(Uint8Array.from(Buffer.from(FONT_POPPINS_MEDIUM_TTF_B64, 'base64')));
-    const workSansReg = await this.pdf.embedFont(Uint8Array.from(Buffer.from(FONT_WORKSANS_REGULAR_TTF_B64, 'base64')));
-    const workSansBold = await this.pdf.embedFont(Uint8Array.from(Buffer.from(FONT_WORKSANS_BOLD_TTF_B64, 'base64')));
-    const monoReg = await this.pdf.embedFont(Uint8Array.from(Buffer.from(FONT_IBMPLEXMONO_REGULAR_TTF_B64, 'base64')));
-    const monoBold = await this.pdf.embedFont(Uint8Array.from(Buffer.from(FONT_IBMPLEXMONO_BOLD_TTF_B64, 'base64')));
+    const poppinsBold = await this.pdf.embedFont(b64ToUint8Array(FONT_POPPINS_BOLD_TTF_B64));
+    const poppinsMed = await this.pdf.embedFont(b64ToUint8Array(FONT_POPPINS_MEDIUM_TTF_B64));
+    const workSansReg = await this.pdf.embedFont(b64ToUint8Array(FONT_WORKSANS_REGULAR_TTF_B64));
+    const workSansBold = await this.pdf.embedFont(b64ToUint8Array(FONT_WORKSANS_BOLD_TTF_B64));
+    const monoReg = await this.pdf.embedFont(b64ToUint8Array(FONT_IBMPLEXMONO_REGULAR_TTF_B64));
+    const monoBold = await this.pdf.embedFont(b64ToUint8Array(FONT_IBMPLEXMONO_BOLD_TTF_B64));
 
     this.fonts = {
       H: poppinsBold,
@@ -164,7 +176,7 @@ class Doc {
     };
 
     try {
-      const logoBytes = Uint8Array.from(Buffer.from(ASSET_LOGO_H_PNG_B64, 'base64'));
+      const logoBytes = b64ToUint8Array(ASSET_LOGO_H_PNG_B64);
       this.logoImg = await this.pdf.embedPng(logoBytes);
     } catch (e) {
       console.warn('Could not embed logo image:', e);
