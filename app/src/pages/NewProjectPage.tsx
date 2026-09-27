@@ -25,6 +25,7 @@ import { COMMON_MEETING_TYPES, OwnershipType } from '../lib/projects/types';
 import { fetchUserTeams } from '../lib/teams/teamClient';
 import { Team, TeamRole } from '../lib/teams/types';
 import { parseUploadedFile, ParsedDocument } from '../lib/intelligence/fileParser';
+import { extractMetadataFromContent } from '../lib/intelligence/metadataExtractor';
 
 export const NewProjectPage: React.FC = () => {
   const { supabase, user } = useAuth();
@@ -53,6 +54,7 @@ export const NewProjectPage: React.FC = () => {
 
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [autoDetectedInfo, setAutoDetectedInfo] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadTeams() {
@@ -67,6 +69,38 @@ export const NewProjectPage: React.FC = () => {
     }
     loadTeams();
   }, [supabase]);
+
+
+  const autoFillFromContent = (content: string, sourceLabel: string) => {
+    if (!content || content.trim().length < 15) return;
+    const detected = extractMetadataFromContent(content);
+    const filledFields: string[] = [];
+
+    if (detected.title && !title.trim()) {
+      setTitle(detected.title);
+      filledFields.push('Project Title');
+    }
+    if (detected.clientName && !clientName.trim()) {
+      setClientName(detected.clientName);
+      filledFields.push('Client Name');
+    }
+    if (detected.projectName && !projectName.trim()) {
+      setProjectName(detected.projectName);
+      filledFields.push('Project Name');
+    }
+    if (detected.meetingType && (!meetingType || meetingType === 'Strategy & Planning')) {
+      setMeetingType(detected.meetingType);
+      filledFields.push('Meeting Type');
+    }
+    if (detected.meetingDate) {
+      setMeetingDate(detected.meetingDate);
+      filledFields.push('Meeting Date');
+    }
+
+    if (filledFields.length > 0) {
+      setAutoDetectedInfo(`Automatically detected ${filledFields.join(', ')} from ${sourceLabel}.`);
+    }
+  };
 
   const handleFilesSelected = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -88,7 +122,10 @@ export const NewProjectPage: React.FC = () => {
 
     if (newlyParsed.length > 0) {
       setImportedFiles((prev) => [...prev, ...newlyParsed]);
-      // If project title is empty, infer from first uploaded document
+      // Aggregate text from uploaded files to auto-detect metadata
+      const combinedDocsText = newlyParsed.map((doc) => doc.text).join('\n\n');
+      autoFillFromContent(combinedDocsText, `imported file (${newlyParsed[0].name})`);
+      // If project title remains empty, infer from file name
       if (!title.trim()) {
         const cleanedName = newlyParsed[0].name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
         const autoTitle = cleanedName.charAt(0).toUpperCase() + cleanedName.slice(1);
@@ -110,8 +147,39 @@ export const NewProjectPage: React.FC = () => {
     if (e) e.preventDefault();
     setErrorMessage(null);
 
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
+    // Pre-flight check: If title, client, project, or type are not set, attempt auto-extraction from transcript or files
+    let effectiveTitle = title.trim();
+    let effectiveClient = clientName.trim();
+    let effectiveProject = projectName.trim();
+    let effectiveType = meetingType;
+    let effectiveDate = meetingDate;
+
+    const sourceForDetection = transcript.trim() || importedFiles.map((d) => d.text).join('\n\n');
+    if (sourceForDetection) {
+      const detected = extractMetadataFromContent(sourceForDetection);
+      if (!effectiveTitle && detected.title) {
+        effectiveTitle = detected.title;
+        setTitle(detected.title);
+      }
+      if (!effectiveClient && detected.clientName) {
+        effectiveClient = detected.clientName;
+        setClientName(detected.clientName);
+      }
+      if (!effectiveProject && detected.projectName) {
+        effectiveProject = detected.projectName;
+        setProjectName(detected.projectName);
+      }
+      if ((!effectiveType || effectiveType === 'Strategy & Planning') && detected.meetingType) {
+        effectiveType = detected.meetingType;
+        setMeetingType(detected.meetingType);
+      }
+      if (detected.meetingDate) {
+        effectiveDate = detected.meetingDate;
+        setMeetingDate(detected.meetingDate);
+      }
+    }
+
+    if (!effectiveTitle) {
       setErrorMessage('Project title is required.');
       return;
     }
@@ -163,11 +231,11 @@ export const NewProjectPage: React.FC = () => {
     }
 
     const result = await createProject(supabase, {
-      title: trimmedTitle,
-      meeting_type: meetingType || null,
-      client_name: clientName.trim() || null,
-      project_name: projectName.trim() || null,
-      meeting_date: meetingDate || null,
+      title: effectiveTitle,
+      meeting_type: effectiveType || null,
+      client_name: effectiveClient || null,
+      project_name: effectiveProject || null,
+      meeting_date: effectiveDate || null,
       transcript: finalTranscript || null,
       notes: finalNotes || null,
       ownership_type: ownershipType,
@@ -214,6 +282,42 @@ export const NewProjectPage: React.FC = () => {
           Save a meeting record, transcript, or imported meeting notes and PDFs to establish your Meeting Memory.
         </p>
       </div>
+
+            {autoDetectedInfo && (
+        <div
+          style={{
+            background: 'rgba(226, 181, 60, 0.12)',
+            border: '1px solid rgba(226, 181, 60, 0.4)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '20px',
+            color: '#fef08a',
+            fontSize: '0.88rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={16} color="#e2b53c" />
+            <span>{autoDetectedInfo}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAutoDetectedInfo(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#cbd5e1',
+              cursor: 'pointer',
+              padding: '2px',
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {errorMessage && (
         <div
@@ -625,7 +729,20 @@ export const NewProjectPage: React.FC = () => {
                   : 'Paste conversation transcript or meeting audio transcript here, or import your PDF/Word files above...'
               }
               value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setTranscript(val);
+                // If user pasted a sizable transcript, immediately auto-detect missing metadata
+                if (val.length > 50) {
+                  autoFillFromContent(val, 'pasted transcript');
+                }
+              }}
+              onPaste={(e) => {
+                const pastedText = e.clipboardData.getData('text');
+                if (pastedText && pastedText.length > 50) {
+                  setTimeout(() => autoFillFromContent(pastedText, 'pasted transcript'), 50);
+                }
+              }}
               disabled={saving}
               style={{ fontFamily: 'monospace', fontSize: '0.88rem', lineHeight: 1.5 }}
             />

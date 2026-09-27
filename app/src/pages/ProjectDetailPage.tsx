@@ -67,6 +67,7 @@ import {
 } from '../lib/actions/types';
 import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
 import { extractTranscriptIntelligence } from '../lib/intelligence/transcriptExtractor';
+import { extractMetadataFromContent } from '../lib/intelligence/metadataExtractor';
 import { parseUploadedFile, ParsedDocument } from '../lib/intelligence/fileParser';
 import { UploadCloud, FileCheck } from 'lucide-react';
 import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
@@ -286,9 +287,33 @@ export const ProjectDetailPage: React.FC = () => {
       const existingNotes = (project.notes || '').trim();
       const updatedNotes = existingNotes ? existingNotes + '\n\n' + attachmentNote : attachmentNote;
 
+      // Auto-detect metadata if current project lacks details or has default names
+      const detected = extractMetadataFromContent(updatedTranscript);
+      const metadataUpdates: any = {};
+      
+      const currentTitle = (project.title || '').trim();
+      if ((!currentTitle || currentTitle === 'Project Milestone' || currentTitle.toLowerCase().includes('new project')) && detected.title) {
+        metadataUpdates.title = detected.title;
+      }
+      const currentClient = (project.client_name || project.client_or_project || '').trim();
+      if ((!currentClient || currentClient === 'Concludo Client') && detected.clientName) {
+        metadataUpdates.client_name = detected.clientName;
+      }
+      const currentProjName = (project.project_name || '').trim();
+      if (!currentProjName && detected.projectName) {
+        metadataUpdates.project_name = detected.projectName;
+      }
+      if ((!project.meeting_type || project.meeting_type === 'Strategy & Planning') && detected.meetingType) {
+        metadataUpdates.meeting_type = detected.meetingType;
+      }
+      if (!project.meeting_date && detected.meetingDate) {
+        metadataUpdates.meeting_date = detected.meetingDate;
+      }
+
       const updateRes = await updateProject(supabase, id, {
         transcript: updatedTranscript,
         notes: updatedNotes,
+        ...metadataUpdates,
       });
 
       if (updateRes.data) {
@@ -303,6 +328,27 @@ export const ProjectDetailPage: React.FC = () => {
       setDetailParseError(errors.join('; '));
     }
     setDetailParsingFiles(false);
+  };
+
+
+  const handleAutoFillEditMetadata = (rawContent: string) => {
+    if (!rawContent || rawContent.trim().length < 20) return;
+    const detected = extractMetadataFromContent(rawContent);
+    if (detected.title && (!editTitle.trim() || editTitle === 'Project Milestone' || editTitle.toLowerCase().includes('new project'))) {
+      setEditTitle(detected.title);
+    }
+    if (detected.clientName && (!editClientName.trim() || editClientName === 'Concludo Client')) {
+      setEditClientName(detected.clientName);
+    }
+    if (detected.projectName && !editProjectName.trim()) {
+      setEditProjectName(detected.projectName);
+    }
+    if (detected.meetingType && (!editMeetingType || editMeetingType === 'Strategy & Planning')) {
+      setEditMeetingType(detected.meetingType);
+    }
+    if (detected.meetingDate && !editMeetingDate) {
+      setEditMeetingDate(detected.meetingDate);
+    }
   };
 
   const handleStartEditing = () => {
@@ -327,8 +373,37 @@ export const ProjectDetailPage: React.FC = () => {
     e.preventDefault();
     if (!supabase || !id) return;
 
-    const trimmedTitle = editTitle.trim();
-    if (!trimmedTitle) {
+    let effectiveTitle = editTitle.trim();
+    let effectiveClient = editClientName.trim();
+    let effectiveProjName = editProjectName.trim();
+    let effectiveType = editMeetingType.trim();
+    let effectiveDate = editMeetingDate;
+
+    if (editTranscript.trim()) {
+      const detected = extractMetadataFromContent(editTranscript.trim());
+      if ((!effectiveTitle || effectiveTitle === 'Project Milestone') && detected.title) {
+        effectiveTitle = detected.title;
+        setEditTitle(detected.title);
+      }
+      if (!effectiveClient && detected.clientName) {
+        effectiveClient = detected.clientName;
+        setEditClientName(detected.clientName);
+      }
+      if (!effectiveProjName && detected.projectName) {
+        effectiveProjName = detected.projectName;
+        setEditProjectName(detected.projectName);
+      }
+      if (!effectiveType && detected.meetingType) {
+        effectiveType = detected.meetingType;
+        setEditMeetingType(detected.meetingType);
+      }
+      if (!effectiveDate && detected.meetingDate) {
+        effectiveDate = detected.meetingDate;
+        setEditMeetingDate(detected.meetingDate);
+      }
+    }
+
+    if (!effectiveTitle) {
       setSaveProjectError('Project title missing');
       return;
     }
@@ -337,11 +412,11 @@ export const ProjectDetailPage: React.FC = () => {
     setSaveProjectError(null);
 
     const result = await updateProject(supabase, id, {
-      title: trimmedTitle,
-      meeting_type: editMeetingType.trim() || undefined,
-      client_name: editClientName.trim() || undefined,
-      project_name: editProjectName.trim() || undefined,
-      meeting_date: editMeetingDate || undefined,
+      title: effectiveTitle,
+      meeting_type: effectiveType || undefined,
+      client_name: effectiveClient || undefined,
+      project_name: effectiveProjName || undefined,
+      meeting_date: effectiveDate || undefined,
       transcript: editTranscript.trim() || undefined,
       notes: editNotes.trim() || undefined,
     });
@@ -1032,7 +1107,19 @@ export const ProjectDetailPage: React.FC = () => {
                 className="form-input"
                 rows={8}
                 value={editTranscript}
-                onChange={(e) => setEditTranscript(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setEditTranscript(val);
+                  if (val.length > 50) {
+                    handleAutoFillEditMetadata(val);
+                  }
+                }}
+                onPaste={(e) => {
+                  const pastedText = e.clipboardData.getData('text');
+                  if (pastedText && pastedText.length > 50) {
+                    setTimeout(() => handleAutoFillEditMetadata(pastedText), 50);
+                  }
+                }}
                 disabled={savingProject}
                 placeholder="Meeting transcript dialogue..."
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.88rem' }}

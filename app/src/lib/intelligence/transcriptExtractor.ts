@@ -1,3 +1,4 @@
+import { extractMetadataFromContent } from './metadataExtractor';
 import { buildConcludoPayload } from '../reporting/payloadBuilder';
 import { ConcludoReportPayload } from '../reporting/payloadTypes';
 /**
@@ -45,28 +46,30 @@ export function extractTranscriptIntelligence(
   rawTranscript: string,
   meta: MeetingMetadata
 ): ExtractedIntelligence {
-  // If title or client or date is not provided or generic, attempt to extract from transcript header
-  const meetHeaderMatch = rawTranscript.match(/^\*\*Meeting:\*\*\s*([^\n]+)/m);
-  const orgHeaderMatch = rawTranscript.match(/^\*\*Organisation:\*\*\s*([^\n]+)/m);
-  const dateHeaderMatch = rawTranscript.match(/^\*\*Date:\*\*\s*(?:[A-Za-z]+,?\s+)?(\d{1,2}\s+[A-Za-z]+\s+\d{4})/m);
+  // Extract discovered metadata from transcript / notes if fields are missing or generic
+  const discovered = extractMetadataFromContent(rawTranscript);
 
   let meetingTitle = meta.title;
   if (!meetingTitle || meetingTitle === 'Project Milestone' || meetingTitle.includes('New Project')) {
-    if (meetHeaderMatch) meetingTitle = meetHeaderMatch[1].trim();
+    meetingTitle = discovered.title || meta.title || 'Project Milestone';
   }
   let clientName = meta.clientName;
-  if (!clientName || clientName === 'Concludo Client') {
-    if (orgHeaderMatch) clientName = orgHeaderMatch[1].trim();
+  if (!clientName || clientName === 'Concludo Client' || clientName === 'Concludo Workspace') {
+    clientName = discovered.clientName || meta.clientName || 'Concludo Client';
+  }
+  let projectName = meta.projectName;
+  if (!projectName || projectName === 'Project Milestone') {
+    projectName = discovered.projectName || meta.projectName || meetingTitle;
+  }
+  let meetingType = meta.meetingType;
+  if (!meetingType) {
+    meetingType = discovered.meetingType || 'Strategy & Planning';
   }
   let meetingDateStr = meta.meetingDate;
-  if (!meetingDateStr && dateHeaderMatch) {
-    meetingDateStr = parseFuzzyDate(dateHeaderMatch[1].trim(), new Date());
-  }
   if (!meetingDateStr) {
-    meetingDateStr = new Date().toISOString().split('T')[0];
+    meetingDateStr = discovered.meetingDate || new Date().toISOString().split('T')[0];
   }
   const meetingDate = new Date(meetingDateStr);
-
 
   // Normalise lines and dialogue turns (including un-split document/notes text)
   const preprocessed = (rawTranscript || "").replace(
@@ -487,17 +490,17 @@ export function extractTranscriptIntelligence(
   // ----------------------------------------------------
   // 3. GENERATE MARKDOWN OUTPUTS
   // ----------------------------------------------------
-  const summary = `# Executive Summary: ${meta.title}
+  const summary = `# Executive Summary: ${meetingTitle}
 
 ### 1. Overview & Context
-- Project: ${meta.projectName || meta.title}
-- Client / Organisation: ${meta.clientName || 'Concludo Workspace'}
+- Project: ${projectName || meetingTitle}
+- Client / Organisation: ${clientName || 'Concludo Workspace'}
 - Meeting Date: ${meetingDateStr}
-- Meeting Type: ${meta.meetingType || 'Strategy & Planning'}
+- Meeting Type: ${meetingType || 'Strategy & Planning'}
 - Identified Attendees: ${speakers.length > 0 ? speakers.join(', ') : 'Project Stakeholders'}
 
 ### 2. Strategic Objectives & Scope
-The session convened to align operational deliverables, review critical delivery dependencies, and establish governance standards for ${meta.title}.
+The session convened to align operational deliverables, review critical delivery dependencies, and establish governance standards for ${meetingTitle}.
 
 ### 3. Key Resolutions & Decisions
 ${decisions.map((d, idx) => `${idx + 1}. **${d.title}:** ${d.summary}`).join('\n')}
@@ -507,7 +510,7 @@ ${decisions.map((d, idx) => `${idx + 1}. **${d.title}:** ${d.summary}`).join('\n
 - **Accountable Leads:** ${Array.from(new Set(actions.map((a) => a.owner).filter(Boolean))).join(', ')}.
 - **Governance Requirement:** Deliverables are subject to professional review and verification prior to operational or commercial sign-off.`;
 
-  const actionPlan = `# Operational Action Plan: ${meta.title}
+  const actionPlan = `# Operational Action Plan: ${meetingTitle}
 
 | ID | Action Item | Assignee / Owner | Target Date | Deliverable Description |
 | :--- | :--- | :--- | :--- | :--- |
@@ -518,7 +521,7 @@ ${actions
   )
   .join('\n')}`;
 
-  const decisionLog = `# Governed Decision Log: ${meta.title}
+  const decisionLog = `# Governed Decision Log: ${meetingTitle}
 
 ${decisions
   .map(
@@ -532,7 +535,15 @@ ${d.reasoning ? `- **Rationale:** ${d.reasoning}` : ''}
   )
   .join('\n')}`;
 
-  const payload = buildConcludoPayload({ summary, actionPlan, decisionLog, actions, decisions, payload: null as any }, meta, 'starter');
+  const effectiveMeta: MeetingMetadata = {
+    title: meetingTitle,
+    clientName: clientName,
+    projectName: projectName,
+    meetingType: meetingType,
+    meetingDate: meetingDateStr,
+    notes: meta.notes,
+  };
+  const payload = buildConcludoPayload({ summary, actionPlan, decisionLog, actions, decisions, payload: null as any }, effectiveMeta, 'starter');
 
   return {
     summary,
