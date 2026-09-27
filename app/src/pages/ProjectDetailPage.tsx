@@ -2415,9 +2415,10 @@ export const ProjectDetailPage: React.FC = () => {
               <OutputDocumentRenderer
                 outputType={viewingOutput.output_type}
                 rawContent={viewingOutput.content || ""}
+                jsonPayload={viewingOutput.json_content}
                 projectTitle={project?.title || "Project Deliverable"}
                 meetingDate={project?.meeting_date || new Date().toISOString().slice(0, 10)}
-                organisationName="Concludo Client"
+                organisationName={project?.client_name || (project as any)?.client_or_project || "Concludo Client"}
                 onCopy={() => handleCopyText(viewingOutput.content || "", viewingOutput.id)}
                 copied={copiedId === viewingOutput.id}
               />

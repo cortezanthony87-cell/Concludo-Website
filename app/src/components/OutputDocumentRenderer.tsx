@@ -13,6 +13,7 @@ if (typeof window !== 'undefined' && (pdfjsLib as any).GlobalWorkerOptions) {
 interface OutputDocumentRendererProps {
   outputType: string;
   rawContent: string;
+  jsonPayload?: any;
   projectTitle: string;
   meetingDate?: string;
   organisationName?: string;
@@ -23,6 +24,7 @@ interface OutputDocumentRendererProps {
 export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
   outputType,
   rawContent,
+  jsonPayload,
   projectTitle,
   meetingDate = new Date().toISOString().slice(0, 10),
   organisationName = 'Concludo Client',
@@ -47,14 +49,19 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
         setLoading(true);
         setError(null);
 
-        const payload: ConcludoReportPayload = parseOutputToPayload(
-          outputType,
-          rawContent,
-          projectTitle,
-          meetingDate,
-          organisationName,
-          'starter'
-        );
+        let payload: ConcludoReportPayload;
+        if (jsonPayload && jsonPayload.document && jsonPayload.meeting) {
+          payload = jsonPayload as ConcludoReportPayload;
+        } else {
+          payload = parseOutputToPayload(
+            outputType,
+            rawContent,
+            projectTitle,
+            meetingDate,
+            organisationName,
+            'starter'
+          );
+        }
 
         const result = await renderConcludoReport(payload);
         if (!active) return;
@@ -83,7 +90,7 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
     return () => {
       active = false;
     };
-  }, [outputType, rawContent, projectTitle, meetingDate, organisationName]);
+  }, [outputType, rawContent, jsonPayload, projectTitle, meetingDate, organisationName]);
 
   // Render current page to canvas
   useEffect(() => {
