@@ -266,10 +266,11 @@ export const DecisionMemoryPage: React.FC = () => {
               <div
                 key={dec.id}
                 style={{
-                  backgroundColor: '#16263f',
-                  border: '1px solid rgba(255, 255, 255, 0.07)',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid rgba(226, 181, 60, 0.5)',
                   borderRadius: '12px',
                   padding: '20px 24px',
+                  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.12)',
                   display: 'flex',
                   alignItems: 'flex-start',
                   justifyContent: 'space-between',
@@ -317,10 +318,10 @@ export const DecisionMemoryPage: React.FC = () => {
                         alignItems: 'center',
                         gap: '5px',
                         fontSize: '0.8rem',
-                        color: '#94a3b8',
+                        color: '#475569',
                       }}
                     >
-                      <Calendar size={13} />
+                      <Calendar size={13} style={{ color: '#b48316' }} />
                       <span>{formatDate(dec.decision_date)}</span>
                     </span>
                   </div>
