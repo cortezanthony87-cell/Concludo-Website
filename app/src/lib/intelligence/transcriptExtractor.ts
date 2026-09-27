@@ -1,3 +1,5 @@
+import { buildConcludoPayload } from '../reporting/payloadBuilder';
+import { ConcludoReportPayload } from '../reporting/payloadTypes';
 /**
  * Concludo Workspace Transcript & Document Intelligence Extractor
  * Deterministically parses meeting transcripts, meeting notes, uploaded briefs, and documents into:
@@ -27,6 +29,7 @@ export interface ExtractedIntelligence {
   decisionLog: string;
   actions: ExtractedAction[];
   decisions: ExtractedDecision[];
+  payload: ConcludoReportPayload;
 }
 
 export interface MeetingMetadata {
@@ -388,12 +391,15 @@ ${d.reasoning ? `- **Rationale:** ${d.reasoning}` : ''}
   )
   .join('\n')}`;
 
+  const payload = buildConcludoPayload({ summary, actionPlan, decisionLog, actions, decisions, payload: null as any }, meta, 'starter');
+
   return {
     summary,
     actionPlan,
     decisionLog,
     actions,
     decisions,
+    payload,
   };
 }
 
