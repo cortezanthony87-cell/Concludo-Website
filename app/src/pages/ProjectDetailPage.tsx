@@ -67,6 +67,8 @@ import {
 } from '../lib/actions/types';
 import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
 import { extractTranscriptIntelligence } from '../lib/intelligence/transcriptExtractor';
+import { parseUploadedFile, ParsedDocument } from '../lib/intelligence/fileParser';
+import { UploadCloud, FileCheck } from 'lucide-react';
 import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
 
 
@@ -91,6 +93,12 @@ export const ProjectDetailPage: React.FC = () => {
   const [editMeetingDate, setEditMeetingDate] = useState<string>('');
   const [editTranscript, setEditTranscript] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
+
+  // Attached files state
+  const [detailParsingFiles, setDetailParsingFiles] = useState(false);
+  const [detailParseError, setDetailParseError] = useState<string | null>(null);
+  const detailFileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const editFileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [savingProject, setSavingProject] = useState<boolean>(false);
   const [saveProjectError, setSaveProjectError] = useState<string | null>(null);
@@ -239,6 +247,64 @@ export const ProjectDetailPage: React.FC = () => {
 
 
   // Handle Edit Project
+  // File import for Project Detail View
+  const handleDetailFilesSelected = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0 || !supabase || !id || !project) return;
+    setDetailParsingFiles(true);
+    setDetailParseError(null);
+
+    const newlyParsed: ParsedDocument[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      try {
+        const parsed = await parseUploadedFile(file);
+        newlyParsed.push(parsed);
+      } catch (err: any) {
+        errors.push(file.name + ': ' + (err.message || 'Failed to parse file'));
+      }
+    }
+
+    if (newlyParsed.length > 0) {
+      const appendedText = newlyParsed
+        .map(
+          (doc) =>
+            '# Document Import: ' + doc.name + ' (' + doc.type.toUpperCase() + ')\n\n' + doc.text
+        )
+        .join('\n\n---\n\n');
+
+      const existingTranscript = (project.transcript || '').trim();
+      const updatedTranscript = existingTranscript
+        ? existingTranscript + '\n\n---\n\n' + appendedText
+        : appendedText;
+
+      const fileListSummary = newlyParsed
+        .map((doc) => '- ' + doc.name + ' (' + doc.type.toUpperCase() + ', ' + Math.round(doc.size / 1024) + ' KB)')
+        .join('\n');
+      const attachmentNote = '### Imported Files (' + newlyParsed.length + '):\n' + fileListSummary;
+      const existingNotes = (project.notes || '').trim();
+      const updatedNotes = existingNotes ? existingNotes + '\n\n' + attachmentNote : attachmentNote;
+
+      const updateRes = await updateProject(supabase, id, {
+        transcript: updatedTranscript,
+        notes: updatedNotes,
+      });
+
+      if (updateRes.data) {
+        setProject(updateRes.data);
+        setEditTranscript(updatedTranscript);
+        setEditNotes(updatedNotes);
+        setGenerateSuccess('Successfully imported ' + newlyParsed.length + ' file(s) into project memory.');
+      }
+    }
+
+    if (errors.length > 0) {
+      setDetailParseError(errors.join('; '));
+    }
+    setDetailParsingFiles(false);
+  };
+
   const handleStartEditing = () => {
     if (!project) return;
     setEditTitle(project.title || '');
@@ -340,8 +406,10 @@ export const ProjectDetailPage: React.FC = () => {
   const handleGenerateOutputs = async () => {
     if (!supabase || !project) return;
     const rawTranscript = (project.transcript || '').trim();
-    if (!rawTranscript) {
-      setGenerateError('No transcript found. Please edit the project and add a transcript first.');
+    const rawNotes = (project.notes || '').trim();
+    const primarySource = rawTranscript || rawNotes;
+    if (!primarySource) {
+      setGenerateError('No transcript or project notes found. Please import files or add notes to this project first.');
       return;
     }
 
@@ -350,7 +418,7 @@ export const ProjectDetailPage: React.FC = () => {
     setGenerateSuccess(null);
 
     try {
-      const intel = extractTranscriptIntelligence(rawTranscript, {
+      const intel = extractTranscriptIntelligence(primarySource, {
         title: project.title,
         meetingType: project.meeting_type,
         clientName: project.client_name || (project as any).client_or_project,
@@ -1091,8 +1159,38 @@ export const ProjectDetailPage: React.FC = () => {
               Transcript
             </h2>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {project.transcript && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <input
+              ref={detailFileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.txt,.md,.csv,.json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                handleDetailFilesSelected(e.target.files);
+                if (detailFileInputRef.current) detailFileInputRef.current.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => detailFileInputRef.current?.click()}
+              disabled={detailParsingFiles}
+              className="btn btn-secondary"
+              style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              {detailParsingFiles ? (
+                <>
+                  <Loader2 size={14} className="spin-animation" />
+                  <span>Importing...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud size={14} />
+                  <span>Import Files</span>
+                </>
+              )}
+            </button>
+            {(project.transcript || project.notes) && (
               <button
                 type="button"
                 onClick={handleGenerateOutputs}
@@ -1521,12 +1619,12 @@ export const ProjectDetailPage: React.FC = () => {
                 {isGenerating ? (
                   <>
                     <Loader2 size={16} className="spin-animation" />
-                    <span>Extracting Outputs from Transcript...</span>
+                    <span>Extracting Outputs from Project Files...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles size={16} />
-                    <span>Extract & Generate Outputs from Transcript</span>
+                    <span>Extract & Generate Outputs</span>
                   </>
                 )}
               </button>

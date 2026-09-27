@@ -1,6 +1,6 @@
 /**
- * Concludo Workspace Transcript Intelligence Extractor
- * Deterministically parses meeting transcripts into:
+ * Concludo Workspace Transcript & Document Intelligence Extractor
+ * Deterministically parses meeting transcripts, meeting notes, uploaded briefs, and documents into:
  * 1. Executive Summary (Structured Markdown)
  * 2. Operational Action Plan (Markdown Table + structured ActionTracker items)
  * 3. Governed Decision Log (Markdown + structured DecisionMemory items)
@@ -67,7 +67,7 @@ export function extractTranscriptIntelligence(
   }
 
   const speakers = Array.from(new Set(dialogue.map((d) => d.speaker))).filter(
-    (s) => !/^(?:all|everyone|both|recorder)$/i.test(s)
+    (s) => !/^(?:all|everyone|both|recorder|date|lead|notes|attendees)$/i.test(s)
   );
 
   // ----------------------------------------------------
@@ -83,7 +83,7 @@ export function extractTranscriptIntelligence(
     }
     const cleanTitle = title.charAt(0).toUpperCase() + title.slice(1).replace(/[.!?]$/, '');
     const sig = `${cleanOwner.toLowerCase()}:${cleanTitle.slice(0, 24).toLowerCase()}`;
-    if (!actionSignatures.has(sig) && cleanTitle.length >= 6) {
+    if (!actionSignatures.has(sig) && cleanTitle.length >= 5) {
       actionSignatures.add(sig);
       actions.push({
         owner: cleanOwner,
@@ -94,7 +94,58 @@ export function extractTranscriptIntelligence(
     }
   };
 
-  // Scan for dedicated action wrap-up sections
+  // A. Check structured note bullets and line items first (Supports uploaded meeting notes & briefs)
+  for (const rawLine of lines) {
+    const clean = rawLine.replace(/^[-*•\d.)\s]+/, '').trim();
+    if (!clean) continue;
+
+    // Pattern: "Action [Item]: [Owner] to [Task] by [Date]"
+    const actMatch = clean.match(/^(?:Action(?:\s+Item)?|Task|Todo|Deliverable)[:\s–-]+(.+)$/i);
+    if (actMatch) {
+      const actBody = actMatch[1].trim();
+      const ownerTaskMatch = actBody.match(
+        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:to|will|shall|must)\s+([^.]*?)(?:\s+(?:by|due|before)\s+([^.]+))?\.?$/i
+      );
+      if (ownerTaskMatch) {
+        addAction(
+          ownerTaskMatch[1].trim(),
+          ownerTaskMatch[2].trim(),
+          `Action Item from document: ${ownerTaskMatch[1]} to ${ownerTaskMatch[2]}`,
+          ownerTaskMatch[3]?.trim()
+        );
+        continue;
+      } else if (actBody.length > 5 && !/^(?:items|list|section):?$/i.test(actBody)) {
+        addAction(
+          speakers[0] || 'Project Lead',
+          actBody,
+          `Action Item from document: ${actBody}`,
+          undefined
+        );
+        continue;
+      }
+    }
+
+    // Pattern: Direct owner statement without "Action:" prefix: "[Owner] will/to [Task] by [Date]"
+    const directTaskMatch = clean.match(
+      /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:will|to|shall|must)\s+([^.]*?)(?:\s+(?:by|due|before)\s+([^.]+))?\.?$/i
+    );
+    if (
+      directTaskMatch &&
+      !clean.toLowerCase().startsWith('action') &&
+      !clean.toLowerCase().startsWith('decision') &&
+      !clean.toLowerCase().startsWith('the ') &&
+      !clean.toLowerCase().startsWith('meeting ')
+    ) {
+      addAction(
+        directTaskMatch[1].trim(),
+        directTaskMatch[2].trim(),
+        `Document commitment: ${directTaskMatch[1]} to ${directTaskMatch[2]}`,
+        directTaskMatch[3]?.trim()
+      );
+    }
+  }
+
+  // B. Scan dialogue recap sections if available
   let recapStartIndex = -1;
   for (let i = dialogue.length - 1; i >= 0; i--) {
     const textLower = dialogue[i].text.toLowerCase();
@@ -114,38 +165,26 @@ export function extractTranscriptIntelligence(
   if (recapStartIndex !== -1) {
     for (let i = recapStartIndex; i < dialogue.length; i++) {
       const turn = dialogue[i];
-      const sentences = turn.text.split(/(?<=[.!?])\s+/);
-      for (const sentence of sentences) {
-        const sTrim = sentence.trim().replace(/^(?:sure|okay|right|and|then)\s*[,.]?\s*/i, '');
-        const actionMatch = sTrim.match(
-          /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)[,:]\s+(.+?)(?:\s+(?:by|before)\s+([^.]+?))?[.!?]?$/i
-        );
-        if (actionMatch) {
-          const rawOwner = actionMatch[1].trim() === 'me' ? turn.speaker : actionMatch[1].trim();
-          let rawTask = actionMatch[2].trim();
-          let rawDeadline = actionMatch[3]?.trim();
+      const text = turn.text;
 
-          const subMatch = rawTask.match(/^(.+?)\s+to\s+([A-Za-z]+)\s+by\s+(.+)$/i);
-          if (subMatch) {
-            rawTask = `${subMatch[1]} to ${subMatch[2]}`;
-            rawDeadline = subMatch[3];
-          }
-
-          if (rawTask.length > 5 && !/^(?:sure|noted|yes|agreed|thanks|all)$/i.test(rawTask)) {
-            addAction(rawOwner, rawTask, sTrim, rawDeadline);
-          }
-        }
+      // Pattern: "[Name], you have [Action] by [Date]" or "[Name] has [Action] by [Date]"
+      const recapMatches = text.matchAll(
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)[,:\s]+(?:you have|to|will|taking care of|handling)\s+([^,.;]+?)(?:\s+by\s+([^,.;]+))?[.;]/gi
+      );
+      for (const m of recapMatches) {
+        addAction(m[1], m[2], `Action agreed in meeting recap by ${turn.speaker}`, m[3]);
       }
     }
   }
 
-  // Scan dialogue turns for personal commitments: "I will / I'll / I can [action]..."
+  // C. Scan dialogue turns for commitments ("I will [task] by [date]")
   for (let i = 0; i < dialogue.length; i++) {
     const turn = dialogue[i];
     const text = turn.text;
 
+    // Direct personal commitments: "I will [task] by [date]"
     const commitMatch = text.match(
-      /(?:I will|I'll|I can)\s+([a-z][^.!?]+?)(?:\s+(?:by|before)\s+([^.!?]+))?[.!?]/i
+      /(?:I will|I'll|I can)\s+([a-z][^.!?]+?)(?:\s+by\s+([^.!?]+))?[.!?]/i
     );
     if (commitMatch) {
       const rawTask = commitMatch[1].trim();
@@ -195,7 +234,7 @@ export function extractTranscriptIntelligence(
   const addDecision = (title: string, summary: string, reasoning: string, owner: string) => {
     const cleanTitle = title.charAt(0).toUpperCase() + title.slice(1).replace(/[.!?]$/, '');
     const sig = cleanTitle.slice(0, 25).toLowerCase();
-    if (!decisionSignatures.has(sig) && cleanTitle.length >= 10) {
+    if (!decisionSignatures.has(sig) && cleanTitle.length >= 8) {
       decisionSignatures.add(sig);
       decisions.push({
         title: cleanTitle,
@@ -207,6 +246,26 @@ export function extractTranscriptIntelligence(
     }
   };
 
+  // A. Check structured note bullets and line items for decisions
+  for (const rawLine of lines) {
+    const clean = rawLine.replace(/^[-*•\d.)\s]+/, '').trim();
+    if (!clean) continue;
+
+    const decMatch = clean.match(/^(?:Decision|Resolution|Agreed|Ratified|Approved)[:\s–-]+(.+)$/i);
+    if (decMatch) {
+      const decText = decMatch[1].trim();
+      if (decText.length > 5 && !/^(?:items|list|section):?$/i.test(decText)) {
+        addDecision(
+          decText,
+          `Document resolution: ${decText}`,
+          `Formally documented in project notes or imported meeting files.`,
+          speakers[0] || 'Project Lead'
+        );
+      }
+    }
+  }
+
+  // B. Check dialogue turns for verbal decisions
   for (let i = 0; i < dialogue.length; i++) {
     const turn = dialogue[i];
     const text = turn.text;
@@ -254,7 +313,7 @@ export function extractTranscriptIntelligence(
     }
   }
 
-  // Fallbacks if transcript has minimal formal markers
+  // Fallbacks if notes/transcripts have minimal formal markers
   if (decisions.length === 0) {
     addDecision(
       `Endorse project scope for ${meta.title}`,
