@@ -1808,11 +1808,15 @@ export const ProjectDetailPage: React.FC = () => {
                         onClick={() => setViewingOutput(output)}
                         className="btn btn-secondary"
                         style={{
-                          padding: '6px 12px',
+                          padding: '6px 14px',
                           fontSize: '0.82rem',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
+                          background: '#101b2e',
+                          color: '#e2b53c',
+                          border: '1px solid rgba(226, 181, 60, 0.4)',
+                          fontWeight: 600,
                         }}
                       >
                         <ExternalLink size={14} />
@@ -2155,7 +2159,7 @@ export const ProjectDetailPage: React.FC = () => {
                   <Link
                     to={`/decision-memory/${decision.id}`}
                     className="btn btn-secondary"
-                    style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                    style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#101b2e', color: '#e2b53c', border: '1px solid rgba(226, 181, 60, 0.4)', fontWeight: 600 }}
                   >
                     <ExternalLink size={14} />
                     <span>Open</span>

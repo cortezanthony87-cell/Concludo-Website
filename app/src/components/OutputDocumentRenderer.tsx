@@ -166,12 +166,16 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
         const result = await renderConcludoReport(payload);
         if (!active) return;
 
-        setPdfBytes(result.pdfBytes);
+        // Create isolated clone for download so pdfjs worker transfer cannot detach or invalidate it
+        const downloadBytes = new Uint8Array(result.pdfBytes);
+        const viewerBytes = new Uint8Array(result.pdfBytes);
+
+        setPdfBytes(downloadBytes);
         setNumPages(result.pages);
         setCurrentPage(1);
 
-        // Load document into pdfjs for high-fidelity canvas rendering
-        const loadingTask = pdfjsLib.getDocument({ data: result.pdfBytes });
+        // Load document into pdfjs for high-fidelity canvas rendering using isolated clone
+        const loadingTask = pdfjsLib.getDocument({ data: viewerBytes });
         const doc = await loadingTask.promise;
         if (!active) return;
         setPdfDoc(doc);
@@ -234,20 +238,38 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
   }, [pdfDoc, currentPage, viewMode]);
 
   // Robust PDF download using standard byte cloning and sanitized filename
-  const handleDownloadPdf = () => {
-    if (!pdfBytes) return;
+  const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      // Ensure pristine buffer allocation for external PDF readers (Acrobat, Apple Preview, Chrome)
-      const cleanBuffer = pdfBytes.buffer.slice(
-        pdfBytes.byteOffset,
-        pdfBytes.byteOffset + pdfBytes.byteLength
-      );
-      const blob = new Blob([new Uint8Array(cleanBuffer) as unknown as BlobPart], { type: 'application/pdf' });
+      let dataToDownload = pdfBytes;
+      // If pdfBytes is missing, empty or detached, re-render fresh pristine bytes
+      if (!dataToDownload || dataToDownload.byteLength === 0 || dataToDownload.buffer.byteLength === 0) {
+        let payload: ConcludoReportPayload;
+        if (jsonPayload && jsonPayload.document && jsonPayload.meeting) {
+          payload = jsonPayload;
+        } else {
+          payload = parseOutputToPayload(
+            outputType,
+            rawContent,
+            projectTitle,
+            meetingDate,
+            organisationName,
+            'starter'
+          );
+        }
+        const fresh = await renderConcludoReport(payload);
+        dataToDownload = new Uint8Array(fresh.pdfBytes);
+        setPdfBytes(dataToDownload);
+      }
+
+      // Allocate fresh ArrayBuffer copy for the Blob
+      const freshBuffer = new ArrayBuffer(dataToDownload.byteLength);
+      new Uint8Array(freshBuffer).set(dataToDownload);
+      const blob = new Blob([freshBuffer], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
+
       const link = document.createElement('a');
       link.href = url;
-      // Clean, filesystem-safe filename with explicit .pdf extension
       const safeTitle = (projectTitle || 'Concludo_Document')
         .replace(/[^a-zA-Z0-9_\- ]/g, '')
         .trim()

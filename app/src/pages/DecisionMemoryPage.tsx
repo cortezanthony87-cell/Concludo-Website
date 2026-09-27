@@ -346,10 +346,11 @@ export const DecisionMemoryPage: React.FC = () => {
                   {dec.decision_summary && (
                     <p
                       style={{
-                        color: '#cbd5e1',
+                        color: '#0f172a',
                         fontSize: '0.92rem',
                         lineHeight: 1.55,
                         margin: '0 0 10px',
+                        fontWeight: 450,
                       }}
                     >
                       {dec.decision_summary}
@@ -359,16 +360,17 @@ export const DecisionMemoryPage: React.FC = () => {
                   {dec.decision_reasoning && (
                     <div
                       style={{
-                        backgroundColor: 'rgba(15, 23, 42, 0.45)',
-                        borderLeft: '3px solid #c084fc',
+                        backgroundColor: 'rgba(226, 181, 60, 0.08)',
+                        borderLeft: '3px solid #e2b53c',
                         padding: '8px 12px',
                         borderRadius: '4px',
                         fontSize: '0.85rem',
-                        color: '#94a3b8',
+                        color: '#1e293b',
                         fontStyle: 'italic',
                       }}
                     >
-                      Reasoning: {dec.decision_reasoning}
+                      <strong style={{ fontStyle: 'normal', color: '#0f172a' }}>Reasoning: </strong>
+                      {dec.decision_reasoning}
                     </div>
                   )}
                 </div>
@@ -401,6 +403,10 @@ export const DecisionMemoryPage: React.FC = () => {
                       gap: '6px',
                       padding: '6px 12px',
                       fontSize: '0.82rem',
+                      background: '#101b2e',
+                      color: '#e2b53c',
+                      border: '1px solid rgba(226, 181, 60, 0.4)',
+                      fontWeight: 600,
                     }}
                   >
                     <span>Details</span>
