@@ -57,17 +57,21 @@ export function extractTranscriptIntelligence(
     // Regex matches: [00:12:34] Speaker Name: text OR Speaker Name: text
     const match = line.match(/^(?:\[[\d:]+\]\s*)?([A-Za-z0-9\s._'-]+?)\s*:\s*(.+)$/);
     if (match) {
-      dialogue.push({
-        speaker: match[1].trim(),
-        text: match[2].trim(),
-      });
+      const candidate = match[1].trim();
+      const isMeta = /^(?:meeting\s*date|project\s*lead|lead|date|attendees|decision|resolution|action|action\s*item|action\s*items|summary|agenda|notes)$/i.test(candidate);
+      if (!isMeta) {
+        dialogue.push({
+          speaker: candidate,
+          text: match[2].trim(),
+        });
+      }
     } else if (dialogue.length > 0) {
       dialogue[dialogue.length - 1].text += ' ' + line;
     }
   }
 
   const speakers = Array.from(new Set(dialogue.map((d) => d.speaker))).filter(
-    (s) => !/^(?:all|everyone|both|recorder|date|lead|notes|attendees)$/i.test(s)
+    (s) => !/^(?:all|everyone|both|recorder|date|meeting\s*date|lead|project\s*lead|notes|attendees|attendee|decision|action|resolution|summary|agenda|action\s*item|action\s*items)$/i.test(s.trim())
   );
 
   // ----------------------------------------------------
@@ -399,6 +403,38 @@ function parseFuzzyDate(rawText: string | undefined, baseDate: Date): string {
   const t = rawText.toLowerCase().trim();
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+
+  const monthMap: Record<string, number> = {
+    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+    jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12
+  };
+
+  // Pattern A: Day Month [Year], e.g. "6 November 2026", "23rd October"
+  const dmMatch = t.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([a-z]+)(?:\s+(\d{4}))?\b/);
+  if (dmMatch) {
+    const day = parseInt(dmMatch[1], 10);
+    const mStr = dmMatch[2];
+    const yr = dmMatch[3] ? parseInt(dmMatch[3], 10) : baseDate.getFullYear();
+    if (monthMap[mStr] && day >= 1 && day <= 31) {
+      const mon = String(monthMap[mStr]).padStart(2, '0');
+      const dStr = String(day).padStart(2, '0');
+      return yr + "-" + mon + "-" + dStr;
+    }
+  }
+
+  // Pattern B: Month Day [Year], e.g. "November 6, 2026", "Oct 23rd"
+  const mdMatch = t.match(/\b([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/);
+  if (mdMatch) {
+    const mStr = mdMatch[1];
+    const day = parseInt(mdMatch[2], 10);
+    const yr = mdMatch[3] ? parseInt(mdMatch[3], 10) : baseDate.getFullYear();
+    if (monthMap[mStr] && day >= 1 && day <= 31) {
+      const mon = String(monthMap[mStr]).padStart(2, '0');
+      const dStr = String(day).padStart(2, '0');
+      return yr + "-" + mon + "-" + dStr;
+    }
+  }
 
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayIdx = days.findIndex((d) => t.includes(d));
