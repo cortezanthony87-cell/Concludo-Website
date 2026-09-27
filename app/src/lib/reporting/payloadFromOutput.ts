@@ -46,7 +46,7 @@ export function parseOutputToPayload(
   const payload: ConcludoReportPayload = {
     document: {
       kind: kindLabel,
-      title: `${projectTitle} — ${kindLabel}`,
+      title: `${projectTitle}: ${kindLabel}`,
       subject: `${projectTitle} meeting record`,
       footer_label: `${projectTitle.slice(0, 30)} · ${meetingDate}`,
       classification: outputType === 'decision_log' ? 'Corporate governance' : 'Commercial in confidence',

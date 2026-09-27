@@ -50,7 +50,7 @@ export function buildConcludoPayload(
   const payload: ConcludoReportPayload = {
     document: {
       kind: 'Meeting outcome report',
-      title: `${projectTitle} Outcome Report`,
+      title: `${projectTitle}: Outcome Report`,
       subject: `${projectTitle} governance briefing`,
       footer_label: `${projectTitle.slice(0, 30)} · ${meetingDateStr}`,
       classification: 'Commercial in confidence'
@@ -89,7 +89,7 @@ export function buildConcludoPayload(
       widths: [22, 60, 30, 42, 16],
       rows: [
         ['INP-001', projectTitle.slice(0, 35), meta.clientName || 'Project Director', 'Available on file', 'Primary'],
-        ['INP-002', 'Project brief & specifications', 'Delivery Lead', 'Available on file', 'Supporting']
+        ['INP-002', 'Project brief and specifications', 'Delivery Lead', 'Available on file', 'Supporting']
       ],
       gaps_title: 'What the meeting left open',
       gaps: [

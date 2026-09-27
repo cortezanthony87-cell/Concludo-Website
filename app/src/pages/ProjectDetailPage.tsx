@@ -503,13 +503,16 @@ export const ProjectDetailPage: React.FC = () => {
       });
 
       // 1. Save Summary Output with Concludo Report Schema Payload
-      await saveOutput(supabase, {
+      const summaryRes = await saveOutput(supabase, {
         project_id: project.id,
         output_type: 'summary',
         content: intel.summary,
         json_content: intel.payload as any,
         model_used: 'Concludo Pipeline v1.0',
       });
+      if (summaryRes.error || !summaryRes.data) {
+        throw new Error(summaryRes.error?.message || 'Failed to save Executive Summary output');
+      }
 
       // 2. Save Action Plan Output with Concludo Report Schema Payload
       const actionPlanRes = await saveOutput(supabase, {
@@ -519,6 +522,9 @@ export const ProjectDetailPage: React.FC = () => {
         json_content: intel.payload as any,
         model_used: 'Concludo Pipeline v1.0',
       });
+      if (actionPlanRes.error || !actionPlanRes.data) {
+        throw new Error(actionPlanRes.error?.message || 'Failed to save Operational Action Plan output');
+      }
 
       // 3. Save Decision Log Output with Concludo Report Schema Payload
       const decisionLogRes = await saveOutput(supabase, {
@@ -528,6 +534,9 @@ export const ProjectDetailPage: React.FC = () => {
         json_content: intel.payload as any,
         model_used: 'Concludo Pipeline v1.0',
       });
+      if (decisionLogRes.error || !decisionLogRes.data) {
+        throw new Error(decisionLogRes.error?.message || 'Failed to save Governed Decision Log output');
+      }
 
       // 4. Save Decisions into decision_memory
       const sourceDecOutputId = decisionLogRes.data?.id || null;
@@ -561,7 +570,12 @@ export const ProjectDetailPage: React.FC = () => {
       await Promise.all([loadOutputs(), loadDecisions(), loadActions()]);
       await refreshAllIntelligence({ supabase }).catch(() => {});
 
-      setGenerateSuccess("Successfully extracted and generated Executive Summary, Action Plan, and Decision Log from transcript.");
+      // 7. Automatically open the Concludo Boardroom Document System viewer
+      // Prefer the newly saved Decision Log output or Summary
+      const preferredOutput = decisionLogRes.data || summaryRes.data;
+      setViewingOutput(preferredOutput);
+
+      setGenerateSuccess("Successfully extracted and generated Executive Summary, Action Plan, and Decision Log. Displaying Concludo Boardroom Document System template.");
     } catch (err: any) {
       setGenerateError(err instanceof Error ? err.message : 'Failed to generate outputs from transcript');
     } finally {
@@ -1861,20 +1875,61 @@ export const ProjectDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Matching Text Preview */}
+                  {/* Concludo Boardroom Document Status & Matching Text Preview */}
                   <div
                     style={{
                       background: 'rgba(15, 23, 42, 0.5)',
-                      padding: '10px 14px',
+                      padding: '12px 14px',
                       borderRadius: '6px',
-                      fontFamily: 'var(--font-mono)',
                       fontSize: '0.85rem',
                       lineHeight: 1.5,
                       color: '#cbd5e1',
                       borderLeft: '3px solid #e2b53c',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
                     }}
                   >
-                    {previewText}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          color: '#e2b53c',
+                          background: 'rgba(226, 181, 60, 0.12)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        <Sparkles size={12} />
+                        <span>Concludo Boardroom Document System (A4 Standard)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setViewingOutput(output)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#93c5fd',
+                          fontSize: '0.78rem',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <span>View Document Template</span>
+                        <ExternalLink size={12} />
+                      </button>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#94a3b8' }}>
+                      {previewText}
+                    </div>
                   </div>
                 </div>
               );
