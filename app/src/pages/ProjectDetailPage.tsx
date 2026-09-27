@@ -67,6 +67,7 @@ import {
 } from '../lib/actions/types';
 import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
 import { extractTranscriptIntelligence } from '../lib/intelligence/transcriptExtractor';
+import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
 
 
 export const ProjectDetailPage: React.FC = () => {
@@ -2251,105 +2252,85 @@ export const ProjectDetailPage: React.FC = () => {
       </section>
 
 
-      {/* VIEW OUTPUT MODAL */}
+      {/* VIEW OUTPUT MODAL (Claude Designed PDF Template System) */}
       {viewingOutput && (
         <div
           style={{
-            position: 'fixed',
+            position: "fixed",
             inset: 0,
-            background: 'rgba(5, 11, 20, 0.85)',
-            backdropFilter: 'blur(8px)',
+            background: "rgba(5, 11, 20, 0.92)",
+            backdropFilter: "blur(10px)",
             zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
           }}
         >
           <div
-            className="content-card"
             style={{
-              maxWidth: '680px',
-              width: '100%',
-              padding: '28px',
-              borderRadius: '14px',
-              background: '#16263F',
-              border: '1px solid rgba(226, 181, 60, 0.4)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-              maxHeight: '90vh',
-              display: 'flex',
-              flexDirection: 'column',
+              maxWidth: "960px",
+              width: "100%",
+              padding: "24px",
+              borderRadius: "14px",
+              background: "#16263F",
+              border: "1px solid rgba(226, 181, 60, 0.4)",
+              boxShadow: "0 25px 60px -12px rgba(0, 0, 0, 0.85)",
+              maxHeight: "94vh",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 {getOutputIcon(viewingOutput.output_type)}
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#f8fafc", margin: 0 }}>
                   {OUTPUT_TYPE_LABELS[viewingOutput.output_type] || viewingOutput.output_type}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingOutput(null)}
-                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
               >
-                <X size={20} />
+                <X size={22} />
               </button>
             </div>
 
-            <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '14px' }}>
-              Created: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(viewingOutput.created_at)}</span>
-              <span style={{ margin: '0 8px' }}>•</span>
-              Last updated: <span style={{ color: '#cbd5e1' }}>{formatTimestamp(viewingOutput.updated_at)}</span>
+            <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "14px" }}>
+              Created: <span style={{ color: "#cbd5e1" }}>{formatTimestamp(viewingOutput.created_at)}</span>
+              <span style={{ margin: "0 8px" }}>•</span>
+              Last updated: <span style={{ color: "#cbd5e1" }}>{formatTimestamp(viewingOutput.updated_at)}</span>
             </div>
 
             <div
               style={{
                 flex: 1,
-                overflowY: 'auto',
-                background: 'rgba(9, 14, 26, 0.7)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '8px',
-                padding: '18px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.88rem',
-                lineHeight: 1.6,
-                color: '#e2e8f0',
-                whiteSpace: 'pre-wrap',
-                marginBottom: '18px',
+                overflowY: "auto",
+                marginBottom: "16px",
+                borderRadius: "8px",
               }}
             >
-              {viewingOutput.content}
+              <OutputDocumentRenderer
+                outputType={viewingOutput.output_type}
+                rawContent={viewingOutput.content || ""}
+                projectTitle={project?.title || "Project Deliverable"}
+                meetingDate={project?.meeting_date || new Date().toISOString().slice(0, 10)}
+                organisationName="Concludo Client"
+                onCopy={() => handleCopyText(viewingOutput.content || "", viewingOutput.id)}
+                copied={copiedId === viewingOutput.id}
+              />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleCopyText(viewingOutput.content || '', viewingOutput.id)}
-                  className="btn btn-secondary"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  {copiedId === viewingOutput.id ? (
-                    <>
-                      <Check size={14} color="#34d399" />
-                      <span>Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} />
-                      <span>Copy Output</span>
-                    </>
-                  )}
-                </button>
-
-                {viewingOutput.output_type === 'decision_log' && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {viewingOutput.output_type === "decision_log" && (
                   <button
                     type="button"
                     onClick={() => {
-                      setNewDecisionTitle(project?.title ? `Decision: ${project.title}` : 'Meeting Decision');
-                      setNewDecisionSummary((viewingOutput.content || '').slice(0, 240));
-                      setNewDecisionReasoning((viewingOutput.content || '').slice(0, 400));
+                      setNewDecisionTitle(project?.title ? `Decision: ${project.title}` : "Meeting Decision");
+                      setNewDecisionSummary((viewingOutput.content || "").slice(0, 240));
+                      setNewDecisionReasoning((viewingOutput.content || "").slice(0, 400));
                       setNewDecisionDate(project?.meeting_date || new Date().toISOString().slice(0, 10));
                       setNewDecisionSourceOutputId(viewingOutput.id);
                       setSaveDecisionError(null);
@@ -2357,27 +2338,27 @@ export const ProjectDetailPage: React.FC = () => {
                       setViewingOutput(null);
                     }}
                     className="btn btn-secondary"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f3c958', borderColor: 'rgba(226, 181, 60, 0.4)' }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#f3c958", borderColor: "rgba(226, 181, 60, 0.4)" }}
                   >
                     <BrainCircuit size={15} />
                     <span>Save Decision</span>
                   </button>
                 )}
 
-                {viewingOutput.output_type === 'action_items' && (
+                {viewingOutput.output_type === "action_items" && (
                   <button
                     type="button"
                     onClick={() => {
-                      setNewActionTitle(project?.title ? `Action: ${project.title}` : 'Action Item');
-                      setNewActionDescription((viewingOutput.content || '').slice(0, 300));
+                      setNewActionTitle(project?.title ? `Action: ${project.title}` : "Action Item");
+                      setNewActionDescription((viewingOutput.content || "").slice(0, 300));
                       setNewActionSourceOutputId(viewingOutput.id);
-                      setNewActionStatus('not_started');
+                      setNewActionStatus("not_started");
                       setSaveActionError(null);
                       setShowSaveActionModal(true);
                       setViewingOutput(null);
                     }}
                     className="btn btn-secondary"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f3c958', borderColor: 'rgba(226, 181, 60, 0.4)' }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#f3c958", borderColor: "rgba(226, 181, 60, 0.4)" }}
                   >
                     <CheckCircle2 size={15} />
                     <span>Save Actions</span>
