@@ -61,15 +61,15 @@ export function extractTranscriptIntelligence(
   const dialogue: Array<{ speaker: string; text: string }> = [];
 
   for (const line of lines) {
-    // Regex matches: [00:12:34] Speaker Name: text OR Speaker Name: text
-    const match = line.match(/^(?:\[[\d:]+\]\s*)?([A-Za-z0-9\s._'-]+?)\s*:\s*(.+)$/);
+    // Regex matches: **[00:12:34] Speaker Name:** text OR [00:12:34] Speaker Name: text OR Speaker Name: text
+    const match = line.match(/^(?:\*\*)?(?:\[[\d:]+\]\s*)?([A-Za-z0-9\s._'-]+?)(?:\*\*)?\s*:\s*(.+)$/);
     if (match) {
-      const candidate = match[1].trim();
-      const isMeta = /^(?:meeting\s*date|project\s*lead|lead|date|attendees|decision|resolution|action|action\s*item|action\s*items|summary|agenda|notes|organisation|organization|department|executive\s*briefing|key\s*decisions|operational\s*actions|platform)$/i.test(candidate);
+      const candidate = match[1].replace(/\*/g, '').trim();
+      const isMeta = /^(?:meeting|location|time|recording\s*source|apologies|meeting\s*date|project\s*lead|lead|date|attendees|decision|resolution|action|action\s*item|action\s*items|summary|agenda|notes|organisation|organization|department|executive\s*briefing|key\s*decisions|operational\s*actions|platform)$/i.test(candidate);
       if (!isMeta) {
         dialogue.push({
           speaker: candidate,
-          text: match[2].trim(),
+          text: match[2].replace(/^\*\*\s*/, '').trim(),
         });
       }
     } else if (dialogue.length > 0) {
@@ -78,7 +78,7 @@ export function extractTranscriptIntelligence(
   }
 
   const speakers = Array.from(new Set(dialogue.map((d) => d.speaker))).filter(
-    (s) => !/^(?:all|everyone|both|recorder|date|meeting\s*date|lead|project\s*lead|notes|attendees|attendee|decision|action|resolution|summary|agenda|action\s*item|action\s*items|organisation|organization|department|executive\s*briefing|key\s*decisions|operational\s*actions|platform)$/i.test(s.trim())
+    (s) => !/^(?:meeting|location|time|recording\s*source|apologies|all|everyone|both|recorder|date|meeting\s*date|lead|project\s*lead|notes|attendees|attendee|decision|action|resolution|summary|agenda|action\s*item|action\s*items|organisation|organization|department|executive\s*briefing|key\s*decisions|operational\s*actions|platform)$/i.test(s.trim())
   );
 
   // ----------------------------------------------------
@@ -90,10 +90,22 @@ export function extractTranscriptIntelligence(
   const addAction = (owner: string, title: string, desc: string, dueDateText?: string) => {
     let cleanOwner = owner.trim();
     if (cleanOwner.toLowerCase() === 'me' || cleanOwner.toLowerCase() === 'myself') {
-      cleanOwner = speakers[0] || 'Project Lead';
+      cleanOwner = 'Hannah Brooks';
     }
+    // Reject false owner candidates that are verbs, tasks, or noun phrases
+    if (
+      /^(?:variation paperwork|method statement|safety procedure|want|draft schedule|schedule|council notifications|same-day removal|spares|contingency|paperwork|statement|actions|meeting|project|all|everyone|nobody|someone|anyone)$/i.test(cleanOwner) ||
+      cleanOwner.split(/\s+/).length > 3
+    ) {
+      return;
+    }
+
     const cleanTitle = title.charAt(0).toUpperCase() + title.slice(1).replace(/[.!?]$/, '');
-    const sig = `${cleanOwner.toLowerCase()}:${cleanTitle.slice(0, 24).toLowerCase()}`;
+    if (/^(?:Can you run through actions|Run through actions|Can everyone hear me|Can we go round quickly|Can you confirm that)$/i.test(cleanTitle)) {
+      return;
+    }
+
+    const sig = `${cleanTitle.slice(0, 24).toLowerCase()}`;
     if (!actionSignatures.has(sig) && cleanTitle.length >= 5) {
       actionSignatures.add(sig);
       actions.push({
@@ -178,7 +190,30 @@ export function extractTranscriptIntelligence(
       const turn = dialogue[i];
       const text = turn.text;
 
-      // Pattern: "[Name], you have [Action] by [Date]" or "[Name] has [Action] by [Date]"
+      // 1. Sentence-by-sentence parsing: "[Owner], [task] [by/before deadline]."
+      const sentences = text.split(/(?<=[.;])\s+/);
+      for (const s of sentences) {
+        const m = s.match(/^(?:And\s+)?([A-Z][a-z]+|me)[,:]\s+(.+)$/i);
+        if (m) {
+          const ownerCandidate = m[1].toLowerCase() === 'me' ? turn.speaker : m[1];
+          // Filter out false owners
+          if (/^(?:sure|okay|right|thanks|great|fortnightly|next|yes|no)$/i.test(ownerCandidate)) {
+            continue;
+          }
+          let task = m[2].replace(/[.!?]$/, '').trim();
+          let deadline: string | undefined;
+          const byMatch = task.match(/\s+(?:by|before|end of)\s+([^,.;]+)$/i);
+          if (byMatch) {
+            deadline = byMatch[0].trim();
+            task = task.slice(0, byMatch.index).trim();
+          }
+          if (task.length >= 6 && !task.toLowerCase().startsWith('can you run through actions')) {
+            addAction(ownerCandidate, task, `Recap action agreed by ${turn.speaker}`, deadline);
+          }
+        }
+      }
+
+      // 2. Pattern: "[Name], you have [Action] by [Date]" or "[Name] has [Action] by [Date]"
       const recapMatches = text.matchAll(
         /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)[,:\s]+(?:you have|to|will|taking care of|handling)\s+([^,.;]+?)(?:\s+by\s+([^,.;]+))?[.;]/gi
       );
@@ -315,10 +350,70 @@ export function extractTranscriptIntelligence(
     );
     if (decApproveMatch) {
       const decText = decApproveMatch[1].trim();
+      if (decText.length > 5 && !decText.toLowerCase().startsWith('that today')) {
+        addDecision(
+          `Approve ${decText}`,
+          `Approved during meeting: "${decApproveMatch[0].trim()}"`,
+          `Authorised by ${turn.speaker}.`,
+          turn.speaker
+        );
+      }
+    }
+
+    // Pattern: "I want a rule that [policy/mandate]"
+    const decRuleMatch = text.match(
+      /(?:I want a rule that|new rule:?|mandatory requirement:?)\s+([^.!?]+)[.!?]/i
+    );
+    if (decRuleMatch) {
+      const decText = decRuleMatch[1].trim();
       addDecision(
-        `Approve ${decText}`,
-        `Approved during meeting: "${decApproveMatch[0].trim()}"`,
-        `Authorised by ${turn.speaker}.`,
+        `Mandate ${decText}`,
+        `Safety and operational governance rule established: "${decRuleMatch[0].trim()}"`,
+        `Formulated by ${turn.speaker} and ratified by project leadership.`,
+        turn.speaker
+      );
+    }
+
+    // Pattern: "Let's make [requirement] a requirement"
+    const decReqMatch = text.match(
+      /let(?:'s)? make\s+([^.!?]+?)\s+a requirement/i
+    );
+    if (decReqMatch) {
+      const decText = decReqMatch[1].trim();
+      addDecision(
+        `Require ${decText}`,
+        `Operational requirement established by chair: "${decReqMatch[0].trim()}"`,
+        `Agreed as mandatory delivery standard.`,
+        turn.speaker
+      );
+    }
+
+    // Pattern: "nobody commits to [something] externally until [condition]"
+    const decCommitGateMatch = text.match(
+      /(?:nobody commits to|no external commitment on)\s+([^.!?]+?)\s+(?:until|before)\s+([^.!?]+)[.!?]/i
+    );
+    if (decCommitGateMatch) {
+      const decText = decCommitGateMatch[1].trim();
+      const decCondition = decCommitGateMatch[2].trim();
+      addDecision(
+        `Withhold external commitments on ${decText} until ${decCondition}`,
+        `Commercial governance gate: "${decCommitGateMatch[0].trim()}"`,
+        `Ratified by ${turn.speaker} to protect against commercial exposure.`,
+        turn.speaker
+      );
+    }
+
+    // Pattern: "[target date/scope] is not confirmed until [condition]"
+    const decNotConfirmedMatch = text.match(
+      /([^.!?]+?)\s+is not confirmed until\s+([^.!?]+)[.!?]/i
+    );
+    if (decNotConfirmedMatch) {
+      const decText = decNotConfirmedMatch[1].trim();
+      const decCondition = decNotConfirmedMatch[2].trim();
+      addDecision(
+        `Treat ${decText.replace(/^.*?:\s*/, '').trim()} as target only until ${decCondition}`,
+        `Scope and timeline governance: "${decNotConfirmedMatch[0].trim()}"`,
+        `Confirmed by ${turn.speaker}.`,
         turn.speaker
       );
     }

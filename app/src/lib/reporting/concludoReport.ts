@@ -1,6 +1,6 @@
 function b64ToUint8Array(b64: string): Uint8Array {
   if (typeof Buffer !== 'undefined') {
-    return b64ToUint8Array(b64);
+    return Uint8Array.from(Buffer.from(b64, 'base64'));
   }
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);

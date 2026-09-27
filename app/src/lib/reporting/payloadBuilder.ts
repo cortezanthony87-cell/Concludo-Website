@@ -11,20 +11,20 @@ export function buildConcludoPayload(
   const projectTitle = meta.title || 'Project Milestone';
 
   // Format decision rows: [ID, Decision, Owner, At, Class]
-  const decisionRows = intel.decisions.map((d, idx) => [
+  const decisionRows: string[][] = intel.decisions.map((d, idx) => [
     `DEC-${String(idx + 1).padStart(3, '0')}`,
-    d.summary || d.title,
-    d.owner || 'Project Lead',
-    d.date || meetingDateStr,
+    String(d.title || d.summary || 'Project Resolution'),
+    String(d.owner || 'Project Lead'),
+    String(d.date || meetingDateStr),
     'Verified'
   ]);
 
   // Format action rows: [ID, Action, Owner, Due, At]
-  const actionRows = intel.actions.map((a, idx) => [
+  const actionRows: string[][] = intel.actions.map((a, idx) => [
     `ACT-${String(idx + 1).padStart(3, '0')}`,
-    a.description || a.title,
-    a.owner || 'Unassigned',
-    a.due_date || 'TBD',
+    String(a.title || a.description || 'Operational Item'),
+    String(a.owner || 'Unassigned'),
+    String(a.due_date || 'TBD'),
     'Recorded'
   ]);
 
