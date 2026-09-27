@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Printer, Download, Sparkles, Check, Copy } from 'lucide-react';
+import { CONCLUDO_LOCKUP_LOGO_DATA_URI } from './logoDataUri';
 import html2pdf from 'html2pdf.js';
 
 interface OutputDocumentRendererProps {
@@ -198,7 +199,7 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
             }}
           >
             <img
-              src="/brand/Concludo_lockup_horizontal_760w.png"
+              src={CONCLUDO_LOCKUP_LOGO_DATA_URI}
               alt="Concludo"
               style={{ width: '135px', height: 'auto', display: 'block' }}
             />
