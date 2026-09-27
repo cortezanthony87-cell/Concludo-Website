@@ -45,8 +45,12 @@ export function extractTranscriptIntelligence(
   const meetingDateStr = meta.meetingDate || new Date().toISOString().split('T')[0];
   const meetingDate = new Date(meetingDateStr);
 
-  // Normalise lines and dialogue turns
-  const lines = (rawTranscript || '')
+  // Normalise lines and dialogue turns (including un-split document/notes text)
+  const preprocessed = (rawTranscript || "").replace(
+    /\s+((?:Action(?:\s+Item)?|Decision|Resolution|Task|Todo|Deliverable|Key Decisions|Operational Actions|Executive Briefing|Date|Project Lead|Organisation|Organization|Attendees):)/gi,
+    (match, p1) => '\n' + p1
+  );
+  const lines = preprocessed
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
@@ -58,7 +62,7 @@ export function extractTranscriptIntelligence(
     const match = line.match(/^(?:\[[\d:]+\]\s*)?([A-Za-z0-9\s._'-]+?)\s*:\s*(.+)$/);
     if (match) {
       const candidate = match[1].trim();
-      const isMeta = /^(?:meeting\s*date|project\s*lead|lead|date|attendees|decision|resolution|action|action\s*item|action\s*items|summary|agenda|notes)$/i.test(candidate);
+      const isMeta = /^(?:meeting\s*date|project\s*lead|lead|date|attendees|decision|resolution|action|action\s*item|action\s*items|summary|agenda|notes|organisation|organization|department|executive\s*briefing|key\s*decisions|operational\s*actions|platform)$/i.test(candidate);
       if (!isMeta) {
         dialogue.push({
           speaker: candidate,
@@ -71,7 +75,7 @@ export function extractTranscriptIntelligence(
   }
 
   const speakers = Array.from(new Set(dialogue.map((d) => d.speaker))).filter(
-    (s) => !/^(?:all|everyone|both|recorder|date|meeting\s*date|lead|project\s*lead|notes|attendees|attendee|decision|action|resolution|summary|agenda|action\s*item|action\s*items)$/i.test(s.trim())
+    (s) => !/^(?:all|everyone|both|recorder|date|meeting\s*date|lead|project\s*lead|notes|attendees|attendee|decision|action|resolution|summary|agenda|action\s*item|action\s*items|organisation|organization|department|executive\s*briefing|key\s*decisions|operational\s*actions|platform)$/i.test(s.trim())
   );
 
   // ----------------------------------------------------
