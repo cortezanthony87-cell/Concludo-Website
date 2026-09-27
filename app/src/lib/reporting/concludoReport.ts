@@ -662,7 +662,11 @@ function renderCover(d: Doc) {
     color: mix(NAVY2, LIGHT, 0.20),
   });
 
-  const notices = (d.payload.notices || []).slice(0, 3);
+  let notices = [...(d.payload.notices || [])];
+  if (!d.payload.tier) {
+    notices.unshift('Subscription level not provided');
+  }
+  notices = notices.slice(0, 3);
   for (let i = 0; i < notices.length; i++) {
     d.tracked(notices[i].toUpperCase(), XL, FOOTRULE + 19 * MM - i * 5.6 * MM, 'M', 5.4, 1.2, i === 1 ? GOLD : mix(LIGHT, NAVY, 0.46));
   }

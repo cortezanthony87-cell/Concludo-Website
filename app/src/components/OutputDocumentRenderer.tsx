@@ -131,7 +131,7 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
     if (!pdfBytes) return;
     setDownloading(true);
     try {
-      const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+      const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -149,7 +149,7 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
 
   const handlePrint = () => {
     if (!pdfBytes) return;
-    const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+    const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
