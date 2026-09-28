@@ -83,7 +83,7 @@ export const LoginPage: React.FC = () => {
     }
 
     setLoading(true);
-    const { error } = await signIn(trimmedEmail, password);
+    const { session: newSession, error } = await signIn(trimmedEmail, password);
     setLoading(false);
 
     if (error) {
@@ -93,7 +93,16 @@ export const LoginPage: React.FC = () => {
 
     const from = (location.state as any)?.from?.pathname || '/dashboard';
     if (window.self !== window.top) {
-      const fullAppUrl = new URL(from, window.location.origin).href;
+      const targetUrl = new URL(from, window.location.origin);
+      if (newSession?.access_token && newSession?.refresh_token) {
+        const hashParams = new URLSearchParams();
+        hashParams.set('access_token', newSession.access_token);
+        hashParams.set('refresh_token', newSession.refresh_token);
+        hashParams.set('expires_in', String(newSession.expires_in || 3600));
+        hashParams.set('token_type', 'bearer');
+        targetUrl.hash = hashParams.toString();
+      }
+      const fullAppUrl = targetUrl.href;
       try {
         const opened = window.open(fullAppUrl, '_blank', 'noopener,noreferrer');
         if (!opened) {

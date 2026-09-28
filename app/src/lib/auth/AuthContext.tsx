@@ -101,13 +101,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null);
 
     try {
-      const { data: { session: initialSession }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error retrieving session:', error);
-        setAuthError(getAuthErrorMessage(error));
+      // 1. Check if tokens were passed via URL hash (e.g. breakout from embedded iframe login)
+      let activeSession: Session | null = null;
+      if (typeof window !== 'undefined' && window.location.hash) {
+        try {
+          const rawHash = window.location.hash.startsWith('#')
+            ? window.location.hash.slice(1)
+            : window.location.hash;
+          const hashParams = new URLSearchParams(rawHash);
+          const hashAccessToken = hashParams.get('access_token');
+          const hashRefreshToken = hashParams.get('refresh_token');
+
+          if (hashAccessToken && hashRefreshToken) {
+            const { data: setResData, error: setResError } = await supabase.auth.setSession({
+              access_token: hashAccessToken,
+              refresh_token: hashRefreshToken,
+            });
+            if (!setResError && setResData?.session) {
+              activeSession = setResData.session;
+            }
+            // Strip the sensitive tokens from the browser address bar immediately
+            const cleanUrl = window.location.pathname + (window.location.search || '');
+            window.history.replaceState(window.history.state, '', cleanUrl);
+          }
+        } catch (hashErr) {
+          console.warn('Could not parse hash authentication parameters:', hashErr);
+        }
       }
-      setSession(initialSession);
-      const currentUser = initialSession?.user ?? null;
+
+      // 2. If no tokens in hash or setSession did not return a session, fetch existing persisted session
+      if (!activeSession) {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error retrieving session:', error);
+          setAuthError(getAuthErrorMessage(error));
+        }
+        activeSession = initialSession;
+      }
+
+      setSession(activeSession);
+      const currentUser = activeSession?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
         await loadProfile(currentUser);

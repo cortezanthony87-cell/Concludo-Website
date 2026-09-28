@@ -65,7 +65,28 @@ export const SignupPage: React.FC = () => {
       setConfirmationSent(true);
     } else if (session) {
       trackSignup();
-      navigate('/dashboard', { replace: true });
+      if (window.self !== window.top) {
+        const targetUrl = new URL('/dashboard', window.location.origin);
+        if (session.access_token && session.refresh_token) {
+          const hashParams = new URLSearchParams();
+          hashParams.set('access_token', session.access_token);
+          hashParams.set('refresh_token', session.refresh_token);
+          hashParams.set('expires_in', String(session.expires_in || 3600));
+          hashParams.set('token_type', 'bearer');
+          targetUrl.hash = hashParams.toString();
+        }
+        const fullAppUrl = targetUrl.href;
+        try {
+          const opened = window.open(fullAppUrl, '_blank', 'noopener,noreferrer');
+          if (!opened) {
+            window.top!.location.href = fullAppUrl;
+          }
+        } catch {
+          window.top!.location.href = fullAppUrl;
+        }
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
   };
 
