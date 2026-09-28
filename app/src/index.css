@@ -1600,3 +1600,16 @@ button.bg-amber-500 svg {
     max-width: 60px !important;
   }
 }
+
+/* Calendar Day View & 24h schedule responsive rules */
+.calendar-day-container {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1023px) {
+  .calendar-day-container {
+    padding: 0 4px;
+  }
+}

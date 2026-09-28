@@ -489,3 +489,67 @@ export function getLocalMockCalendarItems(userId: string): CalendarItem[] {
     },
   ];
 }
+
+export async function fetchDailyNote(
+  supabase: SupabaseClient,
+  userId: string,
+  dateStr: string
+): Promise<{ note: string; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('calendar_daily_notes')
+      .select('note')
+      .eq('user_id', userId)
+      .eq('date', dateStr)
+      .maybeSingle();
+
+    if (error) {
+      // Fallback to local storage if network or DB issue
+      const local = localStorage.getItem(`concludo_daily_note_${userId}_${dateStr}`);
+      return { note: local || '', error: error.message };
+    }
+
+    if (data) {
+      return { note: data.note || '', error: null };
+    }
+
+    const local = localStorage.getItem(`concludo_daily_note_${userId}_${dateStr}`);
+    return { note: local || '', error: null };
+  } catch (err: any) {
+    const local = localStorage.getItem(`concludo_daily_note_${userId}_${dateStr}`);
+    return { note: local || '', error: err.message };
+  }
+}
+
+export async function saveDailyNote(
+  supabase: SupabaseClient,
+  userId: string,
+  dateStr: string,
+  noteText: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    // Keep local storage synced for instant offline reliability
+    localStorage.setItem(`concludo_daily_note_${userId}_${dateStr}`, noteText);
+
+    const { error } = await supabase
+      .from('calendar_daily_notes')
+      .upsert(
+        {
+          user_id: userId,
+          date: dateStr,
+          note: noteText,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,date' }
+      );
+
+    if (error) {
+      console.warn('Daily note DB save warning:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
