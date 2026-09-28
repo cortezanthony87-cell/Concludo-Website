@@ -43,6 +43,10 @@ import {
   Trash2,
   Save,
   StickyNote,
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  Check,
 } from 'lucide-react';
 
 type CalendarSubView = 'home' | 'day' | 'week' | 'month' | 'agenda' | 'board';
@@ -61,6 +65,9 @@ export const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return '2026-09-28';
   });
+
+  // Active week reference date (defaults to 2026-09-28)
+  const [weekRefDate, setWeekRefDate] = useState<string>('2026-09-28');
 
   // Calendar month/year navigation
   const [calendarYear, setCalendarYear] = useState<number>(2026);
@@ -327,7 +334,165 @@ export const CalendarPage: React.FC = () => {
   };
 
   // Days in month calculation for the calendar grid
-  const daysInCurrentMonth = useMemo(() => {
+  // Compute 7 days for the active week view (Monday to Sunday)
+  const currentWeekDays = useMemo(() => {
+    const parts = (weekRefDate || '2026-09-28').split('-');
+    const ref = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const day = ref.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(ref);
+    monday.setDate(ref.getDate() - diffToMonday);
+
+    const days = [];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const monthShorts = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    for (let i = 0; i < 7; i++) {
+      const curr = new Date(monday);
+      curr.setDate(monday.getDate() + i);
+      const y = curr.getFullYear();
+      const m = String(curr.getMonth() + 1).padStart(2, '0');
+      const d = String(curr.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${d}`;
+      days.push({
+        dateStr,
+        dayName: dayNames[i],
+        dayNumber: curr.getDate(),
+        monthName: monthShorts[curr.getMonth()],
+        year: curr.getFullYear(),
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+      });
+    }
+    return days;
+  }, [weekRefDate, todayStr, selectedDate]);
+
+  // Navigate week
+  const handlePrevWeek = () => {
+    const parts = (weekRefDate || '2026-09-28').split('-');
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    d.setDate(d.getDate() - 7);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    setWeekRefDate(`${y}-${m}-${dayStr}`);
+  };
+
+  const handleNextWeek = () => {
+    const parts = (weekRefDate || '2026-09-28').split('-');
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    d.setDate(d.getDate() + 7);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    setWeekRefDate(`${y}-${m}-${dayStr}`);
+  };
+
+  const handleThisWeek = () => {
+    setWeekRefDate(todayStr);
+  };
+
+  // Month grid cells with padding for previous and next month
+  const monthGridCells = useMemo(() => {
+    const firstDay = new Date(calendarYear, calendarMonth, 1);
+    const totalDays = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+    const firstDayIndex = (firstDay.getDay() + 6) % 7; // Mon = 0
+    const prevMonthDays = new Date(calendarYear, calendarMonth, 0).getDate();
+    const cells = [];
+
+    // Previous month trailing days
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const d = prevMonthDays - i;
+      const prevM = calendarMonth === 0 ? 11 : calendarMonth - 1;
+      const prevY = calendarMonth === 0 ? calendarYear - 1 : calendarYear;
+      const mStr = String(prevM + 1).padStart(2, '0');
+      const dStr = String(d).padStart(2, '0');
+      const dateStr = `${prevY}-${mStr}-${dStr}`;
+      cells.push({
+        dateStr,
+        dayNumber: d,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+      });
+    }
+
+    // Current month days
+    for (let i = 1; i <= totalDays; i++) {
+      const mStr = String(calendarMonth + 1).padStart(2, '0');
+      const dStr = String(i).padStart(2, '0');
+      const dateStr = `${calendarYear}-${mStr}-${dStr}`;
+      cells.push({
+        dateStr,
+        dayNumber: i,
+        isCurrentMonth: true,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+      });
+    }
+
+    // Next month leading days to complete full grid (multiples of 7)
+    const remaining = (7 - (cells.length % 7)) % 7;
+    for (let i = 1; i <= remaining; i++) {
+      const nextM = calendarMonth === 11 ? 0 : calendarMonth + 1;
+      const nextY = calendarMonth === 11 ? calendarYear + 1 : calendarYear;
+      const mStr = String(nextM + 1).padStart(2, '0');
+      const dStr = String(i).padStart(2, '0');
+      const dateStr = `${nextY}-${mStr}-${dStr}`;
+      cells.push({
+        dateStr,
+        dayNumber: i,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+      });
+    }
+
+    return cells;
+  }, [calendarYear, calendarMonth, todayStr, selectedDate]);
+
+  // Week Forecast Calculations
+  const weekForecast = useMemo(() => {
+    const weekDateSet = new Set(currentWeekDays.map((d) => d.dateStr));
+    const weekItems = filteredItems.filter((it) => it.due_date && weekDateSet.has(it.due_date) && it.status !== 'cancelled');
+
+    const total = weekItems.length;
+    const completed = weekItems.filter((it) => it.status === 'completed').length;
+    const inProgress = weekItems.filter((it) => it.status === 'in_progress').length;
+    const open = weekItems.filter((it) => it.status === 'open').length;
+    const blocked = weekItems.filter((it) => it.status === 'blocked').length;
+    const reviews = weekItems.filter((it) => it.type === 'review' || it.type === 'board_action').length;
+    const critical = weekItems.filter((it) => it.priority === 'critical' || it.priority === 'high').length;
+    const unowned = weekItems.filter((it) => !it.owner_name).length;
+
+    // Daily distribution count
+    const distribution: Record<string, number> = {};
+    currentWeekDays.forEach((d) => {
+      distribution[d.dateStr] = weekItems.filter((it) => it.due_date === d.dateStr).length;
+    });
+
+    return { total, completed, inProgress, open, blocked, reviews, critical, unowned, distribution, weekItems };
+  }, [currentWeekDays, filteredItems]);
+
+  // Month Forecast Calculations
+  const monthForecast = useMemo(() => {
+    const mStr = String(calendarMonth + 1).padStart(2, '0');
+    const prefix = `${calendarYear}-${mStr}`;
+    const monthItems = filteredItems.filter((it) => it.due_date && it.due_date.startsWith(prefix) && it.status !== 'cancelled');
+
+    const total = monthItems.length;
+    const completed = monthItems.filter((it) => it.status === 'completed').length;
+    const inProgress = monthItems.filter((it) => it.status === 'in_progress').length;
+    const open = monthItems.filter((it) => it.status === 'open').length;
+    const blocked = monthItems.filter((it) => it.status === 'blocked').length;
+    const reviews = monthItems.filter((it) => it.type === 'review' || it.type === 'board_action').length;
+    const critical = monthItems.filter((it) => it.priority === 'critical' || it.priority === 'high').length;
+    const unowned = monthItems.filter((it) => !it.owner_name).length;
+
+    return { total, completed, inProgress, open, blocked, reviews, critical, unowned, monthItems };
+  }, [calendarYear, calendarMonth, filteredItems]);
+
+    const daysInCurrentMonth = useMemo(() => {
     const totalDays = new Date(calendarYear, calendarMonth + 1, 0).getDate();
     const firstDayIndex = (new Date(calendarYear, calendarMonth, 1).getDay() + 6) % 7; // Monday = 0
     return { totalDays, firstDayIndex };
@@ -1612,53 +1777,670 @@ export const CalendarPage: React.FC = () => {
           </div>
         )}
 
-        {/* Week and Month View Placeholders */}
-        {(currentView === 'week' || currentView === 'month') && (
-          <div style={{ background: '#FFFFFF', borderRadius: '8px', border: '1px solid #D9DFE9', padding: '32px', textAlign: 'center' }}>
-            <CalendarDays size={48} color="#BC8A1C" style={{ margin: '0 auto 16px auto' }} />
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#16263F', margin: '0 0 8px 0', fontFamily: 'Poppins, sans-serif' }}>
-              {currentView.toUpperCase()} VIEW ACTIVE
-            </h2>
-            <p style={{ color: '#5A6478', fontSize: '14px', maxWidth: '500px', margin: '0 auto 20px auto' }}>
-              Displays all {filteredItems.length} active workspace commitments, hourly bands, and deadlines without external dependencies.
-            </p>
-            <div style={{ display: 'inline-flex', gap: '8px' }}>
-              <button
-                onClick={() => setCurrentView('day')}
-                style={{
-                  background: '#E2B53C',
-                  color: '#16263F',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                  fontWeight: 650,
-                  cursor: 'pointer',
-                }}
-              >
-                Switch to 24-Hour Day View
-              </button>
-              <button
-                onClick={() => setCurrentView('agenda')}
-                style={{
-                  background: '#16263F',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                  fontWeight: 650,
-                  cursor: 'pointer',
-                }}
-              >
-                Switch to Agenda Register
-              </button>
+        {/* S3 Week Planner View with Week Forecast */}
+        {currentView === 'week' && (
+          <div className="calendar-week-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Week Navigation & Header Bar */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '8px',
+                border: '1px solid #D9DFE9',
+                padding: '16px 20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    onClick={handlePrevWeek}
+                    style={{
+                      background: '#F4F6FA',
+                      border: '1px solid #D9DFE9',
+                      borderRadius: '4px',
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#16263F',
+                    }}
+                    title="Previous Week"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={handleThisWeek}
+                    style={{
+                      background: '#16263F',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '6px 14px',
+                      fontSize: '12px',
+                      fontWeight: 650,
+                      color: '#FFFFFF',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    This Week
+                  </button>
+                  <button
+                    onClick={handleNextWeek}
+                    style={{
+                      background: '#F4F6FA',
+                      border: '1px solid #D9DFE9',
+                      borderRadius: '4px',
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#16263F',
+                    }}
+                    title="Next Week"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#16263F', margin: 0, fontFamily: 'Poppins, sans-serif' }}>
+                    Week of {currentWeekDays[0].dayNumber} {currentWeekDays[0].monthName} – {currentWeekDays[6].dayNumber} {currentWeekDays[6].monthName} {currentWeekDays[6].year}
+                  </h2>
+                  <div style={{ fontSize: '12px', color: '#5A6478', marginTop: '2px' }}>
+                    7-Day Workspace Schedule & Milestone Horizon
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => handleOpenCreateForDate(selectedDate || todayStr)}
+                  style={{
+                    background: '#E2B53C',
+                    color: '#16263F',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>+ Add Event/Task</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Week Forecast Overview Card */}
+            <div
+              style={{
+                background: '#16263F',
+                borderRadius: '8px',
+                padding: '20px',
+                color: '#FFFFFF',
+                boxShadow: '0 4px 16px rgba(22, 38, 63, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <TrendingUp size={20} color="#E2B53C" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#FFFFFF', fontFamily: 'Poppins, sans-serif', letterSpacing: '0.02em' }}>
+                    WEEK FORECAST & CAPACITY HORIZON
+                  </h3>
+                </div>
+                <div style={{ fontSize: '12px', color: '#E2B53C', fontWeight: 650, fontFamily: 'IBM Plex Mono, monospace' }}>
+                  {weekForecast.total} SCHEDULED COMMITMENTS
+                </div>
+              </div>
+
+              {/* Forecast Metrics Strip */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Workload</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {weekForecast.total}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#E2B53C', marginTop: '2px' }}>Across 7 Days</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Open & In Prog</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {weekForecast.open + weekForecast.inProgress}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>{weekForecast.inProgress} In Progress</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Governance/Reviews</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#E2B53C', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {weekForecast.reviews}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>Decision & Risk Gates</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Critical Priority</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: weekForecast.critical > 0 ? '#F87171' : '#FFFFFF', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {weekForecast.critical}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>Urgent Attention</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Completed</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#10B981', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {weekForecast.completed}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>Resolved Items</div>
+                </div>
+              </div>
+
+              {/* Day Distribution Bar */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.04)', borderRadius: '6px', padding: '10px 14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ fontSize: '11px', color: '#D9DFE9', marginBottom: '8px', fontWeight: 600 }}>Daily Load Distribution:</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', textAlign: 'center' }}>
+                  {currentWeekDays.map((d) => {
+                    const count = weekForecast.distribution[d.dateStr] || 0;
+                    return (
+                      <div
+                        key={d.dateStr}
+                        onClick={() => handleDateSelect(d.dateStr)}
+                        style={{
+                          background: d.isToday ? '#E2B53C' : d.isSelected ? '#21395C' : 'rgba(255, 255, 255, 0.08)',
+                          color: d.isToday ? '#16263F' : '#FFFFFF',
+                          borderRadius: '4px',
+                          padding: '6px 4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{d.dayName} {d.dayNumber}</div>
+                        <div style={{ fontSize: '14px', fontWeight: 750, marginTop: '2px', fontFamily: 'IBM Plex Mono, monospace' }}>
+                          {count}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 7-Day Columns Planner Grid */}
+            <div
+              className="calendar-week-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, minmax(150px, 1fr))',
+                gap: '12px',
+                overflowX: 'auto',
+                paddingBottom: '8px',
+              }}
+            >
+              {currentWeekDays.map((colDay) => {
+                const dayItems = filteredItems.filter((it) => it.due_date === colDay.dateStr && it.status !== 'cancelled');
+                const isSelected = selectedDate === colDay.dateStr;
+                const isToday = colDay.isToday;
+                const hasScheduled = dayItems.length > 0;
+
+                return (
+                  <div
+                    key={colDay.dateStr}
+                    style={{
+                      background: '#FFFFFF',
+                      borderRadius: '8px',
+                      border: isSelected ? '2px solid #16263F' : hasScheduled ? '1px solid #E2B53C' : '1px solid #D9DFE9',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: '420px',
+                      boxShadow: isSelected ? '0 4px 14px rgba(22, 38, 63, 0.12)' : 'none',
+                    }}
+                  >
+                    {/* Day Column Header */}
+                    <div
+                      onClick={() => handleDateSelect(colDay.dateStr)}
+                      style={{
+                        padding: '12px 10px',
+                        background: isToday ? '#E2B53C' : isSelected ? '#16263F' : hasScheduled ? 'rgba(226, 181, 60, 0.12)' : '#F8FAFD',
+                        color: isToday ? '#16263F' : isSelected ? '#FFFFFF' : '#16263F',
+                        borderTopLeftRadius: '6px',
+                        borderTopRightRadius: '6px',
+                        borderBottom: '1px solid #D9DFE9',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {colDay.dayName}
+                      </div>
+                      <div style={{ fontSize: '18px', fontWeight: 800, marginTop: '2px', fontFamily: 'Poppins, sans-serif' }}>
+                        {colDay.dayNumber} {colDay.monthName}
+                      </div>
+                      <div style={{ fontSize: '10px', marginTop: '2px', opacity: 0.85, fontWeight: 600 }}>
+                        {dayItems.length === 0 ? 'No events' : `${dayItems.length} item${dayItems.length === 1 ? '' : 's'}`}
+                      </div>
+                    </div>
+
+                    {/* Day Column Items List */}
+                    <div
+                      style={{
+                        padding: '10px 8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        flex: 1,
+                        background: '#FFFFFF',
+                      }}
+                    >
+                      {dayItems.map((item) => {
+                        const tone = getItemToneColor(item.type);
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => openItemDetail(item)}
+                            style={{
+                              background: '#F8FAFD',
+                              borderRadius: '6px',
+                              border: '1px solid #D9DFE9',
+                              borderLeft: `4px solid ${tone.bar}`,
+                              padding: '8px 10px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '4px',
+                              transition: 'transform 0.1s ease',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: tone.text, fontFamily: 'IBM Plex Mono, monospace' }}>
+                                {item.due_time ? item.due_time.slice(0, 5) : item.type.toUpperCase()}
+                              </span>
+                              {item.priority === 'critical' && (
+                                <span style={{ fontSize: '9px', background: '#FEE2E2', color: '#B91C1C', padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>
+                                  CRITICAL
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ fontSize: '12px', fontWeight: 650, color: '#16263F', lineHeight: '1.3' }}>
+                              {item.title}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', fontSize: '10px', color: '#5A6478' }}>
+                              <span>{item.owner_name || 'Unassigned'}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openItemDetail(item, true);
+                                }}
+                                style={{
+                                  background: '#FFFFFF',
+                                  border: '1px solid #D9DFE9',
+                                  padding: '1px 6px',
+                                  borderRadius: '3px',
+                                  fontSize: '9px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add Slot Prompt at bottom of each day */}
+                      <button
+                        onClick={() => handleOpenCreateForDate(colDay.dateStr, '09:00')}
+                        style={{
+                          marginTop: 'auto',
+                          background: 'transparent',
+                          border: '1px dashed #D9DFE9',
+                          borderRadius: '4px',
+                          padding: '6px',
+                          color: '#5A6478',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Plus size={12} />
+                        <span>Add to {colDay.dayName}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* S4 Month Calendar View with Month Forecast */}
+        {currentView === 'month' && (
+          <div className="calendar-month-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Month Header Controls */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '8px',
+                border: '1px solid #D9DFE9',
+                padding: '16px 20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    onClick={handlePrevMonth}
+                    style={{
+                      background: '#F4F6FA',
+                      border: '1px solid #D9DFE9',
+                      borderRadius: '4px',
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#16263F',
+                    }}
+                    title="Previous Month"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCalendarYear(2026);
+                      setCalendarMonth(8); // Sep 2026
+                    }}
+                    style={{
+                      background: '#16263F',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '6px 14px',
+                      fontSize: '12px',
+                      fontWeight: 650,
+                      color: '#FFFFFF',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Current Month
+                  </button>
+                  <button
+                    onClick={handleNextMonth}
+                    style={{
+                      background: '#F4F6FA',
+                      border: '1px solid #D9DFE9',
+                      borderRadius: '4px',
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#16263F',
+                    }}
+                    title="Next Month"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#16263F', margin: 0, fontFamily: 'Poppins, sans-serif' }}>
+                    {monthNames[calendarMonth]} {calendarYear}
+                  </h2>
+                  <div style={{ fontSize: '12px', color: '#5A6478', marginTop: '2px' }}>
+                    Full Monthly Horizon & Workload Forecast
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => handleOpenCreateForDate(selectedDate || todayStr)}
+                  style={{
+                    background: '#E2B53C',
+                    color: '#16263F',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>+ Add Event/Task</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Month Forecast Card */}
+            <div
+              style={{
+                background: '#16263F',
+                borderRadius: '8px',
+                padding: '20px',
+                color: '#FFFFFF',
+                boxShadow: '0 4px 16px rgba(22, 38, 63, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <TrendingUp size={20} color="#E2B53C" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#FFFFFF', fontFamily: 'Poppins, sans-serif', letterSpacing: '0.02em' }}>
+                    {monthNames[calendarMonth].toUpperCase()} {calendarYear} FORECAST & CAPACITY
+                  </h3>
+                </div>
+                <div style={{ fontSize: '12px', color: '#E2B53C', fontWeight: 650, fontFamily: 'IBM Plex Mono, monospace' }}>
+                  {monthForecast.total} SCHEDULED DELIVERABLES
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Monthly Workload</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {monthForecast.total}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#E2B53C', marginTop: '2px' }}>Total Commitments</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Open & In Progress</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {monthForecast.open + monthForecast.inProgress}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>{monthForecast.inProgress} In Progress</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Governance & Reviews</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#E2B53C', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {monthForecast.reviews}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>Reviews & Decisions</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Critical Priority</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: monthForecast.critical > 0 ? '#F87171' : '#FFFFFF', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {monthForecast.critical}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>Critical Items</div>
+                </div>
+
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '6px', padding: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ fontSize: '11px', color: '#D9DFE9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Completed</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#10B981', marginTop: '4px', fontFamily: 'Poppins, sans-serif' }}>
+                    {monthForecast.completed}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#D9DFE9', marginTop: '2px' }}>Closed Items</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Month 7-Column Calendar Grid */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '8px',
+                border: '1px solid #D9DFE9',
+                padding: '16px',
+                overflowX: 'auto',
+              }}
+            >
+              {/* Day Name Headers */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(130px, 1fr))', gap: '6px', textAlign: 'center', marginBottom: '8px' }}>
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '8px 4px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#16263F',
+                      background: '#F8FAFD',
+                      borderRadius: '4px',
+                      border: '1px solid #D9DFE9',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {dayName}
+                  </div>
+                ))}
+              </div>
+
+              {/* Grid Cells */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(130px, 1fr))', gap: '6px' }}>
+                {monthGridCells.map((cell) => {
+                  const cellItems = filteredItems.filter((it) => it.due_date === cell.dateStr && it.status !== 'cancelled');
+                  const hasScheduled = cellItems.length > 0;
+                  const isSelected = selectedDate === cell.dateStr;
+                  const isToday = cell.isToday;
+
+                  return (
+                    <div
+                      key={cell.dateStr}
+                      onClick={() => handleDateSelect(cell.dateStr)}
+                      style={{
+                        minHeight: '120px',
+                        background: isSelected
+                          ? 'rgba(22, 38, 63, 0.05)'
+                          : isToday
+                          ? 'rgba(226, 181, 60, 0.08)'
+                          : cell.isCurrentMonth
+                          ? '#FFFFFF'
+                          : '#FAFAFC',
+                        borderRadius: '6px',
+                        border: isSelected
+                          ? '2px solid #16263F'
+                          : isToday
+                          ? '2px solid #E2B53C'
+                          : hasScheduled
+                          ? '1px solid #E2B53C'
+                          : '1px solid #D9DFE9',
+                        padding: '6px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: 'pointer',
+                        transition: 'all 0.1s ease',
+                        opacity: cell.isCurrentMonth ? 1 : 0.65,
+                      }}
+                    >
+                      {/* Cell Day Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: isToday || isSelected ? 800 : hasScheduled ? 700 : 600,
+                            background: isToday ? '#E2B53C' : isSelected ? '#16263F' : 'transparent',
+                            color: isToday ? '#16263F' : isSelected ? '#FFFFFF' : cell.isCurrentMonth ? '#16263F' : '#A0AEC0',
+                            padding: isToday || isSelected ? '1px 6px' : '0px',
+                            borderRadius: '3px',
+                          }}
+                        >
+                          {cell.dayNumber}
+                        </span>
+
+                        {hasScheduled && (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              background: '#E2B53C',
+                              color: '#16263F',
+                              padding: '1px 5px',
+                              borderRadius: '10px',
+                              fontFamily: 'IBM Plex Mono, monospace',
+                            }}
+                          >
+                            {cellItems.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Cell Items (Up to 2 visible + count) */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                        {cellItems.slice(0, 2).map((item) => {
+                          const tone = getItemToneColor(item.type);
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openItemDetail(item);
+                              }}
+                              style={{
+                                background: tone.bg,
+                                borderLeft: `3px solid ${tone.bar}`,
+                                borderRadius: '3px',
+                                padding: '3px 5px',
+                                fontSize: '10px',
+                                fontWeight: 650,
+                                color: '#16263F',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={item.title}
+                            >
+                              {item.title}
+                            </div>
+                          );
+                        })}
+
+                        {cellItems.length > 2 && (
+                          <div style={{ fontSize: '10px', fontWeight: 650, color: '#BC8A1C', marginTop: 'auto' }}>
+                            +{cellItems.length - 2} more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Item Detail / Edit Right Drawer */}
+      {/* Item Detail / Edit Right Drawer */}{/* Item Detail / Edit Right Drawer */}
       {isDrawerOpen && selectedItem && (
         <div
           style={{

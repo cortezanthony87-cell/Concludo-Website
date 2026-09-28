@@ -1613,3 +1613,37 @@ button.bg-amber-500 svg {
     padding: 0 4px;
   }
 }
+
+/* Calendar Week & Month Responsive Rules */
+.calendar-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .calendar-week-grid {
+    grid-template-columns: repeat(7, minmax(130px, 1fr)) !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .calendar-week-grid {
+    display: flex !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory;
+    gap: 10px !important;
+    padding-bottom: 14px !important;
+  }
+  .calendar-week-grid > div {
+    min-width: 200px !important;
+    flex: 0 0 200px !important;
+    scroll-snap-align: start;
+  }
+}
