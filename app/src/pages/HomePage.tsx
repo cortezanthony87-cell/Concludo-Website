@@ -141,7 +141,7 @@ export const HomePage: React.FC = () => {
                 boxShadow: '0 4px 18px rgba(226, 181, 60, 0.4)',
               }}
             >
-              <span>⚡ Start 14-Day Pro Demo</span>
+              <span>⚡ Start 14-Day Pro Edition Demo</span>
               <ArrowRight size={18} />
             </Link>
             <Link

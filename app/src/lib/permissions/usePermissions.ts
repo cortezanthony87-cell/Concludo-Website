@@ -23,7 +23,8 @@ export interface FeatureAccessDisplay {
 export function useFeatureAccess(featureKey: FeatureKey): FeatureAccessDisplay {
   const { profile } = useAuth();
 
-  const userPlan: PlanType = (profile?.plan as PlanType) || 'free_preview';
+  const rawPlan = (profile?.plan as string) || 'free_preview';
+  const userPlan: PlanType = (rawPlan === 'pro_subscription_trial' ? 'pro_subscription_trial' : rawPlan === 'pro_subscription' ? 'pro_subscription' : rawPlan) as PlanType;
 
   return useMemo(() => {
     const allowedFeatures = PLAN_PERMISSIONS[userPlan] || [];

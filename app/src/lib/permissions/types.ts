@@ -3,7 +3,9 @@ export type PlanType =
   | 'starter_trial'
   | 'starter'
   | 'pro_trial'
+  | 'pro_subscription_trial'
   | 'pro'
+  | 'pro_subscription'
   | 'team'
   | 'enterprise'
   | 'admin';
@@ -243,6 +245,50 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'json_export',
   ],
   pro_trial: [
+    'workspace_basic',
+    'meeting_memory',
+    'decision_memory',
+    'action_tracker',
+    'keyword_search',
+    'insight',
+    'stats',
+    'endpoint_report',
+    'automation_export',
+    'third_party_integrations',
+    'webhooks',
+    'api_access',
+    'core_outputs',
+    'copy_output',
+    'json_export',
+    'saved_projects',
+    'transcript_archive',
+    'manual_outputs',
+    'next_best_action',
+    'meeting_health_dashboard',
+  ],
+  pro_subscription_trial: [
+    'workspace_basic',
+    'meeting_memory',
+    'decision_memory',
+    'action_tracker',
+    'keyword_search',
+    'insight',
+    'stats',
+    'endpoint_report',
+    'automation_export',
+    'third_party_integrations',
+    'webhooks',
+    'api_access',
+    'core_outputs',
+    'copy_output',
+    'json_export',
+    'saved_projects',
+    'transcript_archive',
+    'manual_outputs',
+    'next_best_action',
+    'meeting_health_dashboard',
+  ],
+  pro_subscription: [
     'workspace_basic',
     'meeting_memory',
     'decision_memory',

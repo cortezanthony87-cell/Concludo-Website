@@ -60,19 +60,7 @@ export const LoginPage: React.FC = () => {
   }, [email, checkEmailSSO]);
 
 
-  const handleQuickDemoAccess = async () => {
-    setLoading(true);
-    setErrorMessage("");
-    const { error } = await signIn("demo@concludo.au", "ConcludoDemo2026!");
-    setLoading(false);
-    if (error) {
-      setErrorMessage(getAuthErrorMessage(error));
-      return;
-    }
-    navigate("/dashboard", { replace: true });
-  };
-
-  useEffect(() => {
+    useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("demo") === "true") {
       // Redirect to signup for 14-day demo account creation
@@ -105,12 +93,14 @@ export const LoginPage: React.FC = () => {
 
     const from = (location.state as any)?.from?.pathname || '/dashboard';
     if (window.self !== window.top) {
+      const fullAppUrl = new URL(from, window.location.origin).href;
       try {
-        const fullAppUrl = new URL(from, window.location.origin).href;
-        window.open(fullAppUrl, '_blank', 'noopener,noreferrer');
+        const opened = window.open(fullAppUrl, '_blank', 'noopener,noreferrer');
+        if (!opened) {
+          window.top!.location.href = fullAppUrl;
+        }
       } catch {
-        // Fallback
-        window.top!.location.href = new URL(from, window.location.origin).href;
+        window.top!.location.href = fullAppUrl;
       }
     } else {
       navigate(from, { replace: true });
@@ -375,7 +365,7 @@ export const LoginPage: React.FC = () => {
             }}
           >
             <Sparkles size={16} color="#e2b53c" />
-            <span>⚡ Start 14-Day Pro Demo (Account Required)</span>
+            <span>⚡ Start 14-Day Pro Edition Demo (Account Required)</span>
           </Link>
         </form>
 

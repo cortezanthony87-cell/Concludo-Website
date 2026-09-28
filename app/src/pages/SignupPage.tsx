@@ -152,7 +152,7 @@ export const SignupPage: React.FC = () => {
             />
             <span className="brand-title-badge">WORKSPACE</span>
           </div>
-          <h1 className="auth-title">{isDemo ? 'Start 14-Day Pro Demo' : 'Create your account'}</h1>
+          <h1 className="auth-title">{isDemo ? 'Start 14-Day Pro Edition Demo' : 'Create your account'}</h1>
           <p className="auth-subtitle">
             {isDemo
               ? 'Create your account to activate your 14-day full Pro Edition trial.'
@@ -273,7 +273,7 @@ export const SignupPage: React.FC = () => {
               </>
             ) : (
               <>
-                <span>{isDemo ? 'Start 14-Day Pro Demo' : 'Create Workspace Account'}</span>
+                <span>{isDemo ? 'Start 14-Day Pro Edition Demo' : 'Create Workspace Account'}</span>
                 <ArrowRight size={18} />
               </>
             )}
