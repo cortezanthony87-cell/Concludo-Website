@@ -73,7 +73,7 @@ function mix(a: Color, b: Color, t: number): Color {
 export const TIERS: Record<string, { label: string; max_pages: number | null; sections: Set<string> | null }> = {
   starter: {
     label: 'Workspace Starter',
-    max_pages: 15,
+    max_pages: 100,
     sections: new Set([
       'inputs', 'executive', 'meeting_summary', 'decisions', 'actions',
       'risks', 'recommendations', 'health', 'closing'
@@ -81,7 +81,7 @@ export const TIERS: Record<string, { label: string; max_pages: number | null; se
   },
   pro: {
     label: 'Workspace Pro',
-    max_pages: 50,
+    max_pages: 100,
     sections: new Set([
       'inputs', 'executive', 'meeting_summary', 'decisions', 'actions',
       'risks', 'recommendations', 'health', 'closing', 'board_report',
@@ -1140,7 +1140,8 @@ export async function renderConcludoReport(payload: ConcludoReportPayload): Prom
   // Pass 2: render with accurate total page count in footer
   const pass2 = await buildPass(payload, total);
 
-  const limit = TIERS[(payload.tier || 'starter').toLowerCase()]?.max_pages;
+  const tierKey = (payload.tier || 'starter').toLowerCase();
+  const limit = (TIERS[tierKey] || (tierKey.includes('pro') ? TIERS['pro'] : TIERS['starter']))?.max_pages;
   if (limit && total > limit) {
     throw new Error(`Output is ${total} pages, above the ${limit} page limit for this tier.`);
   }
