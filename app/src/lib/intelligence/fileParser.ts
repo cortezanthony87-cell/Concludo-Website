@@ -17,10 +17,47 @@ export interface ParsedDocument {
   text: string;
 }
 
+/**
+ * Cleans WebVTT (.vtt) or SubRip (.srt) subtitle / transcript files into clean readable text
+ */
+function cleanTranscriptSubtitles(raw: string): string {
+  const lines = raw.split(/\r?\n/);
+  const cleaned: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Skip WEBVTT header, NOTE, or numeric sequence counters
+    if (/^(?:WEBVTT|NOTE|\d+)$/i.test(trimmed)) continue;
+    // Skip timestamp lines: 00:00:00.000 --> 00:00:05.000 or 00:00:00,000 --> 00:00:05,000
+    if (/^\d{1,2}:\d{2}(?::\d{2})?[.,]\d{3}\s+-->\s+\d{1,2}:\d{2}(?::\d{2})?[.,]\d{3}/.test(trimmed)) continue;
+    // Remove inline timestamp or styling tags: <v Speaker>text</v> or <00:00:01.000>
+    const deTagged = trimmed
+      .replace(/<v\s+([^>]+)>/gi, '$1: ')
+      .replace(/<\/v>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .trim();
+    if (deTagged) {
+      cleaned.push(deTagged);
+    }
+  }
+  return cleaned.join('\n');
+}
+
 export async function parseUploadedFile(file: File): Promise<ParsedDocument> {
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
 
-  // 1. Plain text / Markdown / CSV / JSON
+  // 1. WebVTT or SRT transcript files
+  if (['vtt', 'srt'].includes(extension)) {
+    const text = await file.text();
+    return {
+      name: file.name,
+      size: file.size,
+      type: extension,
+      text: cleanTranscriptSubtitles(text),
+    };
+  }
+
+  // 2. Plain text / Markdown / CSV / JSON
   if (['txt', 'text', 'md', 'markdown', 'csv', 'json', 'log'].includes(extension) || file.type.startsWith('text/')) {
     const text = await file.text();
     return {
@@ -31,7 +68,7 @@ export async function parseUploadedFile(file: File): Promise<ParsedDocument> {
     };
   }
 
-  // 2. Microsoft Word (.docx)
+  // 3. Microsoft Word (.docx)
   if (extension === 'docx') {
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
@@ -43,7 +80,7 @@ export async function parseUploadedFile(file: File): Promise<ParsedDocument> {
     };
   }
 
-  // 3. Adobe PDF (.pdf)
+  // 4. Adobe PDF (.pdf)
   if (extension === 'pdf' || file.type === 'application/pdf') {
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
@@ -80,6 +117,6 @@ export async function parseUploadedFile(file: File): Promise<ParsedDocument> {
       text: text.trim(),
     };
   } catch {
-    throw new Error(`Unsupported file format (.${extension}). Please upload PDF, Word (.docx), or plain text (.txt, .md).`);
+    throw new Error(`Unsupported file format (.${extension}). Please upload PDF, Word (.docx), or plain text (.txt, .md, .vtt, .srt).`);
   }
 }

@@ -88,6 +88,7 @@ export function buildConcludoPayload(
   const meetingDateStr = meta.meetingDate || new Date().toISOString().slice(0, 10);
   const clientName = meta.clientName || 'Concludo Client';
   const projectTitle = meta.title || 'Project Milestone';
+  const sources = (meta as any).sources as any[] | undefined;
 
   // Format decision rows: [ID, Decision, Owner, At, Class]
   const decisionRows: string[][] = intel.decisions.map((d, idx) => [
@@ -107,6 +108,26 @@ export function buildConcludoPayload(
     'Recorded'
   ]);
 
+  // Dynamic inputs and evidence rows from attached meetings & documents
+  const inputRows: string[][] = (sources && sources.length > 0)
+    ? sources.map((s, idx) => [
+        `INP-${String(idx + 1).padStart(3, '0')}`,
+        s.kind === 'meeting'
+          ? `Meeting: ${s.title}${s.date ? ` (${s.date})` : ''}`.slice(0, 55)
+          : `Document: ${s.title}`.slice(0, 55),
+        s.kind === 'meeting' ? (s.attendees?.[0] || 'Project Lead') : 'Delivery Lead',
+        s.kind === 'meeting' ? 'Transcribed' : 'Parsed File',
+        idx === 0 ? 'Primary' : 'Supporting'
+      ])
+    : [
+        ['INP-001', projectTitle.slice(0, 35), meta.clientName || 'Project Director', 'Available on file', 'Primary'],
+        ['INP-002', 'Project brief and specifications', 'Delivery Lead', 'Available on file', 'Supporting']
+      ];
+
+  const inputsIntro = (sources && sources.length > 0)
+    ? `The record deterministically synthesises ${sources.filter(s => s.kind === 'meeting').length} meeting sessions and ${sources.filter(s => s.kind === 'document').length} supporting project documents provided to the Concludo Workspace.`
+    : 'The record draws on meeting files, notes, and session dialogue provided to the Concludo Workspace.';
+
   // Summary points for executive section
   const execPoints = [
     {
@@ -114,6 +135,13 @@ export function buildConcludoPayload(
       text: `Formal operating review and deliverable governance session conducted for ${projectTitle} (${clientName}).`,
       evidence: `Record date ${meetingDateStr}`
     },
+    ...(sources && sources.length > 1 ? [
+      {
+        label: 'Multi-session evidence base',
+        text: `Synthesised ${sources.length} project intelligence sources (${sources.filter(s => s.kind === 'meeting').length} meetings, ${sources.filter(s => s.kind === 'document').length} documents) establishing continuous delivery context.`,
+        evidence: `${sources[0]?.title || 'Session 1'} through ${sources[sources.length - 1]?.title || 'Latest'}`
+      }
+    ] : []),
     {
       label: 'Governance resolutions',
       text: `${intel.decisions.length} formal governance decisions agreed and ratified by project leadership.`,
@@ -194,13 +222,10 @@ export function buildConcludoPayload(
     ],
     inputs: {
       title: 'Inputs and evidence',
-      intro: 'The record draws on meeting files, notes, and session dialogue provided to the Concludo Workspace.',
+      intro: inputsIntro,
       columns: ['ID', 'Source', 'Owner', 'State', 'Class'],
       widths: [22, 60, 30, 42, 16],
-      rows: [
-        ['INP-001', projectTitle.slice(0, 35), meta.clientName || 'Project Director', 'Available on file', 'Primary'],
-        ['INP-002', 'Project brief and specifications', 'Delivery Lead', 'Available on file', 'Supporting']
-      ],
+      rows: inputRows,
       gaps_title: 'What the meeting left open',
       gaps: [
         'Delivery timelines remain dependent on external supplier verification and procurement milestones.',

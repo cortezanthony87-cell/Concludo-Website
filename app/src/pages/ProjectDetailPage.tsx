@@ -66,13 +66,82 @@ import {
   isActionOverdue,
 } from '../lib/actions/types';
 import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
-import { extractTranscriptIntelligence } from '../lib/intelligence/transcriptExtractor';
+import { extractTranscriptIntelligence, parseProjectSources, ProjectSourceItem } from '../lib/intelligence/transcriptExtractor';
 import { extractMetadataFromContent } from '../lib/intelligence/metadataExtractor';
 import { parseUploadedFile, ParsedDocument } from '../lib/intelligence/fileParser';
-import { UploadCloud, FileCheck } from 'lucide-react';
+import { UploadCloud, FileCheck, Video, Users, FileSpreadsheet, ShieldAlert, CheckSquare2 } from 'lucide-react';
 import { GenerateToCalendarDrawer } from '../components/calendar/GenerateToCalendarDrawer';
 import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
 
+
+
+// Helpers to parse and format rich project context for decisions and actions
+function parseDecisionContext(summary: string | null, reasoning: string | null) {
+  let mainSummary = summary || '';
+  let mainReasoning = reasoning || '';
+  let sourceLineage = '';
+  let projectContext = '';
+  let tradeoffs = '';
+  let downstreamImpact = '';
+
+  if (mainSummary.includes('[Context:')) {
+    const parts = mainSummary.split(/\s*\[Context:\s*/);
+    mainSummary = parts[0].trim();
+    const rest = parts.slice(1).join('[Context:');
+    const subParts = rest.split(/\]\s*\[/);
+    for (const sp of subParts) {
+      const clean = sp.replace(/[\[\]]/g, '').trim();
+      if (clean.toLowerCase().startsWith('source:')) {
+        sourceLineage = clean.replace(/^source:\s*/i, '').trim();
+      } else if (!projectContext) {
+        projectContext = clean;
+      }
+    }
+  }
+
+  if (mainReasoning.includes('[Trade-offs:')) {
+    const parts = mainReasoning.split(/\s*\[Trade-offs:\s*/);
+    mainReasoning = parts[0].trim();
+    const rest = parts.slice(1).join('[Trade-offs:');
+    const subParts = rest.split(/\]\s*\[/);
+    for (const sp of subParts) {
+      const clean = sp.replace(/[\[\]]/g, '').trim();
+      if (clean.toLowerCase().startsWith('impact:')) {
+        downstreamImpact = clean.replace(/^impact:\s*/i, '').trim();
+      } else if (!tradeoffs) {
+        tradeoffs = clean;
+      }
+    }
+  }
+
+  return { mainSummary, mainReasoning, sourceLineage, projectContext, tradeoffs, downstreamImpact };
+}
+
+function parseActionContext(description: string | null) {
+  let mainDesc = description || '';
+  let sourceLineage = '';
+  let projectContext = '';
+  let deliverable = '';
+
+  if (mainDesc.includes('[Deliverable:')) {
+    const parts = mainDesc.split(/\s*\[Deliverable:\s*/);
+    mainDesc = parts[0].trim();
+    const rest = parts.slice(1).join('[Deliverable:');
+    const subParts = rest.split(/\]\s*\[/);
+    for (const sp of subParts) {
+      const clean = sp.replace(/[\[\]]/g, '').trim();
+      if (clean.toLowerCase().startsWith('source:')) {
+        sourceLineage = clean.replace(/^source:\s*/i, '').trim();
+      } else if (clean.toLowerCase().startsWith('context:')) {
+        projectContext = clean.replace(/^context:\s*/i, '').trim();
+      } else if (!deliverable) {
+        deliverable = clean;
+      }
+    }
+  }
+
+  return { mainDesc, sourceLineage, projectContext, deliverable };
+}
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -96,11 +165,22 @@ export const ProjectDetailPage: React.FC = () => {
   const [editTranscript, setEditTranscript] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
 
-  // Attached files state
+  // Attached files & Multi-meeting state
   const [detailParsingFiles, setDetailParsingFiles] = useState(false);
   const [detailParseError, setDetailParseError] = useState<string | null>(null);
   const detailFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const editFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Add Meeting Transcript Modal State
+  const [showAddMeetingModal, setShowAddMeetingModal] = useState<boolean>(false);
+  const [newMeetingTitle, setNewMeetingTitle] = useState<string>('');
+  const [newMeetingDate, setNewMeetingDate] = useState<string>('');
+  const [newMeetingType, setNewMeetingType] = useState<string>('Operational Sync');
+  const [newMeetingAttendees, setNewMeetingAttendees] = useState<string>('');
+  const [newMeetingTranscript, setNewMeetingTranscript] = useState<string>('');
+  const [parsingMeetingFile, setParsingMeetingFile] = useState<boolean>(false);
+  const [addMeetingError, setAddMeetingError] = useState<string | null>(null);
+  const meetingTranscriptFileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [savingProject, setSavingProject] = useState<boolean>(false);
   const [saveProjectError, setSaveProjectError] = useState<string | null>(null);
@@ -248,6 +328,87 @@ export const ProjectDetailPage: React.FC = () => {
     loadActions();
   }, [loadProject, loadOutputs, loadDecisions, loadActions]);
 
+
+  // Handle Add Meeting Transcript
+  const handleSaveNewMeeting = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !id || !project) return;
+    const titleTrimmed = newMeetingTitle.trim();
+    const transcriptTrimmed = newMeetingTranscript.trim();
+    if (!titleTrimmed) {
+      setAddMeetingError('Meeting title or session name is required');
+      return;
+    }
+    if (!transcriptTrimmed) {
+      setAddMeetingError('Meeting transcript or minutes text is required');
+      return;
+    }
+
+    setSavingProject(true);
+    setAddMeetingError(null);
+
+    try {
+      const meetingHeader = [
+        `# Meeting: ${titleTrimmed}`,
+        newMeetingDate ? `**Date:** ${newMeetingDate}` : null,
+        newMeetingType ? `**Type:** ${newMeetingType}` : null,
+        newMeetingAttendees ? `**Attendees:** ${newMeetingAttendees}` : null,
+        '',
+        transcriptTrimmed,
+      ].filter(Boolean).join('\n');
+
+      const existingTranscript = (project.transcript || '').trim();
+      const updatedTranscript = existingTranscript
+        ? existingTranscript + '\n\n---\n\n' + meetingHeader
+        : meetingHeader;
+
+      const meetingNoteItem = `- Meeting: ${titleTrimmed}${newMeetingDate ? ` (${newMeetingDate})` : ''}${newMeetingType ? ` · ${newMeetingType}` : ''}`;
+      const existingNotes = (project.notes || '').trim();
+      const updatedNotes = existingNotes
+        ? existingNotes + '\n' + meetingNoteItem
+        : '### Project Meeting History:\n' + meetingNoteItem;
+
+      const res = await updateProject(supabase, id, {
+        transcript: updatedTranscript,
+        notes: updatedNotes,
+      });
+
+      if (res.error || !res.data) {
+        throw new Error(res.error?.message || 'Failed to append meeting transcript to project');
+      }
+
+      setProject(res.data);
+      setShowAddMeetingModal(false);
+      setNewMeetingTitle('');
+      setNewMeetingDate('');
+      setNewMeetingType('Operational Sync');
+      setNewMeetingAttendees('');
+      setNewMeetingTranscript('');
+      setGenerateSuccess(`Added "${titleTrimmed}" to project intelligence. Click "Extract & Generate Outputs" to update summaries, actions, and decision logs with new context.`);
+    } catch (err: any) {
+      setAddMeetingError(err.message || 'Failed to add meeting transcript');
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  const handleMeetingFileUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    setParsingMeetingFile(true);
+    setAddMeetingError(null);
+    try {
+      const parsed = await parseUploadedFile(fileList[0]);
+      setNewMeetingTranscript(parsed.text);
+      if (!newMeetingTitle) {
+        const cleanName = parsed.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+        setNewMeetingTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1));
+      }
+    } catch (err: any) {
+      setAddMeetingError(err.message || 'Failed to parse meeting file');
+    } finally {
+      setParsingMeetingFile(false);
+    }
+  };
 
   // Handle Edit Project
   // File import for Project Detail View
@@ -540,31 +701,49 @@ export const ProjectDetailPage: React.FC = () => {
         throw new Error(decisionLogRes.error?.message || 'Failed to save Governed Decision Log output');
       }
 
-      // 4. Save Decisions into decision_memory
+      // 4. Save Decisions into decision_memory with rich multi-meeting context & trade-offs
       const sourceDecOutputId = decisionLogRes.data?.id || null;
       for (const dec of intel.decisions) {
+        // Embed strategic context, source lineage, tradeoffs, and impact
+        const enrichedSummary = dec.summary +
+          (dec.context ? ` [Context: ${dec.context}]` : '') +
+          (dec.source ? ` [Source: ${dec.source}]` : '');
+        const enrichedReasoning = (dec.reasoning || 'Formally ratified by project leadership.') +
+          (dec.tradeoffs ? ` [Trade-offs: ${dec.tradeoffs}]` : '') +
+          (dec.impact ? ` [Impact: ${dec.impact}]` : '');
+
         await saveDecision(supabase, {
           project_id: project.id,
           decision_title: dec.title,
-          decision_summary: dec.summary,
-          decision_reasoning: dec.reasoning,
+          decision_summary: enrichedSummary,
+          decision_reasoning: enrichedReasoning,
           decision_owner: dec.owner,
           decision_date: dec.date,
           source_output_id: sourceDecOutputId,
+          ownership_type: project.ownership_type,
+          team_id: project.team_id,
         });
       }
 
-      // 5. Save Actions into action_tracker
+      // 5. Save Actions into action_tracker with rich deliverable context & dependencies
       const sourceActOutputId = actionPlanRes.data?.id || null;
       for (const act of intel.actions) {
+        const enrichedDescription = act.description +
+          (act.deliverable ? ` [Deliverable: ${act.deliverable}]` : '') +
+          (act.context ? ` [Context: ${act.context}]` : '') +
+          (act.source ? ` [Source: ${act.source}]` : '') +
+          (act.dependencies ? ` [Dependencies: ${act.dependencies}]` : '');
+
         await saveAction(supabase, {
           project_id: project.id,
           action_title: act.title,
-          action_description: act.description,
+          action_description: enrichedDescription,
           owner_name: act.owner,
           due_date: act.due_date,
           status: 'not_started',
           source_output_id: sourceActOutputId,
+          ownership_type: project.ownership_type,
+          team_id: project.team_id,
         });
       }
 
@@ -1270,13 +1449,30 @@ export const ProjectDetailPage: React.FC = () => {
               ref={detailFileInputRef}
               type="file"
               multiple
-              accept=".pdf,.docx,.txt,.md,.csv,.json"
+              accept=".pdf,.docx,.txt,.md,.csv,.json,.vtt,.srt"
               style={{ display: 'none' }}
               onChange={(e) => {
                 handleDetailFilesSelected(e.target.files);
                 if (detailFileInputRef.current) detailFileInputRef.current.value = '';
               }}
             />
+            <button
+              type="button"
+              onClick={() => {
+                setNewMeetingTitle('');
+                setNewMeetingDate(new Date().toISOString().split('T')[0]);
+                setNewMeetingType(project.meeting_type || 'Operational Sync');
+                setNewMeetingAttendees('');
+                setNewMeetingTranscript('');
+                setAddMeetingError(null);
+                setShowAddMeetingModal(true);
+              }}
+              className="btn btn-secondary"
+              style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px', borderColor: 'rgba(226, 181, 60, 0.4)', color: '#f3c958' }}
+            >
+              <Plus size={14} />
+              <span>Add Meeting Transcript</span>
+            </button>
             <button
               type="button"
               onClick={() => detailFileInputRef.current?.click()}
@@ -1292,7 +1488,7 @@ export const ProjectDetailPage: React.FC = () => {
               ) : (
                 <>
                   <UploadCloud size={14} />
-                  <span>Import Files</span>
+                  <span>Import More Files</span>
                 </>
               )}
             </button>
@@ -1352,6 +1548,73 @@ export const ProjectDetailPage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* MULTI-SOURCE PROJECT CONTEXT REGISTRY */}
+        {(() => {
+          const parsedSources = parseProjectSources(project.transcript || '', project.notes || '');
+          const meetings = parsedSources.filter(s => s.kind === 'meeting');
+          const docs = parsedSources.filter(s => s.kind === 'document');
+
+          if (parsedSources.length === 0) return null;
+
+          return (
+            <div style={{ marginBottom: '20px', padding: '16px 20px', background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(226, 181, 60, 0.25)', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Layers size={17} style={{ color: '#e2b53c' }} />
+                  <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>
+                    Project Evidence Base ({parsedSources.length} Sources: {meetings.length} Meetings, {docs.length} Documents)
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                  All sources feed project summaries, action plans, and decision logs
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
+                {parsedSources.map((src, sIdx) => (
+                  <div
+                    key={src.id || sIdx}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: src.kind === 'meeting' ? 'rgba(30, 41, 59, 0.6)' : 'rgba(30, 41, 59, 0.4)',
+                      border: src.kind === 'meeting' ? '1px solid rgba(226, 181, 60, 0.2)' : '1px solid rgba(148, 163, 184, 0.15)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: src.kind === 'meeting' ? 'rgba(226, 181, 60, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                        color: src.kind === 'meeting' ? '#f3c958' : '#38bdf8',
+                      }}>
+                        {src.kind === 'meeting' ? (src.meetingType || 'Meeting') : (src.fileType?.toUpperCase() || 'Document')}
+                      </span>
+                      {src.date && (
+                        <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Calendar size={11} />
+                          <span>{src.date}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.85rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {src.title}
+                    </div>
+                    {src.attendees && src.attendees.length > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <Users size={11} style={{ color: '#e2b53c', flexShrink: 0 }} />
+                        <span>{src.attendees.join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {project.transcript ? (
           <div
@@ -2130,17 +2393,48 @@ export const ProjectDetailPage: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  {decision.decision_summary && (
-                    <p style={{ color: '#0f172a', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5, fontWeight: 450 }}>
-                      {decision.decision_summary}
-                    </p>
-                  )}
-                  {decision.decision_reasoning && (
-                    <p style={{ color: '#1e293b', fontSize: '0.82rem', margin: '0 0 8px 0', fontStyle: 'italic', lineHeight: 1.4 }}>
-                      <strong style={{ fontStyle: 'normal', color: '#0f172a', fontWeight: 600 }}>Why: </strong>
-                      {decision.decision_reasoning}
-                    </p>
-                  )}
+                  {(() => {
+                    const parsed = parseDecisionContext(decision.decision_summary, decision.decision_reasoning);
+                    return (
+                      <>
+                        {parsed.mainSummary && (
+                          <p style={{ color: '#0f172a', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5, fontWeight: 500 }}>
+                            {parsed.mainSummary}
+                          </p>
+                        )}
+                        {parsed.projectContext && (
+                          <div style={{ margin: '0 0 8px 0', padding: '6px 10px', borderRadius: '6px', background: 'rgba(226, 181, 60, 0.08)', borderLeft: '3px solid #b48316', fontSize: '0.8rem', color: '#334155', lineHeight: 1.4 }}>
+                            <strong style={{ color: '#b48316' }}>Project Context: </strong>
+                            {parsed.projectContext}
+                          </div>
+                        )}
+                        {parsed.mainReasoning && (
+                          <p style={{ color: '#1e293b', fontSize: '0.82rem', margin: '0 0 6px 0', fontStyle: 'italic', lineHeight: 1.4 }}>
+                            <strong style={{ fontStyle: 'normal', color: '#0f172a', fontWeight: 600 }}>Rationale: </strong>
+                            {parsed.mainReasoning}
+                          </p>
+                        )}
+                        {parsed.tradeoffs && (
+                          <p style={{ color: '#475569', fontSize: '0.78rem', margin: '0 0 4px 0', lineHeight: 1.35 }}>
+                            <strong style={{ color: '#1e293b', fontWeight: 600 }}>Trade-offs: </strong>
+                            {parsed.tradeoffs}
+                          </p>
+                        )}
+                        {parsed.downstreamImpact && (
+                          <p style={{ color: '#0369a1', fontSize: '0.78rem', margin: '0 0 8px 0', lineHeight: 1.35 }}>
+                            <strong style={{ fontWeight: 600 }}>Project Impact: </strong>
+                            {parsed.downstreamImpact}
+                          </p>
+                        )}
+                        {parsed.sourceLineage && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', color: '#64748b', marginBottom: '8px', padding: '2px 8px', borderRadius: '4px', background: '#f1f5f9' }}>
+                            <GitBranch size={11} style={{ color: '#b48316' }} />
+                            <span>Source: {parsed.sourceLineage}</span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: '#475569', flexWrap: 'wrap' }}>
                     {decision.decision_owner && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
@@ -2417,11 +2711,36 @@ export const ProjectDetailPage: React.FC = () => {
                       )}
                     </div>
 
-                    {action.action_description && (
-                      <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5 }}>
-                        {action.action_description}
-                      </p>
-                    )}
+                    {(() => {
+                      const parsed = parseActionContext(action.action_description);
+                      return (
+                        <>
+                          {parsed.mainDesc && (
+                            <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                              {parsed.mainDesc}
+                            </p>
+                          )}
+                          {parsed.deliverable && (
+                            <div style={{ margin: '0 0 8px 0', padding: '6px 10px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.08)', borderLeft: '3px solid #38bdf8', fontSize: '0.82rem', color: '#e0f2fe', lineHeight: 1.4 }}>
+                              <strong style={{ color: '#38bdf8' }}>Expected Deliverable: </strong>
+                              {parsed.deliverable}
+                            </div>
+                          )}
+                          {parsed.projectContext && (
+                            <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 6px 0', lineHeight: 1.4 }}>
+                              <strong style={{ color: '#cbd5e1' }}>Project Context: </strong>
+                              {parsed.projectContext}
+                            </p>
+                          )}
+                          {parsed.sourceLineage && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', color: '#94a3b8', marginBottom: '8px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.05)' }}>
+                              <GitBranch size={11} style={{ color: '#e2b53c' }} />
+                              <span>Source: {parsed.sourceLineage}</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: '#94a3b8', flexWrap: 'wrap' }}>
                       {action.owner_name && (
@@ -3145,6 +3464,216 @@ export const ProjectDetailPage: React.FC = () => {
                     <>
                       <Save size={16} />
                       <span>Save Actions</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD MEETING TRANSCRIPT MODAL */}
+      {showAddMeetingModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            className="content-card"
+            style={{
+              maxWidth: '640px',
+              width: '100%',
+              padding: '28px',
+              borderRadius: '14px',
+              border: '1px solid rgba(226, 181, 60, 0.3)',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Video size={20} style={{ color: '#e2b53c' }} />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+                  Add Meeting Transcript to Project
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddMeetingModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ color: '#94a3b8', fontSize: '0.86rem', marginTop: '-10px', marginBottom: '18px', lineHeight: 1.5 }}>
+              Append a new meeting or workshop session to this project. All attached meetings and documents are synthesised together to provide deeper project context.
+            </p>
+
+            {addMeetingError && (
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '6px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: '#f87171',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <AlertCircle size={16} />
+                <span>{addMeetingError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveNewMeeting} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                  Meeting / Session Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Architecture Review or Sprint 4 Planning"
+                  value={newMeetingTitle}
+                  onChange={(e) => setNewMeetingTitle(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                    Session Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newMeetingDate}
+                    onChange={(e) => setNewMeetingDate(e.target.value)}
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                    Meeting Type
+                  </label>
+                  <select
+                    value={newMeetingType}
+                    onChange={(e) => setNewMeetingType(e.target.value)}
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                  >
+                    {COMMON_MEETING_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                    <option value="Architecture Review">Architecture Review</option>
+                    <option value="Steering Committee">Steering Committee</option>
+                    <option value="Workshop">Workshop</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+                  Attendees (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Priya Raman, Mark Ellison, Sarah Jenkins"
+                  value={newMeetingAttendees}
+                  onChange={(e) => setNewMeetingAttendees(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px' }}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1' }}>
+                    Transcript or Minutes Text *
+                  </label>
+                  <input
+                    ref={meetingTranscriptFileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md,.csv,.json,.vtt,.srt"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      handleMeetingFileUpload(e.target.files);
+                      if (meetingTranscriptFileInputRef.current) meetingTranscriptFileInputRef.current.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => meetingTranscriptFileInputRef.current?.click()}
+                    disabled={parsingMeetingFile}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    {parsingMeetingFile ? (
+                      <>
+                        <Loader2 size={12} className="spin-animation" />
+                        <span>Parsing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud size={12} />
+                        <span>Upload File (.vtt, .srt, .docx, .txt)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <textarea
+                  required
+                  rows={8}
+                  placeholder="Paste meeting dialogue or upload transcript file..."
+                  value={newMeetingTranscript}
+                  onChange={(e) => setNewMeetingTranscript(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddMeetingModal(false)}
+                  className="btn btn-secondary"
+                  disabled={savingProject}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProject || !newMeetingTitle.trim() || !newMeetingTranscript.trim()}
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {savingProject ? (
+                    <>
+                      <Loader2 size={16} className="spin-animation" />
+                      <span>Appending Meeting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      <span>Add Meeting to Project</span>
                     </>
                   )}
                 </button>

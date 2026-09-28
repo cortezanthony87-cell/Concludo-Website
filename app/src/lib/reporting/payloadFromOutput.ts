@@ -114,6 +114,24 @@ export function parseOutputToPayload(
     }
   }
 
+  // Extract decisions if formatted as ### Decision X: Title
+  const parsedDecisions: Array<{ title: string; owner?: string; date?: string; summary?: string }> = [];
+  const decisionBlocks = rawContent.split(/(?=###\s+Decision\s+\d+:)/i);
+  for (const block of decisionBlocks) {
+    const titleMatch = block.match(/###\s+Decision\s+\d+:\s*([^\n]+)/i);
+    if (titleMatch) {
+      const ownerMatch = block.match(/\*\*Decision Owner:\*\*\s*([^\n]+)/i);
+      const dateMatch = block.match(/\*\*Date:\*\*\s*([^\n]+)/i);
+      const summaryMatch = block.match(/\*\*Summary(?:\s+Resolution)?:\*\*\s*([^\n]+)/i);
+      parsedDecisions.push({
+        title: titleMatch[1].trim(),
+        owner: ownerMatch ? ownerMatch[1].trim() : undefined,
+        date: dateMatch ? dateMatch[1].trim() : undefined,
+        summary: summaryMatch ? summaryMatch[1].trim() : undefined,
+      });
+    }
+  }
+
   const kindLabel = outputType === 'decision_log'
     ? 'Governed decision log'
     : outputType === 'action_plan' || outputType === 'action_items'
@@ -224,7 +242,15 @@ export function parseOutputToPayload(
       intro: 'Decisions recorded in the proceedings, with owner and formal governance classification.',
       columns: ['ID', 'Decision', 'Owner', 'At', 'Class'],
       widths: [22, 78, 32, 16, 22],
-      rows: outputType === 'decision_log' && tableRows.length > 0
+      rows: parsedDecisions.length > 0
+        ? parsedDecisions.map((d, idx) => [
+            `DEC-${String(idx + 1).padStart(3, '0')}`,
+            d.title,
+            d.owner || organisationName,
+            d.date || meetingDate,
+            'Verified',
+          ])
+        : outputType === 'decision_log' && tableRows.length > 0
         ? tableRows.map((r, idx) => [
             r[0] || `DEC-${String(idx + 1).padStart(3, '0')}`,
             r[1] || r[0] || 'Approved project decision',
