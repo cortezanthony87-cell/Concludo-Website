@@ -23,10 +23,17 @@ export const ScrollToTop = () => {
 
   useEffect(() => {
     if (hash) {
-      const targetElement = document.querySelector(hash);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth' });
-        return;
+      // Do not attempt querySelector if hash contains token parameters (e.g. #access_token=...)
+      if (!hash.includes('access_token=') && !hash.includes('refresh_token=')) {
+        try {
+          const targetElement = document.querySelector(hash);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth' });
+            return;
+          }
+        } catch (selectorErr) {
+          // If hash is not a valid CSS selector, safely fallback to top scrolling
+        }
       }
     }
 
