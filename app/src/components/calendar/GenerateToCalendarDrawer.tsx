@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { supabase } from '../../lib/supabase/client';
 import { GenerateCalendarPayload, GenerateCalendarPayloadItem } from '../../lib/calendar/calendarTypes';
-import { generateToCalendar } from '../../lib/calendar/calendarClient';
+import { generateToCalendar, undoCalendarGeneration } from '../../lib/calendar/calendarClient';
 import {
   Sparkles,
   Check,
@@ -22,6 +22,7 @@ interface GenerateToCalendarDrawerProps {
   sourceReference?: string;
   occurredAt?: string;
   initialItems?: GenerateCalendarPayloadItem[];
+  onSuccess?: () => void;
 }
 
 export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> = ({
@@ -33,6 +34,7 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
   sourceReference = 'TR-001',
   occurredAt = new Date().toISOString(),
   initialItems = [],
+  onSuccess,
 }) => {
   const { user } = useAuth();
   const [selectedOption, setSelectedOption] = useState<string>('everything');
@@ -52,7 +54,7 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
         type: 'task',
         reference: 'ACT-004',
         title: 'Night work options and timetable impact',
-        owner: { name: 'Mark Taylor', user_id: null, stated: true },
+        owner: null,
         due_date: null,
         priority: 'medium',
         status: 'open',
@@ -91,13 +93,16 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
 
   const [generating, setGenerating] = useState(false);
   const [completedGeneration, setCompletedGeneration] = useState<boolean>(false);
+  const [generationId, setGenerationId] = useState<string>('');
   const [undoSecondsLeft, setUndoSecondsLeft] = useState<number>(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleConfirmGenerate = async () => {
     if (!user) return;
     setGenerating(true);
+    setErrorMessage(null);
 
     const payload: GenerateCalendarPayload = {
       source: {
@@ -115,9 +120,17 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
     const res = await generateToCalendar(supabase.client, user.id, payload);
     setGenerating(false);
 
+    if (res.error) {
+      setErrorMessage(res.error);
+      return;
+    }
+
     if (res.itemsCreated > 0) {
+      setGenerationId(res.generationId);
       setCompletedGeneration(true);
       setUndoSecondsLeft(60);
+      if (onSuccess) onSuccess();
+
       const interval = setInterval(() => {
         setUndoSecondsLeft((prev) => {
           if (prev <= 1) {
@@ -131,8 +144,11 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
   };
 
   const handleUndo = async () => {
+    if (!user || !generationId) return;
+    await undoCalendarGeneration(supabase.client, user.id, generationId);
     setCompletedGeneration(false);
     setUndoSecondsLeft(0);
+    if (onSuccess) onSuccess();
   };
 
   return (
@@ -205,6 +221,13 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
         <div style={{ background: '#F4F6FA', padding: '10px 24px', borderBottom: '1px solid #D9DFE9', fontSize: '12px', color: '#5A6478' }}>
           <strong>Rule:</strong> Nothing is created until you confirm below. Private by default.
         </div>
+
+        {errorMessage && (
+          <div style={{ background: '#FEE2E2', borderBottom: '1px solid #EF4444', padding: '10px 24px', color: '#991B1B', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
