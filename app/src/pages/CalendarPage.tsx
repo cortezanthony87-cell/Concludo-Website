@@ -59,12 +59,12 @@ export const CalendarPage: React.FC = () => {
 
   // Selected date for day view and calendar selection
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return '2026-10-28';
+    return '2026-09-28';
   });
 
   // Calendar month/year navigation
   const [calendarYear, setCalendarYear] = useState<number>(2026);
-  const [calendarMonth, setCalendarMonth] = useState<number>(9); // 0-indexed: 9 = October
+  const [calendarMonth, setCalendarMonth] = useState<number>(8); // 0-indexed: 8 = September
 
   // Daily note for the selected date
   const [dailyNoteText, setDailyNoteText] = useState<string>('');
@@ -307,7 +307,7 @@ export const CalendarPage: React.FC = () => {
     }
   };
 
-  const todayStr = '2026-10-28';
+  const todayStr = '2026-09-28';
 
   // Format date readable
   const formatReadableDate = (dateStr: string) => {
