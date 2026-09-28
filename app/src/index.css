@@ -728,12 +728,22 @@ input, select, textarea {
 .auth-brand-logo {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   font-family: var(--font-heading);
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 16px;
+  text-decoration: none;
+}
+
+.auth-brand-logo-img {
+  height: 32px;
+  width: auto;
+  max-width: 130px;
+  object-fit: contain;
+  display: block;
 }
 
 .auth-title {

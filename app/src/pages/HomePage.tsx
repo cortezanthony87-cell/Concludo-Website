@@ -35,10 +35,11 @@ export const HomePage: React.FC = () => {
           }}
         >
           <div className="auth-brand-logo" style={{ marginBottom: 0 }}>
-            <div className="brand-emblem" style={{ width: '40px', height: '40px' }}>
-              <div className="brand-emblem-inner" style={{ width: '16px', height: '16px' }} />
-            </div>
-            <span style={{ letterSpacing: '-0.02em', fontSize: '1.4rem' }}>CONCLUDO</span>
+            <img
+              src="/brand/Concludo_logo_horizontal_reversed_for_dark.png"
+              alt="Concludo"
+              className="auth-brand-logo-img"
+            />
             <span className="brand-title-badge">WORKSPACE</span>
           </div>
 

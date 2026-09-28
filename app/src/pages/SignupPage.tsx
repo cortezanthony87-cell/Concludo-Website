@@ -73,10 +73,11 @@ export const SignupPage: React.FC = () => {
         <div className="auth-card" style={{ textAlign: 'center' }}>
           <div className="auth-header">
             <div className="auth-brand-logo">
-              <div className="brand-emblem" style={{ width: '36px', height: '36px' }}>
-                <div className="brand-emblem-inner" style={{ width: '14px', height: '14px' }} />
-              </div>
-              <span style={{ letterSpacing: '-0.02em' }}>CONCLUDO</span>
+              <img
+                src="/brand/Concludo_logo_horizontal_reversed_for_dark.png"
+                alt="Concludo"
+                className="auth-brand-logo-img"
+              />
               <span className="brand-title-badge">WORKSPACE</span>
             </div>
           </div>
@@ -127,10 +128,11 @@ export const SignupPage: React.FC = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-brand-logo">
-            <div className="brand-emblem" style={{ width: '36px', height: '36px' }}>
-              <div className="brand-emblem-inner" style={{ width: '14px', height: '14px' }} />
-            </div>
-            <span style={{ letterSpacing: '-0.02em' }}>CONCLUDO</span>
+            <img
+              src="/brand/Concludo_logo_horizontal_reversed_for_dark.png"
+              alt="Concludo"
+              className="auth-brand-logo-img"
+            />
             <span className="brand-title-badge">WORKSPACE</span>
           </div>
           <h1 className="auth-title">Create your account</h1>
