@@ -172,20 +172,9 @@ export const CalendarPage: React.FC = () => {
   return (
     <div className="concludo-calendar-app" style={{ background: '#F4F6FA', minHeight: '100%', color: '#16263F' }}>
       {/* Top Bar (Authoritative 03 Navigation: Workspace, view tabs, search, filters, Generate) */}
-      <div
-        style={{
-          background: '#16263F',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
-          padding: '12px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="calendar-topbar">
+        <div className="calendar-topbar-left">
+          <div className="calendar-title-group">
             <CalendarIcon size={22} color="#E2B53C" />
             <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', margin: 0, fontFamily: 'Poppins, sans-serif' }}>
               Calendar
@@ -193,7 +182,7 @@ export const CalendarPage: React.FC = () => {
           </div>
 
           {/* Subview Nav Tabs */}
-          <div style={{ display: 'flex', gap: '4px', background: 'rgba(255, 255, 255, 0.08)', padding: '3px', borderRadius: '6px' }}>
+          <div className="calendar-nav-scroll">
             {(
               [
                 { id: 'home', label: 'HOME' },
@@ -207,18 +196,10 @@ export const CalendarPage: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setCurrentView(tab.id)}
+                className="calendar-nav-tab"
                 style={{
                   background: currentView === tab.id ? '#E2B53C' : 'transparent',
                   color: currentView === tab.id ? '#16263F' : '#FFFFFF',
-                  border: 'none',
-                  padding: '6px 14px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  fontWeight: 650,
-                  cursor: 'pointer',
-                  letterSpacing: '0.04em',
-                  fontFamily: 'Inter, sans-serif',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 {tab.label}
@@ -228,24 +209,14 @@ export const CalendarPage: React.FC = () => {
         </div>
 
         {/* Search, Quick Create & Standing Generate */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ position: 'relative' }}>
+        <div className="calendar-topbar-actions">
+          <div className="calendar-search-box">
             <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: '#5A6478' }} />
             <input
               type="text"
               placeholder="Search calendar items..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                background: '#FFFFFF',
-                border: '1px solid #D9DFE9',
-                borderRadius: '6px',
-                padding: '7px 12px 7px 32px',
-                fontSize: '13px',
-                color: '#16263F',
-                outline: 'none',
-                width: '220px',
-              }}
             />
           </div>
 
@@ -296,16 +267,9 @@ export const CalendarPage: React.FC = () => {
       </div>
 
       {/* Main Layout Area */}
-      <div style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto' }}>
+      <div className="calendar-content-wrap">
         {/* Needs You Now Standing Strip (Rules: 4 standing counts, never moves below the fold) */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px',
-          }}
-        >
+        <div className="calendar-standing-strip">
           <div
             style={{
               background: '#FFFFFF',
@@ -405,9 +369,9 @@ export const CalendarPage: React.FC = () => {
 
         {/* View Routing */}
         {currentView === 'home' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px' }}>
+          <div className="calendar-home-grid">
             {/* Left 7 cols: Today Schedule & Open Commitments */}
-            <div style={{ gridColumn: 'span 7' }}>
+            <div className="calendar-home-main">
               <div
                 style={{
                   background: '#FFFFFF',
@@ -443,6 +407,7 @@ export const CalendarPage: React.FC = () => {
                               setSelectedItem(item);
                               setIsDrawerOpen(true);
                             }}
+                            className="calendar-item-row"
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -452,9 +417,10 @@ export const CalendarPage: React.FC = () => {
                               borderRadius: '4px',
                               padding: '10px 14px',
                               cursor: 'pointer',
+                              boxSizing: 'border-box',
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                               <span style={{ fontSize: '12px', fontWeight: 700, color: '#5A6478', fontFamily: 'IBM Plex Mono, monospace', minWidth: '55px' }}>
                                 {item.due_time ? item.due_time.slice(0, 5) : 'All Day'}
                               </span>
@@ -467,7 +433,7 @@ export const CalendarPage: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                            <span style={{ fontSize: '11px', fontWeight: 650, textTransform: 'uppercase', color: tone.text, background: '#FFFFFF', padding: '3px 8px', borderRadius: '4px', border: '1px solid #D9DFE9' }}>
+                            <span className="calendar-item-actions" style={{ fontSize: '11px', fontWeight: 650, textTransform: 'uppercase', color: tone.text, background: '#FFFFFF', padding: '3px 8px', borderRadius: '4px', border: '1px solid #D9DFE9' }}>
                               {item.type}
                             </span>
                           </div>
@@ -508,6 +474,7 @@ export const CalendarPage: React.FC = () => {
                             setSelectedItem(item);
                             setIsDrawerOpen(true);
                           }}
+                          className="calendar-item-row"
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -518,13 +485,14 @@ export const CalendarPage: React.FC = () => {
                             borderRadius: '4px',
                             padding: '10px 14px',
                             cursor: 'pointer',
+                            boxSizing: 'border-box',
                           }}
                         >
-                          <div>
+                          <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '14px', fontWeight: 600, color: '#16263F' }}>
                               {item.title}
                             </div>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
                               {isOverdue && (
                                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#BC8A1C' }}>
                                   OVERDUE: {item.due_date}
@@ -548,7 +516,7 @@ export const CalendarPage: React.FC = () => {
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', gap: '6px' }}>
+                          <div className="calendar-item-actions" style={{ display: 'flex', gap: '6px' }}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -559,8 +527,9 @@ export const CalendarPage: React.FC = () => {
                                 color: '#FFFFFF',
                                 border: 'none',
                                 borderRadius: '4px',
-                                padding: '4px 8px',
+                                padding: '6px 12px',
                                 fontSize: '12px',
+                                fontWeight: 600,
                                 cursor: 'pointer',
                               }}
                             >
@@ -575,7 +544,7 @@ export const CalendarPage: React.FC = () => {
             </div>
 
             {/* Right 5 cols: Mini Calendar & Concludo Suggests */}
-            <div style={{ gridColumn: 'span 5' }}>
+            <div className="calendar-home-side">
               {/* Mini Calendar Card */}
               <div
                 style={{
@@ -667,7 +636,7 @@ export const CalendarPage: React.FC = () => {
 
         {/* Agenda View (S7 Agenda: Chronological grouped list) */}
         {currentView === 'agenda' && (
-          <div style={{ background: '#FFFFFF', borderRadius: '8px', border: '1px solid #D9DFE9', padding: '24px' }}>
+          <div className="calendar-agenda-container">
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#16263F', marginBottom: '20px', fontFamily: 'Poppins, sans-serif' }}>
               Agenda · Chronological Master Register
             </h2>
@@ -711,23 +680,16 @@ export const CalendarPage: React.FC = () => {
                                 setSelectedItem(item);
                                 setIsDrawerOpen(true);
                               }}
+                              className="calendar-agenda-item"
                               style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '10px 14px',
-                                background: '#FFFFFF',
-                                border: '1px solid #D9DFE9',
                                 borderLeft: `4px solid ${tone.bar}`,
-                                borderRadius: '4px',
-                                cursor: 'pointer',
                               }}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                              <div className="calendar-agenda-item-left" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#5A6478', fontFamily: 'IBM Plex Mono, monospace', minWidth: '70px' }}>
                                   {item.due_date || 'NO DATE'}
                                 </span>
-                                <div>
+                                <div style={{ flex: 1, minWidth: '180px' }}>
                                   <span style={{ fontSize: '14px', fontWeight: 600, color: '#16263F' }}>
                                     {item.title}
                                   </span>
@@ -739,9 +701,9 @@ export const CalendarPage: React.FC = () => {
                                 </div>
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                              <div className="calendar-agenda-item-right">
                                 <span style={{ fontSize: '12px', color: '#5A6478' }}>
-                                  {item.owner_name || 'Unassigned'}
+                                  {item.owner_name ? `Owner: ${item.owner_name}` : 'Unassigned'}
                                 </span>
                                 <span style={{ fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace', color: '#BC8A1C', minWidth: '60px', textAlign: 'right' }}>
                                   {item.source_reference || item.reference || 'TR-001'}
@@ -761,7 +723,7 @@ export const CalendarPage: React.FC = () => {
 
         {/* Task Board View (S8 Task Board: 5 columns, reasons required for blocked & review) */}
         {currentView === 'board' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px' }}>
+          <div className="calendar-board-container">
             {[
               { id: 'open', label: 'OPEN' },
               { id: 'in_progress', label: 'IN PROGRESS' },
@@ -773,6 +735,7 @@ export const CalendarPage: React.FC = () => {
               return (
                 <div
                   key={col.id}
+                  className="calendar-board-col"
                   style={{
                     background: '#FFFFFF',
                     borderRadius: '8px',
@@ -883,7 +846,7 @@ export const CalendarPage: React.FC = () => {
             top: 0,
             right: 0,
             width: '460px',
-            maxWidth: '90vw',
+            maxWidth: '100vw',
             height: '100vh',
             background: '#FFFFFF',
             borderLeft: '1px solid #D9DFE9',
@@ -1015,7 +978,7 @@ export const CalendarPage: React.FC = () => {
             zIndex: 1100,
           }}
         >
-          <div style={{ background: '#FFFFFF', borderRadius: '8px', width: '480px', padding: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '8px', width: '480px', maxWidth: '92vw', padding: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#16263F', margin: 0, fontFamily: 'Poppins, sans-serif' }}>
                 Quick Create Calendar Item
@@ -1119,7 +1082,7 @@ export const CalendarPage: React.FC = () => {
             zIndex: 1200,
           }}
         >
-          <div style={{ background: '#FFFFFF', borderRadius: '8px', width: '420px', padding: '24px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '8px', width: '420px', maxWidth: '92vw', padding: '24px', boxSizing: 'border-box' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#16263F', margin: '0 0 10px 0' }}>
               Reason Required for {pendingStatusChange.newStatus.toUpperCase()}
             </h3>
