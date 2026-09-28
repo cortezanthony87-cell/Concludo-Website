@@ -125,17 +125,41 @@ input, select, textarea {
 .brand-logo-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 1.18rem;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-  transition: opacity 0.2s ease;
+  gap: 10px;
+  text-decoration: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .brand-logo-link:hover {
-  opacity: 0.92;
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.brand-logo-img {
+  height: 32px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+  display: block;
+}
+
+.brand-title-badge {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #f3c958;
+  background: rgba(226, 181, 60, 0.12);
+  padding: 0 10px;
+  height: 32px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid rgba(226, 181, 60, 0.45);
+  box-shadow: 0 0 12px rgba(226, 181, 60, 0.25), inset 0 0 6px rgba(226, 181, 60, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .brand-emblem {
@@ -158,20 +182,6 @@ input, select, textarea {
   border-radius: 2px;
   transform: rotate(45deg);
   box-shadow: 0 0 8px var(--gold-glow-strong);
-}
-
-.brand-title-badge {
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--gold-400);
-  background: rgba(226, 181, 60, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(226, 181, 60, 0.25);
-  margin-left: 6px;
-  display: inline-block;
 }
 
 .nav-right-group {
@@ -1149,12 +1159,21 @@ button.bg-amber-500 svg {
   }
 
   .brand-logo-link {
-    font-size: 1.05rem;
     gap: 8px;
   }
 
+  .brand-logo-img {
+    height: 26px;
+    max-width: 100px;
+  }
+
   .brand-title-badge {
-    display: none; /* Keep header compact on mobile */
+    height: 26px;
+    font-size: 0.64rem;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Plan badge on mobile */

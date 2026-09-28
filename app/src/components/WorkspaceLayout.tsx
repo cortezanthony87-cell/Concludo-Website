@@ -112,14 +112,13 @@ export const WorkspaceLayout: React.FC = () => {
             {mobileSidebarOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
-          <Link to="/dashboard" className="brand-logo-link">
-            <div className="brand-emblem">
-              <div className="brand-emblem-inner" />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>CONCLUDO</span>
-              <span className="brand-title-badge">WORKSPACE</span>
-            </div>
+          <Link to="/dashboard" className="brand-logo-link" aria-label="Concludo Workspace Dashboard">
+            <img
+              src="/brand/Concludo_logo_horizontal_reversed_for_dark.png"
+              alt="Concludo"
+              className="brand-logo-img"
+            />
+            <span className="brand-title-badge">WORKSPACE</span>
           </Link>
         </div>
 
