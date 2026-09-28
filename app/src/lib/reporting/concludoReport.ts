@@ -937,7 +937,7 @@ function renderHealth(d: Doc, s: any) {
   const v = s.verdict;
   if (v) {
     const note = wrapText(v.note || '', d.fonts.B, 8.2, CW - 18 * MM);
-    const hh = 16 * MM + note.length * 4.2 * MM;
+    const hh = 23 * MM + note.length * 4.2 * MM;
     const y = d.need(hh + 6 * MM);
 
     d.currentPage.drawRectangle({
@@ -1026,7 +1026,7 @@ function renderClosing(d: Doc, s: any) {
   const g = s.gate;
   if (g) {
     const note = wrapText(g.note || '', d.fonts.B, 8.2, CW - 16 * MM);
-    const hh = 18 * MM + note.length * 4.2 * MM;
+    const hh = 23.4 * MM + note.length * 4.2 * MM;
     const y = d.need(hh + 4 * MM);
 
     d.currentPage.drawRectangle({

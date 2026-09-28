@@ -271,15 +271,20 @@ export function buildConcludoPayload(
     },
     health: {
       title: 'Meeting health',
-      intro: 'Analysis of meeting governance standards based on observable behaviours in the record.',
+      intro: 'How the meeting operated, not what the project decided. Scored from observable behaviour in the record, so every score is partially verified at best.',
       dimensions: [
-        { name: 'Decision clarity', score: 85, note: 'Specific decisions identified, owned, and recorded.' },
-        { name: 'Action accountability', score: 82, note: 'Owners and dates established across operational items.' },
-        { name: 'Documentation rigor', score: 80, note: 'Primary source records verified and indexed.' }
+        { name: 'Preparation', score: 62, note: 'No pre-read or papers referenced. The purchase order was not ready.' },
+        { name: 'Participation', score: 86, note: 'All seven attendees spoke. Two raised items not on the agenda.' },
+        { name: 'Focus', score: 88, note: 'The agenda was stated and followed in order.' },
+        { name: 'Decision quality', score: 84, note: 'Seven decisions, each owned and reasoned.' },
+        { name: 'Alignment', score: 80, note: 'No unresolved disagreement. One scope tension settled in the room.' },
+        { name: 'Collaboration', score: 82, note: 'Challenge accepted without defensiveness, including by the contractor.' },
+        { name: 'Strategic thinking', score: 58, note: 'Delivery focused. No discussion of what happens if March is missed.' },
+        { name: 'Overall effectiveness', score: 78, note: 'Short, decided and owned, with dates the weak point.' }
       ],
       verdict: {
-        headline: 'Governed and Owned. Clear Actions Established.',
-        note: 'All outputs derived from verified session records and subject to human review before reliance.'
+        headline: 'Decided and owned. Undated and single threaded.',
+        note: 'Scores derive from transcript behaviour and are classified [P]. Confidence 70, moderate. One meeting, one source.'
       }
     },
     closing: {
