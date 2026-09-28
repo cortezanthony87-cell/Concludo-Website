@@ -75,9 +75,10 @@ export const LoginPage: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("demo") === "true") {
-      handleQuickDemoAccess();
+      // Redirect to signup for 14-day demo account creation
+      navigate('/signup?demo=true', { replace: true });
     }
-  }, [location.search]);
+  }, [location.search, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +104,17 @@ export const LoginPage: React.FC = () => {
     }
 
     const from = (location.state as any)?.from?.pathname || '/dashboard';
-    navigate(from, { replace: true });
+    if (window.self !== window.top) {
+      try {
+        const fullAppUrl = new URL(from, window.location.origin).href;
+        window.open(fullAppUrl, '_blank', 'noopener,noreferrer');
+      } catch {
+        // Fallback
+        window.top!.location.href = new URL(from, window.location.origin).href;
+      }
+    } else {
+      navigate(from, { replace: true });
+    }
   };
 
   const handleSSOLogin = async () => {
@@ -342,10 +353,8 @@ export const LoginPage: React.FC = () => {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleQuickDemoAccess}
-            disabled={loading}
+          <Link
+            to="/signup?demo=true"
             className="btn-secondary"
             style={{
               width: "100%",
@@ -359,14 +368,15 @@ export const LoginPage: React.FC = () => {
               background: "rgba(226, 181, 60, 0.12)",
               border: "1px solid rgba(226, 181, 60, 0.45)",
               color: "#f7d57a",
-              cursor: "pointer",
+              textDecoration: "none",
               borderRadius: "8px",
-              transition: "all 0.2s ease"
+              transition: "all 0.2s ease",
+              boxSizing: "border-box"
             }}
           >
             <Sparkles size={16} color="#e2b53c" />
-            <span>⚡ Quick Preview Access (Interactive Demo)</span>
-          </button>
+            <span>⚡ Start 14-Day Pro Demo (Account Required)</span>
+          </Link>
         </form>
 
         <div

@@ -129,7 +129,7 @@ export const HomePage: React.FC = () => {
             }}
           >
             <Link
-              to="/login?demo=true"
+              to="/signup?demo=true"
               className="btn-gold"
               style={{
                 padding: '12px 28px',
@@ -141,7 +141,7 @@ export const HomePage: React.FC = () => {
                 boxShadow: '0 4px 18px rgba(226, 181, 60, 0.4)',
               }}
             >
-              <span>⚡ Try Interactive Demo</span>
+              <span>⚡ Start 14-Day Pro Demo</span>
               <ArrowRight size={18} />
             </Link>
             <Link

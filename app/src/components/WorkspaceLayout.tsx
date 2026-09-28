@@ -213,14 +213,16 @@ export const WorkspaceLayout: React.FC = () => {
                   <CreditCard size={16} />
                   <span>Packages & Billing</span>
                 </Link>
-                <Link
-                  to="/team/settings"
-                  className="dropdown-link"
-                  onClick={() => setAccountMenuOpen(false)}
-                >
-                  <Users size={16} />
-                  <span>Team Settings</span>
-                </Link>
+                {(profile?.plan === 'team' || profile?.plan === 'admin' || profile?.role === 'admin') && (
+                  <Link
+                    to="/team/settings"
+                    className="dropdown-link"
+                    onClick={() => setAccountMenuOpen(false)}
+                  >
+                    <Users size={16} />
+                    <span>Team Settings</span>
+                  </Link>
+                )}
                 {(profile?.plan === 'enterprise' || profile?.plan === 'admin' || profile?.role === 'admin') && (
                   <Link
                     to="/admin"
@@ -381,18 +383,22 @@ export const WorkspaceLayout: React.FC = () => {
               <span>New Transcript</span>
             </NavLink>
 
-            <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
-              Collaboration
-            </div>
-            <NavLink
-              to="/team"
-              className={({ isActive }) =>
-                isActive ? 'sidebar-link active' : 'sidebar-link'
-              }
-            >
-              <Users size={18} />
-              <span>Team Workspace</span>
-            </NavLink>
+            {(profile?.plan === 'team' || profile?.plan === 'admin' || profile?.role === 'admin') && (
+              <>
+                <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
+                  Collaboration
+                </div>
+                <NavLink
+                  to="/team"
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                  }
+                >
+                  <Users size={18} />
+                  <span>Team Workspace</span>
+                </NavLink>
+              </>
+            )}
 
             <div className="sidebar-category-label" style={{ marginTop: '14px' }}>
               Intelligence

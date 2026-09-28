@@ -1,13 +1,15 @@
 import { trackSignup } from '../lib/analytics';
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Mail, Lock, User, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getAuthErrorMessage } from '../lib/auth/authErrors';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signUp } = useAuth();
+  const isDemo = new URLSearchParams(location.search).get('demo') === 'true';
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -108,12 +110,27 @@ export const SignupPage: React.FC = () => {
               color: '#94a3b8',
               fontSize: '0.92rem',
               lineHeight: 1.6,
-              marginBottom: '28px',
+              marginBottom: '16px',
             }}
           >
-            We have sent a verification link to <strong style={{ color: '#f8fafc' }}>{email}</strong>.
-            Please open the link to confirm your email and activate your account.
+            We have sent a verification code to <strong style={{ color: '#f8fafc' }}>{email}</strong>.
+            Please check your inbox and verify your email to activate your 14-day Pro subscription trial.
           </p>
+          <div
+            style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '28px',
+              color: '#fca5a5',
+              fontSize: '0.85rem',
+              lineHeight: 1.5,
+              textAlign: 'left'
+            }}
+          >
+            <strong>Important 24-Hour Notice:</strong> You must verify your account within 24 hours. Accounts not verified within 24 hours are automatically deleted for security and governance, requiring you to register again.
+          </div>
 
           <Link to="/login" className="btn-gold" style={{ width: '100%' }}>
             <span>Return to Log in</span>
@@ -135,8 +152,12 @@ export const SignupPage: React.FC = () => {
             />
             <span className="brand-title-badge">WORKSPACE</span>
           </div>
-          <h1 className="auth-title">Create your account</h1>
-          <p className="auth-subtitle">Sign up to access your Concludo Workspace</p>
+          <h1 className="auth-title">{isDemo ? 'Start 14-Day Pro Demo' : 'Create your account'}</h1>
+          <p className="auth-subtitle">
+            {isDemo
+              ? 'Create your account to activate your 14-day full Pro Edition trial.'
+              : 'Sign up to access your Concludo Workspace'}
+          </p>
         </div>
 
         {errorMessage && (
@@ -252,7 +273,7 @@ export const SignupPage: React.FC = () => {
               </>
             ) : (
               <>
-                <span>Create Workspace Account</span>
+                <span>{isDemo ? 'Start 14-Day Pro Demo' : 'Create Workspace Account'}</span>
                 <ArrowRight size={18} />
               </>
             )}
