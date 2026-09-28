@@ -12,6 +12,7 @@ import { SignupPage } from './pages/SignupPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 
+import { CalendarPage } from './pages/CalendarPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { NewProjectPage } from './pages/NewProjectPage';
@@ -119,6 +120,8 @@ export const App: React.FC = () => {
         <Route element={<ProtectedRoute />}>
           <Route element={<WorkspaceLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/new" element={<NewProjectPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />

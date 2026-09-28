@@ -28,6 +28,7 @@ const routes = [
   'forgot-password',
   'reset-password',
   'dashboard',
+  'calendar',
   'projects',
   'projects/new',
   'search',

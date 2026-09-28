@@ -70,6 +70,7 @@ import { extractTranscriptIntelligence } from '../lib/intelligence/transcriptExt
 import { extractMetadataFromContent } from '../lib/intelligence/metadataExtractor';
 import { parseUploadedFile, ParsedDocument } from '../lib/intelligence/fileParser';
 import { UploadCloud, FileCheck } from 'lucide-react';
+import { GenerateToCalendarDrawer } from '../components/calendar/GenerateToCalendarDrawer';
 import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
 
 
@@ -162,6 +163,7 @@ export const ProjectDetailPage: React.FC = () => {
 
   // View / Open Output Modal State
   const [viewingOutput, setViewingOutput] = useState<OutputRecord | null>(null);
+  const [isCalendarDrawerOpen, setIsCalendarDrawerOpen] = useState(false);
 
   // Delete Output State
   const [confirmDeleteOutputId, setConfirmDeleteOutputId] = useState<string | null>(null);
@@ -2542,6 +2544,27 @@ export const ProjectDetailPage: React.FC = () => {
               </div>
               <button
                 type="button"
+                onClick={() => setIsCalendarDrawerOpen(true)}
+                style={{
+                  background: '#E2B53C',
+                  color: '#16263F',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  marginRight: '12px',
+                }}
+              >
+                <Sparkles size={15} />
+                <span>Generate to Calendar</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setViewingOutput(null)}
                 style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
               >
@@ -2619,6 +2642,27 @@ export const ProjectDetailPage: React.FC = () => {
                 )}
               </div>
 
+              <button
+                type="button"
+                onClick={() => setIsCalendarDrawerOpen(true)}
+                style={{
+                  background: '#E2B53C',
+                  color: '#16263F',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  marginRight: '12px',
+                }}
+              >
+                <Sparkles size={15} />
+                <span>Generate to Calendar</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setViewingOutput(null)}
@@ -3110,6 +3154,16 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       )}
 
+      {/* Generate to Calendar Drawer */}
+      <GenerateToCalendarDrawer
+        isOpen={isCalendarDrawerOpen}
+        onClose={() => setIsCalendarDrawerOpen(false)}
+        outputTitle={project?.title || 'Meeting Deliverable'}
+        projectId={id || ''}
+        outputId={viewingOutput?.id}
+        sourceReference="TR-001"
+        occurredAt={project?.meeting_date || undefined}
+      />
     </div>
   );
 };

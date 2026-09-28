@@ -4,6 +4,7 @@ import {
   Menu,
   X,
   LayoutDashboard,
+  Calendar as CalendarIcon,
   FolderKanban,
   Search,
   FileText,
@@ -315,6 +316,15 @@ export const WorkspaceLayout: React.FC = () => {
         >
           <div className="sidebar-content">
             <div className="sidebar-category-label">Navigation</div>
+            <NavLink
+              to="/calendar"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <CalendarIcon size={18} />
+              <span>Calendar</span>
+            </NavLink>
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
@@ -778,6 +788,15 @@ export const WorkspaceLayout: React.FC = () => {
 
       {/* Mobile Bottom Quick Navigation Bar */}
       <nav className="mobile-bottom-bar" aria-label="Mobile Navigation">
+        <NavLink
+          to="/calendar"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <CalendarIcon size={19} />
+          <span>Calendar</span>
+        </NavLink>
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
