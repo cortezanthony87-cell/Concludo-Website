@@ -96,9 +96,20 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
 
   // Filter items based on selected extraction scope & status filter
   const filteredItems = items.filter((item) => {
+    // Check matched existing status if present
+    const refKey = item.reference ? item.reference.trim().toUpperCase() : null;
+    const normTitle = normalizeText(item.title);
+    const matched = existingItems.find((ex) => {
+      const exRef = ex.reference ? ex.reference.trim().toUpperCase() : null;
+      const exNorm = normalizeText(ex.title);
+      return (refKey && exRef === refKey) || (normTitle && exNorm === normTitle);
+    });
+
+    const effectiveStatus = matched ? matched.status : (item.status || 'open');
+
     // Status filter: allow filtering by open only (not yet ticked off) or completed only
-    if (statusFilter === 'open_only' && item.status === 'completed') return false;
-    if (statusFilter === 'completed_only' && item.status !== 'completed') return false;
+    if (statusFilter === 'open_only' && effectiveStatus === 'completed') return false;
+    if (statusFilter === 'completed_only' && effectiveStatus !== 'completed') return false;
 
     if (selectedOption === 'everything') return true;
     if (selectedOption === 'task') return item.type === 'task';
@@ -108,6 +119,29 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
     if (selectedOption === 'timeline') return item.type === 'timeline_activity' || item.type === 'milestone';
     return true;
   });
+
+  // Calculate smart scan metrics for the currently filtered items
+  const newItemsCount = filteredItems.filter((it) => {
+    const refKey = it.reference ? it.reference.trim().toUpperCase() : null;
+    const normTitle = normalizeText(it.title);
+    return !existingItems.some((ex) => {
+      const exRef = ex.reference ? ex.reference.trim().toUpperCase() : null;
+      const exNorm = normalizeText(ex.title);
+      return (refKey && exRef === refKey) || (normTitle && exNorm === normTitle);
+    });
+  }).length;
+
+  const untickedActionsCount = filteredItems.filter((it) => {
+    const isEvent = it.type === 'event' || it.type === 'meeting';
+    const refKey = it.reference ? it.reference.trim().toUpperCase() : null;
+    const normTitle = normalizeText(it.title);
+    const matched = existingItems.find((ex) => {
+      const exRef = ex.reference ? ex.reference.trim().toUpperCase() : null;
+      const exNorm = normalizeText(ex.title);
+      return (refKey && exRef === refKey) || (normTitle && exNorm === normTitle);
+    });
+    return matched && !isEvent && matched.type !== 'event' && matched.type !== 'meeting' && matched.status !== 'completed';
+  }).length;
 
   const handleConfirmGenerate = async () => {
     if (!user) return;
@@ -352,20 +386,22 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                     return (refKey && exRef === refKey) || (normTitle && exNorm === normTitle);
                   });
 
-                  const isAlreadyCompleted = matchedExisting?.status === 'completed';
-                  const isExistingUnticked = matchedExisting && matchedExisting.status !== 'completed';
+                  const isExistingEvent = matchedExisting && (isEvent || matchedExisting.type === 'event' || matchedExisting.type === 'meeting');
+                  const isExistingActionCompleted = matchedExisting && !isExistingEvent && matchedExisting.status === 'completed';
+                  const isExistingActionUnticked = matchedExisting && !isExistingEvent && matchedExisting.status !== 'completed';
+                  const isNewItem = !matchedExisting;
 
                   return (
                     <div
                       key={idx}
                       style={{
-                        background: isAlreadyCompleted ? '#F8FAFC' : '#FFFFFF',
-                        border: `1px solid ${isAlreadyCompleted ? '#CBD5E1' : isUndated || isUnowned ? '#E2B53C' : '#D9DFE9'}`,
-                        borderLeft: `4px solid ${isAlreadyCompleted ? '#10B981' : isExistingUnticked ? '#3B82F6' : isUndated || isUnowned ? '#E2B53C' : '#16263F'}`,
+                        background: isExistingActionCompleted ? '#F0FDF4' : isExistingEvent ? '#F8FAFC' : isExistingActionUnticked ? '#F8FAFC' : '#FFFFFF',
+                        border: `1px solid ${isExistingActionCompleted ? '#BBF7D0' : isExistingEvent ? '#CBD5E1' : isExistingActionUnticked ? '#BFDBFE' : isUndated || isUnowned ? '#E2B53C' : '#D9DFE9'}`,
+                        borderLeft: `4px solid ${isExistingActionCompleted ? '#10B981' : isExistingEvent ? '#16263F' : isExistingActionUnticked ? '#3B82F6' : isUndated || isUnowned ? '#E2B53C' : '#16263F'}`,
                         borderRadius: '4px',
                         padding: '12px',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                        opacity: isAlreadyCompleted ? 0.75 : 1,
+                        opacity: isExistingActionCompleted || isExistingEvent ? 0.8 : 1,
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -381,18 +417,22 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                             {it.reference} · {isEvent ? 'EVENT / SESSION' : it.type.toUpperCase()}
                           </span>
 
-                          {/* Pre-scan status badge */}
-                          {isAlreadyCompleted ? (
-                            <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.12)', color: '#047857', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
-                              ALREADY ON CALENDAR (SKIPPED)
+                          {/* Pre-scan status badge distinguishing events vs action tasks */}
+                          {isExistingEvent ? (
+                            <span style={{ fontSize: '10px', background: 'rgba(22, 38, 63, 0.08)', color: '#16263F', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                              EVENT RECORDED (KEPT AS RECORD)
                             </span>
-                          ) : isExistingUnticked ? (
+                          ) : isExistingActionCompleted ? (
+                            <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.12)', color: '#047857', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                              COMPLETED ACTION (TASK ALREADY FINISHED)
+                            </span>
+                          ) : isExistingActionUnticked ? (
                             <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.12)', color: '#1D4ED8', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
-                              UNTICKED ON CALENDAR (UPDATES RECORD)
+                              UNTICKED ACTION (TASK PENDING COMPLETION)
                             </span>
                           ) : (
-                            <span style={{ fontSize: '10px', background: 'rgba(22, 38, 63, 0.08)', color: '#16263F', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
-                              NEW {isEvent ? 'EVENT' : 'ACTION'}
+                            <span style={{ fontSize: '10px', background: 'rgba(226, 181, 60, 0.15)', color: '#16263F', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                              NEW {isEvent ? 'EVENT' : 'ACTION'} (TO ADD)
                             </span>
                           )}
                         </div>
@@ -401,9 +441,26 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#16263F', marginTop: '4px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 650, color: '#16263F', marginTop: '4px' }}>
                         {it.title}
                       </div>
+
+                      {/* Explicit lineage explanation */}
+                      {isExistingEvent && (
+                        <div style={{ fontSize: '11px', color: '#5A6478', marginTop: '3px', fontStyle: 'italic' }}>
+                          Meeting/event record already on calendar. Preserved for record-keeping (will not duplicate).
+                        </div>
+                      )}
+                      {isExistingActionUnticked && (
+                        <div style={{ fontSize: '11px', color: '#1D4ED8', marginTop: '3px', fontStyle: 'italic' }}>
+                          Action task from past output is still on calendar awaiting completion. Current unticked status preserved.
+                        </div>
+                      )}
+                      {isExistingActionCompleted && (
+                        <div style={{ fontSize: '11px', color: '#047857', marginTop: '3px', fontStyle: 'italic' }}>
+                          Action task was completed on calendar. Skipped to prevent duplicate task.
+                        </div>
+                      )}
 
                       <div style={{ display: 'flex', gap: '14px', marginTop: '8px', fontSize: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -443,7 +500,7 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                 <Check size={18} color="#16a34a" />
                 <span>
                   {generationSummary
-                    ? `Calendar synchronized: ${generationSummary.created} added, ${generationSummary.updated} unticked updated, ${generationSummary.skipped} already recorded.`
+                    ? `Calendar synchronized: ${generationSummary.created} new added, ${generationSummary.updated} unticked actions preserved, ${generationSummary.skipped} existing records kept.`
                     : `Generated ${filteredItems.length} items to your calendar.`}
                 </span>
               </div>
@@ -505,7 +562,15 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                 }}
               >
                 <Sparkles size={16} color="#E2B53C" />
-                <span>{generating ? 'Generating...' : `Confirm & Create ${filteredItems.length} Items`}</span>
+                <span>
+                  {generating
+                    ? 'Generating...'
+                    : newItemsCount > 0
+                    ? `Confirm & Add ${newItemsCount} New ${newItemsCount === 1 ? 'Item' : 'Items'}${untickedActionsCount > 0 ? ` (${untickedActionsCount} unticked preserved)` : ''}`
+                    : untickedActionsCount > 0
+                    ? `Synchronize Project (${untickedActionsCount} Unticked Actions Preserved)`
+                    : 'All Items Already on Calendar'}
+                </span>
               </button>
             </>
           )}

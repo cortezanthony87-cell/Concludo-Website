@@ -377,7 +377,6 @@ export async function generateToCalendar(
         `${projectId || outputId || payload.source.id}_${item.reference || normTitle || `item_${idx}`}`;
 
       uniformRows.push({
-        id: matchedExisting?.id || undefined,
         creator_id: userId,
         calendar_id: null,
         owner_id: item.owner?.user_id || null,
