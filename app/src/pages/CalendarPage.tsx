@@ -1622,23 +1622,33 @@ export const CalendarPage: React.FC = () => {
               Agenda · Chronological Master Register
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {[
-                { title: 'TODAY', filter: (it: CalendarItem) => it.due_date === todayStr },
-                {
-                  title: 'THIS WEEK',
-                  filter: (it: CalendarItem) =>
-                    it.due_date && it.due_date > todayStr && it.due_date <= '2026-10-04',
-                },
-                {
-                  title: 'THIS MONTH',
-                  filter: (it: CalendarItem) =>
-                    it.due_date && it.due_date > '2026-10-04' && it.due_date <= '2026-10-31',
-                },
-                {
-                  title: 'UNDATED & BACKLOG',
-                  filter: (it: CalendarItem) => !it.due_date,
-                },
-              ].map((group) => {
+              {(() => {
+                const now = new Date();
+                const endOfWeek = new Date(now);
+                endOfWeek.setDate(now.getDate() + (7 - (now.getDay() || 7)));
+                const endOfWeekStr = endOfWeek.toISOString().slice(0, 10);
+
+                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                const endOfMonthStr = endOfMonth.toISOString().slice(0, 10);
+
+                return [
+                  { title: 'TODAY', filter: (it: CalendarItem) => it.due_date === todayStr },
+                  {
+                    title: 'THIS WEEK',
+                    filter: (it: CalendarItem) =>
+                      it.due_date && it.due_date > todayStr && it.due_date <= endOfWeekStr,
+                  },
+                  {
+                    title: 'THIS MONTH',
+                    filter: (it: CalendarItem) =>
+                      it.due_date && it.due_date > endOfWeekStr && it.due_date <= endOfMonthStr,
+                  },
+                  {
+                    title: 'UNDATED & BACKLOG',
+                    filter: (it: CalendarItem) => !it.due_date,
+                  },
+                ];
+              })().map((group) => {
                 const groupItems = filteredItems.filter(group.filter);
                 return (
                   <div key={group.title}>

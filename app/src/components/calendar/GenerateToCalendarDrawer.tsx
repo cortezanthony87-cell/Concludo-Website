@@ -38,6 +38,7 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
 }) => {
   const { user } = useAuth();
   const [selectedOption, setSelectedOption] = useState<string>('everything');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open_only' | 'completed_only'>('all');
   const [items, setItems] = useState<GenerateCalendarPayloadItem[]>(initialItems);
 
   const [generating, setGenerating] = useState(false);
@@ -57,8 +58,12 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
 
   if (!isOpen) return null;
 
-  // Filter items based on selected extraction scope
+  // Filter items based on selected extraction scope & status filter
   const filteredItems = items.filter((item) => {
+    // Status filter: allow filtering by open only (not yet ticked off) or completed only
+    if (statusFilter === 'open_only' && item.status === 'completed') return false;
+    if (statusFilter === 'completed_only' && item.status !== 'completed') return false;
+
     if (selectedOption === 'everything') return true;
     if (selectedOption === 'task') return item.type === 'task';
     if (selectedOption === 'event') return item.type === 'event' || item.type === 'meeting';
@@ -225,6 +230,36 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                   }}
                 >
                   {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#5A6478', letterSpacing: '0.04em' }}>
+              EXECUTION STATUS FILTER
+            </label>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              {[
+                { id: 'all', label: 'All Items' },
+                { id: 'open_only', label: 'Open Actions (Unticked)' },
+                { id: 'completed_only', label: 'Completed Only' },
+              ].map((filterOpt) => (
+                <button
+                  key={filterOpt.id}
+                  onClick={() => setStatusFilter(filterOpt.id as any)}
+                  style={{
+                    background: statusFilter === filterOpt.id ? '#16263F' : '#F4F6FA',
+                    color: statusFilter === filterOpt.id ? '#FFFFFF' : '#16263F',
+                    border: '1px solid #D9DFE9',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontSize: '11px',
+                    fontWeight: 650,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {filterOpt.label}
                 </button>
               ))}
             </div>

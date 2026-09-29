@@ -261,6 +261,16 @@ export async function softDeleteCalendarItem(
   }
 }
 
+
+function normalizeItemTitle(t: string | null | undefined): string {
+  return (t || "")
+    .toLowerCase()
+    .replace(/^(?:act|dec|rsk|task|action|decision|risk)[-:\s\d]+/i, "")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function generateToCalendar(
   supabase: SupabaseClient,
   userId: string,
@@ -289,13 +299,56 @@ export async function generateToCalendar(
       console.error('Calendar generation record error:', genError.message);
     }
 
-    // 2. Prepare items with full lineage and versioned idempotency key
-    const uniformRows = payload.items.map((item, idx) => {
-      const ownerName = item.owner?.stated ? item.owner.name : null;
-      // Scoped idempotency key: includes source output id, item reference, and generation id
-      const itemKey = `${outputId || payload.source.id}_${item.reference || `item_${idx}`}_${generationId.slice(0, 8)}`;
+    // 2. Query existing calendar items for this project to prevent double entries
+    // Rule: Never duplicate items unless an existing item has NOT been ticked off (in which case it stays updated, not cloned).
+    // If an item with the same reference or normalized title already exists and is open/completed, reuse its existing record or update it.
+    let existingProjectItems: any[] = [];
+    if (projectId) {
+      const { data: existData } = await supabase
+        .from('calendar_items')
+        .select('id, reference, title, status, idempotency_key')
+        .eq('creator_id', userId)
+        .eq('project_id', projectId)
+        .is('deleted_at', null);
+      if (existData) {
+        existingProjectItems = existData;
+      }
+    }
 
-      return {
+    const existingByRef = new Map<string, any>();
+    const existingByTitle = new Map<string, any>();
+    for (const ex of existingProjectItems) {
+      if (ex.reference) {
+        existingByRef.set(ex.reference.trim().toUpperCase(), ex);
+      }
+      const norm = normalizeItemTitle(ex.title);
+      if (norm) {
+        existingByTitle.set(norm, ex);
+      }
+    }
+
+    // Prepare items with stable lineage and strict deduplication
+    const uniformRows: any[] = [];
+    for (let idx = 0; idx < payload.items.length; idx++) {
+      const item = payload.items[idx];
+      const ownerName = item.owner?.stated ? item.owner.name : null;
+      const refKey = item.reference ? item.reference.trim().toUpperCase() : null;
+      const normTitle = normalizeItemTitle(item.title);
+
+      const matchedExisting = (refKey && existingByRef.get(refKey)) || (normTitle && existingByTitle.get(normTitle));
+
+      // If an existing item already exists in this project and is completed, skip creating duplicate entry!
+      if (matchedExisting && matchedExisting.status === 'completed') {
+        continue;
+      }
+
+      // Stable idempotency key: project-scoped + item reference or normalized title
+      // Ensures repeated generations for the same project update rather than clone entries
+      const stableKey = matchedExisting?.idempotency_key || 
+        `${projectId || outputId || payload.source.id}_${item.reference || normTitle || `item_${idx}`}`;
+
+      uniformRows.push({
+        id: matchedExisting?.id || undefined,
         creator_id: userId,
         calendar_id: null,
         owner_id: item.owner?.user_id || null,
@@ -307,7 +360,7 @@ export async function generateToCalendar(
         notes: null,
         reference: item.reference || null,
         priority: item.priority || null,
-        status: item.status || 'open',
+        status: matchedExisting ? matchedExisting.status : (item.status || 'open'),
         status_reason: null,
         due_date: item.due_date || null,
         due_time: item.due_time || null,
@@ -326,9 +379,13 @@ export async function generateToCalendar(
         source_occurred_at: payload.source.occurred_at || new Date().toISOString(),
         project_id: projectId,
         output_id: outputId,
-        idempotency_key: itemKey,
-      };
-    });
+        idempotency_key: stableKey,
+      });
+    }
+
+    if (uniformRows.length === 0) {
+      return { itemsCreated: 0, generationId, error: null };
+    }
 
     const { data, error } = await supabase
       .from('calendar_items')

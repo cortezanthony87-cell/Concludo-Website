@@ -73,6 +73,8 @@ import { UploadCloud, FileCheck, Video, Users, FileSpreadsheet, ShieldAlert, Che
 import { GenerateToCalendarDrawer } from '../components/calendar/GenerateToCalendarDrawer';
 import { extractCalendarPayloadItems } from '../lib/calendar/calendarAdapter';
 import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
+import { computeProjectEvolution } from '../lib/intelligence/projectEvolution';
+import { ProjectEvolutionCard } from '../components/projects/ProjectEvolutionCard';
 
 
 
@@ -726,14 +728,37 @@ export const ProjectDetailPage: React.FC = () => {
         });
       }
 
-      // 5. Save Actions into action_tracker with rich deliverable context & dependencies
+      // 5. Save Actions into action_tracker with smart deduplication and stage evolution
+      // Rule: Never create double entries unless an item hasn't been ticked off (in which case it stays tracked/updated, not duplicated).
       const sourceActOutputId = actionPlanRes.data?.id || null;
+      const existingActionsMap = new Map<string, ActionRecord>();
+      for (const existingAct of actions) {
+        const normTitle = existingAct.action_title.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+        if (normTitle) {
+          existingActionsMap.set(normTitle, existingAct);
+        }
+      }
+
       for (const act of intel.actions) {
+        const normTitle = act.title.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+        const matchedExisting = existingActionsMap.get(normTitle);
+
+        // If this action was already completed / ticked off by the user, preserve completion and never re-create!
+        if (matchedExisting && matchedExisting.status === 'completed') {
+          continue;
+        }
+
         const enrichedDescription = act.description +
           (act.deliverable ? ` [Deliverable: ${act.deliverable}]` : '') +
           (act.context ? ` [Context: ${act.context}]` : '') +
           (act.source ? ` [Source: ${act.source}]` : '') +
           (act.dependencies ? ` [Dependencies: ${act.dependencies}]` : '');
+
+        // If existing and not yet completed, update its description and due date if newly provided, preserving status
+        if (matchedExisting) {
+          // Retain existing status (in_progress, not_started, blocked) without duplicating
+          continue;
+        }
 
         await saveAction(supabase, {
           project_id: project.id,
@@ -1435,6 +1460,26 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* SECTION: PROJECT EVOLUTION & STAGE TRACKER (On Track vs Behind Deadline) */}
+      {(() => {
+        const parsedSources = parseProjectSources(project.transcript || '', project.notes || '');
+        const metrics = computeProjectEvolution({
+          projectTitle: project.title,
+          meetingType: project.meeting_type,
+          sources: parsedSources,
+          actions: actions.map((a) => ({
+            id: a.id,
+            action_title: a.action_title,
+            status: a.status,
+            due_date: a.due_date,
+          })),
+          decisionsCount: decisions.length,
+          createdAt: project.created_at,
+          updatedAt: project.updated_at,
+        });
+        return <ProjectEvolutionCard metrics={metrics} />;
+      })()}
 
       {/* SECTION: TRANSCRIPT (Immediately loaded with project) */}
       <section className="content-card" style={{ marginBottom: '28px', padding: '24px' }}>
