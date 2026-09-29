@@ -1,41 +1,75 @@
-import { GenerateCalendarPayloadItem, CalendarItemType, ReviewType, ReviewCadence } from './calendarTypes';
+/**
+ * calendarAdapter.ts
+ *
+ * Dynamically extracts calendar-ready items from a project's Output payload
+ * (Actions, Decisions, Risks, and markdown formats) and maps them cleanly
+ * to GenerateCalendarPayloadItem[] with source lineage preservation.
+ *
+ * Ground rules:
+ * 1. Zero hardcoded/mock items (no ACT-001 fallback constants).
+ * 2. Real lineage: items reference output.id and project.id.
+ * 3. Never invent dates or owners: unassigned owners and dates remain null/unassigned.
+ * 4. Deduplicate items by reference within an extraction.
+ */
+
+import { GenerateCalendarPayloadItem } from './calendarTypes';
+
+export interface OutputLike {
+  id?: string;
+  project_id?: string;
+  output_type?: string;
+  content?: string | null;
+  raw_content?: string | null;
+  json_content?: any;
+}
 
 /**
- * Parses raw text or structured string to extract an ISO YYYY-MM-DD date, or null.
- * Rejects TBD, empty strings, relative unanchored text, or invalid dates.
+ * Normalises a raw date string into YYYY-MM-DD or null.
+ * Strictly avoids inventing dates.
  */
-export function parseDateOrNull(val?: string | null): string | null {
-  if (!val || typeof val !== 'string') return null;
-  const trimmed = val.trim();
-  if (!trimmed || /^(tbd|n\/a|-|none|nil|unconfirmed)$/i.test(trimmed)) return null;
-
-  // Direct ISO date YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-
-  const d = new Date(trimmed.includes('T') ? trimmed : trimmed + 'T00:00:00Z');
-  if (!isNaN(d.getTime())) {
-    const yr = d.getUTCFullYear();
-    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${yr}-${mo}-${day}`;
+export function parseDateOrNull(rawDate?: string | null): string | null {
+  if (!rawDate) return null;
+  const trimmed = rawDate.trim();
+  if (
+    !trimmed ||
+    /^(tbd|tba|no date|none|unknown|ongoing|n\/a|unassigned|-)$/i.test(trimmed)
+  ) {
+    return null;
   }
+
+  // ISO date format match (YYYY-MM-DD)
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  // DD/MM/YYYY format
+  const dmyMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // Natural language dates (e.g. 23 Oct 2026, 23 October 2026)
+  const parsed = Date.parse(trimmed);
+  if (!isNaN(parsed)) {
+    const d = new Date(parsed);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   return null;
 }
 
 /**
- * Extracts candidate calendar items deterministically from an OutputRecord or report payload.
- * Strictly adheres to Concludo Calendar Seven Binding Rules:
- * - Rule 2: Keep exact source lineage and item references
- * - Rule 3: Never invent an owner or date (unassigned/undated remain null and flagged)
- * - Rule 4: No performance scores or ratings
+ * Extracts candidate calendar items from an Output's json_content or markdown content.
  */
 export function extractCalendarPayloadItems(
-  output: {
-    id?: string;
-    output_type?: string;
-    content?: string | null;
-    json_content?: any;
-  } | null,
+  output?: OutputLike | null,
   fallbackDate?: string | null
 ): GenerateCalendarPayloadItem[] {
   if (!output) return [];
@@ -43,11 +77,11 @@ export function extractCalendarPayloadItems(
   const items: GenerateCalendarPayloadItem[] = [];
   const seenRefs = new Set<string>();
 
-  const json = output.json_content;
+  const jsonContent = output.json_content;
 
-  // 1. Extract from json_content.actions.rows if present
-  if (json && json.actions && Array.isArray(json.actions.rows)) {
-    for (const r of json.actions.rows) {
+  // 1. Check structured actions in json_content
+  if (jsonContent?.actions?.rows && Array.isArray(jsonContent.actions.rows)) {
+    for (const r of jsonContent.actions.rows) {
       if (Array.isArray(r) && r.length >= 2) {
         const ref = (r[0] || '').trim();
         const title = (r[1] || '').trim();
@@ -66,7 +100,7 @@ export function extractCalendarPayloadItems(
         items.push({
           type: 'task',
           reference: itemRef,
-          title: title,
+          title,
           owner: !isUnowned ? { name: rawOwner, user_id: null, stated: true } : null,
           due_date: parsedDue,
           priority: 'high',
@@ -76,20 +110,17 @@ export function extractCalendarPayloadItems(
     }
   }
 
-  // 2. Extract from json_content.decisions.rows if present
-  if (json && json.decisions && Array.isArray(json.decisions.rows)) {
-    for (const r of json.decisions.rows) {
+  // 2. Check structured decisions in json_content
+  if (jsonContent?.decisions?.rows && Array.isArray(jsonContent.decisions.rows)) {
+    for (const r of jsonContent.decisions.rows) {
       if (Array.isArray(r) && r.length >= 2) {
         const ref = (r[0] || '').trim();
         const title = (r[1] || '').trim();
         const rawOwner = r.length > 2 ? (r[2] || '').trim() : '';
-        const rawDate = r.length > 3 ? (r[3] || '').trim() : '';
 
         if (!title) continue;
 
         const isUnowned = !rawOwner || /^(unassigned|no owner|none|tbd|n\/a)$/i.test(rawOwner);
-        const parsedDue = parseDateOrNull(rawDate) || parseDateOrNull(fallbackDate);
-
         const itemRef = ref || `DEC-${String(items.length + 1).padStart(3, '0')}`;
         if (seenRefs.has(itemRef)) continue;
         seenRefs.add(itemRef);
@@ -99,7 +130,7 @@ export function extractCalendarPayloadItems(
           reference: itemRef,
           title: `Decision review ${itemRef}: ${title}`,
           owner: !isUnowned ? { name: rawOwner, user_id: null, stated: true } : null,
-          due_date: parsedDue,
+          due_date: parseDateOrNull(fallbackDate),
           priority: 'high',
           status: 'open',
           review: {
@@ -111,9 +142,9 @@ export function extractCalendarPayloadItems(
     }
   }
 
-  // 3. Extract from json_content.risks.rows if present
-  if (json && json.risks && Array.isArray(json.risks.rows)) {
-    for (const r of json.risks.rows) {
+  // 3. Check structured risks in json_content
+  if (jsonContent?.risks?.rows && Array.isArray(jsonContent.risks.rows)) {
+    for (const r of jsonContent.risks.rows) {
       if (Array.isArray(r) && r.length >= 2) {
         const ref = (r[0] || '').trim();
         const title = (r[1] || '').trim();
@@ -143,9 +174,10 @@ export function extractCalendarPayloadItems(
     }
   }
 
-  // 4. Fallback: Parse markdown table rows from rawContent if json_content had no rows
-  if (items.length === 0 && output.content) {
-    const lines = output.content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  // 4. Fallback: Parse markdown table rows from content if json_content had no items
+  const rawContent = output.content || output.raw_content || '';
+  if (items.length === 0 && rawContent) {
+    const lines = rawContent.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     for (const line of lines) {
       if (line.startsWith('|') && !line.includes('---')) {
         const cells = line
@@ -203,6 +235,73 @@ export function extractCalendarPayloadItems(
               due_date: parsedDue,
               priority: 'high',
               status: 'open',
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Fallback: Parse sectioned markdown for Governed Decision Logs (e.g. ### Decision 1: ...)
+    if (items.length === 0 && (output.output_type || '').includes('decision')) {
+      const decisionBlocks = rawContent.split(/###\s*Decision\s+(\d+)[:\s]*/i);
+      for (let i = 1; i < decisionBlocks.length; i += 2) {
+        const num = decisionBlocks[i];
+        const block = decisionBlocks[i + 1] || '';
+        const firstLineEnd = block.indexOf('\n');
+        const rawTitle = (firstLineEnd !== -1 ? block.slice(0, firstLineEnd) : block).trim();
+        const rest = firstLineEnd !== -1 ? block.slice(firstLineEnd) : '';
+
+        if (!rawTitle) continue;
+
+        const ownerMatch = rest.match(/-\s*\*\*Decision Owner:\*\*\s*([^\n\r]+)/i);
+        const dateMatch = rest.match(/-\s*\*\*Date:\*\*\s*([^\n\r]+)/i);
+
+        const rawOwner = ownerMatch ? ownerMatch[1].trim() : '';
+        const rawDate = dateMatch ? dateMatch[1].trim() : '';
+
+        const isUnowned = !rawOwner || /^(unassigned|no owner|none|tbd|n\/a)$/i.test(rawOwner);
+        const parsedDue = parseDateOrNull(rawDate) || parseDateOrNull(fallbackDate);
+
+        const itemRef = `DEC-${String(num).padStart(3, '0')}`;
+        if (seenRefs.has(itemRef)) continue;
+        seenRefs.add(itemRef);
+
+        items.push({
+          type: 'review',
+          reference: itemRef,
+          title: `Decision review ${itemRef}: ${rawTitle}`,
+          owner: !isUnowned ? { name: rawOwner, user_id: null, stated: true } : null,
+          due_date: parsedDue,
+          priority: 'high',
+          status: 'open',
+          review: { review_type: 'decision', cadence: 'once' },
+        });
+      }
+    }
+
+    // 6. Fallback: Parse Executive Summary Key Resolutions & Decisions
+    if (items.length === 0 && (output.output_type || '').includes('summary')) {
+      const resMatch = rawContent.match(/###\s*[0-9.]*\s*Key Resolutions & Decisions([\s\S]*?)(?=###|$)/i);
+      if (resMatch) {
+        const lines = resMatch[1].split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        let resIndex = 1;
+        for (const line of lines) {
+          const itemMatch = line.match(/^\d+\.\s*\*\*([^:*]+)[:*]*(.*)$/);
+          if (itemMatch) {
+            const rawTitle = itemMatch[1].trim();
+            const itemRef = `DEC-${String(resIndex++).padStart(3, '0')}`;
+            if (seenRefs.has(itemRef)) continue;
+            seenRefs.add(itemRef);
+
+            items.push({
+              type: 'review',
+              reference: itemRef,
+              title: `Decision review ${itemRef}: ${rawTitle}`,
+              owner: null,
+              due_date: parseDateOrNull(fallbackDate),
+              priority: 'high',
+              status: 'open',
+              review: { review_type: 'decision', cadence: 'once' },
             });
           }
         }

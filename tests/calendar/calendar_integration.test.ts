@@ -115,3 +115,31 @@ describe('Calendar Adapter & Lineage Suite', () => {
     expect(counts.reviewsDue).toBe(1);
   });
 });
+
+  it('extracts decisions and actions from markdown content fallback', () => {
+    const mdDecisionLog = {
+      id: 'test-dec-log',
+      output_type: 'decision_log',
+      content: `# Governed Decision Log
+### Decision 1: Proceed with cloud deployment
+- **Status:** Approved
+- **Decision Owner:** Sarah Jenkins
+- **Date:** 2026-10-15
+- **Summary:** Approved migration.
+
+### Decision 2: Defer secondary integration
+- **Status:** Approved
+- **Decision Owner:** TBD
+- **Date:** 2026-10-20
+- **Summary:** Secondary postponed.`,
+    };
+
+    const items = extractCalendarPayloadItems(mdDecisionLog);
+    expect(items.length).toBe(2);
+    expect(items[0].reference).toBe('DEC-001');
+    expect(items[0].title).toBe('Decision review DEC-001: Proceed with cloud deployment');
+    expect(items[0].owner?.name).toBe('Sarah Jenkins');
+    expect(items[0].due_date).toBe('2026-10-15');
+    expect(items[1].reference).toBe('DEC-002');
+    expect(items[1].owner).toBeNull();
+  });
