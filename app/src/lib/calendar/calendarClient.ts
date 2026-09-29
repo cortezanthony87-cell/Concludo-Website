@@ -262,20 +262,28 @@ export async function softDeleteCalendarItem(
 }
 
 
-function normalizeItemTitle(t: string | null | undefined): string {
+export function normalizeItemTitle(t: string | null | undefined): string {
   return (t || "")
     .toLowerCase()
-    .replace(/^(?:act|dec|rsk|task|action|decision|risk)[-:\s\d]+/i, "")
+    .replace(/^(?:act|dec|rsk|evt|task|action|decision|risk|event|meeting)[-:\s\d]+/i, "")
     .replace(/[^\w\s]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export interface GenerateCalendarResult {
+  itemsCreated: number;
+  itemsUpdated: number;
+  itemsSkipped: number;
+  generationId: string;
+  error: string | null;
 }
 
 export async function generateToCalendar(
   supabase: SupabaseClient,
   userId: string,
   payload: GenerateCalendarPayload
-): Promise<{ itemsCreated: number; generationId: string; error: string | null }> {
+): Promise<GenerateCalendarResult> {
   try {
     const projectId = payload.source.project_id || (payload.source.type === 'project' ? payload.source.id : null);
     const outputId = payload.source.output_id || (payload.source.type === 'report' ? payload.source.id : null);
@@ -306,7 +314,7 @@ export async function generateToCalendar(
     if (projectId) {
       const { data: existData } = await supabase
         .from('calendar_items')
-        .select('id, reference, title, status, idempotency_key')
+        .select('id, reference, title, status, type, idempotency_key')
         .eq('creator_id', userId)
         .eq('project_id', projectId)
         .is('deleted_at', null);
@@ -328,7 +336,14 @@ export async function generateToCalendar(
     }
 
     // Prepare items with stable lineage and strict deduplication
+    // Distinguish events vs action tasks:
+    // - Events/meetings: historical records retained; already recorded events are skipped
+    // - Action tasks: if unticked (open/in_progress/etc.), updates existing record; if completed, skipped; if new, created
     const uniformRows: any[] = [];
+    let itemsCreated = 0;
+    let itemsUpdated = 0;
+    let itemsSkipped = 0;
+
     for (let idx = 0; idx < payload.items.length; idx++) {
       const item = payload.items[idx];
       const ownerName = item.owner?.stated ? item.owner.name : null;
@@ -336,14 +351,28 @@ export async function generateToCalendar(
       const normTitle = normalizeItemTitle(item.title);
 
       const matchedExisting = (refKey && existingByRef.get(refKey)) || (normTitle && existingByTitle.get(normTitle));
+      const isEvent = item.type === 'event' || item.type === 'meeting';
 
-      // If an existing item already exists in this project and is completed, skip creating duplicate entry!
-      if (matchedExisting && matchedExisting.status === 'completed') {
+      // 1. If an event/meeting is already on the calendar for this project, keep the record and do not double add
+      if (matchedExisting && (isEvent || matchedExisting.type === 'event' || matchedExisting.type === 'meeting')) {
+        itemsSkipped++;
         continue;
       }
 
+      // 2. If an action task is already completed, do not double add
+      if (matchedExisting && matchedExisting.status === 'completed') {
+        itemsSkipped++;
+        continue;
+      }
+
+      // 3. If an action task already exists on calendar and is unticked, update the existing record
+      if (matchedExisting) {
+        itemsUpdated++;
+      } else {
+        itemsCreated++;
+      }
+
       // Stable idempotency key: project-scoped + item reference or normalized title
-      // Ensures repeated generations for the same project update rather than clone entries
       const stableKey = matchedExisting?.idempotency_key || 
         `${projectId || outputId || payload.source.id}_${item.reference || normTitle || `item_${idx}`}`;
 
@@ -354,7 +383,7 @@ export async function generateToCalendar(
         owner_id: item.owner?.user_id || null,
         owner_name: ownerName,
         organization_id: null,
-        type: item.type === 'meeting' ? 'event' : item.type,
+        type: isEvent ? 'event' : item.type,
         title: item.title,
         description: item.description || null,
         notes: null,
@@ -384,7 +413,7 @@ export async function generateToCalendar(
     }
 
     if (uniformRows.length === 0) {
-      return { itemsCreated: 0, generationId, error: null };
+      return { itemsCreated: 0, itemsUpdated: 0, itemsSkipped, generationId, error: null };
     }
 
     const { data, error } = await supabase
@@ -394,21 +423,21 @@ export async function generateToCalendar(
 
     if (error) {
       console.error('Supabase calendar_items upsert failed:', error.message);
-      return { itemsCreated: 0, generationId: '', error: error.message };
+      return { itemsCreated: 0, itemsUpdated: 0, itemsSkipped: 0, generationId: '', error: error.message };
     }
-
-    const createdCount = data ? data.length : uniformRows.length;
 
     await recordAudit(supabase, userId, 'generate', 'calendar_items', generationId, null, {
       source_id: payload.source.id,
       project_id: projectId,
       output_id: outputId,
-      count: createdCount,
+      created: itemsCreated,
+      updated: itemsUpdated,
+      skipped: itemsSkipped,
     });
 
-    return { itemsCreated: createdCount, generationId, error: null };
+    return { itemsCreated, itemsUpdated, itemsSkipped, generationId, error: null };
   } catch (err: any) {
-    return { itemsCreated: 0, generationId: '', error: err.message };
+    return { itemsCreated: 0, itemsUpdated: 0, itemsSkipped: 0, generationId: '', error: err.message };
   }
 }
 

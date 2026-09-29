@@ -299,8 +299,9 @@ export const CalendarPage: React.FC = () => {
   const getItemToneColor = (kind: CalendarItemType, isOverdue = false) => {
     if (isOverdue) return { bg: 'rgba(188, 138, 28, 0.16)', bar: '#E2B53C', text: '#BC8A1C' };
     switch (kind) {
+      case 'event':
       case 'meeting':
-        return { bg: 'rgba(22, 38, 63, 0.08)', bar: '#21395C', text: '#16263F' };
+        return { bg: 'rgba(33, 57, 92, 0.12)', bar: '#16263F', text: '#16263F' };
       case 'task':
         return { bg: 'rgba(33, 57, 92, 0.08)', bar: '#21395C', text: '#16263F' };
       case 'milestone':

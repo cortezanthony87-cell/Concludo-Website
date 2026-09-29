@@ -115,6 +115,44 @@ describe('Calendar Adapter & Lineage Suite', () => {
     expect(counts.reviewsDue).toBe(1);
   });
 });
+  it("extracts meeting sources as event items and distinguishes them from action tasks", () => {
+    const mockOutputWithSources = {
+      id: "out-multi-source",
+      output_type: "action_plan",
+      content: "# Action Plan",
+      sources: [
+        {
+          id: "src-1",
+          kind: "meeting",
+          title: "Executive Kickoff",
+          date: "2026-09-27",
+          meetingType: "Steering Committee",
+          attendees: ["Anthony Cortez", "Sarah Jenkins"],
+        },
+      ],
+      json_content: {
+        actions: {
+          rows: [
+            ["ACT-01", "Deliver Stage 2 Architecture", "Anthony Cortez", "2026-10-15", "Open"],
+          ],
+        },
+      },
+    };
+
+    const items = extractCalendarPayloadItems(mockOutputWithSources);
+    expect(items.length).toBe(2);
+
+    const eventItem = items.find((i) => i.type === "event");
+    expect(eventItem).toBeDefined();
+    expect(eventItem?.reference).toBe("EVT-001");
+    expect(eventItem?.title).toContain("Executive Kickoff");
+    expect(eventItem?.status).toBe("completed"); // Historical record
+
+    const actionItem = items.find((i) => i.type === "task");
+    expect(actionItem).toBeDefined();
+    expect(actionItem?.reference).toBe("ACT-01");
+    expect(actionItem?.status).toBe("open"); // Action task to be completed
+  });
 
   it('extracts decisions and actions from markdown content fallback', () => {
     const mdDecisionLog = {

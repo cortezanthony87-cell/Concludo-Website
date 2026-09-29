@@ -41,20 +41,56 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
   const [statusFilter, setStatusFilter] = useState<'all' | 'open_only' | 'completed_only'>('all');
   const [items, setItems] = useState<GenerateCalendarPayloadItem[]>(initialItems);
 
+  const [existingItems, setExistingItems] = useState<Array<{ id: string; reference: string | null; title: string; status: string; type: string }>>([]);
+  const [scanning, setScanning] = useState(false);
+
   const [generating, setGenerating] = useState(false);
   const [completedGeneration, setCompletedGeneration] = useState<boolean>(false);
+  const [generationSummary, setGenerationSummary] = useState<{ created: number; updated: number; skipped: number } | null>(null);
   const [generationId, setGenerationId] = useState<string>('');
   const [undoSecondsLeft, setUndoSecondsLeft] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Synchronise items whenever initialItems or drawer open state changes
+  // Helper function to normalise title for deduplication comparison
+  const normalizeText = (t: string | null | undefined): string => {
+    return (t || '')
+      .toLowerCase()
+      .replace(/^(?:act|dec|rsk|evt|task|action|decision|risk|event|meeting)[-:\s\d]+/i, '')
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Synchronise items and pre-scan existing project calendar items whenever drawer opens
   useEffect(() => {
     if (isOpen) {
       setItems(initialItems);
       setCompletedGeneration(false);
       setErrorMessage(null);
+
+      // Pre-scan existing calendar records for this project
+      if (user && projectId) {
+        setScanning(true);
+        Promise.resolve(
+          supabase.client
+            .from('calendar_items')
+            .select('id, reference, title, status, type')
+            .eq('creator_id', user.id)
+            .eq('project_id', projectId)
+            .is('deleted_at', null)
+        )
+          .then(({ data }) => {
+            if (data) {
+              setExistingItems(data);
+            }
+            setScanning(false);
+          })
+          .catch(() => setScanning(false));
+      } else {
+        setExistingItems([]);
+      }
     }
-  }, [isOpen, initialItems]);
+  }, [isOpen, initialItems, user, projectId]);
 
   if (!isOpen) return null;
 
@@ -101,8 +137,9 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
       return;
     }
 
-    if (res.itemsCreated > 0) {
+    if (res.itemsCreated > 0 || res.itemsUpdated > 0) {
       setGenerationId(res.generationId);
+      setGenerationSummary({ created: res.itemsCreated, updated: res.itemsUpdated, skipped: res.itemsSkipped });
       setCompletedGeneration(true);
       setUndoSecondsLeft(60);
       if (onSuccess) onSuccess();
@@ -116,8 +153,11 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
           return prev - 1;
         });
       }, 1000);
+    } else if (res.itemsSkipped > 0) {
+      setGenerationSummary({ created: 0, updated: 0, skipped: res.itemsSkipped });
+      setCompletedGeneration(true);
     } else {
-      setErrorMessage('No items were generated. Please ensure your output contains valid action or decision rows.');
+      setErrorMessage('No items were generated. All items may already be on the calendar or no items were selected.');
     }
   };
 
@@ -196,8 +236,15 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
           </button>
         </div>
 
-        <div style={{ background: '#F4F6FA', padding: '10px 24px', borderBottom: '1px solid #D9DFE9', fontSize: '12px', color: '#5A6478' }}>
-          <strong>Rule:</strong> Nothing is created until you confirm below. Private by default.
+        <div style={{ background: '#F4F6FA', padding: '10px 24px', borderBottom: '1px solid #D9DFE9', fontSize: '12px', color: '#5A6478', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong>Smart Scan Active:</strong> Scans existing project calendar items. Only new items are added; past actions remain if unticked.
+          </div>
+          {scanning && (
+            <span style={{ fontSize: '11px', color: '#BC8A1C', fontWeight: 600 }}>
+              Scanning calendar...
+            </span>
+          )}
         </div>
 
         {errorMessage && (
@@ -294,29 +341,61 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                 {filteredItems.map((it, idx) => {
                   const isUndated = !it.due_date;
                   const isUnowned = !it.owner?.name;
+                  const isEvent = it.type === 'event' || it.type === 'meeting';
+
+                  // Scan comparison against existing project calendar items
+                  const refKey = it.reference ? it.reference.trim().toUpperCase() : null;
+                  const normTitle = normalizeText(it.title);
+                  const matchedExisting = existingItems.find((ex) => {
+                    const exRef = ex.reference ? ex.reference.trim().toUpperCase() : null;
+                    const exNorm = normalizeText(ex.title);
+                    return (refKey && exRef === refKey) || (normTitle && exNorm === normTitle);
+                  });
+
+                  const isAlreadyCompleted = matchedExisting?.status === 'completed';
+                  const isExistingUnticked = matchedExisting && matchedExisting.status !== 'completed';
+
                   return (
                     <div
                       key={idx}
                       style={{
-                        background: '#FFFFFF',
-                        border: `1px solid ${isUndated || isUnowned ? '#E2B53C' : '#D9DFE9'}`,
-                        borderLeft: `4px solid ${isUndated || isUnowned ? '#E2B53C' : '#16263F'}`,
+                        background: isAlreadyCompleted ? '#F8FAFC' : '#FFFFFF',
+                        border: `1px solid ${isAlreadyCompleted ? '#CBD5E1' : isUndated || isUnowned ? '#E2B53C' : '#D9DFE9'}`,
+                        borderLeft: `4px solid ${isAlreadyCompleted ? '#10B981' : isExistingUnticked ? '#3B82F6' : isUndated || isUnowned ? '#E2B53C' : '#16263F'}`,
                         borderRadius: '4px',
                         padding: '12px',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                        opacity: isAlreadyCompleted ? 0.75 : 1,
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: '#BC8A1C',
-                            fontFamily: 'IBM Plex Mono, monospace',
-                          }}
-                        >
-                          {it.reference} · {it.type.toUpperCase()}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: isEvent ? '#16263F' : '#BC8A1C',
+                              fontFamily: 'IBM Plex Mono, monospace',
+                            }}
+                          >
+                            {it.reference} · {isEvent ? 'EVENT / SESSION' : it.type.toUpperCase()}
+                          </span>
+
+                          {/* Pre-scan status badge */}
+                          {isAlreadyCompleted ? (
+                            <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.12)', color: '#047857', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                              ALREADY ON CALENDAR (SKIPPED)
+                            </span>
+                          ) : isExistingUnticked ? (
+                            <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.12)', color: '#1D4ED8', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                              UNTICKED ON CALENDAR (UPDATES RECORD)
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '10px', background: 'rgba(22, 38, 63, 0.08)', color: '#16263F', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                              NEW {isEvent ? 'EVENT' : 'ACTION'}
+                            </span>
+                          )}
+                        </div>
                         <span style={{ fontSize: '11px', color: '#5A6478', fontFamily: 'IBM Plex Mono, monospace' }}>
                           Source: {sourceReference}
                         </span>
@@ -362,7 +441,11 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16263F', fontSize: '13px', fontWeight: 600 }}>
                 <Check size={18} color="#16a34a" />
-                <span>Generated {filteredItems.length} items to your calendar.</span>
+                <span>
+                  {generationSummary
+                    ? `Calendar synchronized: ${generationSummary.created} added, ${generationSummary.updated} unticked updated, ${generationSummary.skipped} already recorded.`
+                    : `Generated ${filteredItems.length} items to your calendar.`}
+                </span>
               </div>
               {undoSecondsLeft > 0 && (
                 <button

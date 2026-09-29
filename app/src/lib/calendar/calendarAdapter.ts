@@ -21,6 +21,15 @@ export interface OutputLike {
   content?: string | null;
   raw_content?: string | null;
   json_content?: any;
+  sources?: Array<{
+    id?: string;
+    kind?: 'meeting' | 'document';
+    title?: string;
+    date?: string;
+    meetingType?: string;
+    attendees?: string[];
+    content?: string;
+  }>;
 }
 
 /**
@@ -76,6 +85,31 @@ export function extractCalendarPayloadItems(
 
   const items: GenerateCalendarPayloadItem[] = [];
   const seenRefs = new Set<string>();
+
+  // 0. Extract Session Events from project sources if available (distinguishing events from actions)
+  if (output.sources && Array.isArray(output.sources)) {
+    let meetingIdx = 1;
+    for (const src of output.sources) {
+      if (src.kind === 'meeting') {
+        const meetingRef = 'EVT-' + String(meetingIdx++).padStart(3, '0');
+        if (!seenRefs.has(meetingRef)) {
+          seenRefs.add(meetingRef);
+          const parsedMeetingDate = parseDateOrNull(src.date) || parseDateOrNull(fallbackDate);
+          const attendeesList = src.attendees && src.attendees.length > 0 ? src.attendees.join(', ') : '';
+          items.push({
+            type: 'event',
+            reference: meetingRef,
+            title: 'Meeting Session: ' + src.title,
+            description: 'Recorded governance event (' + (src.meetingType || 'Strategy Session') + '). Participants: ' + (attendeesList || 'Session attendees') + '.',
+            owner: src.attendees && src.attendees.length > 0 ? { name: src.attendees[0], user_id: null, stated: true } : null,
+            due_date: parsedMeetingDate,
+            priority: 'medium',
+            status: 'completed', // Historical session records are completed events
+          });
+        }
+      }
+    }
+  }
 
   const jsonContent = output.json_content;
 
@@ -193,7 +227,8 @@ export function extractCalendarPayloadItems(
 
           if (!rawTitle) continue;
 
-          const isAction = /^ACT/i.test(rawRef) || (output.output_type || '').includes('action');
+          const isEvent = /^EVT/i.test(rawRef) || /meeting|session|event/i.test(rawRef);
+          const isAction = !isEvent && (/^ACT/i.test(rawRef) || (output.output_type || '').includes('action'));
           const isDecision = /^DEC/i.test(rawRef) || (output.output_type || '').includes('decision');
           const isRisk = /^RSK/i.test(rawRef);
 
@@ -225,6 +260,16 @@ export function extractCalendarPayloadItems(
               priority: 'critical',
               status: 'open',
               review: { review_type: 'risk', cadence: 'quarterly' },
+            });
+          } else if (isEvent) {
+            items.push({
+              type: 'event',
+              reference: itemRef,
+              title: rawTitle,
+              owner: !isUnowned ? { name: rawOwner, user_id: null, stated: true } : null,
+              due_date: parsedDue || parseDateOrNull(fallbackDate),
+              priority: 'medium',
+              status: 'completed',
             });
           } else {
             items.push({

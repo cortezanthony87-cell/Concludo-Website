@@ -3730,16 +3730,22 @@ export const ProjectDetailPage: React.FC = () => {
       )}
 
       {/* Generate to Calendar Drawer */}
-      <GenerateToCalendarDrawer
-        isOpen={isCalendarDrawerOpen}
-        onClose={() => setIsCalendarDrawerOpen(false)}
-        outputTitle={project?.title || 'Meeting Deliverable'}
-        projectId={id || ''}
-        outputId={viewingOutput?.id}
-        sourceReference="TR-001"
-        occurredAt={project?.meeting_date || undefined}
-        initialItems={extractCalendarPayloadItems(viewingOutput, project?.meeting_date)}
-      />
+      {isCalendarDrawerOpen && (() => {
+        const currentSources = project ? parseProjectSources(project.transcript || '', project.notes || '') : [];
+        const enrichedOutput = viewingOutput ? { ...viewingOutput, sources: currentSources } : null;
+        return (
+          <GenerateToCalendarDrawer
+            isOpen={isCalendarDrawerOpen}
+            onClose={() => setIsCalendarDrawerOpen(false)}
+            outputTitle={project?.title || 'Meeting Deliverable'}
+            projectId={id || ''}
+            outputId={viewingOutput?.id}
+            sourceReference="TR-001"
+            occurredAt={project?.meeting_date || undefined}
+            initialItems={extractCalendarPayloadItems(enrichedOutput, project?.meeting_date)}
+          />
+        );
+      })()}
     </div>
   );
 };
