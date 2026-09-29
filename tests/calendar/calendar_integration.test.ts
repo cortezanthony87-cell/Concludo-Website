@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'bun:test';
+import { extractCalendarPayloadItems, parseDateOrNull } from '../../app/src/lib/calendar/calendarAdapter';
+import { computeSummaryCounts, getLocalMockCalendarItems } from '../../app/src/lib/calendar/calendarClient';
+import { CalendarItem } from '../../app/src/lib/calendar/calendarTypes';
+
+describe('Calendar Adapter & Lineage Suite', () => {
+  it('parses valid dates and returns null for unconfirmed or relative placeholders', () => {
+    expect(parseDateOrNull('2026-10-15')).toBe('2026-10-15');
+    expect(parseDateOrNull('TBD')).toBeNull();
+    expect(parseDateOrNull('n/a')).toBeNull();
+    expect(parseDateOrNull('-')).toBeNull();
+    expect(parseDateOrNull('')).toBeNull();
+    expect(parseDateOrNull(null)).toBeNull();
+  });
+
+  it('extracts real items from output json_content with exact actions, decisions, and risks', () => {
+    const mockOutput = {
+      id: 'out-test-1',
+      output_type: 'decision_log',
+      content: '# Decision Log',
+      json_content: {
+        actions: {
+          rows: [
+            ['ACT-001', 'Finalise commercial contract', 'Anthony Cortez', '2026-10-15', 'Open'],
+            ['ACT-002', 'Establish risk matrix', 'Unassigned', 'TBD', 'Open'],
+          ],
+        },
+        decisions: {
+          rows: [
+            ['DEC-001', 'Approve strategic timeline', 'Anthony Cortez', '2026-09-29', 'Verified'],
+          ],
+        },
+        risks: {
+          rows: [
+            ['RSK-001', 'Contractual penalty clause', 'Legal Counsel'],
+          ],
+        },
+      },
+    };
+
+    const items = extractCalendarPayloadItems(mockOutput, '2026-09-29');
+    expect(items.length).toBe(4);
+
+    const act1 = items.find((i) => i.reference === 'ACT-001');
+    expect(act1).toBeDefined();
+    expect(act1?.title).toBe('Finalise commercial contract');
+    expect(act1?.owner?.name).toBe('Anthony Cortez');
+    expect(act1?.due_date).toBe('2026-10-15');
+
+    const act2 = items.find((i) => i.reference === 'ACT-002');
+    expect(act2).toBeDefined();
+    expect(act2?.owner).toBeNull(); // Rule 3: unassigned remains null
+    expect(act2?.due_date).toBeNull(); // Rule 3: undated remains null
+
+    const dec1 = items.find((i) => i.reference === 'DEC-001');
+    expect(dec1).toBeDefined();
+    expect(dec1?.type).toBe('review');
+    expect(dec1?.title).toContain('Approve strategic timeline');
+
+    const rsk1 = items.find((i) => i.reference === 'RSK-001');
+    expect(rsk1).toBeDefined();
+    expect(rsk1?.type).toBe('review');
+    expect(rsk1?.priority).toBe('critical');
+  });
+
+  it('never returns invented legacy items or mock data', () => {
+    const mockItems = getLocalMockCalendarItems('user-123');
+    expect(mockItems.length).toBe(0);
+  });
+
+  it('computes summary counts accurately according to Concludo rules', () => {
+    const items: CalendarItem[] = [
+      {
+        id: '1',
+        creator_id: 'u1',
+        type: 'task',
+        title: 'Task 1',
+        status: 'open',
+        visibility: 'private',
+        created_at: '2026-09-28T00:00:00Z',
+        updated_at: '2026-09-28T00:00:00Z',
+        due_date: '2026-09-20', // overdue
+        owner_name: null, // unowned
+      },
+      {
+        id: '2',
+        creator_id: 'u1',
+        type: 'review',
+        review_type: 'decision',
+        title: 'Review 1',
+        status: 'open',
+        visibility: 'private',
+        created_at: '2026-09-28T00:00:00Z',
+        updated_at: '2026-09-28T00:00:00Z',
+        due_date: null, // undated
+        owner_name: 'Priya Raman',
+      },
+      {
+        id: '3',
+        creator_id: 'u1',
+        type: 'task',
+        title: 'Task 3',
+        status: 'completed',
+        visibility: 'private',
+        created_at: '2026-09-28T00:00:00Z',
+        updated_at: '2026-09-28T00:00:00Z',
+      },
+    ];
+
+    const counts = computeSummaryCounts(items);
+    expect(counts.totalOpen).toBe(2);
+    expect(counts.overdue).toBe(1);
+    expect(counts.unowned).toBe(1);
+    expect(counts.undated).toBe(1);
+    expect(counts.reviewsDue).toBe(1);
+  });
+});

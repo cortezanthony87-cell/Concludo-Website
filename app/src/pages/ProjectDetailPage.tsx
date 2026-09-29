@@ -71,6 +71,7 @@ import { extractMetadataFromContent } from '../lib/intelligence/metadataExtracto
 import { parseUploadedFile, ParsedDocument } from '../lib/intelligence/fileParser';
 import { UploadCloud, FileCheck, Video, Users, FileSpreadsheet, ShieldAlert, CheckSquare2 } from 'lucide-react';
 import { GenerateToCalendarDrawer } from '../components/calendar/GenerateToCalendarDrawer';
+import { extractCalendarPayloadItems } from '../lib/calendar/calendarAdapter';
 import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
 
 
@@ -3692,6 +3693,7 @@ export const ProjectDetailPage: React.FC = () => {
         outputId={viewingOutput?.id}
         sourceReference="TR-001"
         occurredAt={project?.meeting_date || undefined}
+        initialItems={extractCalendarPayloadItems(viewingOutput, project?.meeting_date)}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { supabase } from '../../lib/supabase/client';
 import { GenerateCalendarPayload, GenerateCalendarPayloadItem } from '../../lib/calendar/calendarTypes';
@@ -38,58 +38,7 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
 }) => {
   const { user } = useAuth();
   const [selectedOption, setSelectedOption] = useState<string>('everything');
-  const [items, setItems] = useState<GenerateCalendarPayloadItem[]>(() => {
-    if (initialItems.length > 0) return initialItems;
-    return [
-      {
-        type: 'task',
-        reference: 'ACT-001',
-        title: 'Variation paperwork to Priya Raman',
-        owner: { name: 'Liam Chen', user_id: null, stated: true },
-        due_date: '2026-10-15',
-        priority: 'high',
-        status: 'open',
-      },
-      {
-        type: 'task',
-        reference: 'ACT-004',
-        title: 'Night work options and timetable impact',
-        owner: null,
-        due_date: null,
-        priority: 'medium',
-        status: 'open',
-      },
-      {
-        type: 'review',
-        reference: 'DEC-004',
-        title: 'Decision review DEC-004: Display enclosure supplier selection',
-        owner: { name: 'Priya Raman', user_id: null, stated: true },
-        due_date: '2026-10-13',
-        priority: 'high',
-        status: 'open',
-        review: { review_type: 'decision', cadence: 'once' },
-      },
-      {
-        type: 'review',
-        reference: 'RSK-002',
-        title: 'Risk review RSK-002: Liquidated damages clause',
-        owner: null,
-        due_date: '2026-10-02',
-        priority: 'critical',
-        status: 'open',
-        review: { review_type: 'risk', cadence: 'quarterly' },
-      },
-      {
-        type: 'milestone',
-        reference: 'ACT-002',
-        title: 'Crew numbers and method statement sign-off',
-        owner: { name: 'Mark Taylor', user_id: null, stated: true },
-        due_date: '2026-10-23',
-        priority: 'high',
-        status: 'open',
-      },
-    ];
-  });
+  const [items, setItems] = useState<GenerateCalendarPayloadItem[]>(initialItems);
 
   const [generating, setGenerating] = useState(false);
   const [completedGeneration, setCompletedGeneration] = useState<boolean>(false);
@@ -97,7 +46,27 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
   const [undoSecondsLeft, setUndoSecondsLeft] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Synchronise items whenever initialItems or drawer open state changes
+  useEffect(() => {
+    if (isOpen) {
+      setItems(initialItems);
+      setCompletedGeneration(false);
+      setErrorMessage(null);
+    }
+  }, [isOpen, initialItems]);
+
   if (!isOpen) return null;
+
+  // Filter items based on selected extraction scope
+  const filteredItems = items.filter((item) => {
+    if (selectedOption === 'everything') return true;
+    if (selectedOption === 'task') return item.type === 'task';
+    if (selectedOption === 'event') return item.type === 'event' || item.type === 'meeting';
+    if (selectedOption === 'milestone') return item.type === 'milestone';
+    if (selectedOption === 'review') return item.type === 'review';
+    if (selectedOption === 'timeline') return item.type === 'timeline_activity' || item.type === 'milestone';
+    return true;
+  });
 
   const handleConfirmGenerate = async () => {
     if (!user) return;
@@ -106,15 +75,17 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
 
     const payload: GenerateCalendarPayload = {
       source: {
-        type: 'meeting',
+        type: 'report',
         id: outputId || projectId,
         title: outputTitle,
         occurred_at: occurredAt,
         record_reference: sourceReference,
+        project_id: projectId,
+        output_id: outputId || null,
       },
       options: [selectedOption as any],
-      idempotency_key: `${projectId}_${Date.now()}`,
-      items,
+      idempotency_key: `${outputId || projectId}_${Date.now()}`,
+      items: filteredItems,
     };
 
     const res = await generateToCalendar(supabase.client, user.id, payload);
@@ -140,6 +111,8 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
           return prev - 1;
         });
       }, 1000);
+    } else {
+      setErrorMessage('No items were generated. Please ensure your output contains valid action or decision rows.');
     }
   };
 
@@ -260,67 +233,83 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label style={{ fontSize: '11px', fontWeight: 700, color: '#5A6478', letterSpacing: '0.04em' }}>
-                PROPOSED ITEMS ({items.length})
+                PROPOSED ITEMS ({filteredItems.length})
               </label>
               <span style={{ fontSize: '11px', color: '#BC8A1C', fontWeight: 600 }}>
                 Gaps flagged in gold
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {items.map((it, idx) => {
-                const isUndated = !it.due_date;
-                const isUnowned = !it.owner?.name;
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      background: '#FFFFFF',
-                      border: `1px solid ${isUndated || isUnowned ? '#E2B53C' : '#D9DFE9'}`,
-                      borderLeft: `4px solid ${isUndated || isUnowned ? '#E2B53C' : '#16263F'}`,
-                      borderRadius: '4px',
-                      padding: '12px',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: '#BC8A1C',
-                          fontFamily: 'IBM Plex Mono, monospace',
-                        }}
-                      >
-                        {it.reference} · {it.type.toUpperCase()}
-                      </span>
-                      <span style={{ fontSize: '11px', color: '#5A6478', fontFamily: 'IBM Plex Mono, monospace' }}>
-                        Source: {sourceReference}
-                      </span>
-                    </div>
-
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#16263F', marginTop: '4px' }}>
-                      {it.title}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '14px', marginTop: '8px', fontSize: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <User size={13} color={isUnowned ? '#BC8A1C' : '#5A6478'} />
-                        <span style={{ color: isUnowned ? '#BC8A1C' : '#16263F', fontWeight: isUnowned ? 700 : 500 }}>
-                          {it.owner?.name || 'NO OWNER'}
+            {filteredItems.length === 0 ? (
+              <div
+                style={{
+                  background: '#F4F6FA',
+                  border: '1px dashed #D9DFE9',
+                  borderRadius: '6px',
+                  padding: '24px',
+                  textAlign: 'center',
+                  color: '#5A6478',
+                  fontSize: '13px',
+                }}
+              >
+                No items match the selected extraction scope for this output.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {filteredItems.map((it, idx) => {
+                  const isUndated = !it.due_date;
+                  const isUnowned = !it.owner?.name;
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        background: '#FFFFFF',
+                        border: `1px solid ${isUndated || isUnowned ? '#E2B53C' : '#D9DFE9'}`,
+                        borderLeft: `4px solid ${isUndated || isUnowned ? '#E2B53C' : '#16263F'}`,
+                        borderRadius: '4px',
+                        padding: '12px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#BC8A1C',
+                            fontFamily: 'IBM Plex Mono, monospace',
+                          }}
+                        >
+                          {it.reference} · {it.type.toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#5A6478', fontFamily: 'IBM Plex Mono, monospace' }}>
+                          Source: {sourceReference}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={13} color={isUndated ? '#BC8A1C' : '#5A6478'} />
-                        <span style={{ color: isUndated ? '#BC8A1C' : '#16263F', fontWeight: isUndated ? 700 : 500 }}>
-                          {it.due_date || 'NO DATE'}
-                        </span>
+
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#16263F', marginTop: '4px' }}>
+                        {it.title}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '14px', marginTop: '8px', fontSize: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <User size={13} color={isUnowned ? '#BC8A1C' : '#5A6478'} />
+                          <span style={{ color: isUnowned ? '#BC8A1C' : '#16263F', fontWeight: isUnowned ? 700 : 500 }}>
+                            {it.owner?.name || 'NO OWNER'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={13} color={isUndated ? '#BC8A1C' : '#5A6478'} />
+                          <span style={{ color: isUndated ? '#BC8A1C' : '#16263F', fontWeight: isUndated ? 700 : 500 }}>
+                            {it.due_date || 'NO DATE'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -338,7 +327,7 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16263F', fontSize: '13px', fontWeight: 600 }}>
                 <Check size={18} color="#16a34a" />
-                <span>Generated {items.length} items to your calendar.</span>
+                <span>Generated {filteredItems.length} items to your calendar.</span>
               </div>
               {undoSecondsLeft > 0 && (
                 <button
@@ -381,10 +370,10 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
               </button>
               <button
                 type="button"
-                disabled={generating}
+                disabled={generating || filteredItems.length === 0}
                 onClick={handleConfirmGenerate}
                 style={{
-                  background: '#16263F',
+                  background: filteredItems.length === 0 ? '#94A3B8' : '#16263F',
                   color: '#FFFFFF',
                   border: 'none',
                   padding: '8px 20px',
@@ -394,11 +383,11 @@ export const GenerateToCalendarDrawer: React.FC<GenerateToCalendarDrawerProps> =
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  cursor: 'pointer',
+                  cursor: filteredItems.length === 0 ? 'not-allowed' : 'pointer',
                 }}
               >
                 <Sparkles size={16} color="#E2B53C" />
-                <span>{generating ? 'Generating...' : `Confirm & Create ${items.length} Items`}</span>
+                <span>{generating ? 'Generating...' : `Confirm & Create ${filteredItems.length} Items`}</span>
               </button>
             </>
           )}

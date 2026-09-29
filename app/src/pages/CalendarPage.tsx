@@ -2709,7 +2709,7 @@ export const CalendarPage: React.FC = () => {
                   <strong>Source:</strong> {selectedItem.source_reference || 'TR-001'} ({selectedItem.source_type || 'meeting transcript'})
                 </div>
                 <div style={{ fontSize: '12px', color: '#5A6478', marginTop: '4px' }}>
-                  <strong>Project:</strong> {selectedItem.source_title || 'Platform Passenger Information Display (PID) Upgrade'}
+                  <strong>Project:</strong> {selectedItem.source_title || 'General Deliverables'}
                 </div>
                 <div style={{ fontSize: '11px', color: '#5A6478', marginTop: '6px' }}>
                   Visibility: <strong>{selectedItem.visibility.toUpperCase()}</strong> (Private by default)

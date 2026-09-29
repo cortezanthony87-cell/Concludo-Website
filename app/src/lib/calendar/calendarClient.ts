@@ -14,10 +14,18 @@ export async function fetchCalendarItems(
   options?: { includeCompleted?: boolean; view?: string }
 ): Promise<{ data: CalendarItem[]; error: string | null }> {
   try {
-    const { data, error } = await supabase
+    // 1. Fetch calendar items for current user (private by default)
+    // Filters out soft-deleted items, ordered by due_date ascending
+    let query = supabase
       .from('calendar_items')
       .select('*')
-      .is('deleted_at', null)
+      .is('deleted_at', null);
+
+    if (userId) {
+      query = query.eq('creator_id', userId);
+    }
+
+    const { data, error } = await query
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
 
@@ -26,16 +34,59 @@ export async function fetchCalendarItems(
       return { data: [], error: error.message };
     }
 
-    if (!data || data.length === 0) {
-      const seedItems = getLocalMockCalendarItems(userId);
-      const inserted = await seedInitialCalendarItems(supabase, seedItems);
-      if (inserted.length > 0) {
-        return { data: inserted, error: null };
-      }
-      return { data: seedItems, error: null };
+    const items = (data || []) as CalendarItem[];
+    if (items.length === 0) {
+      return { data: [], error: null };
     }
 
-    return { data: data as CalendarItem[], error: null };
+    // 2. Validate source project and output status to ensure deleted sources are excluded
+    // Collect non-null project_ids and output_ids
+    const projectIds = Array.from(new Set(items.map((it) => it.project_id).filter(Boolean))) as string[];
+    const outputIds = Array.from(new Set(items.map((it) => it.output_id).filter(Boolean))) as string[];
+
+    const deletedProjectIds = new Set<string>();
+    const deletedOutputIds = new Set<string>();
+
+    if (projectIds.length > 0) {
+      const { data: delProjects } = await supabase
+        .from('projects')
+        .select('id')
+        .in('id', projectIds)
+        .not('deleted_at', 'is', null);
+
+      if (delProjects) {
+        for (const p of delProjects) {
+          deletedProjectIds.add(p.id);
+        }
+      }
+    }
+
+    if (outputIds.length > 0) {
+      const { data: delOutputs } = await supabase
+        .from('outputs')
+        .select('id')
+        .in('id', outputIds)
+        .not('deleted_at', 'is', null);
+
+      if (delOutputs) {
+        for (const o of delOutputs) {
+          deletedOutputIds.add(o.id);
+        }
+      }
+    }
+
+    // Filter out items whose linked project or output is soft-deleted
+    const validItems = items.filter((it) => {
+      if (it.project_id && deletedProjectIds.has(it.project_id)) {
+        return false;
+      }
+      if (it.output_id && deletedOutputIds.has(it.output_id)) {
+        return false;
+      }
+      return true;
+    });
+
+    return { data: validItems, error: null };
   } catch (err: any) {
     return { data: [], error: err.message };
   }
@@ -216,9 +267,13 @@ export async function generateToCalendar(
   payload: GenerateCalendarPayload
 ): Promise<{ itemsCreated: number; generationId: string; error: string | null }> {
   try {
-    const idempotencyKey = payload.idempotency_key || `${payload.source.id}_${Date.now()}`;
+    const projectId = payload.source.project_id || (payload.source.type === 'project' ? payload.source.id : null);
+    const outputId = payload.source.output_id || (payload.source.type === 'report' ? payload.source.id : null);
+
+    const idempotencyKey = payload.idempotency_key || `${outputId || projectId || payload.source.id}_${Date.now()}`;
     const generationId = crypto.randomUUID();
 
+    // 1. Record generation event
     const { error: genError } = await supabase.from('calendar_generations').insert([{
       id: generationId,
       user_id: userId,
@@ -234,8 +289,12 @@ export async function generateToCalendar(
       console.error('Calendar generation record error:', genError.message);
     }
 
-    const uniformRows = payload.items.map((item) => {
+    // 2. Prepare items with full lineage and versioned idempotency key
+    const uniformRows = payload.items.map((item, idx) => {
       const ownerName = item.owner?.stated ? item.owner.name : null;
+      // Scoped idempotency key: includes source output id, item reference, and generation id
+      const itemKey = `${outputId || payload.source.id}_${item.reference || `item_${idx}`}_${generationId.slice(0, 8)}`;
+
       return {
         creator_id: userId,
         calendar_id: null,
@@ -265,9 +324,9 @@ export async function generateToCalendar(
         source_title: payload.source.title,
         source_reference: payload.source.record_reference || 'TR-001',
         source_occurred_at: payload.source.occurred_at || new Date().toISOString(),
-        project_id: payload.source.type === 'project' ? payload.source.id : null,
-        output_id: payload.source.type === 'report' ? payload.source.id : null,
-        idempotency_key: `${payload.source.id}_${item.reference || item.title}`,
+        project_id: projectId,
+        output_id: outputId,
+        idempotency_key: itemKey,
       };
     });
 
@@ -285,6 +344,8 @@ export async function generateToCalendar(
 
     await recordAudit(supabase, userId, 'generate', 'calendar_items', generationId, null, {
       source_id: payload.source.id,
+      project_id: projectId,
+      output_id: outputId,
       count: createdCount,
     });
 
@@ -302,11 +363,21 @@ export async function undoCalendarGeneration(
   try {
     const now = new Date().toISOString();
 
+    // 1. Mark generation record undone
     await supabase
       .from('calendar_generations')
       .update({ undone_at: now })
       .eq('id', generationId)
       .eq('user_id', userId);
+
+    // 2. Soft-delete generated calendar items created in this generation batch
+    const genSuffix = generationId.slice(0, 8);
+    await supabase
+      .from('calendar_items')
+      .update({ deleted_at: now })
+      .eq('creator_id', userId)
+      .like('idempotency_key', `%_${genSuffix}`)
+      .is('deleted_at', null);
 
     await recordAudit(supabase, userId, 'undo_generate', 'calendar_generations', generationId, null, { undone_at: now });
 
@@ -339,155 +410,9 @@ async function recordAudit(
   }
 }
 
-async function seedInitialCalendarItems(supabase: SupabaseClient, items: CalendarItem[]): Promise<CalendarItem[]> {
-  try {
-    const rows = items.map((it) => ({
-      creator_id: it.creator_id,
-      owner_name: it.owner_name || null,
-      type: it.type === 'meeting' ? 'event' : it.type,
-      title: it.title,
-      reference: it.reference || null,
-      priority: it.priority || null,
-      status: it.status || 'open',
-      due_date: it.due_date || null,
-      due_time: it.due_time || null,
-      visibility: 'private',
-      source_reference: it.source_reference || 'TR-001',
-      source_title: it.source_title || 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      idempotency_key: `seed_${it.creator_id}_${it.reference || it.title}`,
-    }));
-
-    const { data, error } = await supabase.from('calendar_items').upsert(rows, { onConflict: 'idempotency_key' }).select();
-    if (error) {
-      console.warn('Seed insert warning:', error.message);
-      return [];
-    }
-    return (data as CalendarItem[]) || [];
-  } catch {
-    return [];
-  }
-}
-
 export function getLocalMockCalendarItems(userId: string): CalendarItem[] {
-  const today = new Date().toISOString().split('T')[0];
-  return [
-    {
-      id: 'mock-1',
-      creator_id: userId,
-      owner_name: 'Priya Raman',
-      type: 'event',
-      title: 'Client review, Harding',
-      due_date: today,
-      due_time: '09:00:00',
-      status: 'open',
-      priority: 'high',
-      visibility: 'private',
-      source_reference: 'TR-001',
-      source_title: 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'mock-2',
-      creator_id: userId,
-      owner_name: 'Priya Raman',
-      type: 'review',
-      review_type: 'decision',
-      title: 'Decision review DEC-004',
-      reference: 'DEC-004',
-      due_date: today,
-      due_time: '11:00:00',
-      status: 'open',
-      priority: 'high',
-      visibility: 'private',
-      source_reference: 'TR-001',
-      source_title: 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'mock-3',
-      creator_id: userId,
-      owner_name: 'Liam Chen',
-      type: 'task',
-      title: 'Variation paperwork to Priya',
-      reference: 'ACT-001',
-      due_date: '2026-09-25',
-      due_time: '17:00:00',
-      status: 'open',
-      priority: 'critical',
-      visibility: 'private',
-      source_reference: 'TR-001',
-      source_title: 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'mock-4',
-      creator_id: userId,
-      owner_name: null,
-      type: 'task',
-      title: 'Night work options and timetable impact',
-      reference: 'ACT-004',
-      due_date: null,
-      status: 'open',
-      priority: 'medium',
-      visibility: 'private',
-      source_reference: 'TR-001',
-      source_title: 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'mock-5',
-      creator_id: userId,
-      owner_name: 'Mark Taylor',
-      type: 'milestone',
-      title: 'Crew numbers and method statement',
-      reference: 'ACT-002',
-      due_date: '2026-10-01',
-      status: 'in_progress',
-      priority: 'high',
-      visibility: 'private',
-      source_reference: 'TR-001',
-      source_title: 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'mock-6',
-      creator_id: userId,
-      owner_name: 'Sophie Martin',
-      type: 'task',
-      title: 'Council notifications for station staging',
-      reference: 'ACT-005',
-      due_date: '2026-10-02',
-      status: 'open',
-      priority: 'medium',
-      visibility: 'private',
-      source_reference: 'TR-001',
-      source_title: 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'mock-7',
-      creator_id: userId,
-      owner_name: 'Liam Chen',
-      type: 'review',
-      review_type: 'risk',
-      title: 'Risk review RSK-002: Liquidated damages clause',
-      reference: 'RSK-002',
-      due_date: '2026-10-02',
-      status: 'open',
-      priority: 'high',
-      visibility: 'private',
-      source_reference: 'TR-001',
-      source_title: 'Platform Passenger Information Display (PID) Upgrade, Stage 2',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ];
+  // Empty array: never invent dummy data or stale source records
+  return [];
 }
 
 export async function fetchDailyNote(
@@ -504,7 +429,6 @@ export async function fetchDailyNote(
       .maybeSingle();
 
     if (error) {
-      // Fallback to local storage if network or DB issue
       const local = localStorage.getItem(`concludo_daily_note_${userId}_${dateStr}`);
       return { note: local || '', error: error.message };
     }
@@ -528,7 +452,6 @@ export async function saveDailyNote(
   noteText: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
-    // Keep local storage synced for instant offline reliability
     localStorage.setItem(`concludo_daily_note_${userId}_${dateStr}`, noteText);
 
     const { error } = await supabase

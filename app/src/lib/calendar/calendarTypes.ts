@@ -132,6 +132,8 @@ export interface GenerateCalendarPayload {
     title: string;
     occurred_at?: string;
     record_reference?: string;
+    project_id?: string | null;
+    output_id?: string | null;
   };
   options: ('task' | 'event' | 'milestone' | 'review' | 'follow_up' | 'timeline' | 'everything')[];
   idempotency_key?: string;
