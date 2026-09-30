@@ -310,7 +310,9 @@ export const WorkspaceLayout: React.FC = () => {
           onClick={(e) => {
             const target = e.target as HTMLElement;
             if (target.closest('a') || target.closest('.sidebar-link')) {
-              resetAllScrollPositions();
+              // Maintain user scroll position on sidebar tabs while resetting main content
+              const mainArea = document.querySelector('.main-content-area');
+              if (mainArea) mainArea.scrollTop = 0;
               setMobileSidebarOpen(false);
             }
           }}

@@ -95,7 +95,9 @@ input, select, textarea {
 .app-container {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 /* Futuristic Top Navigation */
@@ -319,6 +321,8 @@ input, select, textarea {
 .app-shell-body {
   display: flex;
   flex: 1;
+  overflow: hidden;
+  position: relative;
 }
 
 /* Left Sidebar - Glassmorphic Dark HUD */
@@ -331,6 +335,29 @@ input, select, textarea {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 181, 60, 0.25) transparent;
+}
+
+.left-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.left-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.left-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(226, 181, 60, 0.2);
+  border-radius: 4px;
+}
+
+.left-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(226, 181, 60, 0.45);
 }
 
 .sidebar-content {
@@ -1154,6 +1181,11 @@ button.bg-amber-500 svg {
 
 /* Responsive Breakpoints */
 @media (max-width: 900px) {
+  .app-container {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+
   /* Show hamburger button in top navbar */
   .mobile-menu-toggle {
     display: inline-flex;
