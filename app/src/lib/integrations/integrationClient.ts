@@ -363,13 +363,21 @@ export async function fetchSyncLogs(
 }
 
 // =====================================================================
-// 3. AUTOMATION EXPORTS
+// 3. AUTOMATION EXPORTS & DISPATCH
 // =====================================================================
+
+export interface DispatchOptions {
+  recipients?: string[];
+  subject?: string;
+  previewHtml?: string;
+  senderEmail?: string;
+  projectId?: string;
+}
 
 export async function executeActionExport(
   actionIds: string[],
   destination: string,
-  options?: IntegrationClientOptions & { teamId?: string; orgId?: string }
+  options?: IntegrationClientOptions & { teamId?: string; orgId?: string; dispatchOptions?: DispatchOptions }
 ): Promise<AutomationExport> {
   const client = getClient(options);
   const {
@@ -401,6 +409,23 @@ export async function executeActionExport(
     source_meeting: 'Concludo Session',
   }));
 
+  const payloadSummary: Record<string, any> = {
+    destination,
+    items: formattedItems,
+    exported_at: new Date().toISOString(),
+  };
+
+  if (options?.dispatchOptions) {
+    payloadSummary.dispatch = {
+      recipients: options.dispatchOptions.recipients || [],
+      subject: options.dispatchOptions.subject || '',
+      dispatched_at: new Date().toISOString(),
+      channel: destination === 'microsoft_outlook' ? 'outlook_email' : destination,
+      sender: options.dispatchOptions.senderEmail || user.email,
+      project_id: options.dispatchOptions.projectId || null,
+    };
+  }
+
   const { data: exportRecord, error: expError } = await client
     .from('automation_exports')
     .insert({
@@ -411,11 +436,7 @@ export async function executeActionExport(
       destination,
       records_count: recordsCount,
       status: 'success',
-      payload_summary: {
-        destination,
-        items: formattedItems,
-        exported_at: new Date().toISOString(),
-      },
+      payload_summary: payloadSummary,
     })
     .select()
     .single();
@@ -432,6 +453,7 @@ export async function executeActionExport(
         export_type: 'action',
         destination,
         records_count: recordsCount,
+        ...(options?.dispatchOptions?.recipients ? { recipients: options.dispatchOptions.recipients } : {}),
       },
     });
   } catch {}
@@ -442,7 +464,7 @@ export async function executeActionExport(
 export async function executeDecisionExport(
   decisionIds: string[],
   destination: string,
-  options?: IntegrationClientOptions & { teamId?: string; orgId?: string }
+  options?: IntegrationClientOptions & { teamId?: string; orgId?: string; dispatchOptions?: DispatchOptions }
 ): Promise<AutomationExport> {
   const client = getClient(options);
   const {
@@ -472,6 +494,22 @@ export async function executeDecisionExport(
     project_reference: d.project_id,
   }));
 
+  const payloadSummary: Record<string, any> = {
+    destination,
+    decisions: formattedItems,
+    exported_at: new Date().toISOString(),
+  };
+
+  if (options?.dispatchOptions) {
+    payloadSummary.dispatch = {
+      recipients: options.dispatchOptions.recipients || [],
+      subject: options.dispatchOptions.subject || '',
+      dispatched_at: new Date().toISOString(),
+      channel: destination === 'microsoft_outlook' ? 'outlook_email' : destination,
+      sender: options.dispatchOptions.senderEmail || user.email,
+    };
+  }
+
   const { data: exportRecord, error: expError } = await client
     .from('automation_exports')
     .insert({
@@ -482,11 +520,7 @@ export async function executeDecisionExport(
       destination,
       records_count: recordsCount,
       status: 'success',
-      payload_summary: {
-        destination,
-        decisions: formattedItems,
-        exported_at: new Date().toISOString(),
-      },
+      payload_summary: payloadSummary,
     })
     .select()
     .single();
@@ -503,6 +537,7 @@ export async function executeDecisionExport(
         export_type: 'decision',
         destination,
         records_count: recordsCount,
+        ...(options?.dispatchOptions?.recipients ? { recipients: options.dispatchOptions.recipients } : {}),
       },
     });
   } catch {}
@@ -513,7 +548,7 @@ export async function executeDecisionExport(
 export async function executeProjectExport(
   projectIds: string[],
   destination: string,
-  options?: IntegrationClientOptions & { teamId?: string; orgId?: string }
+  options?: IntegrationClientOptions & { teamId?: string; orgId?: string; dispatchOptions?: DispatchOptions }
 ): Promise<AutomationExport> {
   const client = getClient(options);
   const {
@@ -570,6 +605,22 @@ export async function executeProjectExport(
     })
   );
 
+  const payloadSummary: Record<string, any> = {
+    destination,
+    projects: formattedProjects,
+    exported_at: new Date().toISOString(),
+  };
+
+  if (options?.dispatchOptions) {
+    payloadSummary.dispatch = {
+      recipients: options.dispatchOptions.recipients || [],
+      subject: options.dispatchOptions.subject || '',
+      dispatched_at: new Date().toISOString(),
+      channel: destination === 'microsoft_outlook' ? 'outlook_email' : destination,
+      sender: options.dispatchOptions.senderEmail || user.email,
+    };
+  }
+
   const { data: exportRecord, error: expError } = await client
     .from('automation_exports')
     .insert({
@@ -580,11 +631,7 @@ export async function executeProjectExport(
       destination,
       records_count: recordsCount,
       status: 'success',
-      payload_summary: {
-        destination,
-        projects: formattedProjects,
-        exported_at: new Date().toISOString(),
-      },
+      payload_summary: payloadSummary,
     })
     .select()
     .single();
@@ -611,7 +658,7 @@ export async function executeProjectExport(
 export async function executeReportExport(
   reportIds: string[],
   destination: string,
-  options?: IntegrationClientOptions & { teamId?: string; orgId?: string }
+  options?: IntegrationClientOptions & { teamId?: string; orgId?: string; dispatchOptions?: DispatchOptions }
 ): Promise<AutomationExport> {
   const client = getClient(options);
   const {
@@ -629,6 +676,22 @@ export async function executeReportExport(
   const recordsCount = reports?.length || 0;
   if (recordsCount === 0) throw new Error('No non-deleted reports found.');
 
+  const payloadSummary: Record<string, any> = {
+    destination,
+    reports: reports || [],
+    exported_at: new Date().toISOString(),
+  };
+
+  if (options?.dispatchOptions) {
+    payloadSummary.dispatch = {
+      recipients: options.dispatchOptions.recipients || [],
+      subject: options.dispatchOptions.subject || '',
+      dispatched_at: new Date().toISOString(),
+      channel: destination === 'microsoft_outlook' ? 'outlook_email' : destination,
+      sender: options.dispatchOptions.senderEmail || user.email,
+    };
+  }
+
   const { data: exportRecord, error: expError } = await client
     .from('automation_exports')
     .insert({
@@ -639,11 +702,7 @@ export async function executeReportExport(
       destination,
       records_count: recordsCount,
       status: 'success',
-      payload_summary: {
-        destination,
-        reports: reports || [],
-        exported_at: new Date().toISOString(),
-      },
+      payload_summary: payloadSummary,
     })
     .select()
     .single();
@@ -660,6 +719,7 @@ export async function executeReportExport(
         export_type: 'report',
         destination,
         records_count: recordsCount,
+        ...(options?.dispatchOptions?.recipients ? { recipients: options.dispatchOptions.recipients } : {}),
       },
     });
   } catch {}
@@ -670,7 +730,7 @@ export async function executeReportExport(
 export async function executeBulkExport(
   requests: { type: ExportType; id: string }[],
   destination: string,
-  options?: IntegrationClientOptions & { teamId?: string; orgId?: string }
+  options?: IntegrationClientOptions & { teamId?: string; orgId?: string; dispatchOptions?: DispatchOptions }
 ): Promise<AutomationExport> {
   const client = getClient(options);
   const {

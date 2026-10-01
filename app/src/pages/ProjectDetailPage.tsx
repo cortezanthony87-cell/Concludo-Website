@@ -2554,24 +2554,42 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
 
           {actionAccess.isAllowed ? (
-            <button
-              type="button"
-              onClick={() => {
-                setNewActionTitle('');
-                setNewActionDescription('');
-                setNewActionOwner('');
-                setNewActionDueDate('');
-                setNewActionStatus('not_started');
-                setNewActionSourceOutputId(null);
-                setSaveActionError(null);
-                setShowSaveActionModal(true);
-              }}
-              className="btn btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-            >
-              <Plus size={15} />
-              <span>Save Action</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Link
+                to="/automation-export?destination=microsoft_outlook"
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.85rem',
+                  color: '#e2b53c',
+                  borderColor: 'rgba(226, 181, 60, 0.4)',
+                }}
+                title="Dispatch Action Plan via Outlook"
+              >
+                <Mail size={14} />
+                <span>Dispatch via Outlook</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewActionTitle('');
+                  setNewActionDescription('');
+                  setNewActionOwner('');
+                  setNewActionDueDate('');
+                  setNewActionStatus('not_started');
+                  setNewActionSourceOutputId(null);
+                  setSaveActionError(null);
+                  setShowSaveActionModal(true);
+                }}
+                className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              >
+                <Plus size={15} />
+                <span>Save Action</span>
+              </button>
+            </div>
           ) : (
             <span
               style={{

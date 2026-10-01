@@ -183,9 +183,9 @@ export const PROVIDER_CATALOG: ProviderMeta[] = [
     id: 'microsoft_outlook',
     name: 'Microsoft Outlook',
     category: 'Collaboration',
-    description: 'Draft or dispatch structured follow-up emails and meeting recaps to attendees.',
+    description: 'Draft or dispatch structured follow-up emails, action plans, and meeting recaps to attendees.',
     iconName: 'Mail',
-    exportTypes: ['project', 'report', 'decision'],
+    exportTypes: ['action', 'project', 'report', 'decision', 'bulk'],
   },
   {
     id: 'trello',

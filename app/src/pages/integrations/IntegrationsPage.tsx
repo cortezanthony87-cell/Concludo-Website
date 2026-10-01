@@ -23,6 +23,8 @@ import {
   X,
   Plus,
   Play,
+  Send,
+  User,
 } from 'lucide-react';
 import {
   fetchIntegrations,
@@ -38,6 +40,7 @@ import {
   PROVIDER_CATALOG,
   ProviderMeta,
 } from '../../lib/integrations/types';
+import { OAuthConnectModal } from '../../components/integrations/OAuthConnectModal';
 
 export const IntegrationsPage: React.FC = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -47,6 +50,7 @@ export const IntegrationsPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedProvider, setSelectedProvider] = useState<ProviderMeta | null>(null);
+  const [authModalProvider, setAuthModalProvider] = useState<ProviderMeta | null>(null);
   const [configSettings, setConfigSettings] = useState<string>('{}');
 
   const loadData = async () => {
@@ -301,8 +305,15 @@ export const IntegrationsPage: React.FC = () => {
                     {provider.description}
                   </p>
 
+                  {connected?.settings?.account_email && (
+                    <div className="mt-2.5 px-2 py-1 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 flex items-center gap-1.5">
+                      <User className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                      <span className="font-mono truncate">{connected.settings.account_email}</span>
+                    </div>
+                  )}
+
                   {connected?.last_sync_at && (
-                    <div className="mt-3 text-[11px] text-slate-400">
+                    <div className="mt-2 text-[11px] text-slate-400">
                       Last sync: {new Date(connected.last_sync_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   )}
@@ -311,28 +322,38 @@ export const IntegrationsPage: React.FC = () => {
                 <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
                   {isConnected ? (
                     <>
-                      <button
-                        onClick={() => handleSync(connected.id)}
-                        disabled={actionLoading !== null}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-medium transition flex items-center gap-1.5"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5 text-amber-400" /> Sync Now
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleSync(connected.id)}
+                          disabled={actionLoading !== null}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1.5"
+                          title="Trigger immediate sync"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-amber-400" /> Sync
+                        </button>
+                        <Link
+                          to={`/automation-export?destination=${provider.id}`}
+                          className="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1"
+                          title="Export Action Plan or Project Outputs"
+                        >
+                          <Send className="w-3 h-3" /> Export
+                        </Link>
+                      </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => {
                             setSelectedProvider(provider);
                             setConfigSettings(JSON.stringify(connected.settings, null, 2));
                           }}
-                          className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
-                          title="Configure"
+                          className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                          title="Configure Settings"
                         >
                           <Settings className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDisconnect(connected.id)}
                           disabled={actionLoading !== null}
-                          className="px-2.5 py-1 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded text-xs font-medium transition"
+                          className="px-2.5 py-1 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg text-xs font-medium transition"
                         >
                           Disconnect
                         </button>
@@ -340,9 +361,9 @@ export const IntegrationsPage: React.FC = () => {
                     </>
                   ) : (
                     <button
-                      onClick={() => handleConnect(provider.id)}
+                      onClick={() => setAuthModalProvider(provider)}
                       disabled={actionLoading !== null}
-                      className="btn-connect-gold w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1.5"
+                      className="btn-connect-gold w-full py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <Plus className="w-4 h-4" /> Connect {provider.name}
                     </button>
@@ -353,6 +374,18 @@ export const IntegrationsPage: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* OAuth Sign-In Modal */}
+      <OAuthConnectModal
+        isOpen={!!authModalProvider}
+        provider={authModalProvider}
+        onClose={() => setAuthModalProvider(null)}
+        onSuccess={async (newInteg) => {
+          setAuthModalProvider(null);
+          setSuccessMessage(`Successfully connected to ${newInteg.provider.replace('_', ' ').toUpperCase()}!`);
+          await loadData();
+        }}
+      />
 
       {/* Settings Modal */}
       {selectedProvider && (
