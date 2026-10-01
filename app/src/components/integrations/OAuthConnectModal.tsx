@@ -58,10 +58,10 @@ export const OAuthConnectModal: React.FC<OAuthConnectModalProps> = ({
         if (user?.email) {
           setAccountEmail(user.email);
         } else {
-          setAccountEmail('anthony@concludo.au');
+          setAccountEmail('');
         }
       } catch {
-        setAccountEmail('anthony@concludo.au');
+        setAccountEmail('');
       }
     };
     initUser();
@@ -270,7 +270,7 @@ export const OAuthConnectModal: React.FC<OAuthConnectModalProps> = ({
                     type="email"
                     value={accountEmail}
                     onChange={(e) => setAccountEmail(e.target.value)}
-                    placeholder="e.g. anthony@concludo.au"
+                    placeholder="e.g. your-name@company.com"
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-medium"
                   />
                   <div className="absolute right-3 top-2.5 text-slate-500">
