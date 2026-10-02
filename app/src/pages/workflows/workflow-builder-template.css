@@ -28,7 +28,18 @@
   --font-m: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
 }
 
+
+/* WorkspaceLayout Full-Bleed Embedding */
+.main-content-area:has(.wb-app) {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
 .wb-app {
+  width: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -57,26 +68,33 @@
 
 /* ---------- Header Bar ---------- */
 .wb-hdr {
-  height: 56px;
-  flex: 0 0 56px;
+  min-height: 56px;
+  flex: 0 0 auto;
   background: var(--navy);
   border-bottom: 1px solid var(--navy2);
   display: flex;
   align-items: center;
-  gap: var(--s2);
-  padding: 0 var(--s2);
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px var(--s2);
   z-index: 20;
 }
 
-.wb-hdr-l, .wb-hdr-r {
+.wb-hdr-l {
   display: flex;
   align-items: center;
   gap: var(--s1);
-  flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 .wb-hdr-r {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   margin-left: auto;
+  justify-content: flex-end;
 }
 
 .wb-back {
