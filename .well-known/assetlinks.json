@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.concludo.app",
+      "sha256_cert_fingerprints": [
+        "DA:7E:F1:AA:7F:1E:99:D3:0A:E2:36:16:EE:5A:92:68:83:2E:C7:0F:D0:81:D3:10:DD:A9:17:EB:BC:BF:0E:27",
+        "A3:15:CD:2A:75:85:B5:ED:71:D7:7A:A5:0B:20:69:96:0A:B1:96:C4:65:8B:0B:F7:C8:58:7B:63:33:FC:0B:04"
+      ]
+    }
+  }
+]
