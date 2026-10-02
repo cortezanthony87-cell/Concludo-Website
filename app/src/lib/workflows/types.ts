@@ -54,6 +54,19 @@ export type WorkflowExecutionType =
   | 'automatic'
   | 'manual_only';
 
+export type WorkflowRiskLevel = 'low' | 'medium' | 'high' | 'restricted';
+
+export type WorkflowStatus =
+  | 'draft'
+  | 'submitted_for_review'
+  | 'approved'
+  | 'published'
+  | 'paused'
+  | 'degraded'
+  | 'failed'
+  | 'deprecated'
+  | 'archived';
+
 export interface WorkflowRecord {
   id: string;
   owner_id: string;
@@ -67,6 +80,19 @@ export interface WorkflowRecord {
   actions: WorkflowAction[];
   execution_type: WorkflowExecutionType;
   is_active: boolean;
+  status?: WorkflowStatus;
+  risk_level?: WorkflowRiskLevel;
+  risk_reasons?: string[];
+  risk_override_by?: string | null;
+  test_status?: 'untested' | 'passed' | 'stale' | 'failed';
+  is_emergency_stopped?: boolean;
+  emergency_stopped_at?: string | null;
+  emergency_stopped_by?: string | null;
+  emergency_stop_reason?: string | null;
+  current_version?: number;
+  definition_json?: Record<string, any>;
+  graph_data?: Record<string, any>;
+  published_version_id?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
@@ -81,7 +107,9 @@ export type WorkflowExecutionStatus =
   | 'failed'
   | 'requires_approval'
   | 'rejected'
-  | 'cancelled';
+  | 'cancelled'
+  | 'outcome_uncertain'
+  | 'emergency_stopped';
 
 export interface WorkflowExecutionRecord {
   id: string;
@@ -118,4 +146,176 @@ export interface WorkflowApprovalRecord {
   approved_at?: string | null;
   rejected_at?: string | null;
   workflow?: Partial<WorkflowRecord>;
+}
+
+// Phase 4 Governance, Risk, Policies, and Hardening Types
+
+export type PolicyEvaluationResult =
+  | 'ALLOW'
+  | 'ALLOW_WITH_APPROVAL'
+  | 'REQUIRE_CONFIGURATION'
+  | 'DENY';
+
+export interface WorkflowPolicyRule {
+  policyKey: string;
+  policyName: string;
+  description: string;
+  isEnabled: boolean;
+  rules: Record<string, any>;
+}
+
+export interface PolicyEvaluationOutput {
+  status: PolicyEvaluationResult;
+  violations: string[];
+  warnings: string[];
+  plainLanguageSummary: string;
+  requiredApprovals: string[];
+}
+
+export type WorkflowIncidentSeverity = 'SEV_1' | 'SEV_2' | 'SEV_3' | 'SEV_4';
+
+export type WorkflowIncidentStatus =
+  | 'open'
+  | 'acknowledged'
+  | 'investigating'
+  | 'contained'
+  | 'resolved'
+  | 'closed';
+
+export interface WorkflowIncidentRecord {
+  id: string;
+  incidentNumber?: number;
+  organizationId: string;
+  workflowId: string;
+  workflowName?: string;
+  versionNumber?: number;
+  runId?: string | null;
+  connector?: string | null;
+  stepKey: string;
+  severity: WorkflowIncidentSeverity;
+  status: WorkflowIncidentStatus;
+  summary: string;
+  technicalClassification: string;
+  customerSafeExplanation: string;
+  errorMessage: string;
+  dataAffected?: string[];
+  objectsAffected?: string[];
+  containmentStatus?: 'none' | 'contained' | 'monitoring' | 'resolved';
+  ownerId?: string | null;
+  timeline?: { timestamp: string; note: string; actor: string }[];
+  rootCause?: string | null;
+  preventiveAction?: string | null;
+  resolutionNotes?: string | null;
+  firstDetected: string;
+  lastDetected: string;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+}
+
+export type WorkflowAuditEventType =
+  | 'workflow_created'
+  | 'workflow_changed'
+  | 'validation_performed'
+  | 'test_performed'
+  | 'dry_run_performed'
+  | 'submitted_for_review'
+  | 'approved'
+  | 'rejected'
+  | 'published'
+  | 'paused'
+  | 'resumed'
+  | 'rolled_back'
+  | 'connection_added'
+  | 'connection_tested'
+  | 'connection_revoked'
+  | 'approval_issued'
+  | 'approval_completed'
+  | 'run_started'
+  | 'step_started'
+  | 'step_retried'
+  | 'step_succeeded'
+  | 'step_failed'
+  | 'incident_created'
+  | 'incident_acknowledged'
+  | 'incident_resolved'
+  | 'policy_changed'
+  | 'emergency_stop_invoked'
+  | 'emergency_stop_released'
+  | 'dead_letter_captured';
+
+export interface WorkflowAuditEvent {
+  id?: string;
+  organizationId: string;
+  actorId?: string | null;
+  actorEmail?: string | null;
+  eventType: WorkflowAuditEventType;
+  objectType: string;
+  objectId: string;
+  objectVersion?: number | null;
+  requestId?: string | null;
+  runId?: string | null;
+  workflowId?: string | null;
+  stepKey?: string | null;
+  policyResult?: string | null;
+  source?: string;
+  outcome: 'SUCCESS' | 'FAILURE' | 'WARNING' | 'DENIED';
+  metadata?: Record<string, any>;
+  createdAt?: string;
+}
+
+export type ErrorTaxonomyCategory =
+  | 'VALIDATION_ERROR'
+  | 'CONFIGURATION_ERROR'
+  | 'PERMISSION_ERROR'
+  | 'AUTHENTICATION_ERROR'
+  | 'CONNECTION_ERROR'
+  | 'RATE_LIMIT_ERROR'
+  | 'TRANSIENT_PROVIDER_ERROR'
+  | 'PERMANENT_PROVIDER_ERROR'
+  | 'TIMEOUT_ERROR'
+  | 'POLICY_ERROR'
+  | 'APPROVAL_ERROR'
+  | 'DATA_MAPPING_ERROR'
+  | 'DUPLICATE_EVENT'
+  | 'OUTCOME_UNCERTAIN'
+  | 'INTERNAL_ERROR';
+
+export interface NormalizedError {
+  category: ErrorTaxonomyCategory;
+  isRetryable: boolean;
+  plainLanguage: string;
+  technicalDetails: string;
+  code: string;
+  reconciliationRequired?: boolean;
+}
+
+export interface WorkflowProvenanceRecord {
+  id?: string;
+  organizationId: string;
+  resourceType: string;
+  resourceId: string;
+  sourceType: 'meeting_transcript' | 'document' | 'crm_deal' | 'webhook_payload' | 'manual_input';
+  sourceId: string;
+  sourceLocation?: string | null;
+  workflowId: string;
+  workflowVersion: number;
+  runId?: string | null;
+  agentId?: string | null;
+  createdAt?: string;
+}
+
+export interface WorkflowPublishChecklist {
+  isValidDefinition: boolean;
+  hasAssignedOwner: boolean;
+  areConnectionsHealthy: boolean;
+  arePermissionsValid: boolean;
+  arePoliciesSatisfied: boolean;
+  areRequiredApprovalsPresent: boolean;
+  isTestCurrent: boolean;
+  isDryRunCurrent: boolean;
+  hasNoBlockingIncidents: boolean;
+  hasNoUncertainOutcomes: boolean;
+  isRollbackAvailable: boolean;
+  readyToPublish: boolean;
+  blockingReasons: string[];
 }

@@ -45,6 +45,9 @@ import { ApiAccessPage } from './pages/api/ApiAccessPage';
 import { AgentsPage } from './pages/agents/AgentsPage';
 import { AgentDashboardPage } from './pages/agents/AgentDashboardPage';
 import { WorkflowsPage } from './pages/workflows/WorkflowsPage';
+import { WorkflowBuilderPage } from './pages/workflows/WorkflowBuilderPage';
+import { ConnectorCentrePage } from './pages/workflows/ConnectorCentrePage';
+import { WorkflowGovernancePage } from './pages/workflows/WorkflowGovernancePage';
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
 
 // Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Pages
@@ -160,6 +163,9 @@ export const App: React.FC = () => {
             <Route path="/agents" element={<AgentsPage />} />
             <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
             <Route path="/workflows" element={<WorkflowsPage />} />
+            <Route path="/workflows/builder" element={<WorkflowBuilderPage />} />
+            <Route path="/workflows/governance" element={<WorkflowGovernancePage />} />
+            <Route path="/connections" element={<ConnectorCentrePage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
 
             {/* Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Routes */}

@@ -1,3 +1,4 @@
+import { Plus, Boxes } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -178,12 +179,19 @@ export const WorkflowsPage: React.FC = () => {
 
           <div className="flex items-center space-x-3">
             <Link
+              to="/workflows/governance"
+              className="px-3.5 py-2 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C]/40 rounded-lg text-sm font-medium transition flex items-center gap-1.5"
+            >
+              Governance Centre
+            </Link>
+            <Link
               to="/approvals"
               className="px-4 py-2 bg-[#16263F] hover:bg-[#21395C] text-white border border-[#21395C] rounded-lg text-sm font-medium transition"
             >
               Approval Centre
             </Link>
-            <button
+            <Link to="/workflows/builder" className="btn-primary flex items-center space-x-2"><Plus className="w-4 h-4" /><span>Create Workflow</span></Link>
+            <button style={{display: "none"}}
               onClick={() => setShowCreateModal(true)}
               className="px-4 py-2 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] font-semibold rounded-lg text-sm transition shadow"
             >
