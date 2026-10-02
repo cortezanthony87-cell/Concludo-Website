@@ -399,7 +399,15 @@ export const WorkflowBuilderPage: React.FC = () => {
 
           <span className={riskPillClass}>Risk&nbsp;&nbsp;{riskTier}</span>
 
-          <Link to="/workflows/governance" className="wb-gov">
+          <Link to="/workflows/runs" className="wb-gov" title="View execution runs and audit logs">
+            Workflow Runs
+          </Link>
+
+          <Link to="/approvals" className="wb-gov" title="View pending human sign-off approvals">
+            Approval Centre
+          </Link>
+
+          <Link to="/workflows/governance" className="wb-gov" title="View organisation governance policies">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M12 2l8 4v6c0 5-3.4 8.9-8 10-4.6-1.1-8-5-8-10V6z" />
             </svg>
@@ -408,7 +416,7 @@ export const WorkflowBuilderPage: React.FC = () => {
 
           <button
             className="wb-btn"
-            style={{ marginLeft: '8px' }}
+            style={{ marginLeft: '6px' }}
             onClick={() => setIsPickerOpen(true)}
             title="Start from one of 20 enterprise templates"
           >

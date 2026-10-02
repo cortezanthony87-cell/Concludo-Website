@@ -517,9 +517,9 @@ export const WorkspaceLayout: React.FC = () => {
                 </NavLink>
 
                 <NavLink
-                  to="/workflows"
+                  to="/workflows/builder"
                   className={({ isActive }) =>
-                    isActive ? 'sidebar-link active' : 'sidebar-link'
+                    isActive || window.location.pathname.startsWith('/workflows') ? 'sidebar-link active' : 'sidebar-link'
                   }
                 >
                   <Workflow size={18} />

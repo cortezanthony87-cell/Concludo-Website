@@ -120,11 +120,11 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
         )}
 
         {/* Trigger and Action Capabilities Pills */}
-        <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400">
-          <span className="px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/50">
+        <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-400">
+          <span className="px-2 py-0.5 rounded bg-[#16263F] border border-[#21395C] text-slate-300">
             {provider.triggers.length} {provider.triggers.length === 1 ? 'Trigger' : 'Triggers'}
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/50">
+          <span className="px-2 py-0.5 rounded bg-[#16263F] border border-[#21395C] text-slate-300">
             {provider.actions.length} {provider.actions.length === 1 ? 'Action' : 'Actions'}
           </span>
         </div>

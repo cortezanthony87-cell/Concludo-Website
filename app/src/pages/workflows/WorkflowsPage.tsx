@@ -177,32 +177,32 @@ export const WorkflowsPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-3">
             <Link
               to="/workflows/runs"
-              className="px-3.5 py-2 bg-[#16263F] hover:bg-[#21395C] text-white border border-[#21395C] rounded-lg text-sm font-medium transition flex items-center gap-1.5"
+              className="px-4 py-2 bg-[#16263F] hover:bg-[#21395C] text-white border border-[#21395C] rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm"
             >
               Workflow Runs
             </Link>
             <Link
               to="/workflows/governance"
-              className="px-3.5 py-2 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C]/40 rounded-lg text-sm font-medium transition flex items-center gap-1.5"
+              className="px-4 py-2 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C]/40 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm"
             >
               Governance Centre
             </Link>
             <Link
               to="/approvals"
-              className="px-4 py-2 bg-[#16263F] hover:bg-[#21395C] text-white border border-[#21395C] rounded-lg text-sm font-medium transition"
+              className="px-4 py-2 bg-[#16263F] hover:bg-[#21395C] text-white border border-[#21395C] rounded-lg text-sm font-medium transition shadow-sm"
             >
               Approval Centre
             </Link>
-            <Link to="/workflows/builder" className="btn-primary flex items-center space-x-2"><Plus className="w-4 h-4" /><span>Create Workflow</span></Link>
-            <button style={{display: "none"}}
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] font-semibold rounded-lg text-sm transition shadow"
+            <Link
+              to="/workflows/builder"
+              className="px-4 py-2 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-sm transition shadow flex items-center gap-2"
             >
-              + Create Workflow
-            </button>
+              <Plus className="w-4 h-4 text-[#0E1726]" />
+              <span>Create Workflow</span>
+            </Link>
           </div>
         </div>
 
@@ -226,7 +226,7 @@ export const WorkflowsPage: React.FC = () => {
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-[#21395C] space-x-6 text-sm font-medium">
+        <div className="flex border-b border-[#21395C] gap-6 text-sm font-medium">
           <button
             onClick={() => setActiveTab('workflows')}
             className={`pb-3 border-b-2 transition ${
@@ -260,12 +260,13 @@ export const WorkflowsPage: React.FC = () => {
                 <p className="text-xs text-gray-400 max-w-md mx-auto">
                   Create automated workflows to link completed meetings to summaries, tasks, and notifications with built-in human sign-off.
                 </p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="px-4 py-2 bg-[#E2B53C] text-[#0E1726] font-semibold rounded-lg text-xs"
+                <Link
+                  to="/workflows/builder"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-xs transition shadow"
                 >
-                  Create First Workflow
-                </button>
+                  <Plus className="w-4 h-4 text-[#0E1726]" />
+                  <span>Create First Workflow</span>
+                </Link>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
