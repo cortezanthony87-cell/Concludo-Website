@@ -57,6 +57,7 @@ const routes = [
   'workflows',
   'workflows/builder',
   'workflows/governance',
+  'workflows/runs',
   'connections',
   'approvals',
   'predictive-intelligence',
