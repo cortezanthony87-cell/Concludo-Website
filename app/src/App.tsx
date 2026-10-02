@@ -48,6 +48,7 @@ import { WorkflowsPage } from './pages/workflows/WorkflowsPage';
 import { WorkflowBuilderPage } from './pages/workflows/WorkflowBuilderPage';
 import { ConnectorCentrePage } from './pages/workflows/ConnectorCentrePage';
 import { WorkflowGovernancePage } from './pages/workflows/WorkflowGovernancePage';
+import { WorkflowRunsPage } from './pages/workflows/WorkflowRunsPage';
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
 
 // Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Pages
@@ -165,6 +166,7 @@ export const App: React.FC = () => {
             <Route path="/workflows" element={<WorkflowsPage />} />
             <Route path="/workflows/builder" element={<WorkflowBuilderPage />} />
             <Route path="/workflows/governance" element={<WorkflowGovernancePage />} />
+            <Route path="/workflows/runs" element={<WorkflowRunsPage />} />
             <Route path="/connections" element={<ConnectorCentrePage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
 

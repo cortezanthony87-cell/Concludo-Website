@@ -1,431 +1,373 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CheckSquare,
-  ListTodo,
-  MessageSquare,
-  Mail,
-  Columns3,
-  CheckCircle2,
-  CalendarCheck,
-  Boxes,
-  CheckCircle,
-  BookOpen,
-  Hash,
-  Briefcase,
-  Cloud,
+  Search,
+  Filter,
   RefreshCw,
   History,
-  ExternalLink,
-  Settings,
-  AlertCircle,
-  Check,
-  X,
-  Plus,
   Play,
-  Send,
-  User,
+  Layers,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowRight,
+  ShieldCheck,
+  Plus,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import {
-  fetchIntegrations,
-  connectIntegration,
-  reconnectIntegration,
-  disconnectIntegration,
-  triggerSync,
-  updateIntegrationSettings,
-} from '../../lib/integrations/integrationClient';
-import {
-  Integration,
-  IntegrationProvider,
-  PROVIDER_CATALOG,
-  ProviderMeta,
-} from '../../lib/integrations/types';
-import { OAuthConnectModal } from '../../components/integrations/OAuthConnectModal';
+  INTEGRATION_PROVIDERS_CATALOG,
+  INTEGRATION_CATEGORIES,
+  IntegrationCategory,
+  ProviderDefinition,
+  IntegrationConnection,
+  integrationsHubService,
+} from '../../lib/integrations/hubRegistry';
+import { IntegrationCard } from '../../components/integrations/IntegrationCard';
+import { IntegrationDetailDrawer } from '../../components/integrations/IntegrationDetailDrawer';
+import { RealConnectionModal } from '../../components/integrations/RealConnectionModal';
 
 export const IntegrationsPage: React.FC = () => {
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [connections, setConnections] = useState<IntegrationConnection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedProvider, setSelectedProvider] = useState<ProviderMeta | null>(null);
-  const [authModalProvider, setAuthModalProvider] = useState<ProviderMeta | null>(null);
-  const [configSettings, setConfigSettings] = useState<string>('{}');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<IntegrationCategory>('All Apps');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'connected' | 'not_connected'>('all');
+  
+  // Modal & Drawer State
+  const [selectedProvider, setSelectedProvider] = useState<ProviderDefinition | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [authModalProvider, setAuthModalProvider] = useState<ProviderDefinition | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const loadData = async () => {
+  const loadConnections = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const data = await fetchIntegrations();
-      setIntegrations(data);
+      const data = await integrationsHubService.getConnections();
+      setConnections(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load integrations. Please try again.');
+      console.error('Failed to load connections:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadConnections();
   }, []);
 
-  const getIntegrationForProvider = (providerId: IntegrationProvider) => {
-    return integrations.find((i) => i.provider === providerId);
-  };
-
-  const handleConnect = async (provider: IntegrationProvider) => {
-    setActionLoading(`Connecting to ${provider}...`);
-    setError(null);
-    try {
-      await connectIntegration(provider);
-      setSuccessMessage(`Successfully connected to ${provider.replace('_', ' ').toUpperCase()}!`);
-      await loadData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect integration.');
-    } finally {
-      setActionLoading(null);
+  const connectionsMap = useMemo(() => {
+    const map = new Map<string, IntegrationConnection>();
+    for (const c of connections) {
+      map.set(c.provider_id, c);
     }
-  };
+    return map;
+  }, [connections]);
 
-  const handleDisconnect = async (integrationId: string) => {
-    setActionLoading('Disconnecting integration...');
-    setError(null);
-    try {
-      await disconnectIntegration(integrationId);
-      setSuccessMessage('Integration disconnected successfully.');
-      await loadData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to disconnect integration.');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  // Enhanced search across app name, category, and capabilities (e.g. "email", "accounting", "crm")
+  const filteredProviders = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
 
-  const handleSync = async (integrationId: string) => {
-    setActionLoading('Syncing data...');
-    setError(null);
-    try {
-      const log = await triggerSync(integrationId);
-      setSuccessMessage(
-        `Sync completed: ${log.records_processed} records processed in ${log.duration_ms}ms.`
+    return INTEGRATION_PROVIDERS_CATALOG.filter((p) => {
+      // 1. Category Filter
+      if (selectedCategory === 'Connected') {
+        const isConn = connectionsMap.has(p.id) && connectionsMap.get(p.id)?.status === 'connected';
+        if (!isConn) return false;
+      } else if (selectedCategory !== 'All Apps' && p.category !== selectedCategory) {
+        return false;
+      }
+
+      // 2. Status Filter
+      if (statusFilter === 'connected') {
+        const isConn = connectionsMap.has(p.id) && connectionsMap.get(p.id)?.status === 'connected';
+        if (!isConn) return false;
+      } else if (statusFilter === 'not_connected') {
+        const isConn = connectionsMap.has(p.id) && connectionsMap.get(p.id)?.status === 'connected';
+        if (isConn) return false;
+      }
+
+      // 3. Search Query Filter (App Name, Category, Description, Triggers, Actions)
+      if (!q) return true;
+
+      const matchName = p.name.toLowerCase().includes(q);
+      const matchCat = p.category.toLowerCase().includes(q);
+      const matchDesc = p.description.toLowerCase().includes(q);
+      const matchTriggers = p.triggers.some((t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
+      const matchActions = p.actions.some((a) => a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q));
+
+      // Keyword Synonyms
+      const isEmailQuery = q === 'email' || q === 'mail';
+      const isEmailProvider = p.id === 'microsoft_outlook' || p.id === 'gmail' || p.id === 'mailchimp' || p.id === 'email_universal';
+
+      const isAccountingQuery = q === 'accounting' || q === 'finance' || q === 'invoice';
+      const isAccountingProvider = p.category === 'Accounting & Finance' || p.id === 'xero' || p.id === 'myob' || p.id === 'quickbooks';
+
+      const isCrmQuery = q === 'crm' || q === 'sales' || q === 'leads';
+      const isCrmProvider = p.category === 'CRM & Sales' || p.id === 'salesforce' || p.id === 'hubspot' || p.id === 'dynamics_365';
+
+      return (
+        matchName ||
+        matchCat ||
+        matchDesc ||
+        matchTriggers ||
+        matchActions ||
+        (isEmailQuery && isEmailProvider) ||
+        (isAccountingQuery && isAccountingProvider) ||
+        (isCrmQuery && isCrmProvider)
       );
-      await loadData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to sync records.');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+    });
+  }, [searchQuery, selectedCategory, statusFilter, connectionsMap]);
 
-  const handleSaveSettings = async () => {
-    if (!selectedProvider) return;
-    const existing = getIntegrationForProvider(selectedProvider.id);
-    if (!existing) return;
-
-    setActionLoading('Saving settings...');
+  const handleTestConnection = async (connection: IntegrationConnection) => {
+    setTestingId(connection.id);
     try {
-      const parsed = JSON.parse(configSettings);
-      await updateIntegrationSettings(existing.id, parsed);
-      setSelectedProvider(null);
-      setSuccessMessage('Integration settings updated successfully.');
-      await loadData();
+      const res = await integrationsHubService.testConnection(connection.id);
+      if (res.success) {
+        setToastMessage({ type: 'success', text: `${connection.connection_name}: ${res.message}` });
+      } else {
+        setToastMessage({ type: 'error', text: `${connection.connection_name}: ${res.message}` });
+      }
+      await loadConnections();
     } catch (err: any) {
-      setError('Invalid JSON settings format.');
+      setToastMessage({ type: 'error', text: err.message || 'Connection test failed.' });
     } finally {
-      setActionLoading(null);
+      setTestingId(null);
     }
   };
 
-  const categories = ['All', 'Project Management', 'Collaboration', 'Documentation', 'CRM'];
-
-  const filteredCatalog = PROVIDER_CATALOG.filter(
-    (p) => selectedCategory === 'All' || p.category === selectedCategory
-  );
-
-  const getIcon = (name: string) => {
-    switch (name) {
-      case 'CheckSquare':
-        return <CheckSquare className="w-6 h-6 text-indigo-400" />;
-      case 'ListTodo':
-        return <ListTodo className="w-6 h-6 text-blue-400" />;
-      case 'MessageSquare':
-        return <MessageSquare className="w-6 h-6 text-purple-400" />;
-      case 'Mail':
-        return <Mail className="w-6 h-6 text-sky-400" />;
-      case 'Trello':
-        return <Columns3 className="w-6 h-6 text-blue-500" />;
-      case 'CheckCircle2':
-        return <CheckCircle2 className="w-6 h-6 text-rose-400" />;
-      case 'CalendarCheck':
-        return <CalendarCheck className="w-6 h-6 text-yellow-400" />;
-      case 'Boxes':
-        return <Boxes className="w-6 h-6 text-blue-600" />;
-      case 'CheckCircle':
-        return <CheckCircle className="w-6 h-6 text-pink-400" />;
-      case 'BookOpen':
-        return <BookOpen className="w-6 h-6 text-emerald-400" />;
-      case 'Hash':
-        return <Hash className="w-6 h-6 text-teal-400" />;
-      case 'Briefcase':
-        return <Briefcase className="w-6 h-6 text-orange-400" />;
-      case 'Cloud':
-        return <Cloud className="w-6 h-6 text-sky-500" />;
-      default:
-        return <CheckCircle className="w-6 h-6 text-amber-400" />;
-    }
+  const handleOpenManage = (provider: ProviderDefinition, connection: IntegrationConnection) => {
+    setSelectedProvider(provider);
+    setIsDrawerOpen(true);
   };
+
+  const handleStartConnect = (provider: ProviderDefinition) => {
+    setAuthModalProvider(provider);
+  };
+
+  const connectedCount = useMemo(() => {
+    return connections.filter((c) => c.status === 'connected').length;
+  }, [connections]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-700/60 pb-6">
+      {/* Top Banner / Breadcrumb Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Integrations & Workflows</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              Pro & Enterprise
+            <h1 className="text-2xl font-bold text-white tracking-tight">Integrations Hub</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              {connectedCount} Connected
             </span>
           </div>
           <p className="text-slate-400 text-sm mt-1">
-            Connect operational tools, task managers, documentation wikis, and CRMs to automate action and decision dispatch.
+            Connect your organisation's business applications to execute automated workflow triggers and actions.
           </p>
         </div>
+
         <div className="flex items-center gap-3">
           <Link
-            to="/automation-export"
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
+            to="/workflows/builder"
+            className="px-4 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-sm"
           >
-            <Play className="w-4 h-4" /> Export Actions & Decisions
+            <Play className="w-3.5 h-3.5 fill-current" /> Open Workflow Builder
           </Link>
           <Link
             to="/integrations/history"
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition border border-slate-700 flex items-center gap-2"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition border border-slate-700 flex items-center gap-2"
           >
-            <History className="w-4 h-4" /> View Sync Logs
+            <History className="w-3.5 h-3.5" /> Sync Logs
           </Link>
         </div>
       </div>
 
-      {/* Notifications */}
-      {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-sm flex items-center justify-between">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          className={`p-4 rounded-xl text-xs flex items-center justify-between shadow-lg transition-all animate-fade-in ${
+            toastMessage.type === 'success'
+              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span>{error}</span>
+            {toastMessage.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            )}
+            <span>{toastMessage.text}</span>
           </div>
-          <button
-            onClick={loadData}
-            className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 rounded text-xs font-medium"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-sm flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Check className="w-5 h-5 flex-shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-          <button onClick={() => setSuccessMessage(null)} className="text-emerald-400 hover:text-white">
+          <button onClick={() => setToastMessage(null)} className="p-1 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {actionLoading && (
-        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-300 text-sm flex items-center gap-2 animate-pulse">
-          <RefreshCw className="w-4 h-4 animate-spin" />
-          <span>{actionLoading}</span>
+      {/* Search and Filter Controls */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Global Search Bar */}
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search integrations by name, category, or capability (e.g. email, Xero, CRM)..."
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400 transition"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-3 text-slate-400 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Quick Connection Status Toggle */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 rounded-xl border border-slate-800 text-xs font-medium w-full md:w-auto">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 py-1.5 rounded-lg transition ${
+              statusFilter === 'all' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            All Apps
+          </button>
+          <button
+            onClick={() => setStatusFilter('connected')}
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+              statusFilter === 'connected' ? 'bg-emerald-500/20 text-emerald-400 font-semibold' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Connected ({connectedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('not_connected')}
+            className={`px-3 py-1.5 rounded-lg transition ${
+              statusFilter === 'not_connected' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Available to Connect
+          </button>
+        </div>
+      </div>
+
+      {/* 16 Marketplace Categories Carousel / Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-800/80">
+        {INTEGRATION_CATEGORIES.map((cat) => {
+          const isActive = selectedCategory === cat;
+          return (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap font-medium transition ${
+                isActive
+                  ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
+                  : 'bg-slate-900/80 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+              }`}
+            >
+              {cat}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Australian Organization Spotlight Banner (when Accounting & Finance or All Apps) */}
+      {(selectedCategory === 'All Apps' || selectedCategory === 'Accounting & Finance') && !searchQuery && (
+        <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/20 border border-amber-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E2B53C] text-slate-950 uppercase tracking-wider">
+              AU Core
+            </span>
+            <span className="text-xs font-semibold text-white">
+              Australian Business Standards: Native Xero & MYOB Connectors
+            </span>
+            <span className="text-xs text-slate-400 hidden lg:inline">
+              Create sales invoices, sync contacts with ABN validation, and trigger workflows on client payments.
+            </span>
+          </div>
+          <button
+            onClick={() => setSelectedCategory('Accounting & Finance')}
+            className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
+          >
+            Explore Accounting <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
-      {/* Categories Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap ${
-              selectedCategory === cat
-                ? 'bg-amber-400 text-slate-900 font-semibold'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Integrations Grid */}
+      {/* App Grid */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 text-slate-400">
-          <RefreshCw className="w-8 h-8 animate-spin mb-3 text-amber-400" />
-          <p className="text-sm">Loading Integrations...</p>
+        <div className="py-20 text-center space-y-3">
+          <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
+          <p className="text-xs text-slate-400">Loading Integrations Catalog...</p>
+        </div>
+      ) : filteredProviders.length === 0 ? (
+        <div className="p-12 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-3">
+          <Filter className="w-8 h-8 text-slate-500 mx-auto" />
+          <h3 className="text-sm font-semibold text-white">No integrations match your search</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Try adjusting your search terms or filter category to discover available business applications.
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedCategory('All Apps');
+              setStatusFilter('all');
+            }}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-lg transition"
+          >
+            Clear Filters
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCatalog.map((provider) => {
-            const connected = getIntegrationForProvider(provider.id);
-            const isConnected = connected && connected.status === 'connected';
-            const isSyncing = connected && connected.status === 'syncing';
-
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredProviders.map((provider) => {
+            const conn = connectionsMap.get(provider.id) || null;
             return (
-              <div
+              <IntegrationCard
                 key={provider.id}
-                className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-slate-700 transition"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="p-2.5 bg-slate-800/80 rounded-lg border border-slate-700/60">
-                      {getIcon(provider.iconName)}
-                    </div>
-                    {isConnected ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Connected
-                      </span>
-                    ) : isSyncing ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
-                        <RefreshCw className="w-3 h-3 animate-spin" /> Syncing
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
-                        Disconnected
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-base font-semibold text-white mt-4">{provider.name}</h3>
-                  <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block mt-0.5">
-                    {provider.category}
-                  </span>
-                  <p className="text-slate-400 text-xs mt-2 line-clamp-2 leading-relaxed">
-                    {provider.description}
-                  </p>
-
-                  {connected?.settings?.account_email && (
-                    <div className="mt-2.5 px-2 py-1 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 flex items-center gap-1.5">
-                      <User className="w-3 h-3 text-amber-400 flex-shrink-0" />
-                      <span className="font-mono truncate">{connected.settings.account_email}</span>
-                    </div>
-                  )}
-
-                  {connected?.last_sync_at && (
-                    <div className="mt-2 text-[11px] text-slate-400">
-                      Last sync: {new Date(connected.last_sync_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                  {isConnected ? (
-                    <>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleSync(connected.id)}
-                          disabled={actionLoading !== null}
-                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1.5"
-                          title="Trigger immediate sync"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5 text-amber-400" /> Sync
-                        </button>
-                        <Link
-                          to={`/automation-export?destination=${provider.id}`}
-                          className="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1"
-                          title="Export Action Plan or Project Outputs"
-                        >
-                          <Send className="w-3 h-3" /> Export
-                        </Link>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            setSelectedProvider(provider);
-                            setConfigSettings(JSON.stringify(connected.settings, null, 2));
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-                          title="Configure Settings"
-                        >
-                          <Settings className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDisconnect(connected.id)}
-                          disabled={actionLoading !== null}
-                          className="px-2.5 py-1 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg text-xs font-medium transition"
-                        >
-                          Disconnect
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => setAuthModalProvider(provider)}
-                      disabled={actionLoading !== null}
-                      className="btn-connect-gold w-full py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" /> Connect {provider.name}
-                    </button>
-                  )}
-                </div>
-              </div>
+                provider={provider}
+                connection={conn}
+                onConnect={handleStartConnect}
+                onManage={handleOpenManage}
+                onTest={handleTestConnection}
+                isTesting={testingId === conn?.id}
+              />
             );
           })}
         </div>
       )}
 
-      {/* OAuth Sign-In Modal */}
-      <OAuthConnectModal
-        isOpen={!!authModalProvider}
-        provider={authModalProvider}
-        onClose={() => setAuthModalProvider(null)}
-        onSuccess={async (newInteg) => {
-          setAuthModalProvider(null);
-          setSuccessMessage(`Successfully connected to ${newInteg.provider.replace('_', ' ').toUpperCase()}!`);
-          await loadData();
+      {/* Integration Detail Drawer */}
+      <IntegrationDetailDrawer
+        provider={selectedProvider}
+        connection={selectedProvider ? connectionsMap.get(selectedProvider.id) || null : null}
+        isOpen={isDrawerOpen}
+        onClose={() => {
+          setIsDrawerOpen(false);
+          setSelectedProvider(null);
         }}
+        onConnect={handleStartConnect}
+        onRefresh={loadConnections}
       />
 
-      {/* Settings Modal */}
-      {selectedProvider && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white">Configure {selectedProvider.name}</h3>
-              <button
-                onClick={() => setSelectedProvider(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-xs text-slate-400">
-              Provide JSON settings for webhook destination channels, workspace target identifiers, or sync intervals.
-            </p>
-            <textarea
-              value={configSettings}
-              onChange={(e) => setConfigSettings(e.target.value)}
-              rows={6}
-              className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-400"
-            />
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setSelectedProvider(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveSettings}
-                className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold rounded-lg text-xs"
-              >
-                Save Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Real Provider Authentication Modal */}
+      <RealConnectionModal
+        isOpen={!!authModalProvider}
+        onClose={() => setAuthModalProvider(null)}
+        provider={authModalProvider}
+        onSuccess={async (conn) => {
+          setToastMessage({
+            type: 'success',
+            text: `Successfully connected ${conn.connection_name}! Ready for workflow automation.`,
+          });
+          await loadConnections();
+        }}
+      />
     </div>
   );
 };

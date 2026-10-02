@@ -130,3 +130,27 @@ export function evaluateRule(rule: ExpressionRule, context: ExpressionContext): 
       return false;
   }
 }
+
+/**
+ * Concludo Dynamic Variable Interpolator for Cross-Step Field Mapping
+ * Evaluates safe tokens such as {{trigger.fieldName}} and {{steps.stepKey.outputField}}
+ * Conforms to Master Build Instruction Section 10 & Zero Arbitrary Code Execution.
+ */
+export function interpolateVariables(template: any, context: ExpressionContext): any {
+  if (typeof template !== 'string') return template;
+
+  // Single exact token mapping (e.g. "{{trigger.id}}" -> returns literal primitive or object)
+  const exactMatch = template.match(/^\{\{([a-zA-Z0-9_$.]+)\}\}$/);
+  if (exactMatch) {
+    const resolved = resolveTokenPath(exactMatch[1], context);
+    return resolved !== undefined ? resolved : '';
+  }
+
+  // String interpolation (e.g. "Meeting with {{trigger.customer_name}} at {{trigger.time}}")
+  return template.replace(/\{\{([a-zA-Z0-9_$.]+)\}\}/g, (_, path) => {
+    const resolved = resolveTokenPath(path.trim(), context);
+    if (resolved === null || resolved === undefined) return '';
+    if (typeof resolved === 'object') return JSON.stringify(resolved);
+    return String(resolved);
+  });
+}

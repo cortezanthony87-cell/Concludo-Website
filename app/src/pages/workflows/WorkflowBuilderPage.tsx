@@ -11,7 +11,17 @@ import { executeWorkflow, WorkflowRunResult } from '../../lib/workflows/executio
 import { calculateWorkflowRisk } from '../../lib/workflows/riskClassification';
 import { CONNECTOR_MANIFESTS } from '../../lib/workflows/connectorRegistry';
 import { WORKFLOW_TEMPLATES, WorkflowTemplateMeta } from '../../lib/workflows/templates';
-import { TemplatePickerModal } from '../../components/workflows/TemplatePickerModal';
+import { TemplatePickerModal } from "../../components/workflows/TemplatePickerModal";
+import { AddStepModal } from "../../components/workflows/AddStepModal";
+import { ConnectedStepInspector } from "../../components/workflows/ConnectedStepInspector";
+import { RealConnectionModal } from "../../components/integrations/RealConnectionModal";
+import { IntegrationIcon } from "../../components/integrations/IntegrationIcon";
+import {
+  integrationsHubService,
+  IntegrationConnection,
+  ProviderDefinition,
+  INTEGRATION_PROVIDERS_CATALOG,
+} from "../../lib/integrations/hubRegistry";
 import './workflow-builder-template.css';
 
 export const WorkflowBuilderPage: React.FC = () => {
@@ -27,6 +37,24 @@ export const WorkflowBuilderPage: React.FC = () => {
 
   // Template Picker Modal
   const [isPickerOpen, setIsPickerOpen] = useState<boolean>(false);
+
+  // Integrations & Real Connectors State (Phase 3)
+  const [isAddStepOpen, setIsAddStepOpen] = useState<boolean>(false);
+  const [connections, setConnections] = useState<IntegrationConnection[]>([]);
+  const [connectModalProvider, setConnectModalProvider] = useState<ProviderDefinition | null>(null);
+
+  // Load existing connections
+  useEffect(() => {
+    const fetchConnections = async () => {
+      try {
+        const conns = await integrationsHubService.getConnections();
+        setConnections(conns);
+      } catch (err) {
+        console.warn("Could not load connections:", err);
+      }
+    };
+    fetchConnections();
+  }, []);
 
   // Conversation & Agent Architect State
   const [messages, setMessages] = useState<
@@ -99,6 +127,64 @@ export const WorkflowBuilderPage: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  const handleAddCustomStep = (newStepPartial: Partial<WorkflowStep>) => {
+    const fullStep: WorkflowStep = {
+      key: newStepPartial.key || `step_${Date.now()}`,
+      displayName: newStepPartial.displayName || "New Step",
+      name: newStepPartial.name || newStepPartial.displayName || "New Step",
+      purpose: newStepPartial.purpose || "Automated step execution",
+      stepType: newStepPartial.stepType || "action",
+      application: newStepPartial.application || "concludo_workflow",
+      service: newStepPartial.service || newStepPartial.application || "concludo_workflow",
+      userFacingExplanation: newStepPartial.userFacingExplanation || "Custom workflow step",
+      position: newStepPartial.position || { x: definition.steps.length * 240 + 40, y: 60 },
+      inputMapping: newStepPartial.inputMapping || {},
+      outputSchema: newStepPartial.outputSchema || {},
+      configuration: newStepPartial.configuration || {},
+      retryPolicy: newStepPartial.retryPolicy || { maxAttempts: 3, initialIntervalMs: 1000, backoffFactor: 2 },
+      idempotencyPolicy: newStepPartial.idempotencyPolicy || { enabled: true, keyTemplate: `${newStepPartial.application || "step"}:{{run.id}}:${newStepPartial.key}` },
+    };
+
+    const newDef: WorkflowDefinition = {
+      ...definition,
+      steps: [...definition.steps, fullStep],
+      edges: definition.steps.length > 0
+        ? [
+            ...definition.edges,
+            {
+              id: `edge_${Date.now()}`,
+              sourceStepKey: definition.steps[definition.steps.length - 1].key,
+              destinationStepKey: fullStep.key,
+              sourceStep: definition.steps[definition.steps.length - 1].key,
+              destinationStep: fullStep.key,
+              edgeType: "success",
+            },
+          ]
+        : definition.edges,
+    };
+
+    pushHistory(newDef);
+    setDefinition(newDef);
+    setSelectedStepKey(fullStep.key);
+    setIsInspectorOpen(true);
+  };
+
+  const handleUpdateStep = (updatedStep: WorkflowStep) => {
+    const newSteps = definition.steps.map((s) => (s.key === updatedStep.key ? updatedStep : s));
+    const newDef = { ...definition, steps: newSteps };
+    pushHistory(newDef);
+    setDefinition(newDef);
+  };
+
+  const handleDeleteStep = (stepKey: string) => {
+    const newSteps = definition.steps.filter((s) => s.key !== stepKey);
+    const newEdges = definition.edges.filter((e) => e.sourceStep !== stepKey && e.destinationStep !== stepKey);
+    const newDef = { ...definition, steps: newSteps, edges: newEdges };
+    pushHistory(newDef);
+    setDefinition(newDef);
+    setSelectedStepKey(newSteps.length > 0 ? newSteps[0].key : null);
+  };
 
   const pushHistory = (newDef: WorkflowDefinition) => {
     setHistoryStack((prev) => [...prev.slice(0, historyIndex + 1), newDef]);
@@ -466,6 +552,22 @@ export const WorkflowBuilderPage: React.FC = () => {
               <button className="wb-fit" id="fit" onClick={() => setZoomLevel(1)}>
                 Fit
               </button>
+              <button
+                className="wb-fit"
+                style={{
+                  background: "var(--gold)",
+                  color: "var(--navy)",
+                  fontWeight: 700,
+                  marginLeft: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+                onClick={() => setIsAddStepOpen(true)}
+                title="Add integration step or trigger to canvas"
+              >
+                + Add Step
+              </button>
               <span className="wb-count">
                 {definition.steps.length} steps &nbsp; {definition.edges.length} edges
               </span>
@@ -551,9 +653,12 @@ export const WorkflowBuilderPage: React.FC = () => {
                         }
                       }}
                     >
-                      <div className="wb-tags">
-                        <span className={`wb-tag ${typeInfo.className}`}>{typeInfo.label}</span>
-                        {isApproval && <span className="wb-tag signoff">Sign-off</span>}
+                      <div className="wb-tags" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: "4px" }}>
+                          <span className={`wb-tag ${typeInfo.className}`}>{typeInfo.label}</span>
+                          {isApproval && <span className="wb-tag signoff">Sign-off</span>}
+                        </div>
+                        <IntegrationIcon slug={step.application} size={16} />
                       </div>
                       <h3>{step.name || step.displayName}</h3>
                       <p>{step.userFacingExplanation}</p>
@@ -570,121 +675,17 @@ export const WorkflowBuilderPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ---------- Plate 8: Node Inspector Flyout ---------- */}
+          {/* ---------- Plate 8: Connected Step Inspector Flyout ---------- */}
           {selectedStep && isInspectorOpen && (
-            <div className="wb-inspector" role="dialog" aria-label="Step details">
-              <div className="wb-insp-head">
-                <div>
-                  <h2>{selectedStep.name || selectedStep.displayName}</h2>
-                  <div className="wb-insp-sub">
-                    {getStepTypeInfo(selectedStep).label} &nbsp;{' '}
-                    {(selectedStep.service || 'approvals').replace('concludo_', '').replace('_', '.')}
-                  </div>
-                </div>
-                <button
-                  className="wb-btn"
-                  id="closeInsp"
-                  aria-label="Close"
-                  onClick={() => setIsInspectorOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="wb-tabs" role="tablist">
-                <button
-                  className="wb-tab"
-                  role="tab"
-                  aria-selected={inspectorTab === 'simple'}
-                  onClick={() => setInspectorTab('simple')}
-                >
-                  Simple
-                </button>
-                <button
-                  className="wb-tab"
-                  role="tab"
-                  aria-selected={inspectorTab === 'advanced'}
-                  onClick={() => setInspectorTab('advanced')}
-                >
-                  Advanced
-                </button>
-              </div>
-
-              {inspectorTab === 'simple' ? (
-                <div>
-                  <div className="wb-field">
-                    <div className="wb-k">What this step does</div>
-                    <div className="wb-v">{selectedStep.userFacingExplanation}</div>
-                  </div>
-                  <div className="wb-field">
-                    <div className="wb-k">Service</div>
-                    <div className="wb-v">
-                      {(selectedStep.service || 'approvals').replace('concludo_', '').replace('_', '.')}
-                    </div>
-                  </div>
-                  <div className="wb-field">
-                    <div className="wb-k">Approval required</div>
-                    <div className="wb-v">
-                      {selectedStep.stepType === 'approval' || selectedStep.approvalRequirement?.required ? (
-                        <span className="wb-lock">
-                          Yes. Locked by governance and cannot be removed.
-                        </span>
-                      ) : (
-                        'No'
-                      )}
-                    </div>
-                  </div>
-                  <div className="wb-field">
-                    <div className="wb-k">If it waits or fails</div>
-                    <div className="wb-v">
-                      The workflow stops and tells the owner. It does not delete anything.
-                    </div>
-                  </div>
-                  <div className="wb-field">
-                    <div className="wb-k">Retry policy</div>
-                    <div className="wb-v">
-                      {selectedStep.stepType === 'approval'
-                        ? 'Not applicable to an approval step.'
-                        : 'Three attempts, then stop and tell the owner.'}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="wb-field">
-                    <div className="wb-k">Idempotency key</div>
-                    <div className="wb-v mono">
-                      {selectedStep.idempotencyPolicy?.keyTemplate ||
-                        `${selectedStep.service}:{{run.id}}:{{step.key}}`}
-                    </div>
-                  </div>
-                  <div className="wb-field">
-                    <div className="wb-k">Timeout</div>
-                    <div className="wb-v mono">{selectedStep.timeoutSeconds || 120}s</div>
-                  </div>
-                  <div className="wb-field">
-                    <div className="wb-k">Retry limit</div>
-                    <div className="wb-v mono">
-                      {selectedStep.retryPolicy?.maxAttempts || 3}, exponential backoff
-                    </div>
-                  </div>
-                  <div className="wb-field">
-                    <div className="wb-k">Raw configuration</div>
-                    <pre className="wb-v mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                      {JSON.stringify(
-                        selectedStep.configuration || {
-                          service: selectedStep.service,
-                          approval: selectedStep.approvalRequirement?.required || false,
-                        },
-                        null,
-                        2
-                      )}
-                    </pre>
-                  </div>
-                  <p className="wb-warn-line">Changes made here are not checked by the Architect.</p>
-                </div>
-              )}
-            </div>
+            <ConnectedStepInspector
+              step={selectedStep}
+              allSteps={definition.steps}
+              connections={connections}
+              onUpdateStep={handleUpdateStep}
+              onDeleteStep={handleDeleteStep}
+              onClose={() => setIsInspectorOpen(false)}
+              onOpenConnectModal={(prov) => setConnectModalProvider(prov)}
+            />
           )}
 
           {/* ---------- Plate 9: Bottom Inspection Panel (176px fixed) ---------- */}
@@ -819,6 +820,27 @@ export const WorkflowBuilderPage: React.FC = () => {
         onClose={() => setIsPickerOpen(false)}
         onSelectTemplate={handleSelectTemplate}
       />
+
+      {/* ---------- Modals: Add Step & Real Connection Flow ---------- */}
+      <AddStepModal
+        isOpen={isAddStepOpen}
+        onClose={() => setIsAddStepOpen(false)}
+        onAddStep={handleAddCustomStep}
+        onConnectProvider={(prov) => setConnectModalProvider(prov)}
+        connections={connections}
+        existingStepsCount={definition.steps.length}
+      />
+
+      <RealConnectionModal
+        isOpen={!!connectModalProvider}
+        provider={connectModalProvider}
+        onClose={() => setConnectModalProvider(null)}
+        onSuccess={(newConn) => {
+          setConnections((prev) => [newConn, ...prev.filter((c) => c.id !== newConn.id)]);
+          setConnectModalProvider(null);
+        }}
+      />
+
     </div>
   );
 };

@@ -179,6 +179,12 @@ export const WorkflowsPage: React.FC = () => {
 
           <div className="flex items-center space-x-3">
             <Link
+              to="/workflows/runs"
+              className="px-3.5 py-2 bg-[#16263F] hover:bg-[#21395C] text-white border border-[#21395C] rounded-lg text-sm font-medium transition flex items-center gap-1.5"
+            >
+              Workflow Runs
+            </Link>
+            <Link
               to="/workflows/governance"
               className="px-3.5 py-2 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C]/40 rounded-lg text-sm font-medium transition flex items-center gap-1.5"
             >
