@@ -1,11 +1,9 @@
 import React from 'react';
 import {
-  CheckCircle2,
   AlertTriangle,
   RefreshCw,
   Plus,
   Settings,
-  ChevronRight,
   ShieldCheck,
   Zap,
 } from 'lucide-react';
@@ -37,7 +35,7 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
 
   return (
     <div
-      className={`group relative bg-slate-900/80 hover:bg-slate-900 border rounded-xl p-5 transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md ${
+      className={`group relative bg-slate-900/80 hover:bg-slate-900 border rounded-xl p-5 transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md h-full ${
         isConnected
           ? 'border-emerald-500/30 hover:border-emerald-500/50'
           : hasIssue
@@ -45,7 +43,7 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           : 'border-slate-800 hover:border-slate-700'
       }`}
     >
-      <div>
+      <div className="flex-1 flex flex-col">
         {/* Top Header: Framed Vector Logo + Status Badge */}
         <div className="flex items-start justify-between gap-3">
           <div className="relative p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 shadow-inner group-hover:border-slate-700 transition">
@@ -60,7 +58,7 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col items-end gap-1.5">
             {isConnected ? (
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -83,27 +81,25 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
             )}
 
             {provider.isTier1 && (
-              <span className="text-[10px] font-semibold text-amber-400/80 flex items-center gap-0.5">
-                <Zap className="w-2.5 h-2.5" /> Core Tier 1
+              <span className="text-[10px] font-semibold text-amber-400/90 flex items-center gap-1">
+                <Zap className="w-3 h-3 text-amber-400" /> Core Tier 1
               </span>
             )}
           </div>
         </div>
 
-        {/* Application Name & Category */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-white tracking-tight group-hover:text-amber-400 transition-colors">
-              {provider.name}
-            </h3>
-          </div>
+        {/* Application Name & Category - Fixed Height for Aligning across Grid */}
+        <div className="mt-4 min-h-[48px] flex flex-col justify-start">
+          <h3 className="text-base font-semibold text-white tracking-tight group-hover:text-amber-400 transition-colors line-clamp-1 leading-snug">
+            {provider.name}
+          </h3>
           <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block mt-0.5">
             {provider.category}
           </span>
         </div>
 
-        {/* Short Description */}
-        <p className="text-slate-300 text-xs mt-2.5 line-clamp-2 leading-relaxed">
+        {/* Short Description - Fixed Height with 2 Lines */}
+        <p className="text-slate-300 text-xs mt-2.5 line-clamp-2 leading-relaxed min-h-[38px]">
           {provider.description}
         </p>
 
@@ -120,42 +116,42 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
         )}
 
         {/* Trigger and Action Capabilities Pills */}
-        <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-400">
-          <span className="px-2 py-0.5 rounded bg-[#16263F] border border-[#21395C] text-slate-300">
+        <div className="mt-4 flex items-center gap-2 text-[11px] text-slate-400">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#16263F] border border-[#21395C] text-slate-300 font-medium">
             {provider.triggers.length} {provider.triggers.length === 1 ? 'Trigger' : 'Triggers'}
           </span>
-          <span className="px-2 py-0.5 rounded bg-[#16263F] border border-[#21395C] text-slate-300">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#16263F] border border-[#21395C] text-slate-300 font-medium">
             {provider.actions.length} {provider.actions.length === 1 ? 'Action' : 'Actions'}
           </span>
         </div>
       </div>
 
       {/* Primary Card Actions */}
-      <div className="mt-5 pt-3.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+      <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
         {isConnected ? (
           <>
             <button
               onClick={() => onManage(provider, connection)}
-              className="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700"
+              className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700"
             >
-              <Settings className="w-3.5 h-3.5 text-amber-400" /> Manage Connection
+              <Settings className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Manage Connection
             </button>
             <button
               onClick={() => onTest(connection)}
               disabled={isTesting}
               title="Test real connection status"
-              className="py-1.5 px-3 bg-slate-800/60 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center gap-1"
+              className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center gap-1"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin text-amber-400' : 'text-slate-400'}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin text-amber-400' : 'text-slate-400'} shrink-0`} />
               Test
             </button>
           </>
         ) : (
           <button
             onClick={() => onConnect(provider)}
-            className="w-full py-2 px-3 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+            className="w-full min-h-[40px] py-2 px-3 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm leading-normal whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" /> Connect {provider.name}
+            <Plus className="w-4 h-4 shrink-0" /> Connect {provider.name}
           </button>
         )}
       </div>
