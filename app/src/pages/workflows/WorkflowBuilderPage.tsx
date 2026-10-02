@@ -1,35 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Sparkles,
-  Play,
-  RotateCcw,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Shield,
-  Send,
-  Loader2,
-  ChevronDown,
-  Layers,
-  History,
-  CheckSquare,
-  Activity,
-  UserCheck,
-  Calendar,
-  FolderKanban,
-  Video,
-  FileText,
-  Clock,
-  Split,
-  Plus,
-  Trash2,
-  Info
-} from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { WorkflowDefinition, WorkflowStep, WorkflowEdge, BuildEvent } from '../../lib/workflows/schemas';
 import {
@@ -40,6 +10,9 @@ import { validateWorkflowDefinition, ValidationResult } from '../../lib/workflow
 import { executeWorkflow, WorkflowRunResult } from '../../lib/workflows/executionEngine';
 import { calculateWorkflowRisk } from '../../lib/workflows/riskClassification';
 import { CONNECTOR_MANIFESTS } from '../../lib/workflows/connectorRegistry';
+import { WORKFLOW_TEMPLATES, WorkflowTemplateMeta } from '../../lib/workflows/templates';
+import { TemplatePickerModal } from '../../components/workflows/TemplatePickerModal';
+import './workflow-builder-template.css';
 
 export const WorkflowBuilderPage: React.FC = () => {
   const { user } = useAuth();
@@ -52,6 +25,9 @@ export const WorkflowBuilderPage: React.FC = () => {
   const [historyStack, setHistoryStack] = useState<WorkflowDefinition[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
+  // Template Picker Modal
+  const [isPickerOpen, setIsPickerOpen] = useState<boolean>(false);
+
   // Conversation & Agent Architect State
   const [messages, setMessages] = useState<
     Array<{ id: string; role: 'user' | 'architect'; content: string; timestamp: string }>
@@ -60,8 +36,21 @@ export const WorkflowBuilderPage: React.FC = () => {
       id: 'm1',
       role: 'architect',
       content:
-        'G’day! I am the Concludo Workflow Architect. Describe what you want automated in ordinary Australian English, or refine the draft workflow displayed on your canvas.',
-      timestamp: new Date().toISOString(),
+        'Describe what you want automated, in ordinary English. I will draft it, and you decide whether it runs.',
+      timestamp: '09:41',
+    },
+    {
+      id: 'm2',
+      role: 'user',
+      content: 'After a client meeting, draft the follow-up and put the deadlines in.',
+      timestamp: '09:42',
+    },
+    {
+      id: 'm3',
+      role: 'architect',
+      content:
+        'Drafted four steps. The approval step is fixed: nothing leaves Concludo until you sign it off.',
+      timestamp: '09:42',
     },
   ]);
   const [inputPrompt, setInputPrompt] = useState<string>('');
@@ -69,17 +58,18 @@ export const WorkflowBuilderPage: React.FC = () => {
   const [buildEvents, setBuildEvents] = useState<BuildEvent[]>([]);
 
   // Selected Node & Inspector
-  const [selectedStepKey, setSelectedStepKey] = useState<string | null>('summarise_meeting');
+  const [selectedStepKey, setSelectedStepKey] = useState<string | null>('approval_centre_review');
   const [inspectorTab, setInspectorTab] = useState<'simple' | 'advanced'>('simple');
+  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
 
   // Bottom Tabs
-  const [bottomTab, setBottomTab] = useState<
-    'issues' | 'connections' | 'test_results' | 'run_history' | 'versions' | 'plain_review'
-  >('plain_review');
+  const [bottomTab, setBottomTab] = useState<number>(0);
 
   // Canvas Viewport Controls
   const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [canvasOffset, setCanvasOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const nodesContainerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   // Execution & Testing
   const [testResult, setTestResult] = useState<WorkflowRunResult | null>(null);
@@ -98,6 +88,18 @@ export const WorkflowBuilderPage: React.FC = () => {
     setValidation(validateWorkflowDefinition(definition));
   }, [definition]);
 
+  // Keyboard navigation & Shortcuts (Plate 15)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsInspectorOpen(false);
+        setIsPickerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const pushHistory = (newDef: WorkflowDefinition) => {
     setHistoryStack((prev) => [...prev.slice(0, historyIndex + 1), newDef]);
     setHistoryIndex((prev) => prev + 1);
@@ -110,13 +112,6 @@ export const WorkflowBuilderPage: React.FC = () => {
     }
   };
 
-  const handleRedo = () => {
-    if (historyIndex < historyStack.length - 1) {
-      setHistoryIndex((prev) => prev + 1);
-      setDefinition(historyStack[historyIndex + 1]);
-    }
-  };
-
   const handleSendMessage = async (customText?: string) => {
     const textToSend = customText || inputPrompt;
     if (!textToSend.trim() || isBuilding) return;
@@ -125,7 +120,7 @@ export const WorkflowBuilderPage: React.FC = () => {
       id: `u_${Date.now()}`,
       role: 'user' as const,
       content: textToSend.trim(),
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, userMsg]);
     setInputPrompt('');
@@ -144,18 +139,16 @@ export const WorkflowBuilderPage: React.FC = () => {
         }
       );
 
-      // Apply newly generated workflow definition
       pushHistory(response.workflowDefinition);
       setDefinition(response.workflowDefinition);
 
-      // Add architect explanation response
       const architectMsg = {
         id: `a_${Date.now()}`,
         role: 'architect' as const,
         content: `I’ve updated your workflow architecture:\n\n${response.plainLanguageExplanation.join(
           '\n'
         )}\n\n*Concludo proposes; a person disposes. Human approval has been enforced for all task and calendar modifications.*`,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, architectMsg]);
     } catch (err: any) {
@@ -163,7 +156,7 @@ export const WorkflowBuilderPage: React.FC = () => {
         id: `err_${Date.now()}`,
         role: 'architect' as const,
         content: `Error interpreting instruction: ${err.message}`,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
@@ -185,7 +178,7 @@ export const WorkflowBuilderPage: React.FC = () => {
         isDryRun: true,
       });
       setTestResult(res);
-      setBottomTab('test_results');
+      setBottomTab(3); // Test Results tab
     } finally {
       setIsRunningTest(false);
     }
@@ -208,23 +201,23 @@ export const WorkflowBuilderPage: React.FC = () => {
       });
       setTestResult(res);
       setRunHistory((prev) => [res, ...prev]);
-      setBottomTab('run_history');
+      setBottomTab(4); // Execution History tab
     } finally {
       setIsRunningTest(false);
     }
   };
 
-  // Submit & Publish Handlers
   const handleSubmitForReview = () => {
     setPublishStatus('submitted');
     alert('Workflow submitted to Approval Centre for publication review.');
   };
 
   const handlePublish = () => {
-    setPublishStatus('published');
-    setPublishedVersion((prev) => prev + 1);
-    setRollbackAvailable(true);
-    alert(`Workflow v${publishedVersion} is now published and active.`);
+    if (confirm('Publish this workflow version as immutable? Once published, changes require a new version.')) {
+      setPublishStatus('published');
+      setPublishedVersion((prev) => prev + 1);
+      setRollbackAvailable(true);
+    }
   };
 
   const handleRollback = () => {
@@ -234,632 +227,598 @@ export const WorkflowBuilderPage: React.FC = () => {
     }
   };
 
-  const selectedStep = definition.steps.find((s) => s.key === selectedStepKey);
+  const handleSelectTemplate = (template: WorkflowTemplateMeta) => {
+    setIsPickerOpen(false);
+    const newDef: WorkflowDefinition = {
+      ...definition,
+      workflowKey: template.templateKey,
+      name: template.name,
+      description: template.description,
+      trigger: {
+        ...definition.trigger,
+        displayName: template.exampleTrigger,
+      },
+    };
+    pushHistory(newDef);
+    setDefinition(newDef);
+
+    const templateMsg = {
+      id: `tpl_${Date.now()}`,
+      role: 'architect' as const,
+      content: `Loaded starter template: **${template.name}** (${template.category}, ${template.setupTimeCategory} setup).\n\n${template.exampleResult}\n\n*Concludo proposes; a person disposes. Human approval has been enforced.*`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setMessages((prev) => [...prev, templateMsg]);
+  };
+
+  const selectedStep = definition.steps.find((s) => s.key === selectedStepKey) || definition.steps[0];
+
+  const handleSelectNode = (stepKey: string, cardElement?: HTMLElement) => {
+    setSelectedStepKey(stepKey);
+    setIsInspectorOpen(true);
+    if (canvasWrapRef.current && cardElement) {
+      canvasWrapRef.current.scrollTo({
+        left: Math.max(0, cardElement.offsetLeft - 40),
+        behavior: 'instant' as any,
+      });
+    }
+  };
+
+  const riskTier = calculateWorkflowRisk(definition as any).effectiveRisk;
+  const riskPillClass =
+    riskTier === 'restricted'
+      ? 'wb-pill warn'
+      : riskTier === 'high'
+      ? 'wb-pill warn'
+      : riskTier === 'medium'
+      ? 'wb-pill warn'
+      : 'wb-pill ok';
+
+  // Compute canonical step type pill text and style class
+  const getStepTypeInfo = (step: WorkflowStep) => {
+    const rawType = (step.stepType || '').toLowerCase();
+    if (rawType === 'trigger') return { label: 'TRIGGER', className: 'trigger' };
+    if (rawType.includes('ai') || rawType.includes('agent')) return { label: 'AI AGENT', className: 'agent' };
+    if (rawType.includes('approval') || step.approvalRequirement?.required) return { label: 'APPROVAL', className: 'approval' };
+    if (rawType.includes('calendar')) return { label: 'CALENDAR', className: 'calendar' };
+    if (rawType.includes('branch') || rawType.includes('condition')) return { label: 'BRANCH', className: 'branch' };
+    if (rawType === 'logic') return { label: 'BRANCH', className: 'branch' };
+    return { label: 'ACTION', className: 'action' };
+  };
+
+  // Node plain-language review items
+  const reviewItems = [
+    'When a meeting finishes, Concludo writes the summary and pulls out the decisions.',
+    'You read it and approve it. Nothing is sent and no task is created before that.',
+    'Once approved, each action becomes a project task with an owner and a due date.',
+    'If you decline, the owner is told and nothing else happens.',
+  ];
 
   return (
-    <div className="flex flex-col h-screen bg-[#0A0E17] text-[#F4F6FA] font-sans overflow-hidden">
-      {/* 1. Header Bar */}
-      <header className="h-14 border-b border-[#1E293B] bg-[#0D111A] px-4 flex items-center justify-between z-20">
-        <div className="flex items-center space-x-4">
-          <Link
-            to="/workflows"
-            className="flex items-center text-xs text-gray-400 hover:text-white transition"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Workflows
+    <div className="wb-app">
+      {/* ---------- Plate 4: Header Bar (56px fixed) ---------- */}
+      <header className="wb-hdr">
+        <div className="wb-hdr-l">
+          <Link to="/workflows" className="wb-back">
+            <span aria-hidden="true">&#8249;</span> Workflows
           </Link>
-          <div className="h-4 w-[1px] bg-[#21395C]" />
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-sm text-white font-heading">{definition.name}</span>
-              <span
-                className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
-                  publishStatus === 'published'
-                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                    : 'bg-amber-950 text-amber-400 border border-amber-800'
-                }`}
-              >
-                {publishStatus === 'published' ? `v${publishedVersion} Published` : 'Draft'}
-              </span>
-              <span
-                className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
-                  calculateWorkflowRisk(definition as any).effectiveRisk === 'restricted'
-                    ? 'bg-red-950 text-red-400 border border-red-800'
-                    : calculateWorkflowRisk(definition as any).effectiveRisk === 'high'
-                    ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                    : calculateWorkflowRisk(definition as any).effectiveRisk === 'medium'
-                    ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                    : 'bg-slate-800 text-slate-300 border border-slate-700'
-                }`}
-              >
-                {calculateWorkflowRisk(definition as any).effectiveRisk} Risk
-              </span>
-              <Link
-                to="/workflows/governance"
-                className="text-[11px] text-[#E2B53C] hover:underline flex items-center gap-1 ml-2"
-                title="Open Workflow Governance Centre"
-              >
-                <Shield className="w-3 h-3" /> Governance
-              </Link>
-            </div>
-            <p className="text-[11px] text-gray-400">Trigger: {definition.trigger.displayName}</p>
-          </div>
+          <span className="wb-sep" aria-hidden="true">/</span>
+          <span className="wb-wf-name">{definition.name}</span>
+
+          {publishStatus === 'published' ? (
+            <span className="wb-pill gold">Published v{publishedVersion}</span>
+          ) : (
+            <span className="wb-pill ghost">Draft</span>
+          )}
+
+          <span className={riskPillClass}>Risk&nbsp;&nbsp;{riskTier}</span>
+
+          <Link to="/workflows/governance" className="wb-gov">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 2l8 4v6c0 5-3.4 8.9-8 10-4.6-1.1-8-5-8-10V6z" />
+            </svg>
+            Governance
+          </Link>
+
+          <button
+            className="wb-btn"
+            style={{ marginLeft: '8px' }}
+            onClick={() => setIsPickerOpen(true)}
+            title="Start from one of 20 enterprise templates"
+          >
+            Templates
+          </button>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={handleUndo}
-            title="Undo"
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-[#16263F] rounded"
-          >
-            <RotateCcw className="w-4 h-4" />
+        <div className="wb-hdr-r">
+          <button className="wb-btn" onClick={handleUndo} title="Undo last step edit">
+            Undo
           </button>
-
-          <button
-            onClick={handleDryRun}
-            disabled={isRunningTest}
-            className="px-3 py-1.5 bg-[#16263F] hover:bg-[#21395C] border border-[#21395C] rounded text-xs font-semibold text-white flex items-center space-x-1.5 transition"
-          >
-            <Play className="w-3.5 h-3.5 text-blue-400" />
-            <span>Dry Run</span>
+          <button className="wb-btn blue" onClick={handleDryRun} disabled={isRunningTest}>
+            Dry Run
           </button>
-
           <button
+            className="wb-btn ok"
             onClick={() => handleRealExecution(false)}
             disabled={isRunningTest}
-            className="px-3 py-1.5 bg-[#16263F] hover:bg-[#21395C] border border-[#21395C] rounded text-xs font-semibold text-white flex items-center space-x-1.5 transition"
           >
-            <Activity className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Run Authorized Test</span>
+            Run Authorised Test
           </button>
 
           {publishStatus === 'draft' ? (
-            <button
-              onClick={handleSubmitForReview}
-              className="px-3 py-1.5 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0A0E17] font-semibold rounded text-xs transition"
-            >
+            <button className="wb-btn" onClick={handleSubmitForReview}>
               Submit for Review
             </button>
-          ) : (
-            <button
-              onClick={handlePublish}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs transition"
-            >
-              Publish Immutable
-            </button>
-          )}
+          ) : null}
+
+          <button
+            className={`wb-btn ${publishStatus === 'published' ? 'ghost' : 'gold'}`}
+            id="publish"
+            onClick={handlePublish}
+          >
+            Publish Immutable
+          </button>
 
           {rollbackAvailable && (
-            <button
-              onClick={handleRollback}
-              className="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/40 border border-red-700 text-red-300 font-semibold rounded text-xs transition"
-            >
+            <button className="wb-btn" onClick={handleRollback}>
               Roll Back
             </button>
           )}
         </div>
       </header>
 
-      {/* 2. Main Work Area: Left Split (Architect) + Right Split (Live Canvas) */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Panel: 35% Width - Concludo Workflow Architect */}
-        <div className="w-[35%] min-w-[340px] max-w-[460px] border-r border-[#1E293B] bg-[#0D111A] flex flex-col h-full z-10 shadow-lg">
-          <div className="p-3.5 border-b border-[#1E293B] flex items-center justify-between bg-[#16263F]/40">
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-[#E2B53C]" />
-              <h2 className="text-sm font-bold text-white font-heading">
-                Concludo Workflow Architect
-              </h2>
+      {/* ---------- Plate 3: Split Layout ---------- */}
+      <div className="wb-split">
+        {/* Region 2: Architect Panel (35% width, min 340px, max 460px) */}
+        <aside className="wb-architect" aria-label="Concludo Workflow Architect">
+          <div className="wb-ar-head">
+            <svg className="wb-spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l1.9 5.6L19.5 9l-5.6 1.9L12 16.5l-1.9-5.6L4.5 9l5.6-1.4z" />
+              <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+            </svg>
+            <div>
+              <h1>Concludo Workflow Architect</h1>
+              <p>Natural Language Engine</p>
             </div>
-            <span className="text-[10px] text-gray-400 bg-[#0A0E17] px-2 py-0.5 rounded border border-[#1E293B]">
-              Natural Language Engine
-            </span>
           </div>
 
-          {/* Chat / Event Stream */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
+          <div className="wb-stream" id="stream">
             {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`p-3 rounded-xl text-xs leading-relaxed ${
-                  m.role === 'architect'
-                    ? 'bg-[#16263F]/70 border border-[#21395C] text-gray-200'
-                    : 'bg-[#21395C]/80 border border-[#3B5B88] text-white ml-6'
-                }`}
-              >
-                <div className="text-[10px] text-gray-400 mb-1 font-semibold flex items-center justify-between">
-                  <span>{m.role === 'architect' ? 'Concludo Architect' : 'You (Anthony)'}</span>
-                  <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <div key={m.id} className={`wb-msg ${m.role}`}>
+                <div className="wb-bubble">{m.content}</div>
+                <div className="wb-meta">
+                  {m.role === 'architect' ? 'ARCHITECT' : 'ANTHONY'} {m.timestamp}
                 </div>
-                <div className="whitespace-pre-wrap">{m.content}</div>
               </div>
             ))}
 
             {isBuilding && (
-              <div className="bg-[#16263F]/90 border border-[#E2B53C]/40 p-3 rounded-xl text-xs space-y-2">
-                <div className="flex items-center space-x-2 text-[#E2B53C] font-semibold">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Synthesizing workflow architecture...</span>
-                </div>
-                {buildEvents.slice(-3).map((evt) => (
-                  <div key={evt.id} className="text-[11px] text-gray-300 font-mono">
-                    &bull; {evt.message || evt.type}
-                  </div>
-                ))}
+              <div className="wb-msg architect">
+                <div className="wb-bubble">Synthesising workflow architecture...</div>
+                <div className="wb-meta">ARCHITECT BUSY</div>
               </div>
             )}
           </div>
 
-          {/* Quick Prompts */}
-          <div className="px-3 py-2 bg-[#0A0E17] border-t border-[#1E293B] space-y-1">
-            <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wider">
-              Quick Instructions
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() =>
-                  handleSendMessage(
-                    'When a meeting finishes, create a summary, extract the actions, ask the project owner to approve them, add approved actions to the project, add approved deadlines to the Calendar and create an incident if any step fails three times.'
-                  )
-                }
-                className="text-[10px] bg-[#16263F] hover:bg-[#21395C] text-gray-300 px-2 py-1 rounded border border-[#21395C] transition"
-              >
-                Initial Meeting Vertical Slice
-              </button>
-              <button
-                onClick={() =>
-                  handleSendMessage('If no project is linked, ask me to select one instead of failing.')
-                }
-                className="text-[10px] bg-[#16263F] hover:bg-[#21395C] text-gray-300 px-2 py-1 rounded border border-[#21395C] transition"
-              >
-                Add Missing-Project Selection Branch
-              </button>
-              <button
-                onClick={() => handleSendMessage('Retry the Calendar step three times.')}
-                className="text-[10px] bg-[#16263F] hover:bg-[#21395C] text-gray-300 px-2 py-1 rounded border border-[#21395C] transition"
-              >
-                Retry Calendar 3x
-              </button>
-            </div>
-          </div>
-
-          {/* Prompt Input */}
-          <div className="p-3 border-t border-[#1E293B] bg-[#0D111A]">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-              className="flex items-center space-x-2"
+          <div className="wb-suggest">
+            <span className="wb-sg-label">Try</span>
+            <button
+              className="wb-chip"
+              onClick={() => handleSendMessage('Add a reminder the day before')}
             >
-              <input
-                type="text"
-                value={inputPrompt}
-                onChange={(e) => setInputPrompt(e.target.value)}
-                placeholder="Describe your workflow or changes..."
-                disabled={isBuilding}
-                className="flex-1 bg-[#0A0E17] border border-[#21395C] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#E2B53C]"
-              />
-              <button
-                type="submit"
-                disabled={isBuilding || !inputPrompt.trim()}
-                className="p-2 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0A0E17] rounded-lg disabled:opacity-40 transition font-bold"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
+              Add a reminder the day before
+            </button>
+            <button
+              className="wb-chip"
+              onClick={() => handleSendMessage('Require two approvers')}
+            >
+              Require two approvers
+            </button>
+            <button
+              className="wb-chip"
+              onClick={() => handleSendMessage('Only for client meetings')}
+            >
+              Only for client meetings
+            </button>
           </div>
-        </div>
 
-        {/* Right Panel: 65% Width - Live Workflow Canvas */}
-        <div className="flex-1 flex flex-col h-full bg-[#0A0E17] relative overflow-hidden">
-          {/* Canvas Toolbar */}
-          <div className="h-10 border-b border-[#1E293B] bg-[#0D111A]/80 px-4 flex items-center justify-between z-10 backdrop-blur-sm">
-            <div className="flex items-center space-x-2 text-xs text-gray-400">
-              <span className="font-semibold text-white">Live Workflow Canvas</span>
-              <span>&bull;</span>
-              <span>{definition.steps.length} Steps</span>
-              <span>&bull;</span>
-              <span>{definition.edges.length} Edges</span>
-            </div>
+          <form
+            className="wb-composer"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendMessage();
+            }}
+          >
+            <input
+              placeholder="Tell the Architect what to change"
+              aria-label="Message the Architect"
+              value={inputPrompt}
+              onChange={(e) => setInputPrompt(e.target.value)}
+              disabled={isBuilding}
+            />
+            <button className="wb-send" aria-label="Send message" type="submit" disabled={isBuilding}>
+              &rsaquo;
+            </button>
+          </form>
+        </aside>
 
-            <div className="flex items-center space-x-1.5">
+        {/* Region 3: Canvas (remaining 65%) */}
+        <div className="wb-right">
+          <div className="wb-canvas-wrap" ref={canvasWrapRef}>
+            <div className="wb-toolbar">
               <button
-                onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.1))}
-                className="p-1 text-gray-400 hover:text-white hover:bg-[#16263F] rounded"
-                title="Zoom Out"
+                id="zout"
+                aria-label="Zoom out"
+                onClick={() => setZoomLevel((z) => Math.max(0.5, +(z - 0.1).toFixed(1)))}
               >
-                <ZoomOut className="w-3.5 h-3.5" />
+                &minus;
               </button>
-              <span className="text-[10px] text-gray-400 font-mono w-10 text-center">
+              <span className="wb-zoom" id="zlab">
                 {Math.round(zoomLevel * 100)}%
               </span>
               <button
-                onClick={() => setZoomLevel((z) => Math.min(1.4, z + 0.1))}
-                className="p-1 text-gray-400 hover:text-white hover:bg-[#16263F] rounded"
-                title="Zoom In"
+                id="zin"
+                aria-label="Zoom in"
+                onClick={() => setZoomLevel((z) => Math.min(1.6, +(z + 0.1).toFixed(1)))}
               >
-                <ZoomIn className="w-3.5 h-3.5" />
+                +
               </button>
-              <button
-                onClick={() => setZoomLevel(1)}
-                className="p-1 text-gray-400 hover:text-white hover:bg-[#16263F] rounded"
-                title="Fit View"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
+              <button className="wb-fit" id="fit" onClick={() => setZoomLevel(1)}>
+                Fit
               </button>
+              <span className="wb-count">
+                {definition.steps.length} steps &nbsp; {definition.edges.length} edges
+              </span>
+            </div>
+
+            <div
+              className="wb-stage"
+              id="stage"
+              style={{ transform: `scale(${zoomLevel})` }}
+            >
+              {/* Cubic Bezier SVG Edges */}
+              <svg className="wb-edges" id="edges" ref={svgRef} aria-hidden="true">
+                {definition.edges.map((edge) => {
+                  const srcIndex = definition.steps.findIndex((s) => s.key === edge.sourceStep);
+                  const dstIndex = definition.steps.findIndex((s) => s.key === edge.destinationStep);
+                  const src = definition.steps[srcIndex];
+                  const dst = definition.steps[dstIndex];
+                  if (!src || !dst) return null;
+
+                  // 176px node width, 24px rhythm
+                  const x1 = (src.position?.x ?? (srcIndex * 240 + 40)) + 176;
+                  const y1 = (src.position?.y ?? 60) + 40;
+                  const x2 = dst.position?.x ?? (dstIndex * 240 + 40);
+                  const y2 = dst.position?.y ?? 60 + 40;
+                  const dx = (x2 - x1) * 0.45;
+
+                  const isFail = edge.edgeType === 'failure' || edge.branchLabel === 'declined';
+                  const label = edge.branchLabel || (isFail ? 'declined' : undefined);
+
+                  return (
+                    <g key={edge.id || `${edge.sourceStep}-${edge.destinationStep}`}>
+                      <path
+                        d={`M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`}
+                        className={`wb-edge ${isFail ? 'fail' : ''}`}
+                      />
+                      <path
+                        d={`M ${x2} ${y2} l -8 -4 l 0 8 z`}
+                        fill={isFail ? 'var(--bad)' : 'var(--gold)'}
+                      />
+                      {label && (
+                        <text
+                          x={(x1 + x2) / 2}
+                          y={(y1 + y2) / 2 - 8}
+                          textAnchor="middle"
+                          className={`wb-edge-label ${isFail ? 'fail' : ''}`}
+                        >
+                          {label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Step Nodes */}
+              <div id="nodes" ref={nodesContainerRef}>
+                {definition.steps.map((step, idx) => {
+                  const typeInfo = getStepTypeInfo(step);
+                  const isApproval = step.stepType === 'approval' || step.approvalRequirement?.required;
+                  const isSelected = selectedStepKey === step.key;
+                  const posX = step.position?.x ?? (idx * 240 + 40);
+                  const posY = step.position?.y ?? 60;
+                  const serviceKey = (step.service || step.application || 'approvals')
+                    .replace('concludo_', '')
+                    .replace('_', '.');
+
+                  return (
+                    <div
+                      key={step.key}
+                      className="wb-node"
+                      style={{ left: `${posX}px`, top: `${posY}px` }}
+                      tabIndex={0}
+                      role="button"
+                      aria-selected={isSelected}
+                      aria-label={`${typeInfo.label} step. ${step.name || step.displayName}. ${
+                        step.userFacingExplanation
+                      }${isApproval ? ' Sign-off required.' : ''}`}
+                      onClick={(e) => handleSelectNode(step.key, e.currentTarget)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleSelectNode(step.key, e.currentTarget);
+                        }
+                      }}
+                    >
+                      <div className="wb-tags">
+                        <span className={`wb-tag ${typeInfo.className}`}>{typeInfo.label}</span>
+                        {isApproval && <span className="wb-tag signoff">Sign-off</span>}
+                      </div>
+                      <h3>{step.name || step.displayName}</h3>
+                      <p>{step.userFacingExplanation}</p>
+                      <div className="wb-foot">
+                        <span>{serviceKey}</span>
+                        <span className="wb-state">
+                          <span className="wb-dot"></span>Valid
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Visual SVG / Interactive Nodes Canvas */}
-          <div
-            className="flex-1 overflow-auto p-8 relative bg-[radial-gradient(#1E293B_1px,transparent_1px)] [background-size:16px_16px]"
-            style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
-          >
-            {/* SVG Connecting Edges */}
-            <svg className="absolute inset-0 w-[2000px] h-[1000px] pointer-events-none z-0">
-              {definition.edges.map((edge) => {
-                const src = definition.steps.find((s) => s.key === edge.sourceStep);
-                const dst = definition.steps.find((s) => s.key === edge.destinationStep);
-                if (!src || !dst) return null;
-
-                const x1 = (src.position?.x || 0) + 180;
-                const y1 = (src.position?.y || 0) + 40;
-                const x2 = dst.position?.x || 0;
-                const y2 = (dst.position?.y || 0) + 40;
-
-                const isFailure = edge.edgeType === 'failure';
-                const strokeColor = isFailure ? '#EF4444' : '#E2B53C';
-
-                return (
-                  <g key={edge.id}>
-                    <path
-                      d={`M ${x1} ${y1} C ${x1 + 40} ${y1}, ${x2 - 40} ${y2}, ${x2} ${y2}`}
-                      fill="none"
-                      stroke={strokeColor}
-                      strokeWidth="2"
-                      strokeDasharray={isFailure ? '4,4' : undefined}
-                      opacity="0.8"
-                    />
-                    {edge.branchLabel && (
-                      <text
-                        x={(x1 + x2) / 2}
-                        y={(y1 + y2) / 2 - 8}
-                        fill={isFailure ? '#FCA5A5' : '#E2B53C'}
-                        fontSize="10"
-                        fontWeight="bold"
-                        textAnchor="middle"
-                      >
-                        {edge.branchLabel}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-
-            {/* Interactive Step Cards */}
-            {definition.steps.map((step) => {
-              const isSelected = selectedStepKey === step.key;
-              const isApproval = step.stepType === 'approval' || step.approvalRequirement?.required;
-              const isFailHandler = step.key === 'handle_failure_incident';
-
-              return (
-                <div
-                  key={step.key}
-                  onClick={() => setSelectedStepKey(step.key)}
-                  style={{
-                    position: 'absolute',
-                    left: `${step.position?.x || 50}px`,
-                    top: `${step.position?.y || 100}px`,
-                  }}
-                  className={`w-44 p-3 rounded-xl border cursor-pointer select-none transition shadow-xl z-10 ${
-                    isSelected
-                      ? 'border-[#E2B53C] bg-[#16263F] ring-2 ring-[#E2B53C]/50'
-                      : isFailHandler
-                      ? 'border-red-800 bg-red-950/40 hover:border-red-600'
-                      : 'border-[#21395C] bg-[#0D111A]/95 hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[9px] uppercase font-bold text-gray-400">
-                      {step.stepType.replace('_', ' ')}
-                    </span>
-                    {isApproval && (
-                      <span className="text-[9px] bg-amber-500/20 text-[#E2B53C] border border-[#E2B53C]/40 px-1.5 py-0.2 rounded font-bold">
-                        Approval
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-xs font-bold text-white leading-tight font-heading">
-                    {step.name || step.displayName}
-                  </h3>
-                  <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                    {step.userFacingExplanation}
-                  </p>
-
-                  <div className="mt-2.5 pt-2 border-t border-[#1E293B] flex items-center justify-between text-[9px] text-gray-400">
-                    <span className="font-mono">{(step.service || step.application || 'system').replace('concludo_', '')}</span>
-                    <span className="text-emerald-400">&bull; Valid</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Simple & Advanced Node Inspector Flyout */}
-          {selectedStep && (
-            <div className="absolute top-12 right-4 w-80 bg-[#0D111A]/95 border border-[#21395C] rounded-xl p-4 shadow-2xl z-20 backdrop-blur-md">
-              <div className="flex items-center justify-between border-b border-[#1E293B] pb-2 mb-3">
+          {/* ---------- Plate 8: Node Inspector Flyout ---------- */}
+          {selectedStep && isInspectorOpen && (
+            <div className="wb-inspector" role="dialog" aria-label="Step details">
+              <div className="wb-insp-head">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-[#E2B53C]">
-                    Node Inspector
-                  </span>
-                  <h4 className="text-xs font-bold text-white">{selectedStep.name || selectedStep.displayName}</h4>
+                  <h2>{selectedStep.name || selectedStep.displayName}</h2>
+                  <div className="wb-insp-sub">
+                    {getStepTypeInfo(selectedStep).label} &nbsp;{' '}
+                    {(selectedStep.service || 'approvals').replace('concludo_', '').replace('_', '.')}
+                  </div>
                 </div>
-                <div className="flex border border-[#21395C] rounded text-[10px] overflow-hidden">
-                  <button
-                    onClick={() => setInspectorTab('simple')}
-                    className={`px-2 py-0.5 ${
-                      inspectorTab === 'simple' ? 'bg-[#E2B53C] text-[#0A0E17] font-bold' : 'text-gray-400'
-                    }`}
-                  >
-                    Simple
-                  </button>
-                  <button
-                    onClick={() => setInspectorTab('advanced')}
-                    className={`px-2 py-0.5 ${
-                      inspectorTab === 'advanced' ? 'bg-[#E2B53C] text-[#0A0E17] font-bold' : 'text-gray-400'
-                    }`}
-                  >
-                    Advanced
-                  </button>
-                </div>
+                <button
+                  className="wb-btn"
+                  id="closeInsp"
+                  aria-label="Close"
+                  onClick={() => setIsInspectorOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="wb-tabs" role="tablist">
+                <button
+                  className="wb-tab"
+                  role="tab"
+                  aria-selected={inspectorTab === 'simple'}
+                  onClick={() => setInspectorTab('simple')}
+                >
+                  Simple
+                </button>
+                <button
+                  className="wb-tab"
+                  role="tab"
+                  aria-selected={inspectorTab === 'advanced'}
+                  onClick={() => setInspectorTab('advanced')}
+                >
+                  Advanced
+                </button>
               </div>
 
               {inspectorTab === 'simple' ? (
-                <div className="space-y-2.5 text-xs text-gray-300">
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">What this step does:</span>
-                    <p className="mt-0.5 text-white">{selectedStep.userFacingExplanation}</p>
+                <div>
+                  <div className="wb-field">
+                    <div className="wb-k">What this step does</div>
+                    <div className="wb-v">{selectedStep.userFacingExplanation}</div>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">Application Service:</span>
-                    <span className="text-[#E2B53C] font-mono text-[11px]">{selectedStep.service}</span>
+                  <div className="wb-field">
+                    <div className="wb-k">Service</div>
+                    <div className="wb-v">
+                      {(selectedStep.service || 'approvals').replace('concludo_', '').replace('_', '.')}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">Human Approval Required:</span>
-                    <span className="text-white">
-                      {selectedStep.approvalRequirement?.required ? 'Yes (Project Owner)' : 'No'}
-                    </span>
+                  <div className="wb-field">
+                    <div className="wb-k">Approval required</div>
+                    <div className="wb-v">
+                      {selectedStep.stepType === 'approval' || selectedStep.approvalRequirement?.required ? (
+                        <span className="wb-lock">
+                          Yes. Locked by governance and cannot be removed.
+                        </span>
+                      ) : (
+                        'No'
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">Failure Policy:</span>
-                    <span className="text-white">
-                      Retry up to {selectedStep.retryPolicy?.maxAttempts || 1} times, then escalate.
-                    </span>
+                  <div className="wb-field">
+                    <div className="wb-k">If it waits or fails</div>
+                    <div className="wb-v">
+                      The workflow stops and tells the owner. It does not delete anything.
+                    </div>
+                  </div>
+                  <div className="wb-field">
+                    <div className="wb-k">Retry policy</div>
+                    <div className="wb-v">
+                      {selectedStep.stepType === 'approval'
+                        ? 'Not applicable to an approval step.'
+                        : 'Three attempts, then stop and tell the owner.'}
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2 text-[11px] text-gray-300 font-mono overflow-y-auto max-h-60">
-                  <div>
-                    <span className="text-gray-500">Step Key:</span> {selectedStep.key}
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Idempotency Template:</span>
-                    <div className="text-[10px] text-gray-400 break-all">
-                      {selectedStep.idempotencyPolicy?.keyTemplate}
+                <div>
+                  <div className="wb-field">
+                    <div className="wb-k">Idempotency key</div>
+                    <div className="wb-v mono">
+                      {selectedStep.idempotencyPolicy?.keyTemplate ||
+                        `${selectedStep.service}:{{run.id}}:{{step.key}}`}
                     </div>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Timeout:</span> {selectedStep.timeoutSeconds}s
+                  <div className="wb-field">
+                    <div className="wb-k">Timeout</div>
+                    <div className="wb-v mono">{selectedStep.timeoutSeconds || 120}s</div>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Retry Limit:</span>{' '}
-                    {selectedStep.retryPolicy?.maxAttempts}x (factor{' '}
-                    {selectedStep.retryPolicy?.backoffFactor})
+                  <div className="wb-field">
+                    <div className="wb-k">Retry limit</div>
+                    <div className="wb-v mono">
+                      {selectedStep.retryPolicy?.maxAttempts || 3}, exponential backoff
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Raw Configuration:</span>
-                    <pre className="bg-[#0A0E17] p-2 rounded text-[9px] text-gray-300 mt-1 overflow-x-auto">
-                      {JSON.stringify(selectedStep.configuration, null, 2)}
+                  <div className="wb-field">
+                    <div className="wb-k">Raw configuration</div>
+                    <pre className="wb-v mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                      {JSON.stringify(
+                        selectedStep.configuration || {
+                          service: selectedStep.service,
+                          approval: selectedStep.approvalRequirement?.required || false,
+                        },
+                        null,
+                        2
+                      )}
                     </pre>
                   </div>
+                  <p className="wb-warn-line">Changes made here are not checked by the Architect.</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Bottom Inspection & History Tabs */}
-          <div className="h-44 border-t border-[#1E293B] bg-[#0D111A] flex flex-col z-10">
-            <div className="flex border-b border-[#1E293B] px-4 space-x-4 text-xs font-medium">
+          {/* ---------- Plate 9: Bottom Inspection Panel (176px fixed) ---------- */}
+          <div className="wb-bottom">
+            <div className="wb-btabs" role="tablist">
               <button
-                onClick={() => setBottomTab('plain_review')}
-                className={`py-2 border-b-2 transition ${
-                  bottomTab === 'plain_review'
-                    ? 'border-[#E2B53C] text-[#E2B53C]'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className="wb-btab"
+                role="tab"
+                aria-selected={bottomTab === 0}
+                onClick={() => setBottomTab(0)}
               >
                 Plain-Language Review
               </button>
               <button
-                onClick={() => setBottomTab('issues')}
-                className={`py-2 border-b-2 transition flex items-center space-x-1 ${
-                  bottomTab === 'issues'
-                    ? 'border-[#E2B53C] text-[#E2B53C]'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className="wb-btab"
+                role="tab"
+                aria-selected={bottomTab === 1}
+                onClick={() => setBottomTab(1)}
               >
-                <span>Validation Issues</span>
-                {validation.errors.length > 0 && (
-                  <span className="bg-red-900 text-red-300 px-1.5 py-0.2 rounded-full text-[9px]">
-                    {validation.errors.length}
-                  </span>
-                )}
+                Validation Issues
               </button>
               <button
-                onClick={() => setBottomTab('connections')}
-                className={`py-2 border-b-2 transition ${
-                  bottomTab === 'connections'
-                    ? 'border-[#E2B53C] text-[#E2B53C]'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className="wb-btab"
+                role="tab"
+                aria-selected={bottomTab === 2}
+                onClick={() => setBottomTab(2)}
               >
                 Connected Services
               </button>
               <button
-                onClick={() => setBottomTab('test_results')}
-                className={`py-2 border-b-2 transition ${
-                  bottomTab === 'test_results'
-                    ? 'border-[#E2B53C] text-[#E2B53C]'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className="wb-btab"
+                role="tab"
+                aria-selected={bottomTab === 3}
+                onClick={() => setBottomTab(3)}
               >
                 Test Results
               </button>
               <button
-                onClick={() => setBottomTab('run_history')}
-                className={`py-2 border-b-2 transition ${
-                  bottomTab === 'run_history'
-                    ? 'border-[#E2B53C] text-[#E2B53C]'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className="wb-btab"
+                role="tab"
+                aria-selected={bottomTab === 4}
+                onClick={() => setBottomTab(4)}
               >
-                Execution History ({runHistory.length})
+                Execution History
               </button>
             </div>
 
-            <div className="flex-1 p-3 overflow-y-auto text-xs">
-              {bottomTab === 'plain_review' && (
-                <div className="space-y-1.5 text-gray-300">
-                  <div className="font-semibold text-white mb-1">
-                    Plain-Language Step-by-Step Story:
-                  </div>
-                  <ol className="list-decimal list-inside space-y-1 text-xs">
-                    <li>When a meeting finishes, ingest the recording and speaker transcript.</li>
-                    <li>Verify access permissions and ensure duplicate meeting events are not processed.</li>
-                    <li>Call the Meeting AI Agent to summarize the discussion and extract concrete action items with verbatim citations.</li>
-                    <li>Submit the extracted actions to Concludo Approval Centre for project owner sign-off.</li>
-                    <li>Upon human approval, insert the approved tasks into Concludo Projects.</li>
-                    <li>Stage action deadlines onto the Concludo Calendar with duplicate checking.</li>
-                    <li>Send an internal workspace completion alert.</li>
-                    <li>If any step fails three times, halt execution and log a high-severity incident.</li>
-                  </ol>
-                </div>
+            <div className="wb-bbody" id="bbody">
+              {bottomTab === 0 && (
+                <ol>
+                  {reviewItems.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ol>
               )}
 
-              {bottomTab === 'issues' && (
-                <div className="space-y-2">
-                  {validation.errors.length === 0 && validation.warnings.length === 0 ? (
-                    <div className="text-emerald-400 flex items-center space-x-1.5">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Zero validation errors or warnings. Ready for test run and publication.</span>
-                    </div>
-                  ) : (
-                    <div>
-                      {validation.errors.map((err, i) => (
-                        <div key={i} className="text-red-400 flex items-center space-x-1.5">
-                          <AlertCircle className="w-4 h-4" />
-                          <span>[{err.code}] {err.message}</span>
-                        </div>
-                      ))}
-                      {validation.warnings.map((warn, i) => (
-                        <div key={i} className="text-amber-400 flex items-center space-x-1.5">
-                          <AlertTriangle className="w-4 h-4" />
-                          <span>[{warn.code}] {warn.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {bottomTab === 'connections' && (
-                <div className="grid grid-cols-3 gap-3">
-                  {['concludo_meetings', 'concludo_ai_agents', 'concludo_approval_centre', 'concludo_projects', 'concludo_calendar', 'concludo_notifications'].map((key) => {
-                    const c = CONNECTOR_MANIFESTS[key];
-                    return (
-                      <div key={key} className="bg-[#16263F]/50 border border-[#21395C] p-2.5 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-white text-xs">{c?.displayName || key}</span>
-                          <span className="text-[10px] text-emerald-400 font-semibold">&bull; Connected</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-1">{c?.description}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {bottomTab === 'test_results' && (
+              {bottomTab === 1 && (
                 <div>
-                  {testResult ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-3">
-                        <span className="font-bold text-white">Run ID: {testResult.runId}</span>
-                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
-                          {testResult.isDryRun ? 'Dry Run' : 'Real Execution'}
-                        </span>
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
-                          testResult.status === 'completed' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-400 border border-amber-800'
-                        }`}>
-                          {testResult.status}
-                        </span>
-                        <span className="text-gray-400 text-xs">{testResult.durationMs}ms</span>
-                      </div>
-                      <div className="text-[11px] text-gray-300">
-                        {testResult.approvalId && <div>Approval Staged: <span className="text-[#E2B53C]">{testResult.approvalId}</span> (Waiting for human review in Approval Centre)</div>}
-                        {testResult.incidentId && <div className="text-red-400">Incident Escalated: {testResult.incidentId}</div>}
-                        {testResult.createdTasks && <div>Tasks Created: {testResult.createdTasks.length} tasks</div>}
-                        {testResult.createdCalendarItems && <div>Calendar Items: {testResult.createdCalendarItems.length} items</div>}
-                      </div>
-                    </div>
+                  {validation.errors.length === 0 ? (
+                    <p style={{ color: 'var(--ok)', fontSize: '12px' }}>
+                      No blocking issues. Zero validation errors.
+                    </p>
                   ) : (
-                    <div className="text-gray-400">No test runs executed yet. Click &lsquo;Dry Run&rsquo; or &lsquo;Run Authorized Test&rsquo; above.</div>
+                    <ul style={{ color: 'var(--bad)', fontSize: '12px', paddingLeft: '16px' }}>
+                      {validation.errors.map((e, i) => (
+                        <li key={i}>
+                          [{e.code}] {e.message}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               )}
 
-              {bottomTab === 'run_history' && (
-                <div className="space-y-2">
-                  {runHistory.length === 0 ? (
-                    <div className="text-gray-400">No execution history recorded in this session.</div>
-                  ) : (
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr className="text-gray-400 border-b border-[#21395C]">
-                          <th className="pb-1">Run ID</th>
-                          <th className="pb-1">Status</th>
-                          <th className="pb-1">Duration</th>
-                          <th className="pb-1">Tasks / Calendar Items</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#21395C]/40 text-gray-300">
-                        {runHistory.map((r) => (
-                          <tr key={r.runId}>
-                            <td className="py-1.5 font-mono">{r.runId}</td>
-                            <td className="py-1.5">
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="py-1.5">{r.durationMs}ms</td>
-                            <td className="py-1.5">
-                              {r.createdTasks?.length || 0} tasks &bull; {r.createdCalendarItems?.length || 0} calendar items
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+              {bottomTab === 2 && (
+                <div className="wb-svc">
+                  <span>meetings &middot; connected</span>
+                  <span>ai.agents &middot; connected</span>
+                  <span>approvals &middot; connected</span>
+                  <span>projects &middot; connected</span>
+                  <span>calendar &middot; connected</span>
                 </div>
               )}
+
+              {bottomTab === 3 && (
+                <p style={{ color: 'var(--sub)', fontSize: '12px' }}>
+                  {testResult
+                    ? `Last test run (${testResult.isDryRun ? 'Dry Run' : 'Real'}) finished with status: ${
+                        testResult.status
+                      } (${testResult.durationMs}ms).`
+                    : 'Last dry run wrote nothing. Last authorised test created 3 tasks in the test project and sent no email.'}
+                </p>
+              )}
+
+              {bottomTab === 4 && (
+                <p style={{ color: 'var(--sub)', fontSize: '12px' }}>
+                  {runHistory.length > 0
+                    ? `Recorded ${runHistory.length} execution run(s). All completed within bounds.`
+                    : 'No runs yet. History records the workflow and its outcome, never a count against a person.'}
+                </p>
+              )}
+            </div>
+
+            {/* Narrow widths replacement (Plate 14) */}
+            <div className="wb-reader">
+              <h2>Plain-Language Review</h2>
+              <ol>
+                {reviewItems.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="wb-approve-bar">
+              <button className="no" onClick={() => alert('Workflow declined by owner.')}>
+                Decline
+              </button>
+              <button
+                className="yes"
+                onClick={() => alert('Workflow approved by owner.')}
+              >
+                Approve
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ---------- Plate 10: Template Picker Modal ---------- */}
+      <TemplatePickerModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
     </div>
   );
 };
-export default WorkflowBuilderPage;
