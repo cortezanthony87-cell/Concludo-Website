@@ -42,7 +42,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   background: var(--ground);
   color: var(--light);
   font-family: var(--font-b);
@@ -50,6 +51,48 @@
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+/* Mobile View Switcher (Desktop-like experience on phones) */
+.wb-mobile-nav {
+  display: none;
+  background: var(--navy);
+  border-bottom: 1px solid var(--navy2);
+  padding: 4px 8px;
+  gap: 6px;
+  z-index: 25;
+  flex-shrink: 0;
+}
+
+.wb-mobile-nav-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-card);
+  background: #141A26;
+  border: 1px solid #243246;
+  color: var(--sub);
+  font-family: var(--font-m);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  transition: all .15s ease-out;
+  cursor: pointer;
+}
+
+.wb-mobile-nav-btn:hover {
+  color: var(--light);
+  border-color: #35486A;
+}
+
+.wb-mobile-nav-btn.active {
+  background: var(--gold);
+  color: var(--navy);
+  border-color: var(--gold);
+  font-weight: 700;
 }
 
 .wb-app button {
@@ -1015,45 +1058,116 @@ svg.wb-edges {
 }
 
 @media (max-width: 900px) {
+  /* Show mobile view mode bar below header */
+  .wb-mobile-nav {
+    display: flex;
+  }
+
+  /* Responsive header bar with horizontal scrolling without clutter */
+  .wb-hdr {
+    padding: 6px 12px;
+    min-height: 48px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+  }
+
+  .wb-hdr-l,
+  .wb-hdr-r {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
   .wb-split {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
     flex-direction: column;
   }
-  .wb-architect {
-    width: 100%;
-    max-width: none;
-    min-width: 0;
-    border-right: 0;
-    border-bottom: 1px solid var(--navy2);
-    flex: 0 0 auto;
-    max-height: 40vh;
-  }
-  .wb-canvas-wrap,
-  .wb-bottom .wb-btabs {
+
+  /* In Canvas mode: Canvas is fully visible, architect is hidden */
+  .wb-split.wb-mobile-view-canvas .wb-architect {
     display: none !important;
   }
-  .wb-reader {
-    display: block;
+  .wb-split.wb-mobile-view-canvas .wb-right {
+    display: flex !important;
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+  }
+  .wb-split.wb-mobile-view-canvas .wb-canvas-wrap {
+    display: block !important;
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+  }
+  .wb-split.wb-mobile-view-canvas .wb-bottom {
+    display: flex !important;
+    height: 120px;
+    flex: 0 0 120px;
+  }
+  .wb-split.wb-mobile-view-canvas .wb-bottom .wb-btabs {
+    display: flex !important;
+    overflow-x: auto;
+  }
+  .wb-split.wb-mobile-view-canvas .wb-reader,
+  .wb-split.wb-mobile-view-canvas .wb-approve-bar {
+    display: none !important;
+  }
+
+  /* In Architect mode: Architect chat is full screen, canvas is hidden */
+  .wb-split.wb-mobile-view-architect .wb-architect {
+    display: flex !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+    height: 100% !important;
+    max-height: none !important;
+    border-right: none;
+    border-bottom: none;
+  }
+  .wb-split.wb-mobile-view-architect .wb-right {
+    display: none !important;
+  }
+
+  /* In Review mode: Review & bottom tabs panel is full screen */
+  .wb-split.wb-mobile-view-review .wb-architect {
+    display: none !important;
+  }
+  .wb-split.wb-mobile-view-review .wb-right {
+    display: flex !important;
+    flex: 1;
+    height: 100%;
+  }
+  .wb-split.wb-mobile-view-review .wb-canvas-wrap {
+    display: none !important;
+  }
+  .wb-split.wb-mobile-view-review .wb-bottom {
+    display: flex !important;
+    flex: 1 !important;
+    height: 100% !important;
+  }
+  .wb-split.wb-mobile-view-review .wb-bottom .wb-btabs {
+    display: flex !important;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding: 0 8px;
+  }
+  .wb-split.wb-mobile-view-review .wb-reader {
+    display: block !important;
     padding: var(--s2);
+    overflow-y: auto;
   }
-  .wb-reader h2 {
-    font-family: var(--font-h);
-    font-size: 14px;
-    margin: 0 0 10px;
-    color: var(--light);
-  }
-  .wb-reader ol {
-    padding-left: 20px;
-    color: var(--sub);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-  .wb-approve-bar {
-    display: flex;
+  .wb-split.wb-mobile-view-review .wb-approve-bar {
+    display: flex !important;
     gap: 10px;
     padding: var(--s2);
     border-top: 1px solid var(--navy2);
   }
-  .wb-approve-bar button {
+  .wb-split.wb-mobile-view-review .wb-approve-bar button {
     flex: 1;
     min-height: 44px;
     border-radius: var(--r-card);
@@ -1063,22 +1177,33 @@ svg.wb-edges {
     text-transform: uppercase;
     font-weight: 600;
   }
-  .wb-approve-bar .yes {
+  .wb-split.wb-mobile-view-review .wb-approve-bar .yes {
     background: var(--gold);
     color: var(--navy);
   }
-  .wb-approve-bar .no {
+  .wb-split.wb-mobile-view-review .wb-approve-bar .no {
     background: #141A26;
     border: 1px solid #243246;
     color: var(--sub);
   }
-  .wb-bottom {
-    height: auto;
-    flex: 1;
+
+  /* Step inspector modal responsive rules */
+  .wb-inspector {
+    right: 8px;
+    left: 8px;
+    top: 50px;
+    width: auto;
+    max-height: calc(100% - 60px);
   }
-  .wb-hdr {
+
+  /* Toolbar styling for touch screens */
+  .wb-toolbar {
+    top: 8px;
+    left: 8px;
+    max-width: calc(100vw - 16px);
     overflow-x: auto;
   }
+
   .wb-grid {
     grid-template-columns: 1fr;
   }

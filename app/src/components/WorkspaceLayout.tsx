@@ -793,8 +793,9 @@ export const WorkspaceLayout: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Quick Navigation Bar */}
-      <nav className="mobile-bottom-bar" aria-label="Mobile Navigation">
+      {/* Mobile Bottom Quick Navigation Bar (hidden on full-screen workflow builder) */}
+      {!location.pathname.startsWith('/workflows/builder') && (
+        <nav className="mobile-bottom-bar" aria-label="Mobile Navigation">
         <NavLink
           to="/calendar"
           className={({ isActive }) =>
@@ -850,6 +851,7 @@ export const WorkspaceLayout: React.FC = () => {
           <span>Menu</span>
         </button>
       </nav>
+      )}
     </div>
   );
 };

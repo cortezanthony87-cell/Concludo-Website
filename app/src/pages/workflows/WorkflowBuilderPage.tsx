@@ -11,6 +11,7 @@ import { executeWorkflow, WorkflowRunResult } from '../../lib/workflows/executio
 import { calculateWorkflowRisk } from '../../lib/workflows/riskClassification';
 import { CONNECTOR_MANIFESTS } from '../../lib/workflows/connectorRegistry';
 import { WORKFLOW_TEMPLATES, WorkflowTemplateMeta } from '../../lib/workflows/templates';
+import { Sparkles, Network, FileSearch } from 'lucide-react';
 import { TemplatePickerModal } from "../../components/workflows/TemplatePickerModal";
 import { AddStepModal } from "../../components/workflows/AddStepModal";
 import { ConnectedStepInspector } from "../../components/workflows/ConnectedStepInspector";
@@ -92,6 +93,9 @@ export const WorkflowBuilderPage: React.FC = () => {
 
   // Bottom Tabs
   const [bottomTab, setBottomTab] = useState<number>(0);
+
+  // Mobile View Switcher (Architect vs Canvas vs Review)
+  const [mobileViewMode, setMobileViewMode] = useState<'canvas' | 'architect' | 'review'>('canvas');
 
   // Canvas Viewport Controls
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -461,8 +465,39 @@ export const WorkflowBuilderPage: React.FC = () => {
         </div>
       </header>
 
+      {/* Mobile View Mode Switcher (retains desktop split experience on mobile) */}
+      <nav className="wb-mobile-nav" aria-label="Mobile workflow views">
+        <button
+          type="button"
+          className={`wb-mobile-nav-btn ${mobileViewMode === 'canvas' ? 'active' : ''}`}
+          onClick={() => setMobileViewMode('canvas')}
+          aria-pressed={mobileViewMode === 'canvas'}
+        >
+          <Network size={14} />
+          <span>Workflow Canvas</span>
+        </button>
+        <button
+          type="button"
+          className={`wb-mobile-nav-btn ${mobileViewMode === 'architect' ? 'active' : ''}`}
+          onClick={() => setMobileViewMode('architect')}
+          aria-pressed={mobileViewMode === 'architect'}
+        >
+          <Sparkles size={14} />
+          <span>AI Architect</span>
+        </button>
+        <button
+          type="button"
+          className={`wb-mobile-nav-btn ${mobileViewMode === 'review' ? 'active' : ''}`}
+          onClick={() => setMobileViewMode('review')}
+          aria-pressed={mobileViewMode === 'review'}
+        >
+          <FileSearch size={14} />
+          <span>Review &amp; Tabs</span>
+        </button>
+      </nav>
+
       {/* ---------- Plate 3: Split Layout ---------- */}
-      <div className="wb-split">
+      <div className={`wb-split wb-mobile-view-${mobileViewMode}`}>
         {/* Region 2: Architect Panel (35% width, min 340px, max 460px) */}
         <aside className="wb-architect" aria-label="Concludo Workflow Architect">
           <div className="wb-ar-head">
