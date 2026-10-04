@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Search,
   Filter,
@@ -28,6 +28,7 @@ import { IntegrationDetailDrawer } from '../../components/integrations/Integrati
 import { RealConnectionModal } from '../../components/integrations/RealConnectionModal';
 
 export const IntegrationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [connections, setConnections] = useState<IntegrationConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,7 +143,7 @@ export const IntegrationsPage: React.FC = () => {
   };
 
   const handleStartConnect = (provider: ProviderDefinition) => {
-    setAuthModalProvider(provider);
+    navigate(`/integrations/connect/${provider.id}`);
   };
 
   const connectedCount = useMemo(() => {

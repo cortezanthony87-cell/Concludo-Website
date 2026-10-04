@@ -36,6 +36,7 @@ import { AdminPortalPage } from './pages/admin/AdminPortalPage';
 
 // Tasklet 18 Integrations, Automation & Connectivity Pages
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
+import { ConnectProviderPage } from './pages/integrations/ConnectProviderPage';
 import { IntegrationHistoryPage } from './pages/integrations/IntegrationHistoryPage';
 import { AutomationExportPage } from './pages/automation/AutomationExportPage';
 import { WebhooksPage } from './pages/automation/WebhooksPage';
@@ -155,6 +156,7 @@ export const App: React.FC = () => {
 
             {/* Tasklet 18 Integration, Automation & Public API Routes */}
             <Route path="/integrations" element={<IntegrationsPage />} />
+            <Route path="/integrations/connect/:providerId" element={<ConnectProviderPage />} />
             <Route path="/integrations/history" element={<IntegrationHistoryPage />} />
             <Route path="/automation-export" element={<AutomationExportPage />} />
             <Route path="/webhooks" element={<WebhooksPage />} />

@@ -191,12 +191,19 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                     onChange={(e) => setFriendlyName(e.target.value)}
                     placeholder="e.g. Anthony - Microsoft 365"
                     style={{
+                      height: '46px',
+                      minHeight: '46px',
+                      padding: '12px 16px',
                       backgroundColor: '#ffffff',
                       color: '#000000',
                       caretColor: '#000000',
                       WebkitTextFillColor: '#000000',
+                      fontSize: '14px',
+                      lineHeight: '22px',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
                     }}
-                    className="w-full px-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
+                    className="w-full bg-white text-black font-semibold border-2 border-slate-300 rounded-lg placeholder-slate-500 focus:outline-none focus:border-amber-400 transition shadow-sm"
                     required
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
@@ -208,20 +215,26 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                   <label className="block text-xs font-semibold text-slate-200 mb-1">
                     Account Email Address
                   </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <div>
                     <input
                       type="email"
                       value={accountEmail}
                       onChange={(e) => setAccountEmail(e.target.value)}
                       placeholder="user@company.com"
                       style={{
+                        height: '46px',
+                        minHeight: '46px',
+                        padding: '12px 16px',
                         backgroundColor: '#ffffff',
                         color: '#000000',
                         caretColor: '#000000',
                         WebkitTextFillColor: '#000000',
+                        fontSize: '14px',
+                        lineHeight: '22px',
+                        borderRadius: '8px',
+                        boxSizing: 'border-box',
                       }}
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
+                      className="w-full bg-white text-black font-semibold border-2 border-slate-300 rounded-lg placeholder-slate-500 focus:outline-none focus:border-amber-400 transition shadow-sm"
                       required
                     />
                   </div>
@@ -317,12 +330,19 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                   onChange={(e) => setFriendlyName(e.target.value)}
                   placeholder={`e.g. Production - ${provider.name}`}
                   style={{
+                    height: '46px',
+                    minHeight: '46px',
+                    padding: '12px 16px',
                     backgroundColor: '#ffffff',
                     color: '#000000',
                     caretColor: '#000000',
                     WebkitTextFillColor: '#000000',
+                    fontSize: '14px',
+                    lineHeight: '22px',
+                    borderRadius: '8px',
+                    boxSizing: 'border-box',
                   }}
-                  className="w-full px-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
+                  className="w-full bg-white text-black font-semibold border-2 border-slate-300 rounded-lg placeholder-slate-500 focus:outline-none focus:border-amber-400 transition shadow-sm"
                   required
                 />
               </div>
@@ -337,12 +357,19 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="Paste API token or key"
                   style={{
+                    height: '46px',
+                    minHeight: '46px',
+                    padding: '12px 16px',
                     backgroundColor: '#ffffff',
                     color: '#000000',
                     caretColor: '#000000',
                     WebkitTextFillColor: '#000000',
+                    fontSize: '14px',
+                    lineHeight: '22px',
+                    borderRadius: '8px',
+                    boxSizing: 'border-box',
                   }}
-                  className="w-full px-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 font-mono transition"
+                  className="w-full bg-white text-black font-semibold font-mono border-2 border-slate-300 rounded-lg placeholder-slate-500 focus:outline-none focus:border-amber-400 transition shadow-sm"
                   required
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block">
