@@ -262,7 +262,7 @@ export const OAuthConnectModal: React.FC<OAuthConnectModalProps> = ({
 
               {/* Account Input */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300 block">
+                <label className="text-xs font-semibold text-slate-200 block">
                   Account Email Address
                 </label>
                 <div className="relative">
@@ -271,7 +271,13 @@ export const OAuthConnectModal: React.FC<OAuthConnectModalProps> = ({
                     value={accountEmail}
                     onChange={(e) => setAccountEmail(e.target.value)}
                     placeholder="e.g. your-name@company.com"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-medium"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      color: '#000000',
+                      caretColor: '#000000',
+                      WebkitTextFillColor: '#000000',
+                    }}
+                    className="w-full pl-3.5 pr-10 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-xl text-xs placeholder-slate-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
                   />
                   <div className="absolute right-3 top-2.5 text-slate-500">
                     <User className="w-4 h-4" />

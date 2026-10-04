@@ -132,7 +132,7 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           <>
             <button
               onClick={() => onManage(provider, connection)}
-              className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700"
+              className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700 overflow-hidden text-ellipsis whitespace-nowrap"
             >
               <Settings className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Manage Connection
             </button>
@@ -140,7 +140,7 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
               onClick={() => onTest(connection)}
               disabled={isTesting}
               title="Test real connection status"
-              className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center gap-1"
+              className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center gap-1 shrink-0"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin text-amber-400' : 'text-slate-400'} shrink-0`} />
               Test
@@ -149,9 +149,10 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
         ) : (
           <button
             onClick={() => onConnect(provider)}
-            className="w-full min-h-[40px] py-2 px-3 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm leading-normal whitespace-nowrap"
+            className="w-full min-h-[40px] py-2 px-4 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm leading-normal whitespace-nowrap overflow-hidden text-ellipsis"
+            title={`Connect ${provider.name}`}
           >
-            <Plus className="w-4 h-4 shrink-0" /> Connect {provider.name}
+            <Plus className="w-4 h-4 shrink-0 stroke-[2.5]" /> Connect
           </button>
         )}
       </div>

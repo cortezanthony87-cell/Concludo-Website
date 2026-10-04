@@ -5,11 +5,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  Lock,
-  ArrowRight,
+  Plus,
   User,
   Key,
-  ExternalLink,
   Info,
 } from 'lucide-react';
 import {
@@ -66,8 +64,6 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
   }, [isOpen, provider]);
 
   if (!isOpen || !provider) return null;
-
-  const isOAuth = provider.authenticationType === 'oauth2' || provider.authenticationType === 'oauth2_pkce';
 
   const handleStartOAuth = async () => {
     if (!accountEmail || !accountEmail.includes('@')) {
@@ -174,50 +170,19 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5">
+        <div className="p-6 overflow-y-auto space-y-4">
           {step === 'consent' && (
             <>
-              {/* Scope & Permission Explainer */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                  <Shield className="w-4 h-4 text-emerald-400" />
-                  Concludo requires access to:
-                </div>
-                <div className="space-y-2 p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 text-xs text-slate-300">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-white">Execute workflow actions</span>
-                      <p className="text-[11px] text-slate-400">
-                        Trigger actions like sending messages, creating records, or uploading files on your behalf.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-white">Listen for workflow triggers</span>
-                      <p className="text-[11px] text-slate-400">
-                        Receive incoming webhook notifications and polling events when new data arrives.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-white">Maintain secure background token</span>
-                      <p className="text-[11px] text-slate-400">
-                        Encrypted in Concludo's Zero-Secret Vault with automated token refresh.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Account Identifier Inputs */}
-              <div className="space-y-3 pt-2">
+              {/* Primary Connection Form - Login Details & Connect Button Right Upfront */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleStartOAuth();
+                }}
+                className="space-y-3.5"
+              >
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-200 mb-1">
                     Connection Friendly Name
                   </label>
                   <input
@@ -225,42 +190,115 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                     value={friendlyName}
                     onChange={(e) => setFriendlyName(e.target.value)}
                     placeholder="e.g. Anthony - Microsoft 365"
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-400"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      color: '#000000',
+                      caretColor: '#000000',
+                      WebkitTextFillColor: '#000000',
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
+                    required
                   />
-                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  <span className="text-[10px] text-slate-400 mt-1 block">
                     Distinguish multiple accounts inside workflows.
                   </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-200 mb-1">
                     Account Email Address
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                    <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
                     <input
                       type="email"
                       value={accountEmail}
                       onChange={(e) => setAccountEmail(e.target.value)}
                       placeholder="user@company.com"
-                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-400"
+                      style={{
+                        backgroundColor: '#ffffff',
+                        color: '#000000',
+                        caretColor: '#000000',
+                        WebkitTextFillColor: '#000000',
+                      }}
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
+                      required
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-2 text-xs text-amber-300">
+                {errorMessage && (
+                  <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {/* Primary + Connect Button - Click or Hit Enter right away */}
+                <button
+                  type="submit"
+                  className="w-full min-h-[42px] py-2.5 px-4 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-md leading-normal whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 shrink-0 stroke-[2.5]" /> Connect {provider.name}
+                </button>
+              </form>
+
+              {/* Security Notice */}
+              <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-2 text-[11px] text-amber-300">
                 <Info className="w-4 h-4 flex-shrink-0" />
                 <span>
-                  You will be authenticated using official {provider.name} security gates. Passwords are never requested by Concludo.
+                  Official {provider.name} security gates. Passwords are never requested by Concludo.
                 </span>
+              </div>
+
+              {/* Scope & Permission Summary */}
+              <div className="space-y-2 pt-1 border-t border-slate-800/80">
+                <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400">
+                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                  Concludo requires access to:
+                </div>
+                <div className="space-y-1.5 p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-[11px] text-slate-300">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-white">Execute workflow actions</span>
+                      <p className="text-[10px] text-slate-400">
+                        Trigger actions like sending messages, creating records, or uploading files.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-white">Listen for workflow triggers</span>
+                      <p className="text-[10px] text-slate-400">
+                        Receive incoming webhook notifications and polling events when new data arrives.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-white">Zero-secret token refresh</span>
+                      <p className="text-[10px] text-slate-400">
+                        Encrypted in Concludo's Zero-Secret Vault with automated background rotation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           )}
 
           {step === 'api_key_form' && (
-            <div className="space-y-4">
-              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveApiKey();
+              }}
+              className="space-y-3.5"
+            >
+              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1">
                 <div className="flex items-center gap-2 text-amber-400 font-semibold">
                   <Key className="w-4 h-4" /> API Key Authentication
                 </div>
@@ -270,7 +308,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-200 mb-1">
                   Connection Friendly Name
                 </label>
                 <input
@@ -278,12 +316,19 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                   value={friendlyName}
                   onChange={(e) => setFriendlyName(e.target.value)}
                   placeholder={`e.g. Production - ${provider.name}`}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-400"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: '#000000',
+                    caretColor: '#000000',
+                    WebkitTextFillColor: '#000000',
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-200 mb-1">
                   API Key / Secret Token
                 </label>
                 <input
@@ -291,18 +336,40 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="Paste API token or key"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: '#000000',
+                    caretColor: '#000000',
+                    WebkitTextFillColor: '#000000',
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-white text-black font-semibold border border-slate-300 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 font-mono transition"
+                  required
                 />
-                <span className="text-[10px] text-slate-500 mt-1 block">
+                <span className="text-[10px] text-slate-400 mt-1 block">
                   Keys are never returned to client browsers or printed in normal application logs.
                 </span>
               </div>
-            </div>
+
+              {errorMessage && (
+                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              {/* Primary + Connect Button */}
+              <button
+                type="submit"
+                className="w-full min-h-[42px] py-2.5 px-4 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-md leading-normal whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+              >
+                <Plus className="w-4 h-4 shrink-0 stroke-[2.5]" /> Connect {provider.name}
+              </button>
+            </form>
           )}
 
           {step === 'authorizing' && (
-            <div className="py-12 text-center space-y-4">
-              <div className="w-14 h-14 rounded-full bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto text-amber-400 animate-spin">
+            <div className="py-10 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto text-amber-400 animate-spin">
                 <RefreshCw className="w-6 h-6" />
               </div>
               <div>
@@ -313,9 +380,9 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
           )}
 
           {step === 'success' && (
-            <div className="py-8 text-center space-y-4">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
-                <CheckCircle2 className="w-8 h-8" />
+            <div className="py-6 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
+                <CheckCircle2 className="w-7 h-7" />
               </div>
               <div>
                 <h4 className="text-base font-bold text-white">Connected Successfully!</h4>
@@ -331,7 +398,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
 
           {step === 'error' && (
             <div className="py-6 text-center space-y-4">
-              <div className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
+              <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
                 <AlertTriangle className="w-7 h-7" />
               </div>
               <div>
@@ -339,6 +406,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                 <p className="text-xs text-rose-400 mt-1">{errorMessage || 'An error occurred during authentication.'}</p>
               </div>
               <button
+                type="button"
                 onClick={() => setStep(provider.authenticationType === 'api_key' ? 'api_key_form' : 'consent')}
                 className="py-1.5 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition"
               >
@@ -349,36 +417,20 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between">
+        <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition"
+            className="px-3.5 py-1.5 text-xs font-medium text-slate-400 hover:text-white transition"
           >
             {step === 'success' ? 'Close' : 'Cancel'}
           </button>
 
-          {step === 'consent' && (
-            <button
-              onClick={handleStartOAuth}
-              className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-md"
-            >
-              Continue with {provider.name} <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
-
-          {step === 'api_key_form' && (
-            <button
-              onClick={handleSaveApiKey}
-              className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-md"
-            >
-              Verify & Save Key <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
-
           {step === 'success' && (
             <button
+              type="button"
               onClick={onClose}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition shadow-md"
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition shadow-md"
             >
               Done
             </button>
