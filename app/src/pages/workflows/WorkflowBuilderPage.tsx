@@ -132,6 +132,7 @@ export const WorkflowBuilderPage: React.FC = () => {
   >([]);
   const [isBuilding, setIsBuilding] = useState<boolean>(false);
   const [currentBrief, setCurrentBrief] = useState<string>('');
+  const [clarificationQuestion, setClarificationQuestion] = useState<string | null>(null);
   const [buildEvents, setBuildEvents] = useState<WorkflowBuildEvent[]>([]);
   const [plainLanguageExplanation, setPlainLanguageExplanation] = useState<string[]>([]);
   const [recentChanges, setRecentChanges] = useState<WhatChangedItem[] | undefined>(undefined);
@@ -258,6 +259,7 @@ export const WorkflowBuilderPage: React.FC = () => {
   // Handle building new workflow from brief
   const handleBuildWorkflow = async (brief: string) => {
     setCurrentBrief(brief);
+    setClarificationQuestion(null);
     setIsBuilding(true);
     setStage('B');
 
@@ -279,6 +281,7 @@ export const WorkflowBuilderPage: React.FC = () => {
 
       if (result.buildStatus === 'needs_clarification') {
         const question = result.questions?.[0] || 'Could you clarify what should trigger this workflow?';
+        setClarificationQuestion(question);
         setMessages((prev) => [
           ...prev,
           {
@@ -645,6 +648,8 @@ export const WorkflowBuilderPage: React.FC = () => {
           onBuildManually={handleBuildManually}
           onConnectAnotherApp={() => setIsAddStepOpen(true)}
           isBuilding={isBuilding}
+          initialBrief={currentBrief}
+          clarificationQuestion={clarificationQuestion || undefined}
         />
       )}
 

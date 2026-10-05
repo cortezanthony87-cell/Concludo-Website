@@ -10,6 +10,8 @@ export interface WorkflowEmptyStateProps {
   onBuildManually: () => void;
   onConnectAnotherApp: () => void;
   isBuilding?: boolean;
+  initialBrief?: string;
+  clarificationQuestion?: string;
 }
 
 export const WorkflowEmptyState: React.FC<WorkflowEmptyStateProps> = ({
@@ -19,8 +21,13 @@ export const WorkflowEmptyState: React.FC<WorkflowEmptyStateProps> = ({
   onBuildManually,
   onConnectAnotherApp,
   isBuilding = false,
+  initialBrief = '',
+  clarificationQuestion,
 }) => {
-  const [briefText, setBriefText] = useState('');
+  const [briefText, setBriefText] = useState(initialBrief);
+  React.useEffect(() => {
+    if (initialBrief) setBriefText(initialBrief);
+  }, [initialBrief]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -91,6 +98,33 @@ export const WorkflowEmptyState: React.FC<WorkflowEmptyStateProps> = ({
           Describe the outcome in your own words. You approve it before it ever runs.
         </p>
       </div>
+
+      {/* Clarification question banner if needed */}
+      {clarificationQuestion && (
+        <div
+          style={{
+            width: '100%',
+            background: 'rgba(226, 181, 60, 0.12)',
+            border: '1px solid var(--gold)',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'flex-start',
+          }}
+        >
+          <Sparkles size={16} color="var(--gold)" style={{ marginTop: '2px', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: '11px', fontFamily: 'var(--font-m)', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
+              Clarification from Concludo Architect
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--light)', fontFamily: 'var(--font-b)', lineHeight: 1.4 }}>
+              {clarificationQuestion}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Large input with gold border + Build workflow button */}
       <div

@@ -28,10 +28,10 @@ export async function executeWorkflowArchitect(
   request: any,
   streamCallbackArg?: (event: WorkflowBuildEvent) => void
 ): Promise<WorkflowArchitectOutput> {
-  const userPrompt = request.userPrompt || request.instruction || '';
+  const userPrompt = request.userPrompt || request.naturalLanguagePrompt || request.instruction || request.prompt || '';
   const organizationId = request.organizationId || 'org_concludo_default';
   const userId = request.userId || request.currentUserId || 'user_default';
-  const currentWorkflow = request.currentWorkflow || request.existingDefinition;
+  const currentWorkflow = request.currentWorkflow || request.existingDefinition || request.definition;
   const connectedApplications = request.connectedApplications || [];
   const streamCallback = streamCallbackArg || request.streamCallback;
 
