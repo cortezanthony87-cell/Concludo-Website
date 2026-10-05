@@ -110,7 +110,8 @@
 }
 
 /* ---------- Header Bar ---------- */
-.wb-hdr {
+.wb-hdr,
+.wb-head {
   min-height: 56px;
   flex: 0 0 auto;
   background: var(--navy);
@@ -122,22 +123,55 @@
   gap: 8px 12px;
   padding: 8px var(--s2);
   z-index: 20;
+  position: relative;
 }
 
-.wb-hdr-l {
+.wb-hdr-l,
+.wb-left {
   display: flex;
   align-items: center;
   gap: var(--s1);
   flex-wrap: wrap;
 }
 
-.wb-hdr-r {
+.wb-hdr-r,
+.wb-right-acts {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
   margin-left: auto;
   justify-content: flex-end;
+}
+
+/* ---------- Stage A Empty State Container & Layout ---------- */
+.wb-empty-stage {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start !important;
+  box-sizing: border-box;
+}
+
+.wb-empty-stage-inner {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .wb-empty-stage {
+    padding: 24px 16px 80px 16px !important;
+  }
 }
 
 .wb-back {

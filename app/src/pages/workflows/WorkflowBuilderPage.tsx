@@ -568,8 +568,8 @@ export const WorkflowBuilderPage: React.FC = () => {
   return (
     <div className="wb-app">
       {/* 3.1 Header: Back link, name, lifecycle pill, Undo, Primary Button, More */}
-      <header className="wb-head" role="banner">
-        <div className="wb-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <header className="wb-hdr wb-head" role="banner">
+        <div className="wb-hdr-l wb-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link
             to="/workflows"
             className="wb-back"
@@ -592,7 +592,7 @@ export const WorkflowBuilderPage: React.FC = () => {
           <WorkflowLifecyclePill uiState={derivedUiState} />
         </div>
 
-        <div className="wb-right-acts" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="wb-hdr-r wb-right-acts" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {stage !== 'A' && (
             <button
               type="button"
