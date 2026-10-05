@@ -443,7 +443,7 @@ export const WorkflowGovernancePage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-white">Active & Resolved Incidents (SEV 1–4)</h3>
+                <h3 className="text-sm font-semibold text-white">Active & Resolved Incidents (SEV 1 to 4)</h3>
                 <p className="text-xs text-slate-400">
                   Every failure, circuit breaker trip, or outcome-uncertain execution is registered for auditing.
                 </p>
