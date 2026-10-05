@@ -426,13 +426,13 @@ export const WorkflowBuilderPage: React.FC = () => {
     setStepTestStatuses(initialStatuses);
 
     try {
-      const res = await executeWorkflow(definition, {
-        triggerPayload: {
+      const res = await executeWorkflow({
+        workflow: definition,
+        inputs: {
           testMode: true,
           meetingId: 'demo_meeting_123',
           timestamp: new Date().toISOString(),
         },
-        actorId: user?.id || 'demo_user',
         isDryRun: true,
       });
 
