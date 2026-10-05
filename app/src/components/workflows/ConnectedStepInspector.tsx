@@ -52,11 +52,11 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
   onClose,
   onOpenConnectModal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'configure' | 'mapping' | 'test' | 'governance'>('configure');
+  const [activeTab, setActiveTab] = useState<'simple' | 'advanced'>('simple');
   const [isVarPickerOpen, setIsVarPickerOpen] = useState(false);
   const [activeTargetField, setActiveTargetField] = useState<string | null>(null);
 
-  // Testing state
+  // Testing state (Advanced)
   const [isRunningTest, setIsRunningTest] = useState(false);
   const [testResult, setTestResult] = useState<StepTestResult | null>(null);
 
@@ -109,17 +109,22 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
     onUpdateStep(updated);
   };
 
-  // Run isolated Test Step
+  // Run isolated Test Step (Honest simulated check)
   const handleRunTestStep = async () => {
     setIsRunningTest(true);
     setTestResult(null);
 
     const startTime = Date.now();
     try {
-      // Simulate real provider API invocation check
       await new Promise((resolve) => setTimeout(resolve, 600));
 
-      if (provider?.authenticationType !== 'none' && !currentConnection && providerConnections.length === 0) {
+      const isBuiltIn =
+        !step.application ||
+        step.application.startsWith('concludo_') ||
+        step.application === 'logic' ||
+        step.application === 'system';
+
+      if (!isBuiltIn && provider?.authenticationType !== 'none' && !currentConnection && providerConnections.length === 0) {
         setTestResult({
           success: false,
           message: `Authentication required: ${provider?.name || 'Provider'} account is not connected.`,
@@ -156,7 +161,7 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
 
       setTestResult({
         success: true,
-        message: `Successfully verified with ${provider?.name || 'Provider'} API!`,
+        message: `Simulated check passed for ${provider?.name || 'internal service'}.`,
         statusCode: 200,
         output: simulatedOutput,
         durationMs: Date.now() - startTime,
@@ -174,13 +179,34 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
   };
 
   const isApprovalLocked = step.stepType === 'approval' || step.approvalRequirement?.required;
+  const isBuiltIn =
+    !step.application ||
+    step.application.startsWith('concludo_') ||
+    step.application === 'logic' ||
+    step.application === 'system';
 
   return (
     <div className="wb-inspector" role="dialog" aria-label="Step details" style={{ width: '380px' }}>
       {/* Header */}
       <div className="wb-insp-head" style={{ borderBottom: '1px solid var(--navy2)', paddingBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {provider ? (
+          {isBuiltIn ? (
+            <div
+              style={{
+                width: '30px',
+                height: '30px',
+                borderRadius: '6px',
+                background: 'var(--navy2)',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--gold)',
+                fontFamily: 'var(--font-m)',
+                fontWeight: 700,
+              }}
+            >
+              C
+            </div>
+          ) : provider ? (
             <IntegrationIcon slug={provider.iconSlug} size={30} />
           ) : (
             <div
@@ -197,9 +223,9 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
             </div>
           )}
           <div>
-            <h2 style={{ fontSize: '14px', margin: 0 }}>{step.name || step.displayName}</h2>
-            <div className="wb-insp-sub">
-              {isTrigger ? 'Trigger' : 'Action'} &bull; {provider?.name || step.application}
+            <h2 style={{ fontSize: '14px', margin: 0, fontFamily: 'var(--font-h)' }}>{step.name || step.displayName}</h2>
+            <div className="wb-insp-sub" style={{ fontSize: '11px', color: 'var(--sub)' }}>
+              {isTrigger ? 'Starts when' : 'Action'} &bull; {isBuiltIn ? 'Built into Concludo' : provider?.name || step.application}
             </div>
           </div>
         </div>
@@ -214,99 +240,72 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
         </button>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="wb-tabs" role="tablist" style={{ margin: '10px 0 14px' }}>
+      {/* Tabs: Simple vs Advanced */}
+      <div className="wb-tabs" role="tablist" style={{ margin: '12px 0 16px' }}>
         <button
           className="wb-tab"
           role="tab"
-          aria-selected={activeTab === 'configure'}
-          onClick={() => setActiveTab('configure')}
+          aria-selected={activeTab === 'simple'}
+          onClick={() => setActiveTab('simple')}
         >
-          Setup
+          Simple
         </button>
         <button
           className="wb-tab"
           role="tab"
-          aria-selected={activeTab === 'mapping'}
-          onClick={() => setActiveTab('mapping')}
+          aria-selected={activeTab === 'advanced'}
+          onClick={() => setActiveTab('advanced')}
         >
-          Fields ({Object.keys(actionDef?.inputSchema || {}).length})
-        </button>
-        <button
-          className="wb-tab"
-          role="tab"
-          aria-selected={activeTab === 'test'}
-          onClick={() => setActiveTab('test')}
-        >
-          Test Step
-        </button>
-        <button
-          className="wb-tab"
-          role="tab"
-          aria-selected={activeTab === 'governance'}
-          onClick={() => setActiveTab('governance')}
-        >
-          Governance
+          Advanced
         </button>
       </div>
 
-      {/* Tab 1: Configure & Connection */}
-      {activeTab === 'configure' && (
-        <div>
-          {/* Connection status banner */}
+      {/* Tab: Simple */}
+      {activeTab === 'simple' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* 1. What this step does */}
+          <div>
+            <label style={labelStyle}>What this step does</label>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--light)', lineHeight: 1.45 }}>
+              {step.userFacingExplanation || 'Executes this step in the automated flow.'}
+            </p>
+          </div>
+
+          {/* 2. App and account */}
           <div
             style={{
               background: '#121C2B',
               border: '1px solid var(--navy2)',
               borderRadius: '8px',
               padding: '12px',
-              marginBottom: '14px',
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '8px',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontFamily: 'var(--font-m)',
-                  color: 'var(--sub)',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Connected Account
-              </span>
-              {currentConnection ? (
-                <span
-                  style={{
-                    fontSize: '10px',
-                    color: 'var(--ok)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontFamily: 'var(--font-m)',
-                  }}
-                >
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--ok)' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={labelStyle}>App and Account</span>
+              {isBuiltIn ? (
+                <span style={{ fontSize: '10.5px', color: 'var(--ok)', fontFamily: 'var(--font-m)' }}>
+                  Built into Concludo
+                </span>
+              ) : currentConnection ? (
+                <span style={{ fontSize: '10.5px', color: 'var(--ok)', fontFamily: 'var(--font-m)' }}>
                   Connected
                 </span>
               ) : providerConnections.length > 0 ? (
-                <span style={{ fontSize: '10px', color: 'var(--gold)', fontFamily: 'var(--font-m)' }}>
+                <span style={{ fontSize: '10.5px', color: 'var(--gold)', fontFamily: 'var(--font-m)' }}>
                   Selection Required
                 </span>
               ) : (
-                <span style={{ fontSize: '10px', color: 'var(--bad)', fontFamily: 'var(--font-m)' }}>
+                <span style={{ fontSize: '10.5px', color: 'var(--bad)', fontFamily: 'var(--font-m)' }}>
                   Not Connected
                 </span>
               )}
             </div>
 
-            {providerConnections.length > 0 ? (
+            {isBuiltIn ? (
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--sub)' }}>
+                Runs internally within Concludo workspace governance.
+              </p>
+            ) : providerConnections.length > 0 ? (
               <select
                 value={step.configuration?.connectionId || providerConnections[0].id}
                 onChange={(e) => handleConfigChange('connectionId', e.target.value)}
@@ -329,7 +328,7 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
               </select>
             ) : (
               <div>
-                <p style={{ margin: '0 0 10px', fontSize: '11px', color: 'var(--sub)' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '11px', color: 'var(--sub)' }}>
                   Connect your {provider?.name || 'app'} account to authorise this step.
                 </p>
                 {provider && (
@@ -342,15 +341,11 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
                       color: 'var(--navy)',
                       border: 'none',
                       borderRadius: '6px',
-                      padding: '8px 12px',
-                      fontSize: '12px',
+                      padding: '7px 12px',
+                      fontSize: '11.5px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       fontFamily: 'var(--font-m)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
                     }}
                   >
                     + Connect {provider.name}
@@ -360,366 +355,227 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
             )}
           </div>
 
-          <div className="wb-field">
-            <div className="wb-k">Step Label</div>
-            <input
-              type="text"
-              value={step.name || step.displayName}
-              onChange={(e) => onUpdateStep({ ...step, name: e.target.value, displayName: e.target.value })}
+          {/* 3. Information it uses */}
+          <div>
+            <label style={labelStyle}>Information it uses</label>
+            <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--sub)', lineHeight: 1.4 }}>
+              {step.inputMapping && Object.keys(step.inputMapping).length > 0
+                ? Object.entries(step.inputMapping)
+                    .map(([k, v]) => `${k} from ${v}`)
+                    .join(', ')
+                : 'Takes standard parameters from the starting trigger and previous steps.'}
+            </p>
+          </div>
+
+          {/* 4. What it produces */}
+          <div>
+            <label style={labelStyle}>What it produces</label>
+            <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--sub)', lineHeight: 1.4 }}>
+              Outputs standard step outcome data available for subsequent steps and review cards.
+            </p>
+          </div>
+
+          {/* 5. Who approves */}
+          <div>
+            <label style={labelStyle}>Who approves</label>
+            {isApprovalLocked ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid var(--warn)',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  color: 'var(--warn)',
+                }}
+              >
+                <Lock size={14} />
+                <span>
+                  Locked: Human approval required by Concludo policy before actions or messages can proceed.
+                </span>
+              </div>
+            ) : (
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--sub)' }}>
+                No mandatory approval required for this individual action step.
+              </p>
+            )}
+          </div>
+
+          {/* 6. If it fails */}
+          <div>
+            <label style={labelStyle}>If it fails</label>
+            <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--sub)' }}>
+              Retries up to 3 times with exponential backoff. If persistent, execution pauses and notifies the workflow owner.
+            </p>
+          </div>
+
+          {/* Link to Advanced */}
+          <div style={{ marginTop: '12px', borderTop: '1px solid var(--navy2)', paddingTop: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('advanced')}
               style={{
-                width: '100%',
-                background: '#121C2B',
-                border: '1px solid var(--navy2)',
-                borderRadius: '6px',
-                color: 'var(--light)',
-                padding: '6px 10px',
-                fontSize: '12px',
-                fontFamily: 'var(--font-b)',
-                marginTop: '4px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--gold)',
+                fontSize: '11.5px',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-m)',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
               }}
-            />
+            >
+              <span>View advanced configuration &rarr;</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Advanced */}
+      {activeTab === 'advanced' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Warning banner */}
+          <div
+            style={{
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid var(--warn)',
+              borderRadius: '6px',
+              padding: '8px 10px',
+              fontSize: '11px',
+              color: 'var(--warn)',
+              fontFamily: 'var(--font-m)',
+            }}
+          >
+            Changes made here are not checked by the Architect.
           </div>
 
-          <div className="wb-field">
-            <div className="wb-k">Explanation</div>
-            <div className="wb-v">{step.userFacingExplanation || step.purpose}</div>
+          {/* Field Mapping */}
+          <div>
+            <label style={labelStyle}>Field Mapping</label>
+            {actionDef?.inputSchema ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {Object.entries(actionDef.inputSchema).map(([fieldKey, spec]: [string, any]) => (
+                  <div key={fieldKey}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--light)', fontFamily: 'var(--font-m)' }}>
+                        {spec.description || fieldKey} {spec.required && <span style={{ color: 'var(--warn)' }}>*</span>}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={step.inputMapping?.[fieldKey] || ''}
+                      onChange={(e) => handleMappingChange(fieldKey, e.target.value)}
+                      placeholder={`e.g. {{trigger.${fieldKey}}}`}
+                      style={{
+                        width: '100%',
+                        background: 'var(--navy)',
+                        border: '1px solid var(--navy2)',
+                        borderRadius: '4px',
+                        color: 'var(--light)',
+                        padding: '6px 8px',
+                        fontSize: '11.5px',
+                        fontFamily: 'var(--font-m)',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--sub)' }}>No input fields for this step.</p>
+            )}
           </div>
 
+          {/* Simulated Step Test */}
+          <div
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--navy2)',
+              borderRadius: '6px',
+              padding: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={labelStyle}>Step Test</span>
+              <button
+                type="button"
+                onClick={handleRunTestStep}
+                disabled={isRunningTest}
+                style={{
+                  background: 'var(--navy2)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'var(--light)',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontFamily: 'var(--font-m)',
+                  cursor: isRunningTest ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isRunningTest ? 'Running...' : 'Test Step'}
+              </button>
+            </div>
+            <p style={{ margin: '0 0 6px', fontSize: '10.5px', color: 'var(--sub)' }}>
+              Simulated check: Concludo does not call the app yet.
+            </p>
+            {testResult && (
+              <div
+                style={{
+                  marginTop: '6px',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  background: testResult.success ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: testResult.success ? 'var(--ok)' : 'var(--bad)',
+                  fontSize: '11px',
+                }}
+              >
+                {testResult.message}
+              </div>
+            )}
+          </div>
+
+          {/* Step Actions */}
           {onDeleteStep && (
-            <div style={{ marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--navy2)' }}>
+            <div style={{ marginTop: '10px' }}>
               <button
                 type="button"
                 onClick={() => onDeleteStep(step.key)}
                 style={{
+                  width: '100%',
                   background: 'transparent',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                  color: '#EF4444',
+                  border: '1px solid var(--bad)',
                   borderRadius: '6px',
+                  color: 'var(--bad)',
                   padding: '6px 12px',
-                  fontSize: '11px',
+                  fontSize: '11.5px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '6px',
                 }}
               >
-                <Trash2 size={13} /> Remove Step from Canvas
+                <Trash2 size={13} />
+                <span>Delete Step</span>
               </button>
             </div>
           )}
         </div>
       )}
-
-      {/* Tab 2: Dynamic Field Mapping */}
-      {activeTab === 'mapping' && (
-        <div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '12px',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '11px',
-                fontFamily: 'var(--font-m)',
-                color: 'var(--sub)',
-                textTransform: 'uppercase',
-                letterSpacing: '.06em',
-              }}
-            >
-              Input Fields & Variables
-            </span>
-            <span style={{ fontSize: '10px', color: 'var(--gold)', fontFamily: 'var(--font-m)' }}>
-              Use {'{{var}}'} to map data
-            </span>
-          </div>
-
-          {actionDef && Object.keys(actionDef.inputSchema || {}).length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {Object.entries(actionDef.inputSchema).map(([fieldName, spec]: [string, any]) => {
-                const currentValue = step.inputMapping?.[fieldName] || '';
-
-                return (
-                  <div
-                    key={fieldName}
-                    style={{
-                      background: '#121C2B',
-                      border: '1px solid var(--navy2)',
-                      borderRadius: '8px',
-                      padding: '10px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '4px',
-                      }}
-                    >
-                      <label
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          color: 'var(--light)',
-                          fontFamily: 'var(--font-b)',
-                        }}
-                      >
-                        {spec.description || fieldName}
-                        {spec.required && <span style={{ color: 'var(--gold)', marginLeft: '3px' }}>*</span>}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTargetField(fieldName);
-                          setIsVarPickerOpen(true);
-                        }}
-                        style={{
-                          background: 'rgba(226, 181, 60, 0.12)',
-                          color: 'var(--gold)',
-                          border: '1px solid rgba(226, 181, 60, 0.3)',
-                          borderRadius: '4px',
-                          padding: '2px 6px',
-                          fontSize: '9px',
-                          fontFamily: 'var(--font-m)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                        }}
-                      >
-                        <Layers size={10} /> + Insert Variable
-                      </button>
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder={spec.example ? `e.g. ${spec.example}` : `Enter value or {{variable}}`}
-                      value={currentValue}
-                      onChange={(e) => handleMappingChange(fieldName, e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'var(--navy)',
-                        border: '1px solid var(--navy2)',
-                        borderRadius: '6px',
-                        color: 'var(--light)',
-                        padding: '6px 10px',
-                        fontSize: '12px',
-                        fontFamily: 'var(--font-m)',
-                      }}
-                    />
-
-                    {spec.type && (
-                      <div
-                        style={{
-                          fontSize: '9px',
-                          color: 'var(--sub)',
-                          marginTop: '4px',
-                          fontFamily: 'var(--font-m)',
-                        }}
-                      >
-                        Type: {spec.type}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--sub)' }}>
-              <p style={{ margin: 0, fontSize: '12px' }}>No input fields required for this step.</p>
-              <p style={{ margin: '4px 0 0', fontSize: '10px' }}>
-                Outputs generated by this step can be mapped into subsequent workflow steps.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 3: Test Step */}
-      {activeTab === 'test' && (
-        <div>
-          <p style={{ margin: '0 0 12px', fontSize: '11px', color: 'var(--sub)' }}>
-            Execute a safe isolated test for this step using the connected account credentials.
-          </p>
-
-          <button
-            type="button"
-            onClick={handleRunTestStep}
-            disabled={isRunningTest}
-            style={{
-              width: '100%',
-              background: isRunningTest ? 'var(--navy2)' : 'var(--gold)',
-              color: 'var(--navy)',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '8px 12px',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: isRunningTest ? 'wait' : 'pointer',
-              fontFamily: 'var(--font-m)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              marginBottom: '14px',
-            }}
-          >
-            {isRunningTest ? (
-              <>
-                <RefreshCw size={14} className="animate-spin" /> Testing with {provider?.name || 'App'}...
-              </>
-            ) : (
-              <>
-                <Play size={14} /> Test Step Now
-              </>
-            )}
-          </button>
-
-          {testResult && (
-            <div
-              style={{
-                background: testResult.success ? '#0E2419' : '#2A1215',
-                border: '1px solid',
-                borderColor: testResult.success ? 'var(--ok)' : 'var(--bad)',
-                borderRadius: '8px',
-                padding: '12px',
-                marginTop: '10px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                {testResult.success ? (
-                  <CheckCircle2 size={16} color="var(--ok)" />
-                ) : (
-                  <AlertTriangle size={16} color="var(--bad)" />
-                )}
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: testResult.success ? 'var(--ok)' : 'var(--bad)',
-                    fontFamily: 'var(--font-h)',
-                  }}
-                >
-                  {testResult.success ? 'Test Succeeded' : 'Test Failed'}
-                </span>
-                {testResult.durationMs && (
-                  <span style={{ fontSize: '10px', color: 'var(--sub)', marginLeft: 'auto' }}>
-                    {testResult.durationMs}ms
-                  </span>
-                )}
-              </div>
-
-              <p style={{ margin: '0 0 8px', fontSize: '11px', color: 'var(--light)' }}>
-                {testResult.message}
-              </p>
-
-              {testResult.errorCategory && (
-                <div
-                  style={{
-                    fontSize: '10px',
-                    color: 'var(--sub)',
-                    fontFamily: 'var(--font-m)',
-                    marginBottom: '8px',
-                  }}
-                >
-                  Category: {testResult.errorCategory}
-                </div>
-              )}
-
-              {testResult.output && (
-                <div>
-                  <div
-                    style={{
-                      fontSize: '9px',
-                      color: 'var(--sub)',
-                      fontFamily: 'var(--font-m)',
-                      textTransform: 'uppercase',
-                      marginBottom: '4px',
-                    }}
-                  >
-                    Sample Output Payload
-                  </div>
-                  <pre
-                    style={{
-                      margin: 0,
-                      background: 'rgba(0,0,0,0.3)',
-                      padding: '8px',
-                      borderRadius: '4px',
-                      fontSize: '10px',
-                      fontFamily: 'var(--font-m)',
-                      color: 'var(--light)',
-                      overflowX: 'auto',
-                      maxHeight: '120px',
-                    }}
-                  >
-                    {JSON.stringify(testResult.output, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 4: Governance */}
-      {activeTab === 'governance' && (
-        <div>
-          <div className="wb-field">
-            <div className="wb-k">Human Approval Requirement</div>
-            <div className="wb-v">
-              {isApprovalLocked ? (
-                <span className="wb-lock">
-                  <Lock size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                  Locked by Concludo Governance. Human approval required before dispatch.
-                </span>
-              ) : (
-                'Standard automated execution'
-              )}
-            </div>
-          </div>
-
-          <div className="wb-field">
-            <div className="wb-k">Idempotency Policy</div>
-            <div className="wb-v mono">
-              {step.idempotencyPolicy?.keyTemplate || `${step.application}:{{run.id}}:${step.key}`}
-            </div>
-          </div>
-
-          <div className="wb-field">
-            <div className="wb-k">Retry Policy</div>
-            <div className="wb-v mono">
-              {step.retryPolicy?.maxAttempts || 3} attempts, exponential backoff
-            </div>
-          </div>
-
-          <div className="wb-field">
-            <div className="wb-k">Credential Security</div>
-            <div className="wb-v" style={{ fontSize: '11px', color: 'var(--sub)' }}>
-              Zero-secret architecture: Credentials remain vaulted on server. Workflow records contain only
-              scoped connection references.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Variable Picker Modal */}
-      <VariablePickerModal
-        isOpen={isVarPickerOpen}
-        onClose={() => setIsVarPickerOpen(false)}
-        currentStepKey={step.key}
-        allSteps={allSteps}
-        targetFieldName={activeTargetField || undefined}
-        onSelectVariable={(token) => {
-          if (activeTargetField) {
-            const currentVal = step.inputMapping?.[activeTargetField] || '';
-            handleMappingChange(activeTargetField, currentVal ? `${currentVal} ${token}` : token);
-          }
-        }}
-      />
     </div>
   );
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '10.5px',
+  fontFamily: 'var(--font-m)',
+  textTransform: 'uppercase',
+  color: 'var(--sub)',
+  letterSpacing: '0.04em',
+  marginBottom: '4px',
 };

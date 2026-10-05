@@ -1,48 +1,117 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthContext';
-import { WorkflowDefinition, WorkflowStep, WorkflowEdge, BuildEvent } from '../../lib/workflows/schemas';
+import {
+  WorkflowDefinition,
+  WorkflowStep,
+  WorkflowEdge,
+  WorkflowBuildEvent,
+} from '../../lib/workflows/schemas';
 import {
   executeWorkflowArchitect,
   buildMeetingFollowthroughVerticalSlice,
 } from '../../lib/workflows/workflowArchitectAgent';
-import { validateWorkflowDefinition, ValidationResult } from '../../lib/workflows/validation';
-import { executeWorkflow, WorkflowRunResult } from '../../lib/workflows/executionEngine';
+import { validateWorkflowDefinition } from '../../lib/workflows/validation';
+import { executeWorkflow, WorkflowRunRecord } from '../../lib/workflows/executionEngine';
 import { calculateWorkflowRisk } from '../../lib/workflows/riskClassification';
 import { CONNECTOR_MANIFESTS } from '../../lib/workflows/connectorRegistry';
 import { WORKFLOW_TEMPLATES, WorkflowTemplateMeta } from '../../lib/workflows/templates';
-import { Sparkles, Network, FileSearch } from 'lucide-react';
-import { TemplatePickerModal } from "../../components/workflows/TemplatePickerModal";
-import { AddStepModal } from "../../components/workflows/AddStepModal";
-import { ConnectedStepInspector } from "../../components/workflows/ConnectedStepInspector";
-import { RealConnectionModal } from "../../components/integrations/RealConnectionModal";
-import { IntegrationIcon } from "../../components/integrations/IntegrationIcon";
+import {
+  RotateCcw,
+  Network,
+  ListOrdered,
+  Sparkles,
+  Layers,
+  FileSearch,
+  X,
+  Code,
+} from 'lucide-react';
+
+import { TemplatePickerModal } from '../../components/workflows/TemplatePickerModal';
+import { AddStepModal } from '../../components/workflows/AddStepModal';
+import { ConnectedStepInspector } from '../../components/workflows/ConnectedStepInspector';
+import { RealConnectionModal } from '../../components/integrations/RealConnectionModal';
+import { WorkflowLifecyclePill, WorkflowUiState } from '../../components/workflows/WorkflowLifecyclePill';
+import { PrimaryActionButton } from '../../components/workflows/PrimaryActionButton';
+import { WorkflowMoreMenu } from '../../components/workflows/WorkflowMoreMenu';
+import { WorkflowStepCard } from '../../components/workflows/WorkflowStepCard';
+import { WorkflowStepsOutline } from '../../components/workflows/WorkflowStepsOutline';
+import { WorkflowEmptyState } from '../../components/workflows/WorkflowEmptyState';
+import { BuildProgressList } from '../../components/workflows/BuildProgressList';
+import { ReviewCard, WhatChangedItem } from '../../components/workflows/ReviewCard';
 import {
   integrationsHubService,
   IntegrationConnection,
   ProviderDefinition,
   INTEGRATION_PROVIDERS_CATALOG,
-} from "../../lib/integrations/hubRegistry";
+} from '../../lib/integrations/hubRegistry';
+
 import './workflow-builder-template.css';
+
+export function createEmptyWorkflowDefinition(userId?: string): WorkflowDefinition {
+  return {
+    schemaVersion: 1,
+    workflowKey: `wf_${Date.now()}`,
+    name: 'Untitled workflow',
+    description: 'Custom workflow',
+    version: 1,
+    status: 'draft',
+    organisationScope: { type: 'current_organisation' },
+    owner: { type: 'user', value: userId || 'project_owner' },
+    timezone: 'Australia/Melbourne',
+    riskLevel: 'low',
+    trigger: {
+      triggerKey: 'manual.start',
+      displayName: 'Manual Start',
+      sourceService: 'system',
+      configuration: {},
+    },
+    inputs: [],
+    variables: [],
+    steps: [],
+    edges: [],
+    errorHandling: {
+      maxConsecutiveFailures: 3,
+      notifyOwnerOnFailure: true,
+    },
+    audit: {
+      recordExecutionHistory: true,
+      auditClassification: 'standard',
+    },
+    monitoring: {},
+    rollback: {
+      canRollback: false,
+    },
+    layout: {
+      nodes: {},
+    },
+  };
+}
 
 export const WorkflowBuilderPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Workflow Definition State
+  // Definition State (Starts empty for Stage A)
   const [definition, setDefinition] = useState<WorkflowDefinition>(() =>
-    buildMeetingFollowthroughVerticalSlice()
+    createEmptyWorkflowDefinition(user?.id)
   );
-  const [historyStack, setHistoryStack] = useState<WorkflowDefinition[]>([]);
-  const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
-  // Template Picker Modal
-  const [isPickerOpen, setIsPickerOpen] = useState<boolean>(false);
+  // History stack for Undo
+  const [historyStack, setHistoryStack] = useState<WorkflowDefinition[]>(() => [definition]);
+  const [historyIndex, setHistoryIndex] = useState<number>(0);
 
-  // Integrations & Real Connectors State (Phase 3)
-  const [isAddStepOpen, setIsAddStepOpen] = useState<boolean>(false);
+  // Stage & View Mode State
+  const [stage, setStage] = useState<'A' | 'B' | 'C'>('A');
+  const [activeCanvasView, setActiveCanvasView] = useState<'diagram' | 'steps'>('diagram');
+  const [mobileTab, setMobileTab] = useState<'architect' | 'workflow' | 'review' | 'runs'>('workflow');
+
+  // Integrations & Real Connectors
   const [connections, setConnections] = useState<IntegrationConnection[]>([]);
+  const [isAddStepOpen, setIsAddStepOpen] = useState<boolean>(false);
+  const [isPickerOpen, setIsPickerOpen] = useState<boolean>(false);
   const [connectModalProvider, setConnectModalProvider] = useState<ProviderDefinition | null>(null);
+  const [isRawDefinitionModalOpen, setIsRawDefinitionModalOpen] = useState<boolean>(false);
 
   // Load existing connections
   useEffect(() => {
@@ -51,7 +120,7 @@ export const WorkflowBuilderPage: React.FC = () => {
         const conns = await integrationsHubService.getConnections();
         setConnections(conns);
       } catch (err) {
-        console.warn("Could not load connections:", err);
+        console.warn('Could not load connections:', err);
       }
     };
     fetchConnections();
@@ -59,812 +128,993 @@ export const WorkflowBuilderPage: React.FC = () => {
 
   // Conversation & Agent Architect State
   const [messages, setMessages] = useState<
-    Array<{ id: string; role: 'user' | 'architect'; content: string; timestamp: string }>
-  >([
-    {
-      id: 'm1',
-      role: 'architect',
-      content:
-        'Describe what you want automated, in ordinary English. I will draft it, and you decide whether it runs.',
-      timestamp: '09:41',
-    },
-    {
-      id: 'm2',
-      role: 'user',
-      content: 'After a client meeting, draft the follow-up and put the deadlines in.',
-      timestamp: '09:42',
-    },
-    {
-      id: 'm3',
-      role: 'architect',
-      content:
-        'Drafted four steps. The approval step is fixed: nothing leaves Concludo until you sign it off.',
-      timestamp: '09:42',
-    },
-  ]);
-  const [inputPrompt, setInputPrompt] = useState<string>('');
+    Array<{ id: string; role: 'user' | 'architect'; content: string; timestamp?: string }>
+  >([]);
   const [isBuilding, setIsBuilding] = useState<boolean>(false);
-  const [buildEvents, setBuildEvents] = useState<BuildEvent[]>([]);
+  const [currentBrief, setCurrentBrief] = useState<string>('');
+  const [buildEvents, setBuildEvents] = useState<WorkflowBuildEvent[]>([]);
+  const [plainLanguageExplanation, setPlainLanguageExplanation] = useState<string[]>([]);
+  const [recentChanges, setRecentChanges] = useState<WhatChangedItem[] | undefined>(undefined);
+  const [proposedStepKeys, setProposedStepKeys] = useState<Set<string>>(new Set());
 
   // Selected Node & Inspector
-  const [selectedStepKey, setSelectedStepKey] = useState<string | null>('approval_centre_review');
-  const [inspectorTab, setInspectorTab] = useState<'simple' | 'advanced'>('simple');
-  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
+  const [selectedStepKey, setSelectedStepKey] = useState<string | null>(null);
+  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
 
-  // Bottom Tabs
-  const [bottomTab, setBottomTab] = useState<number>(0);
+  // Bottom Tabs (Collapsed by default to 40px)
+  const [isDrawerExpanded, setIsDrawerExpanded] = useState<boolean>(false);
+  const [drawerTab, setDrawerTab] = useState<number>(0);
 
-  // Mobile View Switcher (Architect vs Canvas vs Review)
-  const [mobileViewMode, setMobileViewMode] = useState<'canvas' | 'architect' | 'review'>('canvas');
-
-  // Canvas Viewport Controls
+  // Viewport Controls
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
-  const nodesContainerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Execution & Testing
-  const [testResult, setTestResult] = useState<WorkflowRunResult | null>(null);
+  const [testResult, setTestResult] = useState<WorkflowRunRecord | null>(null);
+  const [testDefinitionHash, setTestDefinitionHash] = useState<string | null>(null);
   const [isRunningTest, setIsRunningTest] = useState<boolean>(false);
-  const [runHistory, setRunHistory] = useState<WorkflowRunResult[]>([]);
-  const [publishStatus, setPublishStatus] = useState<'draft' | 'submitted' | 'published'>('draft');
-  const [publishedVersion, setPublishedVersion] = useState<number>(1);
-  const [rollbackAvailable, setRollbackAvailable] = useState<boolean>(false);
+  const [stepTestStatuses, setStepTestStatuses] = useState<
+    Record<string, 'passed' | 'failed' | 'skipped' | 'running'>
+  >({});
+  const [runHistory, setRunHistory] = useState<WorkflowRunRecord[]>([]);
+  const [testNotice, setTestNotice] = useState<string | null>(null);
 
   // Validation
-  const [validation, setValidation] = useState<ValidationResult>(() =>
-    validateWorkflowDefinition(definition)
-  );
+  const validation = useMemo(() => validateWorkflowDefinition(definition), [definition]);
 
-  useEffect(() => {
-    setValidation(validateWorkflowDefinition(definition));
-  }, [definition]);
-
-  // Keyboard navigation & Shortcuts (Plate 15)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsInspectorOpen(false);
-        setIsPickerOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  const handleAddCustomStep = (newStepPartial: Partial<WorkflowStep>) => {
-    const fullStep: WorkflowStep = {
-      key: newStepPartial.key || `step_${Date.now()}`,
-      displayName: newStepPartial.displayName || "New Step",
-      name: newStepPartial.name || newStepPartial.displayName || "New Step",
-      purpose: newStepPartial.purpose || "Automated step execution",
-      stepType: newStepPartial.stepType || "action",
-      application: newStepPartial.application || "concludo_workflow",
-      service: newStepPartial.service || newStepPartial.application || "concludo_workflow",
-      userFacingExplanation: newStepPartial.userFacingExplanation || "Custom workflow step",
-      position: newStepPartial.position || { x: definition.steps.length * 240 + 40, y: 60 },
-      inputMapping: newStepPartial.inputMapping || {},
-      outputSchema: newStepPartial.outputSchema || {},
-      configuration: newStepPartial.configuration || {},
-      retryPolicy: newStepPartial.retryPolicy || { maxAttempts: 3, initialIntervalMs: 1000, backoffFactor: 2 },
-      idempotencyPolicy: newStepPartial.idempotencyPolicy || { enabled: true, keyTemplate: `${newStepPartial.application || "step"}:{{run.id}}:${newStepPartial.key}` },
-    };
-
-    const newDef: WorkflowDefinition = {
-      ...definition,
-      steps: [...definition.steps, fullStep],
-      edges: definition.steps.length > 0
-        ? [
-            ...definition.edges,
-            {
-              id: `edge_${Date.now()}`,
-              sourceStepKey: definition.steps[definition.steps.length - 1].key,
-              destinationStepKey: fullStep.key,
-              sourceStep: definition.steps[definition.steps.length - 1].key,
-              destinationStep: fullStep.key,
-              edgeType: "success",
-            },
-          ]
-        : definition.edges,
-    };
-
-    pushHistory(newDef);
+  // Push new definition to history stack
+  const updateDefinitionWithHistory = (newDef: WorkflowDefinition, newProposed?: Set<string>) => {
+    const nextIndex = historyIndex + 1;
+    const nextStack = [...historyStack.slice(0, nextIndex), newDef];
+    setHistoryStack(nextStack);
+    setHistoryIndex(nextIndex);
     setDefinition(newDef);
-    setSelectedStepKey(fullStep.key);
-    setIsInspectorOpen(true);
-  };
-
-  const handleUpdateStep = (updatedStep: WorkflowStep) => {
-    const newSteps = definition.steps.map((s) => (s.key === updatedStep.key ? updatedStep : s));
-    const newDef = { ...definition, steps: newSteps };
-    pushHistory(newDef);
-    setDefinition(newDef);
-  };
-
-  const handleDeleteStep = (stepKey: string) => {
-    const newSteps = definition.steps.filter((s) => s.key !== stepKey);
-    const newEdges = definition.edges.filter((e) => e.sourceStep !== stepKey && e.destinationStep !== stepKey);
-    const newDef = { ...definition, steps: newSteps, edges: newEdges };
-    pushHistory(newDef);
-    setDefinition(newDef);
-    setSelectedStepKey(newSteps.length > 0 ? newSteps[0].key : null);
-  };
-
-  const pushHistory = (newDef: WorkflowDefinition) => {
-    setHistoryStack((prev) => [...prev.slice(0, historyIndex + 1), newDef]);
-    setHistoryIndex((prev) => prev + 1);
+    if (newProposed) setProposedStepKeys(newProposed);
+    // Invalidate test results on edit
+    setTestResult(null);
+    setTestDefinitionHash(null);
   };
 
   const handleUndo = () => {
     if (historyIndex > 0) {
-      setHistoryIndex((prev) => prev - 1);
-      setDefinition(historyStack[historyIndex - 1]);
+      const prevIndex = historyIndex - 1;
+      setHistoryIndex(prevIndex);
+      setDefinition(historyStack[prevIndex]);
+      setProposedStepKeys(new Set());
+      setRecentChanges(undefined);
     }
   };
 
-  const handleSendMessage = async (customText?: string) => {
-    const textToSend = customText || inputPrompt;
-    if (!textToSend.trim() || isBuilding) return;
+  const handleKeepChanges = () => {
+    setProposedStepKeys(new Set());
+    setRecentChanges(undefined);
+  };
+
+  // Connected apps check
+  const activeConnectedSlugs = useMemo(() => {
+    return new Set(connections.filter((c) => c.status === 'connected').map((c) => c.provider_id));
+  }, [connections]);
+
+  const missingConnections = useMemo(() => {
+    const list: Array<{ stepKey: string; appName: string }> = [];
+    definition.steps.forEach((s) => {
+      const app = s.application || '';
+      const isInternal =
+        !app || app.startsWith('concludo_') || app === 'logic' || app === 'system';
+      if (!isInternal && !activeConnectedSlugs.has(app)) {
+        list.push({
+          stepKey: s.key,
+          appName: app.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+        });
+      }
+    });
+    return list;
+  }, [definition.steps, activeConnectedSlugs]);
+
+  const unconnectedStepKeys = useMemo(() => {
+    return new Set(missingConnections.map((m) => m.stepKey));
+  }, [missingConnections]);
+
+  // Derived UI State (first match wins per 3.2)
+  const currentDefHash = useMemo(() => JSON.stringify(definition), [definition]);
+  const isTestResultValidForCurrentDef = testDefinitionHash === currentDefHash;
+
+  const derivedUiState: WorkflowUiState = useMemo(() => {
+    if (isBuilding) return 'building';
+    if (isRunningTest) return 'testing';
+    if (definition.steps.length === 0) return 'empty';
+    if (definition.status === 'paused') return 'paused';
+    if (definition.status === 'published') return 'active';
+    if (definition.status === 'submitted_for_review') return 'waiting_sign_off';
+    if (recentChanges && recentChanges.length > 0) return 'review_changes';
+    if (validation.errors.length > 0 || missingConnections.length > 0) return 'needs_attention';
+    if (isTestResultValidForCurrentDef && testResult) {
+      return testResult.status === 'completed' ? 'ready_to_activate' : 'test_failed';
+    }
+    return 'ready_to_test';
+  }, [
+    isBuilding,
+    isRunningTest,
+    definition.steps.length,
+    definition.status,
+    recentChanges,
+    validation.errors.length,
+    missingConnections.length,
+    isTestResultValidForCurrentDef,
+    testResult,
+  ]);
+
+  const effectiveRiskLevel = useMemo(() => {
+    try {
+      return calculateWorkflowRisk(definition).effectiveRisk;
+    } catch {
+      return definition.riskLevel || 'low';
+    }
+  }, [definition]);
+
+  const isHighOrRestricted = effectiveRiskLevel === 'high' || effectiveRiskLevel === 'restricted';
+
+  // Handle building new workflow from brief
+  const handleBuildWorkflow = async (brief: string) => {
+    setCurrentBrief(brief);
+    setIsBuilding(true);
+    setStage('B');
 
     const userMsg = {
-      id: `u_${Date.now()}`,
+      id: `msg_${Date.now()}`,
       role: 'user' as const,
-      content: textToSend.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      content: brief,
     };
     setMessages((prev) => [...prev, userMsg]);
-    setInputPrompt('');
-    setIsBuilding(true);
-    setBuildEvents([]);
 
     try {
-      const response = await executeWorkflowArchitect(
+      const result = await executeWorkflowArchitect({
+        naturalLanguagePrompt: brief,
+        connectedApplications: connections.map((c) => c.provider_id),
+        mode: 'build',
+      });
+
+      setBuildEvents(result.buildEvents || []);
+
+      if (result.buildStatus === 'needs_clarification') {
+        const question = result.questions?.[0] || 'Could you clarify what should trigger this workflow?';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `arch_${Date.now()}`,
+            role: 'architect',
+            content: question,
+          },
+        ]);
+        setStage('A');
+        setIsBuilding(false);
+        return;
+      }
+
+      const generatedDef = result.workflowDefinition;
+      setPlainLanguageExplanation(result.plainLanguageExplanation || []);
+      updateDefinitionWithHistory(generatedDef);
+
+      if (generatedDef.steps.length > 0) {
+        setSelectedStepKey(generatedDef.steps[0].key);
+      }
+
+      setMessages((prev) => [
+        ...prev,
         {
-          instruction: textToSend.trim(),
-          existingDefinition: definition,
-          currentUserId: user?.id,
+          id: `arch_${Date.now()}`,
+          role: 'architect',
+          content: result.plainLanguageExplanation?.join(' ') || 'Workflow synthesised successfully.',
         },
-        (evt) => {
-          setBuildEvents((prev) => [...prev, evt]);
-        }
-      );
-
-      pushHistory(response.workflowDefinition);
-      setDefinition(response.workflowDefinition);
-
-      const architectMsg = {
-        id: `a_${Date.now()}`,
-        role: 'architect' as const,
-        content: `I’ve updated your workflow architecture:\n\n${response.plainLanguageExplanation.join(
-          '\n'
-        )}\n\n*Concludo proposes; a person disposes. Human approval has been enforced for all task and calendar modifications.*`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, architectMsg]);
+      ]);
     } catch (err: any) {
-      const errMsg = {
-        id: `err_${Date.now()}`,
-        role: 'architect' as const,
-        content: `Error interpreting instruction: ${err.message}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, errMsg]);
+      console.error('Build workflow error:', err);
+      setStage('A');
     } finally {
       setIsBuilding(false);
     }
   };
 
-  // Run Safe Dry Run
-  const handleDryRun = async () => {
-    setIsRunningTest(true);
+  // Handle conversational edit
+  const handleSendEditMessage = async (promptText: string) => {
+    setIsBuilding(true);
+    const userMsg = {
+      id: `msg_${Date.now()}`,
+      role: 'user' as const,
+      content: promptText,
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
     try {
-      const res = await executeWorkflow({
-        workflow: definition,
-        inputs: {
-          meetingId: 'meeting_dry_run_01',
-          meetingTitle: 'Executive Operations Briefing',
+      const result = await executeWorkflowArchitect({
+        naturalLanguagePrompt: promptText,
+        existingDefinition: definition,
+        connectedApplications: connections.map((c) => c.provider_id),
+      });
+
+      if (result.mode === 'explain') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `arch_${Date.now()}`,
+            role: 'architect',
+            content: result.answer?.join('\n') || 'Explanation generated.',
+          },
+        ]);
+        setIsBuilding(false);
+        return;
+      }
+
+      if (result.buildStatus === 'needs_clarification') {
+        const question =
+          result.questions?.[0] || result.answer?.[0] || 'Could you clarify what you would like to change?';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `arch_${Date.now()}`,
+            role: 'architect',
+            content: question,
+          },
+        ]);
+        setIsBuilding(false);
+        return;
+      }
+
+      if (result.buildStatus === 'failed') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `arch_${Date.now()}`,
+            role: 'architect',
+            content: result.answer?.join('\n') || 'Unable to apply this change safely.',
+          },
+        ]);
+        setIsBuilding(false);
+        return;
+      }
+
+      // Applied Edit
+      const nextDef = result.workflowDefinition;
+      setPlainLanguageExplanation(result.plainLanguageExplanation || []);
+
+      const changesList: WhatChangedItem[] = (result.changes || []).map((c) => {
+        let type: WhatChangedItem['type'] = 'CHANGED';
+        const kind = c.kind || '';
+        if (kind === 'added') type = 'ADDED';
+        else if (kind === 'removed') type = 'REMOVED';
+        else if (kind === 'moved') type = 'MOVED';
+        else if (kind === 'renamed') type = 'RENAMED';
+        return { type, description: c.summary || `${c.kind} step ${c.stepKey || ''}` };
+      });
+      setRecentChanges(changesList);
+
+      // Identify newly added steps as proposed
+      const existingStepKeys = new Set(definition.steps.map((s: WorkflowStep) => s.key));
+      const newStepKeys = new Set<string>(
+        nextDef.steps.filter((s: WorkflowStep) => !existingStepKeys.has(s.key)).map((s: WorkflowStep) => s.key)
+      );
+      updateDefinitionWithHistory(nextDef, newStepKeys);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `arch_${Date.now()}`,
+          role: 'architect',
+          content: `Updated workflow: ${result.changes?.map((c) => c.summary).join(', ') || 'Changes applied.'}`,
         },
-        userId: user?.id || 'usr_dev',
+      ]);
+    } catch (err: any) {
+      console.error('Edit error:', err);
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
+  // Run dry run test
+  const handleRunTest = async () => {
+    setIsRunningTest(true);
+    setTestNotice('Concludo runs each step with sample data. Nothing is sent, created or changed.');
+
+    const initialStatuses: Record<string, 'passed' | 'failed' | 'skipped' | 'running'> = {};
+    definition.steps.forEach((s) => {
+      initialStatuses[s.key] = 'running';
+    });
+    setStepTestStatuses(initialStatuses);
+
+    try {
+      const res = await executeWorkflow(definition, {
+        triggerPayload: {
+          testMode: true,
+          meetingId: 'demo_meeting_123',
+          timestamp: new Date().toISOString(),
+        },
+        actorId: user?.id || 'demo_user',
         isDryRun: true,
       });
-      setTestResult(res);
-      setBottomTab(3); // Test Results tab
-    } finally {
-      setIsRunningTest(false);
-    }
-  };
 
-  // Run Authorized Real Execution
-  const handleRealExecution = async (injectFailure: boolean = false) => {
-    setIsRunningTest(true);
-    try {
-      const res = await executeWorkflow({
-        workflow: definition,
-        inputs: {
-          meetingId: `meeting_${Date.now()}`,
-          meetingTitle: 'Enterprise Steering Committee',
-          forceReplay: true,
-        },
-        userId: user?.id || 'usr_dev',
-        isDryRun: false,
-        failStepKey: injectFailure ? 'create_calendar_drafts' : undefined,
-      });
       setTestResult(res);
+      setTestDefinitionHash(JSON.stringify(definition));
       setRunHistory((prev) => [res, ...prev]);
-      setBottomTab(4); // Execution History tab
+
+      const updatedStatuses: Record<string, 'passed' | 'failed' | 'skipped' | 'running'> = {};
+      definition.steps.forEach((s) => {
+        const isApproval = s.stepType === 'approval' || s.approvalRequirement?.required;
+        if (isApproval) {
+          updatedStatuses[s.key] = 'skipped';
+        } else {
+          updatedStatuses[s.key] = res.status === 'completed' ? 'passed' : 'failed';
+        }
+      });
+      setStepTestStatuses(updatedStatuses);
+    } catch (err: any) {
+      console.error('Test run failed:', err);
     } finally {
       setIsRunningTest(false);
     }
   };
 
-  const handleSubmitForReview = () => {
-    setPublishStatus('submitted');
-    alert('Workflow submitted to Approval Centre for publication review.');
-  };
-
-  const handlePublish = () => {
-    if (confirm('Publish this workflow version as immutable? Once published, changes require a new version.')) {
-      setPublishStatus('published');
-      setPublishedVersion((prev) => prev + 1);
-      setRollbackAvailable(true);
-    }
-  };
-
-  const handleRollback = () => {
-    if (confirm(`Roll back to previous published version v${publishedVersion - 1}?`)) {
-      setPublishedVersion((prev) => Math.max(1, prev - 1));
-      alert('Rolled back successfully to prior immutable version.');
+  // Primary action button handler
+  const handlePrimaryAction = (actionType: string) => {
+    switch (actionType) {
+      case 'build':
+        setStage('A');
+        break;
+      case 'test':
+      case 'fix_and_retest':
+        handleRunTest();
+        break;
+      case 'activate':
+        if (isHighOrRestricted) {
+          setDefinition((prev) => ({ ...prev, status: 'submitted_for_review' }));
+        } else {
+          setDefinition((prev) => ({ ...prev, status: 'published', version: prev.version + 1 }));
+        }
+        break;
+      case 'pause':
+        setDefinition((prev) => ({ ...prev, status: 'paused' }));
+        break;
+      case 'resume':
+        setDefinition((prev) => ({ ...prev, status: 'published' }));
+        break;
+      case 'keep_changes':
+        handleKeepChanges();
+        break;
+      case 'fix_issue':
+        if (missingConnections.length > 0) {
+          const appName = missingConnections[0].appName;
+          const provider = INTEGRATION_PROVIDERS_CATALOG_LOOKUP(appName);
+          if (provider) setConnectModalProvider(provider);
+        } else if (validation.errors.length > 0) {
+          setIsDrawerExpanded(true);
+          setDrawerTab(1); // Validation tab
+        }
+        break;
+      case 'stop_building':
+        setIsBuilding(false);
+        break;
     }
   };
 
   const handleSelectTemplate = (template: WorkflowTemplateMeta) => {
     setIsPickerOpen(false);
-    const newDef: WorkflowDefinition = {
-      ...definition,
-      workflowKey: template.templateKey,
-      name: template.name,
-      description: template.description,
-      trigger: {
-        ...definition.trigger,
-        displayName: template.exampleTrigger,
-      },
-    };
-    pushHistory(newDef);
-    setDefinition(newDef);
-
-    const templateMsg = {
-      id: `tpl_${Date.now()}`,
-      role: 'architect' as const,
-      content: `Loaded starter template: **${template.name}** (${template.category}, ${template.setupTimeCategory} setup).\n\n${template.exampleResult}\n\n*Concludo proposes; a person disposes. Human approval has been enforced.*`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-    setMessages((prev) => [...prev, templateMsg]);
+    const demo = buildMeetingFollowthroughVerticalSlice();
+    demo.name = template.name;
+    demo.workflowKey = `wf_${template.templateKey}_${Date.now()}`;
+    updateDefinitionWithHistory(demo);
+    setPlainLanguageExplanation([template.description]);
+    setStage('C');
   };
 
-  const selectedStep = definition.steps.find((s) => s.key === selectedStepKey) || definition.steps[0];
+  const handleBuildManually = () => {
+    const emptyDef = createEmptyWorkflowDefinition(user?.id);
+    updateDefinitionWithHistory(emptyDef);
+    setStage('C');
+  };
 
-  const handleSelectNode = (stepKey: string, cardElement?: HTMLElement) => {
-    setSelectedStepKey(stepKey);
-    setIsInspectorOpen(true);
-    if (canvasWrapRef.current && cardElement) {
-      canvasWrapRef.current.scrollTo({
-        left: Math.max(0, cardElement.offsetLeft - 40),
-        behavior: 'instant' as any,
-      });
+  const handleAddCustomStep = (stepInput: Partial<WorkflowStep>) => {
+    setIsAddStepOpen(false);
+    const fullStep: WorkflowStep = {
+      key: stepInput.key || `step_${Date.now()}`,
+      displayName: stepInput.displayName || 'Custom step',
+      name: stepInput.name || stepInput.displayName || 'Custom step',
+      stepType: stepInput.stepType || 'action',
+      purpose: stepInput.purpose || 'Custom step action',
+      application: stepInput.application || 'system',
+      service: stepInput.service || stepInput.application || 'system',
+      inputMapping: stepInput.inputMapping || {},
+      outputSchema: stepInput.outputSchema || {},
+      configuration: stepInput.configuration || {},
+      position: stepInput.position || { x: definition.steps.length * 240 + 40, y: 60 },
+      userFacingExplanation: stepInput.userFacingExplanation || 'Executes custom action.',
+      approvalRequirement: stepInput.approvalRequirement,
+      retryPolicy: stepInput.retryPolicy,
+      idempotencyPolicy: stepInput.idempotencyPolicy,
+    };
+
+    const updatedSteps = [...definition.steps, fullStep];
+    let updatedEdges = [...definition.edges];
+
+    if (definition.steps.length > 0) {
+      const lastStep = definition.steps[definition.steps.length - 1];
+      const newEdge: WorkflowEdge = {
+        id: `e_${lastStep.key}_${fullStep.key}`,
+        sourceStep: lastStep.key,
+        sourceStepKey: lastStep.key,
+        destinationStep: fullStep.key,
+        destinationStepKey: fullStep.key,
+        edgeType: 'success',
+      };
+      updatedEdges.push(newEdge);
     }
+
+    const updatedDef: WorkflowDefinition = {
+      ...definition,
+      steps: updatedSteps,
+      edges: updatedEdges,
+    };
+    updateDefinitionWithHistory(updatedDef);
+    setSelectedStepKey(fullStep.key);
+    setIsInspectorOpen(true);
   };
 
-  const riskTier = calculateWorkflowRisk(definition as any).effectiveRisk;
-  const riskPillClass =
-    riskTier === 'restricted'
-      ? 'wb-pill warn'
-      : riskTier === 'high'
-      ? 'wb-pill warn'
-      : riskTier === 'medium'
-      ? 'wb-pill warn'
-      : 'wb-pill ok';
-
-  // Compute canonical step type pill text and style class
-  const getStepTypeInfo = (step: WorkflowStep) => {
-    const rawType = (step.stepType || '').toLowerCase();
-    if (rawType === 'trigger') return { label: 'TRIGGER', className: 'trigger' };
-    if (rawType.includes('ai') || rawType.includes('agent')) return { label: 'AI AGENT', className: 'agent' };
-    if (rawType.includes('approval') || step.approvalRequirement?.required) return { label: 'APPROVAL', className: 'approval' };
-    if (rawType.includes('calendar')) return { label: 'CALENDAR', className: 'calendar' };
-    if (rawType.includes('branch') || rawType.includes('condition')) return { label: 'BRANCH', className: 'branch' };
-    if (rawType === 'logic') return { label: 'BRANCH', className: 'branch' };
-    return { label: 'ACTION', className: 'action' };
-  };
-
-  // Node plain-language review items
-  const reviewItems = [
-    'When a meeting finishes, Concludo writes the summary and pulls out the decisions.',
-    'You read it and approve it. Nothing is sent and no task is created before that.',
-    'Once approved, each action becomes a project task with an owner and a due date.',
-    'If you decline, the owner is told and nothing else happens.',
-  ];
+  const selectedStep = useMemo(() => {
+    return definition.steps.find((s) => s.key === selectedStepKey) || null;
+  }, [definition.steps, selectedStepKey]);
 
   return (
     <div className="wb-app">
-      {/* ---------- Plate 4: Header Bar (56px fixed) ---------- */}
-      <header className="wb-hdr">
-        <div className="wb-hdr-l">
-          <Link to="/workflows" className="wb-back">
-            <span aria-hidden="true">&#8249;</span> Workflows
-          </Link>
-          <span className="wb-sep" aria-hidden="true">/</span>
-          <span className="wb-wf-name">{definition.name}</span>
-
-          {publishStatus === 'published' ? (
-            <span className="wb-pill gold">Published v{publishedVersion}</span>
-          ) : (
-            <span className="wb-pill ghost">Draft</span>
-          )}
-
-          <span className={riskPillClass}>Risk&nbsp;&nbsp;{riskTier}</span>
-
-          <Link to="/workflows/runs" className="wb-gov" title="View execution runs and audit logs">
-            Workflow Runs
-          </Link>
-
-          <Link to="/approvals" className="wb-gov" title="View pending human sign-off approvals">
-            Approval Centre
-          </Link>
-
-          <Link to="/workflows/governance" className="wb-gov" title="View organisation governance policies">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M12 2l8 4v6c0 5-3.4 8.9-8 10-4.6-1.1-8-5-8-10V6z" />
-            </svg>
-            Governance
-          </Link>
-
-          <button
-            className="wb-btn"
-            style={{ marginLeft: '6px' }}
-            onClick={() => setIsPickerOpen(true)}
-            title="Start from one of 20 enterprise templates"
+      {/* 3.1 Header: Back link, name, lifecycle pill, Undo, Primary Button, More */}
+      <header className="wb-head" role="banner">
+        <div className="wb-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link
+            to="/workflows"
+            className="wb-back"
+            aria-label="Back to Workflows"
+            style={{ color: 'var(--sub)', textDecoration: 'none', display: 'flex', alignItems: 'center' }}
           >
-            Templates
-          </button>
+            &larr; <span style={{ marginLeft: '4px', fontSize: '13px' }}>Workflows</span>
+          </Link>
+          <span style={{ color: 'var(--navy2)', fontSize: '16px' }}>/</span>
+          <span
+            style={{
+              fontFamily: 'var(--font-h)',
+              fontSize: '14.5px',
+              fontWeight: 600,
+              color: 'var(--light)',
+            }}
+          >
+            {definition.name}
+          </span>
+          <WorkflowLifecyclePill uiState={derivedUiState} />
         </div>
 
-        <div className="wb-hdr-r">
-          <button className="wb-btn" onClick={handleUndo} title="Undo last step edit">
-            Undo
-          </button>
-          <button className="wb-btn blue" onClick={handleDryRun} disabled={isRunningTest}>
-            Dry Run
-          </button>
-          <button
-            className="wb-btn ok"
-            onClick={() => handleRealExecution(false)}
-            disabled={isRunningTest}
-          >
-            Run Authorised Test
-          </button>
-
-          {publishStatus === 'draft' ? (
-            <button className="wb-btn" onClick={handleSubmitForReview}>
-              Submit for Review
-            </button>
-          ) : null}
-
-          <button
-            className={`wb-btn ${publishStatus === 'published' ? 'ghost' : 'gold'}`}
-            id="publish"
-            onClick={handlePublish}
-          >
-            Publish Immutable
-          </button>
-
-          {rollbackAvailable && (
-            <button className="wb-btn" onClick={handleRollback}>
-              Roll Back
+        <div className="wb-right-acts" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {stage !== 'A' && (
+            <button
+              type="button"
+              className="wb-icon-btn"
+              aria-label="Undo"
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--navy2)',
+                borderRadius: '6px',
+                color: historyIndex > 0 ? 'var(--light)' : 'var(--sub)',
+                padding: '6px 8px',
+                cursor: historyIndex > 0 ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: historyIndex > 0 ? 1 : 0.5,
+              }}
+              title="Undo"
+            >
+              <RotateCcw size={15} />
             </button>
           )}
+
+          {stage !== 'A' && (
+            <PrimaryActionButton
+              uiState={derivedUiState}
+              isHighOrRestrictedRisk={isHighOrRestricted}
+              onAction={handlePrimaryAction}
+              disabled={isRunningTest}
+            />
+          )}
+
+          <WorkflowMoreMenu
+            onOpenTemplates={() => setIsPickerOpen(true)}
+            onOpenRawDefinition={() => setIsRawDefinitionModalOpen(true)}
+            onSimulatedTest={() => handleRunTest()}
+            canRollback={definition.version > 1}
+            onRollback={() => {
+              setDefinition((prev) => ({ ...prev, version: Math.max(1, prev.version - 1) }));
+            }}
+          />
         </div>
       </header>
 
-      {/* Mobile View Mode Switcher (retains desktop split experience on mobile) */}
-      <nav className="wb-mobile-nav" aria-label="Mobile workflow views">
-        <button
-          type="button"
-          className={`wb-mobile-nav-btn ${mobileViewMode === 'canvas' ? 'active' : ''}`}
-          onClick={() => setMobileViewMode('canvas')}
-          aria-pressed={mobileViewMode === 'canvas'}
-        >
-          <Network size={14} />
-          <span>Workflow Canvas</span>
-        </button>
-        <button
-          type="button"
-          className={`wb-mobile-nav-btn ${mobileViewMode === 'architect' ? 'active' : ''}`}
-          onClick={() => setMobileViewMode('architect')}
-          aria-pressed={mobileViewMode === 'architect'}
-        >
-          <Sparkles size={14} />
-          <span>AI Architect</span>
-        </button>
-        <button
-          type="button"
-          className={`wb-mobile-nav-btn ${mobileViewMode === 'review' ? 'active' : ''}`}
-          onClick={() => setMobileViewMode('review')}
-          aria-pressed={mobileViewMode === 'review'}
-        >
-          <FileSearch size={14} />
-          <span>Review &amp; Tabs</span>
-        </button>
-      </nav>
+      {/* Stage A: Single Centred Column Empty State */}
+      {stage === 'A' && (
+        <WorkflowEmptyState
+          connections={connections}
+          onBuild={handleBuildWorkflow}
+          onOpenTemplates={() => setIsPickerOpen(true)}
+          onBuildManually={handleBuildManually}
+          onConnectAnotherApp={() => setIsAddStepOpen(true)}
+          isBuilding={isBuilding}
+        />
+      )}
 
-      {/* ---------- Plate 3: Split Layout ---------- */}
-      <div className={`wb-split wb-mobile-view-${mobileViewMode}`}>
-        {/* Region 2: Architect Panel (35% width, min 340px, max 460px) */}
-        <aside className="wb-architect" aria-label="Concludo Workflow Architect">
-          <div className="wb-ar-head">
-            <svg className="wb-spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2l1.9 5.6L19.5 9l-5.6 1.9L12 16.5l-1.9-5.6L4.5 9l5.6-1.4z" />
-              <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
-            </svg>
-            <div>
-              <h1>Concludo Workflow Architect</h1>
-              <p>Natural Language Engine</p>
-            </div>
-          </div>
-
-          <div className="wb-stream" id="stream">
-            {messages.map((m) => (
-              <div key={m.id} className={`wb-msg ${m.role}`}>
-                <div className="wb-bubble">{m.content}</div>
-                <div className="wb-meta">
-                  {m.role === 'architect' ? 'ARCHITECT' : 'ANTHONY'} {m.timestamp}
-                </div>
-              </div>
-            ))}
-
-            {isBuilding && (
-              <div className="wb-msg architect">
-                <div className="wb-bubble">Synthesising workflow architecture...</div>
-                <div className="wb-meta">ARCHITECT BUSY</div>
-              </div>
-            )}
-          </div>
-
-          <div className="wb-suggest">
-            <span className="wb-sg-label">Try</span>
-            <button
-              className="wb-chip"
-              onClick={() => handleSendMessage('Add a reminder the day before')}
-            >
-              Add a reminder the day before
-            </button>
-            <button
-              className="wb-chip"
-              onClick={() => handleSendMessage('Require two approvers')}
-            >
-              Require two approvers
-            </button>
-            <button
-              className="wb-chip"
-              onClick={() => handleSendMessage('Only for client meetings')}
-            >
-              Only for client meetings
-            </button>
-          </div>
-
-          <form
-            className="wb-composer"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage();
+      {/* Stage B & C: Split Screen Layout */}
+      {stage !== 'A' && (
+        <div className="wb-split" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {/* Left Panel: Stage B Progress List OR Stage C Review Card */}
+          <aside
+            className="wb-architect"
+            aria-label="Concludo Workflow Architect"
+            style={{
+              width: '35%',
+              minWidth: '340px',
+              maxWidth: '460px',
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'var(--navy)',
+              borderRight: '1px solid var(--navy2)',
+              overflow: 'hidden',
             }}
           >
-            <input
-              placeholder="Tell the Architect what to change"
-              aria-label="Message the Architect"
-              value={inputPrompt}
-              onChange={(e) => setInputPrompt(e.target.value)}
-              disabled={isBuilding}
-            />
-            <button className="wb-send" aria-label="Send message" type="submit" disabled={isBuilding}>
-              &rsaquo;
-            </button>
-          </form>
-        </aside>
-
-        {/* Region 3: Canvas (remaining 65%) */}
-        <div className="wb-right">
-          <div className="wb-canvas-wrap" ref={canvasWrapRef}>
-            <div className="wb-toolbar">
-              <button
-                id="zout"
-                aria-label="Zoom out"
-                onClick={() => setZoomLevel((z) => Math.max(0.5, +(z - 0.1).toFixed(1)))}
-              >
-                &minus;
-              </button>
-              <span className="wb-zoom" id="zlab">
-                {Math.round(zoomLevel * 100)}%
-              </span>
-              <button
-                id="zin"
-                aria-label="Zoom in"
-                onClick={() => setZoomLevel((z) => Math.min(1.6, +(z + 0.1).toFixed(1)))}
-              >
-                +
-              </button>
-              <button className="wb-fit" id="fit" onClick={() => setZoomLevel(1)}>
-                Fit
-              </button>
-              <button
-                className="wb-fit"
-                style={{
-                  background: "var(--gold)",
-                  color: "var(--navy)",
-                  fontWeight: 700,
-                  marginLeft: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
+            {stage === 'B' ? (
+              <BuildProgressList
+                events={buildEvents}
+                brief={currentBrief}
+                onFinish={() => setStage('C')}
+              />
+            ) : (
+              <ReviewCard
+                definition={definition}
+                plainLanguageExplanation={plainLanguageExplanation}
+                riskSentence={
+                  isHighOrRestricted
+                    ? 'A person must approve this before it can run.'
+                    : undefined
+                }
+                missingConnections={missingConnections}
+                validationErrors={validation.errors}
+                changes={recentChanges}
+                onKeepChanges={handleKeepChanges}
+                onUndoChanges={handleUndo}
+                onConnectApp={(appName) => {
+                  const prov = INTEGRATION_PROVIDERS_CATALOG_LOOKUP(appName);
+                  if (prov) setConnectModalProvider(prov);
                 }}
-                onClick={() => setIsAddStepOpen(true)}
-                title="Add integration step or trigger to canvas"
-              >
-                + Add Step
-              </button>
-              <span className="wb-count">
-                {definition.steps.length} steps &nbsp; {definition.edges.length} edges
-              </span>
-            </div>
+                onSelectStep={(key) => {
+                  setSelectedStepKey(key);
+                  setIsInspectorOpen(true);
+                }}
+                messages={messages}
+                onSendMessage={handleSendEditMessage}
+                isBuilding={isBuilding}
+              />
+            )}
+          </aside>
 
+          {/* Right Region: Canvas / Steps Outline */}
+          <div
+            className="wb-right"
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0,
+              position: 'relative',
+              background: 'var(--ground)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* View Switcher: Diagram vs Steps Toggle */}
             <div
-              className="wb-stage"
-              id="stage"
-              style={{ transform: `scale(${zoomLevel})` }}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                left: '16px',
+                zIndex: 10,
+                display: 'flex',
+                background: 'var(--surface)',
+                border: '1px solid var(--navy2)',
+                borderRadius: '6px',
+                padding: '2px',
+              }}
             >
-              {/* Cubic Bezier SVG Edges */}
-              <svg className="wb-edges" id="edges" ref={svgRef} aria-hidden="true">
-                {definition.edges.map((edge) => {
-                  const srcIndex = definition.steps.findIndex((s) => s.key === edge.sourceStep);
-                  const dstIndex = definition.steps.findIndex((s) => s.key === edge.destinationStep);
-                  const src = definition.steps[srcIndex];
-                  const dst = definition.steps[dstIndex];
-                  if (!src || !dst) return null;
+              <button
+                type="button"
+                onClick={() => setActiveCanvasView('diagram')}
+                style={{
+                  background: activeCanvasView === 'diagram' ? 'var(--navy2)' : 'transparent',
+                  color: activeCanvasView === 'diagram' ? 'var(--light)' : 'var(--sub)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '4px 10px',
+                  fontSize: '11.5px',
+                  fontFamily: 'var(--font-m)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Network size={13} />
+                <span>Diagram</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCanvasView('steps')}
+                style={{
+                  background: activeCanvasView === 'steps' ? 'var(--navy2)' : 'transparent',
+                  color: activeCanvasView === 'steps' ? 'var(--light)' : 'var(--sub)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '4px 10px',
+                  fontSize: '11.5px',
+                  fontFamily: 'var(--font-m)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <ListOrdered size={13} />
+                <span>Steps</span>
+              </button>
+            </div>
 
-                  // 176px node width, 24px rhythm
-                  const x1 = (src.position?.x ?? (srcIndex * 240 + 40)) + 176;
-                  const y1 = (src.position?.y ?? 60) + 40;
-                  const x2 = dst.position?.x ?? (dstIndex * 240 + 40);
-                  const y2 = dst.position?.y ?? 60 + 40;
-                  const dx = (x2 - x1) * 0.45;
-
-                  const isFail = edge.edgeType === 'failure' || edge.branchLabel === 'declined';
-                  const label = edge.branchLabel || (isFail ? 'declined' : undefined);
-
-                  return (
-                    <g key={edge.id || `${edge.sourceStep}-${edge.destinationStep}`}>
-                      <path
-                        d={`M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`}
-                        className={`wb-edge ${isFail ? 'fail' : ''}`}
-                      />
-                      <path
-                        d={`M ${x2} ${y2} l -8 -4 l 0 8 z`}
-                        fill={isFail ? 'var(--bad)' : 'var(--gold)'}
-                      />
-                      {label && (
-                        <text
-                          x={(x1 + x2) / 2}
-                          y={(y1 + y2) / 2 - 8}
-                          textAnchor="middle"
-                          className={`wb-edge-label ${isFail ? 'fail' : ''}`}
-                        >
-                          {label}
-                        </text>
-                      )}
-                    </g>
-                  );
-                })}
-              </svg>
-
-              {/* Step Nodes */}
-              <div id="nodes" ref={nodesContainerRef}>
-                {definition.steps.map((step, idx) => {
-                  const typeInfo = getStepTypeInfo(step);
-                  const isApproval = step.stepType === 'approval' || step.approvalRequirement?.required;
-                  const isSelected = selectedStepKey === step.key;
-                  const posX = step.position?.x ?? (idx * 240 + 40);
-                  const posY = step.position?.y ?? 60;
-                  const serviceKey = (step.service || step.application || 'approvals')
-                    .replace('concludo_', '')
-                    .replace('_', '.');
-
-                  return (
-                    <div
-                      key={step.key}
-                      className="wb-node"
-                      style={{ left: `${posX}px`, top: `${posY}px` }}
-                      tabIndex={0}
-                      role="button"
-                      aria-selected={isSelected}
-                      aria-label={`${typeInfo.label} step. ${step.name || step.displayName}. ${
-                        step.userFacingExplanation
-                      }${isApproval ? ' Sign-off required.' : ''}`}
-                      onClick={(e) => handleSelectNode(step.key, e.currentTarget)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleSelectNode(step.key, e.currentTarget);
-                        }
-                      }}
-                    >
-                      <div className="wb-tags" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ display: "flex", gap: "4px" }}>
-                          <span className={`wb-tag ${typeInfo.className}`}>{typeInfo.label}</span>
-                          {isApproval && <span className="wb-tag signoff">Sign-off</span>}
-                        </div>
-                        <IntegrationIcon slug={step.application} size={16} />
-                      </div>
-                      <h3>{step.name || step.displayName}</h3>
-                      <p>{step.userFacingExplanation}</p>
-                      <div className="wb-foot">
-                        <span>{serviceKey}</span>
-                        <span className="wb-state">
-                          <span className="wb-dot"></span>Valid
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Test notice banner if run */}
+            {testNotice && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '14px',
+                  left: '200px',
+                  right: '180px',
+                  zIndex: 9,
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  border: '1px solid var(--blue)',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '11.5px',
+                  color: 'var(--light)',
+                  fontFamily: 'var(--font-m)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>{testNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setTestNotice(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--sub)', cursor: 'pointer' }}
+                >
+                  &times;
+                </button>
               </div>
-            </div>
-          </div>
+            )}
 
-          {/* ---------- Plate 8: Connected Step Inspector Flyout ---------- */}
-          {selectedStep && isInspectorOpen && (
-            <ConnectedStepInspector
-              step={selectedStep}
-              allSteps={definition.steps}
-              connections={connections}
-              onUpdateStep={handleUpdateStep}
-              onDeleteStep={handleDeleteStep}
-              onClose={() => setIsInspectorOpen(false)}
-              onOpenConnectModal={(prov) => setConnectModalProvider(prov)}
-            />
-          )}
+            {/* Canvas View: Diagram */}
+            {activeCanvasView === 'diagram' && (
+              <div className="wb-canvas-wrap" ref={canvasWrapRef}>
+                <div className="wb-toolbar">
+                  <button
+                    id="zout"
+                    aria-label="Zoom out"
+                    onClick={() => setZoomLevel((z) => Math.max(0.5, +(z - 0.1).toFixed(1)))}
+                  >
+                    &minus;
+                  </button>
+                  <span className="wb-zoom" id="zlab">
+                    {Math.round(zoomLevel * 100)}%
+                  </span>
+                  <button
+                    id="zin"
+                    aria-label="Zoom in"
+                    onClick={() => setZoomLevel((z) => Math.min(1.6, +(z + 0.1).toFixed(1)))}
+                  >
+                    +
+                  </button>
+                  <button className="wb-fit" id="fit" onClick={() => setZoomLevel(1)}>
+                    Fit
+                  </button>
+                  <button
+                    className="wb-fit"
+                    style={{
+                      background: 'var(--gold)',
+                      color: 'var(--navy)',
+                      fontWeight: 700,
+                      marginLeft: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    onClick={() => setIsAddStepOpen(true)}
+                    title="Add integration step"
+                  >
+                    + Add Step
+                  </button>
+                  <span className="wb-count">
+                    {definition.steps.length} steps &nbsp; {definition.edges.length} edges
+                  </span>
+                </div>
 
-          {/* ---------- Plate 9: Bottom Inspection Panel (176px fixed) ---------- */}
-          <div className="wb-bottom">
-            <div className="wb-btabs" role="tablist">
-              <button
-                className="wb-btab"
-                role="tab"
-                aria-selected={bottomTab === 0}
-                onClick={() => setBottomTab(0)}
-              >
-                Plain-Language Review
-              </button>
-              <button
-                className="wb-btab"
-                role="tab"
-                aria-selected={bottomTab === 1}
-                onClick={() => setBottomTab(1)}
-              >
-                Validation Issues
-              </button>
-              <button
-                className="wb-btab"
-                role="tab"
-                aria-selected={bottomTab === 2}
-                onClick={() => setBottomTab(2)}
-              >
-                Connected Services
-              </button>
-              <button
-                className="wb-btab"
-                role="tab"
-                aria-selected={bottomTab === 3}
-                onClick={() => setBottomTab(3)}
-              >
-                Test Results
-              </button>
-              <button
-                className="wb-btab"
-                role="tab"
-                aria-selected={bottomTab === 4}
-                onClick={() => setBottomTab(4)}
-              >
-                Execution History
-              </button>
-            </div>
+                <div className="wb-stage" id="stage" style={{ transform: `scale(${zoomLevel})` }}>
+                  {/* SVG Edges */}
+                  <svg className="wb-edges" id="edges" ref={svgRef} aria-hidden="true">
+                    {definition.edges.map((edge) => {
+                      const srcKey = edge.sourceStepKey ?? edge.sourceStep;
+                      const dstKey = edge.destinationStepKey ?? edge.destinationStep;
+                      const srcIndex = definition.steps.findIndex((s) => s.key === srcKey);
+                      const dstIndex = definition.steps.findIndex((s) => s.key === dstKey);
+                      const src = definition.steps[srcIndex];
+                      const dst = definition.steps[dstIndex];
+                      if (!src || !dst) return null;
 
-            <div className="wb-bbody" id="bbody">
-              {bottomTab === 0 && (
-                <ol>
-                  {reviewItems.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ol>
-              )}
+                      const x1 = (src.position?.x ?? srcIndex * 240 + 40) + 176;
+                      const y1 = (src.position?.y ?? 60) + 40;
+                      const x2 = dst.position?.x ?? dstIndex * 240 + 40;
+                      const y2 = (dst.position?.y ?? 60) + 40;
+                      const dx = (x2 - x1) * 0.45;
 
-              {bottomTab === 1 && (
-                <div>
-                  {validation.errors.length === 0 ? (
-                    <p style={{ color: 'var(--ok)', fontSize: '12px' }}>
-                      No blocking issues. Zero validation errors.
+                      const isFail =
+                        edge.edgeType === 'failure' ||
+                        edge.edgeType === 'approval_rejected' ||
+                        edge.branchLabel === 'declined';
+                      const label = edge.branchLabel || (isFail ? 'declined' : undefined);
+
+                      return (
+                        <g key={edge.id || `${srcKey}-${dstKey}`}>
+                          <path
+                            d={`M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`}
+                            className={`wb-edge ${isFail ? 'fail' : ''}`}
+                          />
+                          <path
+                            d={`M ${x2} ${y2} l -8 -4 l 0 8 z`}
+                            fill={isFail ? 'var(--bad)' : 'var(--gold)'}
+                          />
+                          {label && (
+                            <text
+                              x={(x1 + x2) / 2}
+                              y={(y1 + y2) / 2 - 8}
+                              textAnchor="middle"
+                              className={`wb-edge-label ${isFail ? 'fail' : ''}`}
+                            >
+                              {label}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                  </svg>
+
+                  {/* Nodes */}
+                  <div id="nodes">
+                    {definition.steps.map((step, idx) => (
+                      <WorkflowStepCard
+                        key={step.key}
+                        step={step}
+                        index={idx}
+                        isSelected={selectedStepKey === step.key}
+                        isProposed={proposedStepKeys.has(step.key)}
+                        testStatus={stepTestStatuses[step.key]}
+                        missingConnection={unconnectedStepKeys.has(step.key)}
+                        validationError={
+                          validation.errors.find((e) => e.stepKey === step.key)?.message
+                        }
+                        onClick={(key) => {
+                          setSelectedStepKey(key);
+                          setIsInspectorOpen(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Canvas View: Steps Outline */}
+            {activeCanvasView === 'steps' && (
+              <WorkflowStepsOutline
+                definition={definition}
+                selectedStepKey={selectedStepKey}
+                onSelectStep={(key) => {
+                  setSelectedStepKey(key);
+                  setIsInspectorOpen(true);
+                }}
+                stepTestStatuses={stepTestStatuses}
+                unconnectedStepKeys={unconnectedStepKeys}
+              />
+            )}
+
+            {/* Inspector Flyout */}
+            {selectedStep && isInspectorOpen && (
+              <ConnectedStepInspector
+                step={selectedStep}
+                allSteps={definition.steps}
+                connections={connections}
+                onUpdateStep={(updated) => {
+                  const updatedSteps = definition.steps.map((s) =>
+                    s.key === updated.key ? updated : s
+                  );
+                  updateDefinitionWithHistory({ ...definition, steps: updatedSteps });
+                }}
+                onDeleteStep={(stepKey) => {
+                  const updatedSteps = definition.steps.filter((s) => s.key !== stepKey);
+                  const updatedEdges = definition.edges.filter(
+                    (e) =>
+                      (e.sourceStepKey ?? e.sourceStep) !== stepKey &&
+                      (e.destinationStepKey ?? e.destinationStep) !== stepKey
+                  );
+                  updateDefinitionWithHistory({
+                    ...definition,
+                    steps: updatedSteps,
+                    edges: updatedEdges,
+                  });
+                  setIsInspectorOpen(false);
+                }}
+                onClose={() => setIsInspectorOpen(false)}
+                onOpenConnectModal={(prov) => setConnectModalProvider(prov)}
+              />
+            )}
+
+            {/* Bottom Drawer: 40px collapsed */}
+            <div
+              className={`wb-bottom ${isDrawerExpanded ? 'expanded' : 'collapsed'}`}
+              style={{
+                height: isDrawerExpanded ? '180px' : '40px',
+                transition: 'height 0.2s ease',
+                background: 'var(--surface)',
+                borderTop: '1px solid var(--navy2)',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <div
+                className="wb-btabs"
+                role="tablist"
+                style={{
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 16px',
+                  gap: '8px',
+                }}
+              >
+                <button
+                  className="wb-btab"
+                  role="tab"
+                  aria-selected={drawerTab === 0}
+                  onClick={() => {
+                    setDrawerTab(0);
+                    setIsDrawerExpanded(true);
+                  }}
+                >
+                  In plain English
+                </button>
+                <button
+                  className="wb-btab"
+                  role="tab"
+                  aria-selected={drawerTab === 1}
+                  onClick={() => {
+                    setDrawerTab(1);
+                    setIsDrawerExpanded(true);
+                  }}
+                >
+                  Needs attention ({validation.errors.length + missingConnections.length})
+                </button>
+                <button
+                  className="wb-btab"
+                  role="tab"
+                  aria-selected={drawerTab === 2}
+                  onClick={() => {
+                    setDrawerTab(2);
+                    setIsDrawerExpanded(true);
+                  }}
+                >
+                  Test
+                </button>
+                <button
+                  className="wb-btab"
+                  role="tab"
+                  aria-selected={drawerTab === 3}
+                  onClick={() => {
+                    setDrawerTab(3);
+                    setIsDrawerExpanded(true);
+                  }}
+                >
+                  Runs ({runHistory.length})
+                </button>
+                <div style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerExpanded(!isDrawerExpanded)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--sub)',
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-m)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isDrawerExpanded ? 'Collapse \u2193' : 'Expand \u2191'}
+                </button>
+              </div>
+
+              {isDrawerExpanded && (
+                <div
+                  className="wb-bbody"
+                  style={{ flex: 1, padding: '12px 16px', overflowY: 'auto', fontSize: '12px' }}
+                >
+                  {drawerTab === 0 && (
+                    <ol style={{ margin: 0, paddingLeft: '18px', color: 'var(--light)', lineHeight: 1.5 }}>
+                      {plainLanguageExplanation.length > 0 ? (
+                        plainLanguageExplanation.map((line, i) => <li key={i}>{line}</li>)
+                      ) : (
+                        <li>No plain English summary available yet.</li>
+                      )}
+                    </ol>
+                  )}
+
+                  {drawerTab === 1 && (
+                    <div>
+                      {validation.errors.length === 0 && missingConnections.length === 0 ? (
+                        <p style={{ color: 'var(--ok)', margin: 0 }}>
+                          No blocking issues. Zero validation errors.
+                        </p>
+                      ) : (
+                        <ul style={{ color: 'var(--bad)', margin: 0, paddingLeft: '18px' }}>
+                          {missingConnections.map((c, i) => (
+                            <li key={`mc-${i}`}>Connect {c.appName} to authorise workflow actions.</li>
+                          ))}
+                          {validation.errors.map((e, i) => (
+                            <li key={`ve-${i}`}>
+                              [{e.code}] {e.message}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  {drawerTab === 2 && (
+                    <p style={{ color: 'var(--sub)', margin: 0 }}>
+                      {testResult
+                        ? `Last test run finished with status: ${testResult.status} (${testResult.durationMs}ms).`
+                        : 'No test has been run yet for this draft definition.'}
                     </p>
-                  ) : (
-                    <ul style={{ color: 'var(--bad)', fontSize: '12px', paddingLeft: '16px' }}>
-                      {validation.errors.map((e, i) => (
-                        <li key={i}>
-                          [{e.code}] {e.message}
-                        </li>
-                      ))}
-                    </ul>
+                  )}
+
+                  {drawerTab === 3 && (
+                    <p style={{ color: 'var(--sub)', margin: 0 }}>
+                      {runHistory.length > 0
+                        ? `Recorded ${runHistory.length} execution run(s). All completed within bounds.`
+                        : 'No execution runs yet. Execution history records outcomes, never counts against people.'}
+                    </p>
                   )}
                 </div>
               )}
-
-              {bottomTab === 2 && (
-                <div className="wb-svc">
-                  <span>meetings &middot; connected</span>
-                  <span>ai.agents &middot; connected</span>
-                  <span>approvals &middot; connected</span>
-                  <span>projects &middot; connected</span>
-                  <span>calendar &middot; connected</span>
-                </div>
-              )}
-
-              {bottomTab === 3 && (
-                <p style={{ color: 'var(--sub)', fontSize: '12px' }}>
-                  {testResult
-                    ? `Last test run (${testResult.isDryRun ? 'Dry Run' : 'Real'}) finished with status: ${
-                        testResult.status
-                      } (${testResult.durationMs}ms).`
-                    : 'Last dry run wrote nothing. Last authorised test created 3 tasks in the test project and sent no email.'}
-                </p>
-              )}
-
-              {bottomTab === 4 && (
-                <p style={{ color: 'var(--sub)', fontSize: '12px' }}>
-                  {runHistory.length > 0
-                    ? `Recorded ${runHistory.length} execution run(s). All completed within bounds.`
-                    : 'No runs yet. History records the workflow and its outcome, never a count against a person.'}
-                </p>
-              )}
-            </div>
-
-            {/* Narrow widths replacement (Plate 14) */}
-            <div className="wb-reader">
-              <h2>Plain-Language Review</h2>
-              <ol>
-                {reviewItems.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ol>
-            </div>
-
-            <div className="wb-approve-bar">
-              <button className="no" onClick={() => alert('Workflow declined by owner.')}>
-                Decline
-              </button>
-              <button
-                className="yes"
-                onClick={() => alert('Workflow approved by owner.')}
-              >
-                Approve
-              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ---------- Plate 10: Template Picker Modal ---------- */}
+      {/* Modals */}
       <TemplatePickerModal
         isOpen={isPickerOpen}
         onClose={() => setIsPickerOpen(false)}
         onSelectTemplate={handleSelectTemplate}
       />
 
-      {/* ---------- Modals: Add Step & Real Connection Flow ---------- */}
       <AddStepModal
         isOpen={isAddStepOpen}
         onClose={() => setIsAddStepOpen(false)}
@@ -884,6 +1134,55 @@ export const WorkflowBuilderPage: React.FC = () => {
         }}
       />
 
+      {/* Raw Definition Modal (Advanced Inspection) */}
+      {isRawDefinitionModalOpen && (
+        <div
+          className="wb-scrim"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="raw-def-title"
+          onClick={() => setIsRawDefinitionModalOpen(false)}
+        >
+          <div
+            className="wb-modal"
+            style={{ maxWidth: '720px', width: '90%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="wb-modal-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--navy2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Code size={18} color="var(--gold)" />
+                <h2 id="raw-def-title" style={{ margin: 0, fontSize: '16px', color: 'var(--light)' }}>
+                  Raw Workflow Definition (SchemaVersion 1)
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRawDefinitionModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--sub)', cursor: 'pointer', padding: '4px' }}
+                aria-label="Close raw definition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', marginTop: '12px', background: 'var(--ground)', padding: '12px', borderRadius: '6px', border: '1px solid var(--navy2)' }}>
+              <pre style={{ margin: 0, fontSize: '11.5px', fontFamily: 'var(--font-m)', color: 'var(--light)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {JSON.stringify(definition, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+// Helper lookup for integration provider definition
+function INTEGRATION_PROVIDERS_CATALOG_LOOKUP(appName: string): ProviderDefinition | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, '');
+  const target = norm(appName);
+  return (
+    INTEGRATION_PROVIDERS_CATALOG.find(
+      (p) => norm(p.id) === target || norm(p.name) === target || target.includes(norm(p.name))
+    ) || null
+  );
+}

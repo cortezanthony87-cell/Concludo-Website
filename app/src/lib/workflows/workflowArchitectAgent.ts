@@ -13,6 +13,7 @@ import {
 } from './schemas';
 import { validateWorkflowDefinition } from './validation';
 import { TRIGGER_MANIFESTS, ACTION_MANIFESTS, CONNECTOR_MANIFESTS } from './connectorRegistry';
+import { applyWorkflowEdit, describeWorkflow, isEditInstruction, normaliseDefinition } from './workflowEditor';
 
 export interface ArchitectBuildRequest {
   userPrompt: string;
@@ -72,6 +73,56 @@ export async function executeWorkflowArchitect(
         `Workflow generation blocked: Concludo core policy strictly rejects '${kw}'. Concludo automates work and project execution, never employee surveillance or ranking.`
       );
     }
+  }
+
+  // 1b. Edit mode: a current workflow plus an instruction changes that workflow.
+  // It is never silently replaced. Callers can force a fresh build with mode: 'build'.
+  if (request.mode !== 'build' && isEditInstruction(userPrompt, currentWorkflow)) {
+    recordEmit('request.interpreted', { intent: 'Apply a change to the current workflow', mode: 'edit' });
+    const edit = applyWorkflowEdit(currentWorkflow, userPrompt, { connectedApplications });
+    edit.events.forEach((evt) => recordEmit(evt.type, evt.payload));
+    edit.assumptions.forEach((a) => recordEmit('assumption.added', { assumption: a }));
+    edit.questions.forEach((q) => recordEmit('question.required', { question: q }));
+
+    let editWarnings: string[] = [];
+    if (edit.status === 'applied') {
+      recordEmit('validation.started', {});
+      const editValidation = validateWorkflowDefinition(edit.workflow, { connectedApplications, enforceConnections: false });
+      editWarnings = editValidation.warnings.map((w) => w.message);
+      recordEmit('validation.completed', { warningsCount: editWarnings.length });
+    }
+    recordEmit(edit.status === 'refused' ? 'build.failed' : 'build.completed', {
+      workflowKey: edit.workflow.workflowKey,
+      status: edit.workflow.status,
+      editStatus: edit.status,
+    });
+
+    const connectionsNeeded = edit.events
+      .filter((e) => e.type === 'connection.required')
+      .map((e) => e.payload.connectorKey as string);
+
+    return {
+      schemaVersion: 1,
+      buildStatus:
+        edit.status === 'applied' || edit.status === 'explained'
+          ? 'complete'
+          : edit.status === 'refused'
+          ? 'failed'
+          : 'needs_clarification',
+      mode: edit.status === 'explained' ? 'explain' : 'edit',
+      workflowDefinition: edit.workflow,
+      plainLanguageExplanation: edit.status === 'explained' ? edit.answer : describeWorkflow(edit.workflow),
+      assumptions: edit.assumptions,
+      questions: edit.questions,
+      connectionsRequired: connectionsNeeded,
+      approvalsRequired: edit.workflow.steps.filter((st) => st.stepType === 'approval').map((st) => st.key),
+      validationWarnings: editWarnings,
+      testsProposed: edit.status === 'applied' ? ['Synthetic dry run with mock payload'] : [],
+      limitations: edit.limitations,
+      buildEvents,
+      changes: edit.changes,
+      answer: edit.answer,
+    };
   }
 
   recordEmit('request.interpreted', {
@@ -481,6 +532,29 @@ export async function executeWorkflowArchitect(
     plainLanguageExplanation.push('3. Creates a corresponding project task for each row idempotently.');
     plainLanguageExplanation.push('4. Writes the created task ID back into the sheet to mark it completed.');
   }
+  // No match: say so instead of quietly building the meeting workflow for an unrelated request.
+  else if (!/meeting|transcript|\bcall\b|conversation|follow[- ]?through|minutes/.test(promptLower)) {
+    const question =
+      'I can build four kinds of workflow today: after a meeting finishes, when a HubSpot deal is won, when a Stripe payment fails, and from approved Google Sheet rows. Which is closest to what you want?';
+    recordEmit('question.required', { question });
+    recordEmit('build.completed', { status: 'needs_clarification' });
+    return {
+      schemaVersion: 1,
+      buildStatus: 'needs_clarification',
+      mode: 'build',
+      workflowDefinition: currentWorkflow ?? buildMeetingFollowthroughVerticalSlice(),
+      plainLanguageExplanation: [],
+      assumptions: [],
+      questions: [question],
+      connectionsRequired: [],
+      approvalsRequired: [],
+      validationWarnings: [],
+      testsProposed: [],
+      limitations: ['Nothing was built. The workflow on screen, if any, is unchanged.'],
+      buildEvents,
+      changes: [],
+    };
+  }
   // Default: Meeting Follow-through (Canonical Vertical Slice)
   else {
     connectionsRequired.push('concludo_meetings');
@@ -641,7 +715,8 @@ export async function executeWorkflowArchitect(
     }
   });
 
-  // 4. Validate Definition
+  // 4. Validate Definition (edge keys filled in both spellings so the canvas can draw them)
+  wf = normaliseDefinition(wf);
   recordEmit('validation.started', {});
   const valResult = validateWorkflowDefinition(wf, {
     connectedApplications,
@@ -671,6 +746,8 @@ export async function executeWorkflowArchitect(
     testsProposed: ['Synthetic dry run with mock payload', 'Idempotency repeat check'],
     limitations: [],
     buildEvents,
+    mode: 'build',
+    changes: [],
   };
 }
 

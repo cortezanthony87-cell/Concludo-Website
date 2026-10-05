@@ -106,6 +106,8 @@ export interface WorkflowStep {
     approverId?: string;
     timeoutHours?: number;
     escalationRole?: string;
+    /** Number of distinct people who must approve. Defaults to 1. */
+    minimumApprovers?: number;
   };
   permissionRequirement?: string[];
   dataClassification?: 'public' | 'internal' | 'confidential' | 'personal' | 'sensitive' | 'secret';
@@ -225,6 +227,12 @@ export interface WorkflowArchitectOutput {
   testsProposed: string[];
   limitations: string[];
   buildEvents: WorkflowBuildEvent[];
+  /** 'build' made a new workflow; 'edit' changed the current one; 'explain' answered without changing it. */
+  mode?: 'build' | 'edit' | 'explain';
+  /** Plain-English list of what an edit changed, for the "What changed" card. Empty when nothing changed. */
+  changes?: Array<{ kind: 'added' | 'removed' | 'moved' | 'changed' | 'renamed'; stepKey?: string; summary: string }>;
+  /** Plain-English reply lines for explanations and refusals. */
+  answer?: string[];
 }
 
 // Backward-compatible aliases for Phase 4 governance and policy engines
