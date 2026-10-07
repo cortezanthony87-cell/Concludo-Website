@@ -299,6 +299,11 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
 
             {/* Apps List */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+              {selectedCategory === 'Connected' && filteredProviders.length === 0 ? (
+                <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--sub)', fontSize: '12px' }}>
+                  No apps are connected and verified yet.
+                </div>
+              ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {filteredProviders.map((p) => {
                   const isConn = connections.some(
@@ -382,6 +387,7 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
                   );
                 })}
               </div>
+              )}
             </div>
           </div>
 
