@@ -1,5 +1,6 @@
 import React from 'react';
 import { IntegrationConnection } from '../../lib/integrations/hubRegistry';
+import { isUsable, describeStatus, ConnectionEvidence } from '../../lib/integrations/connectionStatus';
 import { IntegrationIcon } from '../integrations/IntegrationIcon';
 import { Plus } from 'lucide-react';
 
@@ -91,7 +92,12 @@ export const ConnectedAppsStrip: React.FC<ConnectedAppsStripProps> = ({
               fontFamily: 'var(--font-b)',
               lineHeight: 1.4,
             }}
-            title={`${c.connection_name} (${c.external_account_reference || ''}) · ${c.status}`}
+            title={(() => {
+            const ev = { status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result };
+            const meta = describeStatus(ev);
+            const accountLabel = (c as any).account_label || 'Account not confirmed';
+            return `${c.connection_name} (${accountLabel}) · ${meta.label}`;
+          })()}
           >
             <IntegrationIcon slug={c.provider_id} size={16} />
             <span>{c.connection_name}</span>
@@ -101,11 +107,10 @@ export const ConnectedAppsStrip: React.FC<ConnectedAppsStripProps> = ({
                 height: '6px',
                 borderRadius: '50%',
                 background:
-                  c.status === 'connected'
-                    ? 'var(--ok)'
-                    : c.status === 'needs_reauth'
-                    ? 'var(--warn)'
-                    : 'var(--bad)',
+                  (() => {
+                    const meta = describeStatus({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result });
+                    return meta.tone === 'ok' ? 'var(--ok)' : meta.tone === 'attention' ? 'var(--warn)' : 'var(--bad)';
+                  })(),
               }}
             />
           </div>

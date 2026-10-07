@@ -1,3 +1,4 @@
+import { isUsable } from './connectionStatus';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '../supabase/client';
 
@@ -1911,19 +1912,13 @@ export class IntegrationsHubService {
         return { success: false, message: 'Connection record not found.', testedAt: now };
       }
 
-      const isHealthy = conn.status === 'connected';
-      const updatedHealth = {
-        healthy: isHealthy,
-        last_check_status: isHealthy ? 'OK: Connected and reachable' : 'Needs attention',
-      };
-
-      await this.supabase
-        .from('integration_connections')
-        .update({
-          health_details: updatedHealth,
-          last_tested_at: now,
-        })
-        .eq('id', connectionId);
+      const isHealthy = isUsable({
+        status: conn.status,
+        verified_at: conn.verified_at,
+        last_test_at: conn.last_test_at,
+        last_test_result: conn.last_test_result,
+      });
+      // In Phase 0, browser cannot update status or health_details directly
 
       return {
         success: isHealthy,
@@ -1939,17 +1934,11 @@ export class IntegrationsHubService {
    * Soft-deletes / disconnects an integration.
    */
   async disconnect(connectionId: string): Promise<boolean> {
-    const { data: { user } } = await this.supabase.auth.getUser();
-    const { error } = await this.supabase
-      .from('integration_connections')
-      .update({
-        status: 'disconnected',
-        deleted_at: new Date().toISOString(),
-        deleted_by: user?.id || null,
-      })
-      .eq('id', connectionId);
-
+    const { data, error } = await this.supabase.functions.invoke('connection-remove', {
+      body: { connectionId },
+    });
     if (error) throw error;
+    if (data?.error) throw new Error(data.error);
     return true;
   }
 
@@ -1959,7 +1948,7 @@ export class IntegrationsHubService {
   async renameConnection(connectionId: string, newName: string): Promise<boolean> {
     const { error } = await this.supabase
       .from('integration_connections')
-      .update({ connection_name: newName, updated_at: new Date().toISOString() })
+      .update({ connection_name: newName })
       .eq('id', connectionId);
 
     if (error) throw error;

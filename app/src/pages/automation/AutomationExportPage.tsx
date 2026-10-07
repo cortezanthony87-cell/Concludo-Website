@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
+import { isUsable } from '../../lib/integrations/connectionStatus';
 import {
   executeActionExport,
   executeDecisionExport,
@@ -178,7 +179,7 @@ export const AutomationExportPage: React.FC = () => {
   };
 
   const getConnectedIntegration = (destId: string) => {
-    return integrations.find((i) => i.provider === destId && i.status === 'connected');
+    return integrations.find((i) => i.provider === destId && isUsable({ status: i.status, verified_at: (i as any).verified_at, last_test_at: (i as any).last_test_at, last_test_result: (i as any).last_test_result }));
   };
 
   const isDestinationConnected = (destId: string): boolean => {

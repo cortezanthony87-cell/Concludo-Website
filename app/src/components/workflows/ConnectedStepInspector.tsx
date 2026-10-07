@@ -23,6 +23,7 @@ import {
 } from '../../lib/integrations/hubRegistry';
 import { IntegrationIcon } from '../integrations/IntegrationIcon';
 import { VariablePickerModal } from './VariablePickerModal';
+import { isUsable, ConnectionEvidence, describeStatus } from '../../lib/integrations/connectionStatus';
 
 export interface StepTestResult {
   success: boolean;
@@ -82,7 +83,7 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
 
   const providerConnections = useMemo(() => {
     if (!provider) return [];
-    return connections.filter((c) => c.provider_id === provider.id && c.status === 'connected');
+    return connections.filter((c) => c.provider_id === provider.id && isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result }));
   }, [provider, connections]);
 
   // Handle field mapping updates
@@ -283,20 +284,38 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <span style={labelStyle}>App and Account</span>
               {isBuiltIn ? (
-                <span style={{ fontSize: '10.5px', color: 'var(--ok)', fontFamily: 'var(--font-m)' }}>
+                <span style={{ fontSize: '10.5px', color: 'var(--sub)', fontFamily: 'var(--font-m)' }}>
                   Built into Concludo
                 </span>
               ) : currentConnection ? (
-                <span style={{ fontSize: '10.5px', color: 'var(--ok)', fontFamily: 'var(--font-m)' }}>
-                  Connected
-                </span>
+                (() => {
+                  const ev: ConnectionEvidence = {
+                    status: currentConnection.status,
+                    verified_at: (currentConnection as any).verified_at,
+                    last_test_at: (currentConnection as any).last_test_at,
+                    last_test_result: (currentConnection as any).last_test_result,
+                  };
+                  const meta = describeStatus(ev);
+                  if (meta.status === 'unverified') {
+                    return (
+                      <span style={{ fontSize: '10.5px', color: 'var(--warn)', fontFamily: 'var(--font-m)' }}>
+                        Not verified. Reconnect when sign-in is available.
+                      </span>
+                    );
+                  }
+                  return (
+                    <span style={{ fontSize: '10.5px', color: meta.tone === 'ok' ? 'var(--ok)' : 'var(--warn)', fontFamily: 'var(--font-m)' }}>
+                      {meta.label}
+                    </span>
+                  );
+                })()
               ) : providerConnections.length > 0 ? (
                 <span style={{ fontSize: '10.5px', color: 'var(--gold)', fontFamily: 'var(--font-m)' }}>
                   Selection Required
                 </span>
               ) : (
-                <span style={{ fontSize: '10.5px', color: 'var(--bad)', fontFamily: 'var(--font-m)' }}>
-                  Not Connected
+                <span style={{ fontSize: '10.5px', color: 'var(--warn)', fontFamily: 'var(--font-m)' }}>
+                  Not connected
                 </span>
               )}
             </div>

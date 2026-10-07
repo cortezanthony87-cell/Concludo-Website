@@ -63,7 +63,7 @@ export const WorkflowStepCard: React.FC<WorkflowStepCardProps> = ({
     attentionColor = 'var(--bad)';
   } else if (missingConnection && !isBuiltIn) {
     const appName = step.application.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-    attentionText = `Connect ${appName}`;
+    attentionText = `${appName} not verified`;
     attentionColor = 'var(--warn)';
   } else if (testStatus === 'failed') {
     attentionText = 'Failed in test';

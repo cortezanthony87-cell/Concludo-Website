@@ -23,6 +23,7 @@ import {
 } from '../../lib/integrations/hubRegistry';
 import { IntegrationIcon } from '../integrations/IntegrationIcon';
 import { WorkflowStep } from '../../lib/workflows/schemas';
+import { isUsable } from '../../lib/integrations/connectionStatus';
 
 export interface AddStepModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
     if (selectedCategory !== 'All Apps') {
       if (selectedCategory === 'Connected') {
         const connectedProviderIds = new Set(
-          connections.filter((c) => c.status === 'connected').map((c) => c.provider_id)
+          connections.filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })).map((c) => c.provider_id)
         );
         list = list.filter((p) => connectedProviderIds.has(p.id));
       } else {
@@ -78,7 +79,7 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
   const providerConnections = useMemo(() => {
     if (!selectedProvider) return [];
     return connections.filter(
-      (c) => c.provider_id === selectedProvider.id && c.status === 'connected'
+      (c) => c.provider_id === selectedProvider.id && isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })
     );
   }, [selectedProvider, connections]);
 
@@ -97,7 +98,7 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
     }
 
     const conns = connections.filter(
-      (c) => c.provider_id === prov.id && c.status === 'connected'
+      (c) => c.provider_id === prov.id && isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })
     );
     if (conns.length > 0) {
       setSelectedConnectionId(conns[0].id);
@@ -301,7 +302,7 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {filteredProviders.map((p) => {
                   const isConn = connections.some(
-                    (c) => c.provider_id === p.id && c.status === 'connected'
+                    (c) => c.provider_id === p.id && isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })
                   );
                   const isSelected = selectedProvider?.id === p.id;
 

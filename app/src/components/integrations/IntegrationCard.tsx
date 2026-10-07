@@ -1,13 +1,14 @@
 import React from 'react';
 import {
-  AlertTriangle,
-  RefreshCw,
-  Plus,
-  Settings,
-  ShieldCheck,
-  Zap,
-} from 'lucide-react';
-import { ProviderDefinition, IntegrationConnection } from '../../lib/integrations/hubRegistry';
+  ProviderDefinition,
+  IntegrationConnection,
+} from '../../lib/integrations/hubRegistry';
+import {
+  describeStatus,
+  lastCheckedText,
+  isUsable,
+  ConnectionEvidence,
+} from '../../lib/integrations/connectionStatus';
 import { IntegrationIcon } from './IntegrationIcon';
 
 export interface IntegrationCardProps {
@@ -15,7 +16,7 @@ export interface IntegrationCardProps {
   connection?: IntegrationConnection | null;
   onConnect: (provider: ProviderDefinition) => void;
   onManage: (provider: ProviderDefinition, connection: IntegrationConnection) => void;
-  onTest: (connection: IntegrationConnection) => void;
+  onTest?: (connection: IntegrationConnection) => void;
   isTesting?: boolean;
 }
 
@@ -24,27 +25,42 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
   connection,
   onConnect,
   onManage,
-  onTest,
-  isTesting = false,
 }) => {
-  const isConnected = !!connection && connection.status === 'connected';
-  const hasIssue = !!connection && (connection.status === 'needs_reauth' || connection.status === 'service_issue');
-  const isPermRequired = !!connection && connection.status === 'permission_required';
-
   const isAustralian = provider.id === 'xero' || provider.id === 'myob';
+
+  // Status mapping via connectionStatus.ts
+  const connEvidence: ConnectionEvidence = {
+    status: connection?.status || 'not_connected',
+    verified_at: (connection as any)?.verified_at || null,
+    last_test_at: (connection as any)?.last_test_at || null,
+    last_test_result: (connection as any)?.last_test_result || null,
+  };
+
+  const statusMeta = describeStatus(connEvidence);
+  const usable = connection ? isUsable(connEvidence) : false;
+
+  // Tone pill styles: green only for 'ok' (which no row can be in Phase 0)
+  const tonePillClass =
+    statusMeta.tone === 'ok'
+      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      : statusMeta.tone === 'attention'
+      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+      : statusMeta.tone === 'failed'
+      ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+      : 'bg-slate-800/80 text-slate-400 border-slate-700/60';
 
   return (
     <div
       className={`group relative bg-slate-900/80 hover:bg-slate-900 border rounded-xl p-5 transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md h-full ${
-        isConnected
+        usable
           ? 'border-emerald-500/30 hover:border-emerald-500/50'
-          : hasIssue
+          : statusMeta.tone === 'attention'
           ? 'border-amber-500/30 hover:border-amber-500/50'
           : 'border-slate-800 hover:border-slate-700'
       }`}
     >
       <div className="flex-1 flex flex-col">
-        {/* Top Header: Framed Vector Logo + Status Badge */}
+        {/* Top Header: Framed Vector Logo + Status Pill */}
         <div className="flex items-start justify-between gap-3">
           <div className="relative p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 shadow-inner group-hover:border-slate-700 transition">
             <IntegrationIcon slug={provider.iconSlug || provider.id} size={32} />
@@ -59,36 +75,18 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           </div>
 
           <div className="flex flex-col items-end gap-1.5">
-            {isConnected ? (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Connected
-              </span>
-            ) : hasIssue ? (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1.5">
-                <AlertTriangle className="w-3 h-3" />
-                Needs Attention
-              </span>
-            ) : isPermRequired ? (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1.5">
-                <ShieldCheck className="w-3 h-3" />
-                Permission Required
-              </span>
-            ) : (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800/80 text-slate-400 border border-slate-700/60">
-                Not connected
-              </span>
-            )}
-
-            {provider.isTier1 && (
-              <span className="text-[10px] font-semibold text-amber-400/90 flex items-center gap-1">
-                <Zap className="w-3 h-3 text-amber-400" /> Core Tier 1
-              </span>
-            )}
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${tonePillClass}`}
+            >
+              {statusMeta.tone === 'ok' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              )}
+              {statusMeta.label}
+            </span>
           </div>
         </div>
 
-        {/* Application Name & Category - Fixed Height for Aligning across Grid */}
+        {/* Application Name & Category */}
         <div className="mt-4 min-h-[48px] flex flex-col justify-start">
           <h3 className="text-base font-semibold text-white tracking-tight group-hover:text-amber-400 transition-colors line-clamp-1 leading-snug">
             {provider.name}
@@ -98,20 +96,27 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           </span>
         </div>
 
-        {/* Short Description - Fixed Height with 2 Lines */}
+        {/* Short Description */}
         <p className="text-slate-300 text-xs mt-2.5 line-clamp-2 leading-relaxed min-h-[38px]">
           {provider.description}
         </p>
 
-        {/* Connected Account Preview if active */}
-        {connection && connection.external_account_reference && (
-          <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-slate-950/70 border border-slate-800/90 text-[11px] text-slate-300 flex items-center justify-between">
+        {/* Account Line: account_label if present, otherwise Account not confirmed */}
+        {connection && (
+          <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-slate-950/70 border border-slate-800/90 text-[11px] flex items-center justify-between">
             <span className="text-slate-400 truncate max-w-[170px]" title={connection.connection_name}>
               {connection.connection_name}
             </span>
-            <span className="font-mono text-emerald-400 text-[10px] truncate max-w-[120px]">
-              {connection.external_account_reference}
+            <span className="text-slate-400 text-[11px] truncate max-w-[140px]">
+              {(connection as any).account_label || 'Account not confirmed'}
             </span>
+          </div>
+        )}
+
+        {/* Last Checked Text */}
+        {connection && (
+          <div className="mt-2 text-[10.5px] text-slate-400">
+            {lastCheckedText(connEvidence)}
           </div>
         )}
 
@@ -128,31 +133,29 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
 
       {/* Primary Card Actions */}
       <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
-        {isConnected ? (
+        {connection ? (
           <>
             <button
-              onClick={() => onManage(provider, connection)}
+              onClick={() => onConnect(provider)}
               className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700 overflow-hidden text-ellipsis whitespace-nowrap"
             >
-              <Settings className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Manage Connection
+              Reconnect
             </button>
             <button
-              onClick={() => onTest(connection)}
-              disabled={isTesting}
-              title="Test real connection status"
-              className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center gap-1 shrink-0"
+              onClick={() => onManage(provider, connection)}
+              className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center justify-center shrink-0"
+              title="Remove connection"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin text-amber-400' : 'text-slate-400'} shrink-0`} />
-              Test
+              Remove
             </button>
           </>
         ) : (
           <button
             onClick={() => onConnect(provider)}
-            className="w-full min-h-[40px] py-2 px-4 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm leading-normal whitespace-nowrap overflow-hidden text-ellipsis"
-            title={`Connect ${provider.name}`}
+            className="w-full min-h-[40px] py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-lg text-xs transition flex items-center justify-center gap-1.5 border border-slate-700 leading-normal whitespace-nowrap overflow-hidden text-ellipsis"
+            title={`Sign-in coming soon for ${provider.name}`}
           >
-            <Plus className="w-4 h-4 shrink-0 stroke-[2.5]" /> Connect
+            Sign-in coming soon
           </button>
         )}
       </div>

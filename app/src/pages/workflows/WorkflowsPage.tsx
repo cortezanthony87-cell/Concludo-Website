@@ -1,6 +1,8 @@
 import { Plus, Boxes } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { integrationsHubService, IntegrationConnection } from '../../lib/integrations/hubRegistry';
+import { isUsable } from '../../lib/integrations/connectionStatus';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
   WorkflowRecord,
@@ -48,6 +50,7 @@ export const WorkflowsPage: React.FC = () => {
   const { user } = useAuth();
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
   const [executions, setExecutions] = useState<WorkflowExecutionRecord[]>([]);
+  const [connections, setConnections] = useState<IntegrationConnection[]>([]);
   const [activeTab, setActiveTab] = useState<'workflows' | 'history'>('workflows');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,10 +74,12 @@ export const WorkflowsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [wfData, execData] = await Promise.all([
+      const [wfData, execData, connData] = await Promise.all([
         fetchWorkflows({ userId: user.id }),
         fetchWorkflowExecutions({ userId: user.id }),
+        integrationsHubService.getConnections().catch(() => []),
       ]);
+      setConnections(connData);
       setWorkflows(wfData);
       setExecutions(execData);
     } catch (err: any) {
@@ -293,6 +298,26 @@ export const WorkflowsPage: React.FC = () => {
                       </div>
 
                       <h3 className="text-lg font-bold font-heading text-white mt-3">{wf.name}</h3>
+                      {(() => {
+                        const usableSlugs = new Set(
+                          connections.filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })).map((c) => c.provider_id)
+                        );
+                        // Check if any action or trigger targets third-party provider not in usableSlugs
+                        const triggersAndActions = [wf.trigger_type, ...(wf.actions?.map((a: any) => a.type || a.service || a.application) || [])];
+                        const usesExternalApp = triggersAndActions.some((t: string) => {
+                          if (!t) return false;
+                          const s = String(t).toLowerCase();
+                          return s.includes('outlook') || s.includes('teams') || s.includes('planner') || s.includes('todo') || s.includes('hubspot') || s.includes('xero') || s.includes('slack');
+                        });
+                        if (usesExternalApp) {
+                          return (
+                            <div className="mt-1 text-xs text-amber-400 font-medium flex items-center gap-1.5">
+                              Uses an app that is not verified
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {wf.description && (
                         <p className="text-xs text-gray-300 mt-1 line-clamp-2">{wf.description}</p>
                       )}

@@ -16,6 +16,7 @@ import { executeWorkflow, WorkflowRunRecord } from '../../lib/workflows/executio
 import { calculateWorkflowRisk } from '../../lib/workflows/riskClassification';
 import { CONNECTOR_MANIFESTS } from '../../lib/workflows/connectorRegistry';
 import { WORKFLOW_TEMPLATES, WorkflowTemplateMeta } from '../../lib/workflows/templates';
+import { isUsable } from '../../lib/integrations/connectionStatus';
 import {
   RotateCcw,
   Network,
@@ -194,7 +195,7 @@ export const WorkflowBuilderPage: React.FC = () => {
 
   // Connected apps check
   const activeConnectedSlugs = useMemo(() => {
-    return new Set(connections.filter((c) => c.status === 'connected').map((c) => c.provider_id));
+    return new Set(connections.filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })).map((c) => c.provider_id));
   }, [connections]);
 
   const missingConnections = useMemo(() => {
