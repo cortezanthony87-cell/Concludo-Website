@@ -100,9 +100,40 @@ export const ConnectProviderPage: React.FC = () => {
       setStep('waiting_auth');
       const nango = new Nango({ connectSessionToken: token, host: 'https://api.nango.dev' });
 
+      let authSucceeded = false;
       try {
         await nango.auth(nango_integration_id);
+        authSucceeded = true;
       } catch (authErr: any) {
+        // If popup was blocked by browser, fallback to openConnectUI modal
+        if (authErr?.type === 'blocked_by_browser') {
+          await new Promise<void>((resolve, reject) => {
+            const connectUI = nango.openConnectUI({
+              sessionToken: token,
+              onEvent: (event) => {
+                if (event.type === 'connect') {
+                  connectUI.close();
+                  authSucceeded = true;
+                  resolve();
+                } else if (event.type === 'close') {
+                  connectUI.close();
+                  resolve();
+                } else if (event.type === 'error') {
+                  connectUI.close();
+                  reject(new Error(event.payload.errorMessage));
+                }
+              },
+            });
+            connectUI.open();
+          });
+        } else {
+          setStep('idle');
+          setErrorMsg(connectionResultText('cancelled', provider.name));
+          return;
+        }
+      }
+
+      if (!authSucceeded) {
         setStep('idle');
         setErrorMsg(connectionResultText('cancelled', provider.name));
         return;

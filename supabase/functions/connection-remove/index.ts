@@ -122,7 +122,7 @@ Deno.serve(async (request) => {
     await writeAuditEvent(service, {
       connection_id: connectionId,
       user_id: user.id,
-      organization_id: callerRow.organization_id,
+      organization_id: callerRow.organization_id, provider_id: callerRow.provider_id,
       event_type: 'removed',
       severity: 'info',
       metadata: { reason: 'Removed by the user' },
@@ -131,7 +131,7 @@ Deno.serve(async (request) => {
     try {
       await service.from('audit_logs').insert({
         user_id: user.id,
-        organization_id: callerRow.organization_id,
+        organization_id: callerRow.organization_id, provider_id: callerRow.provider_id,
         action: 'integration.connection.removed',
         entity_type: 'integration_connection',
         entity_id: connectionId,

@@ -65,8 +65,7 @@ export function corsHeaders(request?: Request): HeadersInit {
   const requestOrigin = request?.headers.get('origin');
   const origin = requestOrigin && allowedOrigins.includes(requestOrigin) ? requestOrigin : 'https://app.concludo.com.au';
 
-  return {
-    'Access-Control-Allow-Origin': origin,
+  return {    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Vary': 'Origin',
@@ -74,8 +73,7 @@ export function corsHeaders(request?: Request): HeadersInit {
 }
 
 export function jsonResponse(body: unknown, status = 200, request?: Request): Response {
-  return new Response(JSON.stringify(body), {
-    status,
+  return new Response(JSON.stringify(body), {    status,
     headers: {
       ...corsHeaders(request),
       'Content-Type': 'application/json; charset=utf-8',
@@ -92,21 +90,39 @@ export async function writeAuditEvent(
   service: SupabaseClient,
   event: {
     connection_id?: string | null;
-    user_id: string;
-    organization_id: string;
+    provider_id: string;
+    user_id?: string | null;
+    organization_id?: string | null;
     event_type: string;
-    severity?: string;
     metadata?: Record<string, unknown>;
   }
 ) {
   try {
+    // Map event_type to allowed event check constraint:
+    // 'connect_started', 'authorised', 'authorisation_failed', 'test_passed', 'test_failed',
+    // 'refresh_failed', 'reconnect_started', 'removed', 'action_succeeded', 'action_failed'
+    const allowedEvents = [
+      'connect_started',
+      'authorised',
+      'authorisation_failed',
+      'test_passed',
+      'test_failed',
+      'refresh_failed',
+      'reconnect_started',
+      'removed',
+      'action_succeeded',
+      'action_failed',
+    ];
+
+    const safeEvent = allowedEvents.includes(event.event_type) ? event.event_type : 'test_failed';
+
     await service.from('integration_connection_events').insert({
       connection_id: event.connection_id ?? null,
-      user_id: event.user_id,
-      organization_id: event.organization_id,
-      event_type: event.event_type,
-      severity: event.severity ?? 'info',
-      metadata: event.metadata ?? {},
+      provider_id: event.provider_id,
+      user_id: event.user_id ?? null,
+      organization_id: event.organization_id ?? null,
+      event: safeEvent,
+      detail: event.metadata ?? {},
     });
   } catch (err) {
     console.error('Failed to write audit event:', err);

@@ -17,7 +17,6 @@ interface StartRequest {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return optionsResponse(request);
   if (request.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405, request);
-
   try {
     const { user } = await requireUser(request);
     const body = (await request.json().catch(() => ({}))) as StartRequest;
@@ -44,28 +43,29 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'This app is not available yet.' }, 400, request);
     }
 
-    // 2. Derive user's organization from membership
-    const { data: profile, error: profileErr } = await service
-      .from('profiles')
+    // 2. Derive user's organization from membership or ownership if available (optional for solo users)
+    let organizationId: string | null = null;
+    const { data: member } = await service
+      .from('organization_members')
       .select('organization_id')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
-    let organizationId = profile?.organization_id;
-
-    if (!organizationId) {
-      const { data: member } = await service
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
+    if (member?.organization_id) {
+      organizationId = member.organization_id;
+    } else {
+      const { data: ownedOrg } = await service
+        .from('organizations')
+        .select('id')
+        .eq('owner_id', user.id)
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
-      organizationId = member?.organization_id;
-    }
-
-    if (!organizationId) {
-      return jsonResponse({ error: 'User does not belong to an organization' }, 400, request);
+      if (ownedOrg?.id) {
+        organizationId = ownedOrg.id;
+      }
     }
 
     // 3. Rate limit check: 10 starts per user per 10 minutes
@@ -74,7 +74,7 @@ Deno.serve(async (request) => {
       .from('integration_connection_events')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .in('event_type', ['connect_started', 'reconnect_started'])
+      .in('event', ['connect_started', 'reconnect_started'])
       .gte('created_at', tenMinutesAgo);
 
     if ((recentStartsCount ?? 0) >= 10) {
@@ -145,10 +145,12 @@ Deno.serve(async (request) => {
 
     const tags: Record<string, string> = {
       end_user_id: user.id,
-      organization_id: organizationId,
       concludo_connection_id: connectionRowId,
       provider_id: providerId,
     };
+    if (organizationId) {
+      tags.organization_id = organizationId;
+    }
 
     let sessionRes: Response;
     const endUser = {
@@ -203,6 +205,7 @@ Deno.serve(async (request) => {
     // 7. Write audit event
     await writeAuditEvent(service, {
       connection_id: connectionRowId,
+      provider_id: providerId,
       user_id: user.id,
       organization_id: organizationId,
       event_type: isReconnect ? 'reconnect_started' : 'connect_started',

@@ -120,23 +120,29 @@ Deno.serve(async (request) => {
             connection_id: row.id,
             user_id: row.user_id,
             organization_id: row.organization_id,
+            provider_id: row.provider_id,
             event_type: 'authorised',
-            severity: 'info',
             metadata: { operation, provider_config_key: providerConfigKey },
           });
 
-          // Trigger test call asynchronously or inline
           // Run test call to verify and mark connected
           try {
             // Read provider test_call
             const { data: provider } = await service
               .from('integration_providers')
-              .select('id, test_call, account_endpoint, account_field, fallback_field')
+              .select('id, test_call')
               .eq('id', row.provider_id)
               .single();
 
             if (provider?.test_call) {
-              const testCall = provider.test_call as { endpoint: string; method?: string; base?: string };
+              const testCall = provider.test_call as {
+                endpoint: string;
+                method?: string;
+                base?: string;
+                account_endpoint?: string;
+                account_field?: string;
+                fallback_field?: string;
+              };
               const nangoHost = getNangoHost();
               const nangoSecret = getNangoSecretKey();
 
@@ -155,15 +161,15 @@ Deno.serve(async (request) => {
               if (testRes.ok) {
                 // Fetch account label if available
                 let accountLabel: string | null = null;
-                if (provider.account_endpoint) {
+                const accEndpoint = testCall.account_endpoint || (testCall.endpoint.includes('/me') ? '/v1.0/me' : null);
+                if (accEndpoint) {
                   try {
-                    const accRes = await fetch(`${nangoHost}/proxy${provider.account_endpoint}`, { headers });
+                    const accRes = await fetch(`${nangoHost}/proxy${accEndpoint}`, { headers });
                     if (accRes.ok) {
                       const accJson = await accRes.json();
-                      accountLabel =
-                        (provider.account_field ? accJson[provider.account_field] : null) ||
-                        (provider.fallback_field ? accJson[provider.fallback_field] : null) ||
-                        null;
+                      const accField = testCall.account_field || 'mail';
+                      const fallbackField = testCall.fallback_field || 'userPrincipalName';
+                      accountLabel = accJson[accField] || accJson[fallbackField] || accJson.email || null;
                     }
                   } catch (e) {
                     console.warn('Account label fetch error:', e);
@@ -189,8 +195,8 @@ Deno.serve(async (request) => {
                   connection_id: row.id,
                   user_id: row.user_id,
                   organization_id: row.organization_id,
+                  provider_id: row.provider_id,
                   event_type: 'test_passed',
-                  severity: 'info',
                   metadata: { endpoint: testCall.endpoint, http_status: testRes.status },
                 });
               } else {
@@ -209,8 +215,8 @@ Deno.serve(async (request) => {
                   connection_id: row.id,
                   user_id: row.user_id,
                   organization_id: row.organization_id,
+                  provider_id: row.provider_id,
                   event_type: 'test_failed',
-                  severity: 'warning',
                   metadata: { endpoint: testCall.endpoint, http_status: testRes.status },
                 });
               }
@@ -234,8 +240,8 @@ Deno.serve(async (request) => {
             connection_id: row.id,
             user_id: row.user_id,
             organization_id: row.organization_id,
+            provider_id: row.provider_id,
             event_type: 'authorisation_failed',
-            severity: 'error',
             metadata: { error_type: nangoErr?.type },
           });
         }
@@ -255,19 +261,9 @@ Deno.serve(async (request) => {
             connection_id: row.id,
             user_id: row.user_id,
             organization_id: row.organization_id,
+            provider_id: row.provider_id,
             event_type: 'refresh_failed',
-            severity: 'warning',
             metadata: { error_type: nangoErr?.type },
-          });
-        } else {
-          // Refresh recovery
-          await writeAuditEvent(service, {
-            connection_id: row.id,
-            user_id: row.user_id,
-            organization_id: row.organization_id,
-            event_type: 'token_refreshed',
-            severity: 'info',
-            metadata: { provider_config_key: providerConfigKey },
           });
         }
       } else if (operation === 'deletion') {
@@ -285,8 +281,8 @@ Deno.serve(async (request) => {
           connection_id: row.id,
           user_id: row.user_id,
           organization_id: row.organization_id,
+          provider_id: row.provider_id,
           event_type: 'removed',
-          severity: 'info',
           metadata: { reason: 'Nango deletion event' },
         });
       }

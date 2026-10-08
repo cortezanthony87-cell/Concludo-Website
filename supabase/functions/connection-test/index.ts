@@ -19,7 +19,7 @@ export async function runConnectionTest(
   connectionRow: {
     id: string;
     user_id: string;
-    organization_id: string;
+    organization_id: string | null;
     provider_id: string;
     nango_connection_id: string | null;
     nango_integration_id: string | null;
@@ -35,7 +35,7 @@ export async function runConnectionTest(
   // 1. Fetch provider test_call spec
   const { data: provider, error: providerErr } = await service
     .from('integration_providers')
-    .select('id, test_call, account_endpoint, account_field, fallback_field, connect_scopes')
+    .select('id, test_call, connect_scopes')
     .eq('id', connectionRow.provider_id)
     .single();
 
@@ -47,6 +47,9 @@ export async function runConnectionTest(
     endpoint: string;
     method?: string;
     base?: string;
+    account_endpoint?: string;
+    account_field?: string;
+    fallback_field?: string;
   };
 
   const endpoint = testCall.endpoint;
@@ -105,7 +108,8 @@ export async function runConnectionTest(
 
   // 4. If test passed, fetch account label if configured
   let accountLabel: string | null = null;
-  if (testPassed && provider.account_endpoint) {
+  const accEndpoint = testCall.account_endpoint || (testCall.endpoint.includes('/me') ? '/v1.0/me' : null);
+  if (testPassed && accEndpoint) {
     try {
       const accHeaders: Record<string, string> = {
         'Authorization': `Bearer ${nangoSecret}`,
@@ -115,15 +119,14 @@ export async function runConnectionTest(
       if (testCall.base) {
         accHeaders['Base-Url-Override'] = testCall.base;
       }
-      const accRes = await fetch(`${nangoHost}/proxy${provider.account_endpoint}`, {
+      const accRes = await fetch(`${nangoHost}/proxy${accEndpoint}`, {
         headers: accHeaders,
       });
       if (accRes.ok) {
         const accJson = await accRes.json();
-        accountLabel =
-          (provider.account_field ? accJson[provider.account_field] : null) ||
-          (provider.fallback_field ? accJson[provider.fallback_field] : null) ||
-          null;
+        const accField = testCall.account_field || 'mail';
+        const fallbackField = testCall.fallback_field || 'userPrincipalName';
+        accountLabel = accJson[accField] || accJson[fallbackField] || accJson.email || null;
       }
     } catch (e) {
       console.warn('Failed to fetch account label:', e);
@@ -150,7 +153,7 @@ export async function runConnectionTest(
         if (typeof rawScopes === 'string') {
           grantedScopes = rawScopes.split(/[,\s]+/).filter(Boolean);
         } else if (Array.isArray(rawScopes)) {
-          grantedScopes = rawScopes.filter((s) => typeof s === 'string');
+          grantedScopes = rawScopes.filter((s: any) => typeof s === 'string');
         }
       }
     } catch (e) {
@@ -182,8 +185,8 @@ export async function runConnectionTest(
       connection_id: connectionRow.id,
       user_id: connectionRow.user_id,
       organization_id: connectionRow.organization_id,
+      provider_id: connectionRow.provider_id,
       event_type: 'test_passed',
-      severity: 'info',
       metadata: { endpoint, http_status: proxyStatus },
     });
 
@@ -204,8 +207,8 @@ export async function runConnectionTest(
       connection_id: connectionRow.id,
       user_id: connectionRow.user_id,
       organization_id: connectionRow.organization_id,
+      provider_id: connectionRow.provider_id,
       event_type: 'test_failed',
-      severity: 'warning',
       metadata: { endpoint, http_status: proxyStatus, error_code: lastErrorCode },
     });
 
