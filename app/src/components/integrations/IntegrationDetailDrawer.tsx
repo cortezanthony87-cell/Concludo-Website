@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   X,
   AlertTriangle,
+  ExternalLink,
 } from 'lucide-react';
 import {
   ProviderDefinition,
@@ -10,9 +11,10 @@ import {
 } from '../../lib/integrations/hubRegistry';
 import {
   describeStatus,
-  isUsable,
+  lastCheckedText,
   ConnectionEvidence,
 } from '../../lib/integrations/connectionStatus';
+import { independenceLine } from '../../lib/integrations/appCatalogue';
 import { IntegrationIcon } from './IntegrationIcon';
 
 export interface IntegrationDetailDrawerProps {
@@ -33,6 +35,7 @@ export const IntegrationDetailDrawer: React.FC<IntegrationDetailDrawerProps> = (
 }) => {
   const [isRemoving, setIsRemoving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [removed, setRemoved] = useState(false);
 
   if (!isOpen || !provider) return null;
 
@@ -44,7 +47,7 @@ export const IntegrationDetailDrawer: React.FC<IntegrationDetailDrawerProps> = (
   };
 
   const statusMeta = describeStatus(connEvidence);
-  const usable = connection ? isUsable(connEvidence) : false;
+  const isMicrosoft = provider.provider_family === 'microsoft' || provider.id.startsWith('microsoft_');
 
   const handleConfirmRemove = async () => {
     if (!connection) return;
@@ -52,8 +55,8 @@ export const IntegrationDetailDrawer: React.FC<IntegrationDetailDrawerProps> = (
     setErrorMsg(null);
     try {
       await integrationsHubService.disconnect(connection.id);
+      setRemoved(true);
       await onRefresh();
-      onClose();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to remove connection.');
     } finally {
@@ -85,58 +88,98 @@ export const IntegrationDetailDrawer: React.FC<IntegrationDetailDrawerProps> = (
             </button>
           </div>
 
-          {/* Status info */}
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Status</span>
-              <span className="font-semibold text-slate-200">{statusMeta.label}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Account</span>
-              <span className="text-slate-300 font-mono">
-                {(connection as any)?.account_label || 'Account not confirmed'}
-              </span>
-            </div>
-          </div>
-
-          {/* Remove Prompt Section */}
-          <div className="p-5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-4">
-            <h3 className="text-sm font-bold text-white">
-              Remove {provider.name}?
-            </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Workflows that use it will show that the app needs connecting. Nothing is sent to {provider.name.includes('Microsoft') ? 'Microsoft' : provider.name}.
-            </p>
-
-            {errorMsg && (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-                <span>{errorMsg}</span>
+          {/* Status info if connected */}
+          {connection && !removed && (
+            <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Status</span>
+                <span className="font-semibold text-slate-200">{statusMeta.label}</span>
               </div>
-            )}
+              {(connection as any)?.account_label && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Account</span>
+                  <span className="text-slate-300 font-mono">
+                    {(connection as any).account_label}
+                  </span>
+                </div>
+              )}
+              <div className="text-[10.5px] text-slate-500 pt-1 border-t border-slate-800/60">
+                {lastCheckedText(connEvidence)}
+              </div>
+            </div>
+          )}
 
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                disabled={isRemoving}
-                onClick={handleConfirmRemove}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
-              >
-                {isRemoving ? 'Removing...' : 'Remove'}
-              </button>
+          {/* Remove Section */}
+          {!removed ? (
+            <div className="p-5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-4">
+              <h3 className="text-sm font-bold text-white">
+                Remove {provider.name}?
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Concludo will delete its sign-in for {provider.name}. Workflows that use it will stop at that step until you connect again.
+              </p>
+
+              {errorMsg && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isRemoving}
+                  onClick={handleConfirmRemove}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                >
+                  {isRemoving ? 'Removing...' : 'Remove'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-4">
+              <h3 className="text-sm font-bold text-white">
+                {provider.name} removed
+              </h3>
+              {isMicrosoft ? (
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  To remove Concludo's approval from your Microsoft account too, go to{' '}
+                  <a
+                    href="https://myapps.microsoft.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#E2B53C] hover:underline inline-flex items-center gap-1 font-medium"
+                  >
+                    your Microsoft account's apps page <ExternalLink className="w-3 h-3 inline" />
+                  </a>.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Concludo has revoked the sign-in with Google and removed the connection.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition"
               >
-                Cancel
+                Done
               </button>
             </div>
-          </div>
+          )}
         </div>
 
+        {/* Independence line */}
         <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 italic leading-normal">
-          Concludo is an independent product and is not affiliated with, endorsed by, or partnered with any device maker, meeting platform or note-taking service.
+          {independenceLine()}
         </div>
       </div>
     </div>

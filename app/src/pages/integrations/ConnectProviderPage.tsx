@@ -1,95 +1,271 @@
-import React from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import {
   INTEGRATION_PROVIDERS_CATALOG,
   ProviderDefinition,
+  integrationsHubService,
 } from '../../lib/integrations/hubRegistry';
+import {
+  connectPanelCopy,
+  independenceLine,
+  normaliseAvailability,
+  connectionResultText,
+  type CatalogueApp,
+} from '../../lib/integrations/appCatalogue';
 import { IntegrationIcon } from '../../components/integrations/IntegrationIcon';
+import Nango from '@nangohq/frontend';
 
 export const ConnectProviderPage: React.FC = () => {
   const { providerId } = useParams<{ providerId: string }>();
+  const navigate = useNavigate();
 
-  const provider: ProviderDefinition | undefined = INTEGRATION_PROVIDERS_CATALOG.find(
-    (p) => p.id === providerId
-  );
+  const [provider, setProvider] = useState<ProviderDefinition | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<'idle' | 'starting' | 'waiting_auth' | 'checking' | 'completed'>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isRequested, setIsRequested] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const providers = await integrationsHubService.getProviders();
+        const found = providers.find((p) => p.id === providerId) ||
+          INTEGRATION_PROVIDERS_CATALOG.find((p) => p.id === providerId);
+        setProvider(found || null);
+
+        const requests = await integrationsHubService.getAppRequests();
+        if (providerId && requests.has(providerId)) {
+          setIsRequested(true);
+        }
+      } catch (err: any) {
+        console.error('Failed to load provider details:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [providerId]);
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center space-y-3">
+        <RefreshCw className="w-8 h-8 text-[#E2B53C] animate-spin mx-auto" />
+        <p className="text-xs text-slate-400">Loading app connection...</p>
+      </div>
+    );
+  }
 
   if (!provider) {
     return (
-      <div className="p-8 max-w-3xl mx-auto text-center space-y-4">
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
+      <div className="p-8 max-w-2xl mx-auto text-center space-y-4">
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300">
           <h2 className="text-lg font-bold text-white">App Not Found</h2>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             The requested app could not be located in the catalogue.
           </p>
         </div>
         <Link
           to="/integrations"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] rounded-lg text-sm font-semibold transition"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] rounded-lg text-xs font-semibold transition"
         >
-          <ArrowLeft className="w-4 h-4" /> Return to Integrations Hub
+          <ArrowLeft className="w-4 h-4" /> Return to Apps
         </Link>
       </div>
     );
   }
 
-  const isMicrosoft365 =
-    provider.id.startsWith('microsoft_') ||
-    provider.id === 'microsoft_outlook' ||
-    provider.id === 'microsoft_teams' ||
-    provider.id === 'microsoft_planner' ||
-    provider.id === 'microsoft_todo' ||
-    provider.id === 'microsoft_excel' ||
-    provider.id === 'microsoft_onedrive' ||
-    provider.id === 'microsoft_onenote';
+  const panel = connectPanelCopy(provider as unknown as CatalogueApp);
+  const availability = normaliseAvailability(provider.availability);
+
+  const handleNotifyClick = async () => {
+    try {
+      await integrationsHubService.requestApp(provider.id);
+      setIsRequested(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Could not record request.');
+    }
+  };
+
+  const handleStartConnect = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setStep('starting');
+
+    try {
+      const { token, nango_integration_id } = await integrationsHubService.startConnection(provider.id);
+
+      setStep('waiting_auth');
+      const nango = new Nango({ connectSessionToken: token, host: 'https://api.nango.dev' });
+
+      try {
+        await nango.auth(nango_integration_id);
+      } catch (authErr: any) {
+        setStep('idle');
+        setErrorMsg(connectionResultText('cancelled', provider.name));
+        return;
+      }
+
+      setStep('checking');
+      let attempts = 0;
+      const maxAttempts = 30;
+      let verifiedConnection: any = null;
+
+      while (attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        attempts += 1;
+
+        const connections = await integrationsHubService.getConnections();
+        const conn = connections.find((c) => c.provider_id === provider.id);
+
+        if (conn) {
+          if (conn.status === 'connected') {
+            verifiedConnection = conn;
+            break;
+          } else if (conn.status === 'permission_required') {
+            setErrorMsg(connectionResultText('permission_required', provider.name));
+            setStep('idle');
+            return;
+          } else if (conn.status === 'failed') {
+            setErrorMsg(connectionResultText('failed', provider.name));
+            setStep('idle');
+            return;
+          }
+        }
+      }
+
+      if (verifiedConnection) {
+        setStep('completed');
+        const account = (verifiedConnection as any).account_label;
+        setSuccessMsg(connectionResultText('connected', provider.name, account));
+      } else {
+        setStep('idle');
+        setErrorMsg(connectionResultText('unavailable', provider.name));
+      }
+    } catch (err: any) {
+      setStep('idle');
+      setErrorMsg(err.message || connectionResultText('failed', provider.name));
+    }
+  };
 
   return (
     <div className="p-6 lg:p-10 max-w-2xl mx-auto space-y-6">
       <div>
         <Link
           to="/integrations"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-sm font-medium transition"
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-xs font-medium transition"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Integrations Hub</span>
+          <span>Back to Apps</span>
         </Link>
       </div>
 
-      <div className="bg-[#111827] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6">
         <div className="flex items-center gap-4 border-b border-slate-800 pb-6">
-          <div className="p-3 bg-[#16263F] rounded-xl border border-slate-700/80 shadow-md">
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 shadow-md">
             <IntegrationIcon slug={provider.iconSlug || provider.id} size={40} />
           </div>
           <div>
             <h1 className="text-xl font-bold text-white tracking-tight">
-              Connect {provider.name}
+              {panel.title}
             </h1>
             <span className="text-xs text-slate-400">{provider.category}</span>
           </div>
         </div>
 
-        <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
-          <p>
-            Concludo will connect to {provider.name} through {isMicrosoft365 ? "Microsoft's" : `${provider.name}'s`} own sign-in page. You will sign in there, see exactly what Concludo is asking for, and approve it. Concludo never sees your password.
-          </p>
-          <p className="text-slate-400">
-            {isMicrosoft365
-              ? `This sign-in is being set up. Until it is ready, Concludo will not show ${provider.name} as connected.`
-              : 'Concludo does not support this app yet.'}
-          </p>
+        <div className="space-y-4 text-xs text-slate-300 leading-relaxed">
+          {panel.body.map((paragraph, idx) => (
+            <p key={idx}>{paragraph}</p>
+          ))}
+
+          {availability === 'available' && panel.permissions && (
+            <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-2.5">
+              <div>
+                <strong className="text-white block mb-0.5">Concludo will be able to:</strong>
+                <span className="text-slate-300">{panel.permissions.willBeAbleTo}</span>
+              </div>
+              <div className="pt-2 border-t border-slate-800/80">
+                <strong className="text-white block mb-0.5">Concludo will not:</strong>
+                <span className="text-slate-400">{panel.permissions.willNot}</span>
+              </div>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          {step === 'starting' && (
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs flex items-center gap-2.5">
+              <RefreshCw className="w-4 h-4 text-[#E2B53C] animate-spin shrink-0" />
+              <span>Preparing secure sign-in session...</span>
+            </div>
+          )}
+
+          {step === 'waiting_auth' && (
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs flex items-center gap-2.5">
+              <RefreshCw className="w-4 h-4 text-[#E2B53C] animate-spin shrink-0" />
+              <span>Waiting for sign-in on provider page...</span>
+            </div>
+          )}
+
+          {step === 'checking' && (
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs flex items-center gap-2.5">
+              <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin shrink-0" />
+              <span>Checking the connection with the app...</span>
+            </div>
+          )}
         </div>
 
-        <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+        <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-3">
           <Link
             to="/integrations"
-            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition"
           >
-            Close
+            {step === 'completed' ? 'Back to Apps' : 'Close'}
           </Link>
+
+          {availability === 'available' && step !== 'completed' && (
+            <button
+              type="button"
+              onClick={handleStartConnect}
+              disabled={step !== 'idle'}
+              className="px-5 py-2.5 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-sm disabled:opacity-50"
+            >
+              {step === 'idle' ? panel.primary || 'Connect' : 'Connecting...'}
+            </button>
+          )}
+
+          {availability === 'coming_soon' && !isRequested && (
+            <button
+              type="button"
+              onClick={handleNotifyClick}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium rounded-lg text-xs transition"
+            >
+              I want this app
+            </button>
+          )}
+          {availability === 'coming_soon' && isRequested && (
+            <span className="text-xs text-slate-400">
+              Requested. Thanks for telling us you want this app.
+            </span>
+          )}
         </div>
 
         <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 italic leading-normal">
-          Concludo is an independent product and is not affiliated with, endorsed by, or partnered with any device maker, meeting platform or note-taking service.
+          {independenceLine()}
         </div>
       </div>
     </div>

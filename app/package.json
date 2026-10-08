@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@nangohq/frontend": "^0.71.12",
     "@supabase/supabase-js": "^2.116.0",
     "fontkit": "^2.0.4",
     "html2pdf.js": "^0.14.0",

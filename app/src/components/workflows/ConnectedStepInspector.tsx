@@ -347,28 +347,36 @@ export const ConnectedStepInspector: React.FC<ConnectedStepInspectorProps> = ({
               </select>
             ) : (
               <div>
-                <p style={{ margin: '0 0 8px', fontSize: '11px', color: 'var(--sub)' }}>
-                  Connect your {provider?.name || 'app'} account to authorise this step.
-                </p>
-                {provider && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenConnectModal && onOpenConnectModal(provider)}
-                    style={{
-                      width: '100%',
-                      background: 'var(--gold)',
-                      color: 'var(--navy)',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '7px 12px',
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontFamily: 'var(--font-m)',
-                    }}
-                  >
-                    + Connect {provider.name}
-                  </button>
+                {provider?.availability === 'coming_soon' ? (
+                  <p style={{ margin: '0 0 8px', fontSize: '11.5px', color: 'var(--sub)' }}>
+                    {provider.name} is coming soon. This step will not run yet.
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ margin: '0 0 8px', fontSize: '11.5px', color: 'var(--sub)' }}>
+                      {provider?.name || 'This app'} needs connecting.
+                    </p>
+                    {provider && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenConnectModal && onOpenConnectModal(provider)}
+                        style={{
+                          width: '100%',
+                          background: 'var(--gold)',
+                          color: 'var(--navy)',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '7px 12px',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          fontFamily: 'var(--font-m)',
+                        }}
+                      >
+                        Connect {provider.name}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}

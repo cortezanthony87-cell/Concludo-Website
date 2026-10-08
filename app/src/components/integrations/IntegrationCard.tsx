@@ -4,31 +4,45 @@ import {
   IntegrationConnection,
 } from '../../lib/integrations/hubRegistry';
 import {
-  describeStatus,
   lastCheckedText,
   isUsable,
   ConnectionEvidence,
 } from '../../lib/integrations/connectionStatus';
+import {
+  appCardState,
+  type CatalogueApp,
+} from '../../lib/integrations/appCatalogue';
 import { IntegrationIcon } from './IntegrationIcon';
 
 export interface IntegrationCardProps {
   provider: ProviderDefinition;
   connection?: IntegrationConnection | null;
+  isRequested?: boolean;
   onConnect: (provider: ProviderDefinition) => void;
   onManage: (provider: ProviderDefinition, connection: IntegrationConnection) => void;
   onTest?: (connection: IntegrationConnection) => void;
+  onNotify?: (provider: ProviderDefinition) => void;
+  onCancel?: (provider: ProviderDefinition) => void;
   isTesting?: boolean;
+  isWaitingAuth?: boolean;
+  isChecking?: boolean;
 }
 
 export const IntegrationCard: React.FC<IntegrationCardProps> = ({
   provider,
   connection,
+  isRequested = false,
   onConnect,
   onManage,
+  onTest,
+  onNotify,
+  onCancel,
+  isTesting = false,
+  isWaitingAuth = false,
+  isChecking = false,
 }) => {
   const isAustralian = provider.id === 'xero' || provider.id === 'myob';
 
-  // Status mapping via connectionStatus.ts
   const connEvidence: ConnectionEvidence = {
     status: connection?.status || 'not_connected',
     verified_at: (connection as any)?.verified_at || null,
@@ -36,31 +50,40 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
     last_test_result: (connection as any)?.last_test_result || null,
   };
 
-  const statusMeta = describeStatus(connEvidence);
+  const cardState = appCardState(provider as unknown as CatalogueApp, connection ? connEvidence : null, isRequested);
   const usable = connection ? isUsable(connEvidence) : false;
 
-  // Tone pill styles: green only for 'ok' (which no row can be in Phase 0)
+  const displayBadge = isChecking
+    ? 'Checking the connection'
+    : isWaitingAuth
+    ? 'Waiting for sign-in'
+    : cardState.badge;
+
+  const displayTone = isChecking || isWaitingAuth ? 'attention' : cardState.tone;
+
   const tonePillClass =
-    statusMeta.tone === 'ok'
+    displayTone === 'ok'
       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-      : statusMeta.tone === 'attention'
+      : displayTone === 'attention'
       ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-      : statusMeta.tone === 'failed'
+      : displayTone === 'failed'
       ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
       : 'bg-slate-800/80 text-slate-400 border-slate-700/60';
+
+  const accountLabel = (connection as any)?.account_label;
 
   return (
     <div
       className={`group relative bg-slate-900/80 hover:bg-slate-900 border rounded-xl p-5 transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md h-full ${
         usable
           ? 'border-emerald-500/30 hover:border-emerald-500/50'
-          : statusMeta.tone === 'attention'
+          : displayTone === 'attention'
           ? 'border-amber-500/30 hover:border-amber-500/50'
           : 'border-slate-800 hover:border-slate-700'
       }`}
     >
       <div className="flex-1 flex flex-col">
-        {/* Top Header: Framed Vector Logo + Status Pill */}
+        {/* Top Header: Vector Logo + Badge */}
         <div className="flex items-start justify-between gap-3">
           <div className="relative p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 shadow-inner group-hover:border-slate-700 transition">
             <IntegrationIcon slug={provider.iconSlug || provider.id} size={32} />
@@ -75,13 +98,11 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           </div>
 
           <div className="flex flex-col items-end gap-1.5">
-            <span
-              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${tonePillClass}`}
-            >
-              {statusMeta.tone === 'ok' && (
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${tonePillClass}`}>
+              {displayTone === 'ok' && (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               )}
-              {statusMeta.label}
+              {displayBadge}
             </span>
           </div>
         </div>
@@ -96,68 +117,99 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           </span>
         </div>
 
-        {/* Short Description */}
+        {/* One line under the app name */}
         <p className="text-slate-300 text-xs mt-2.5 line-clamp-2 leading-relaxed min-h-[38px]">
-          {provider.description}
+          {cardState.detail}
         </p>
 
-        {/* Account Line: account_label if present, otherwise Account not confirmed */}
-        {connection && (
+        {/* Connected info: Signed in as {account_label} (only if non-empty) */}
+        {usable && accountLabel && (
           <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-slate-950/70 border border-slate-800/90 text-[11px] flex items-center justify-between">
-            <span className="text-slate-400 truncate max-w-[170px]" title={connection.connection_name}>
-              {connection.connection_name}
-            </span>
-            <span className="text-slate-400 text-[11px] truncate max-w-[140px]">
-              {(connection as any).account_label || 'Account not confirmed'}
+            <span className="text-slate-400">Signed in as</span>
+            <span className="text-slate-300 font-mono truncate max-w-[170px]" title={accountLabel}>
+              {accountLabel}
             </span>
           </div>
         )}
 
         {/* Last Checked Text */}
-        {connection && (
+        {connection && usable && (
           <div className="mt-2 text-[10.5px] text-slate-400">
             {lastCheckedText(connEvidence)}
           </div>
         )}
-
-        {/* Trigger and Action Capabilities Pills */}
-        <div className="mt-4 flex items-center gap-2 text-[11px] text-slate-400">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#16263F] border border-[#21395C] text-slate-300 font-medium">
-            {provider.triggers.length} {provider.triggers.length === 1 ? 'Trigger' : 'Triggers'}
-          </span>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#16263F] border border-[#21395C] text-slate-300 font-medium">
-            {provider.actions.length} {provider.actions.length === 1 ? 'Action' : 'Actions'}
-          </span>
-        </div>
       </div>
 
       {/* Primary Card Actions */}
       <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
-        {connection ? (
+        {isWaitingAuth ? (
+          <button
+            type="button"
+            onClick={() => onCancel && onCancel(provider)}
+            className="w-full min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center border border-slate-700"
+          >
+            Cancel
+          </button>
+        ) : isChecking ? (
+          <div className="w-full min-h-[40px] py-2 px-3 bg-slate-800/60 text-slate-400 rounded-lg text-xs font-medium flex items-center justify-center border border-slate-800">
+            Checking the connection...
+          </div>
+        ) : cardState.action === 'notify' ? (
+          <button
+            type="button"
+            onClick={() => onNotify && onNotify(provider)}
+            className="w-full min-h-[40px] py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-lg text-xs transition flex items-center justify-center border border-slate-700"
+          >
+            {cardState.actionLabel || 'I want this app'}
+          </button>
+        ) : cardState.action === 'connect' ? (
+          <button
+            type="button"
+            onClick={() => onConnect(provider)}
+            className="w-full min-h-[40px] py-2 px-4 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center shadow-sm"
+          >
+            Connect
+          </button>
+        ) : cardState.action === 'test' ? (
           <>
             <button
-              onClick={() => onConnect(provider)}
-              className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700 overflow-hidden text-ellipsis whitespace-nowrap"
+              type="button"
+              onClick={() => onTest && connection && onTest(connection)}
+              disabled={isTesting}
+              className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700 disabled:opacity-50"
             >
-              Reconnect
+              {isTesting ? 'Testing...' : 'Test connection'}
             </button>
             <button
-              onClick={() => onManage(provider, connection)}
+              type="button"
+              onClick={() => onManage(provider, connection!)}
               className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center justify-center shrink-0"
               title="Remove connection"
             >
               Remove
             </button>
           </>
-        ) : (
-          <button
-            onClick={() => onConnect(provider)}
-            className="w-full min-h-[40px] py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-lg text-xs transition flex items-center justify-center gap-1.5 border border-slate-700 leading-normal whitespace-nowrap overflow-hidden text-ellipsis"
-            title={`Sign-in coming soon for ${provider.name}`}
-          >
-            Sign-in coming soon
-          </button>
-        )}
+        ) : cardState.action === 'reconnect' || cardState.action === 'review_permissions' || cardState.action === 'try_again' ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onConnect(provider)}
+              className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700"
+            >
+              {cardState.actionLabel || 'Reconnect'}
+            </button>
+            {connection && (
+              <button
+                type="button"
+                onClick={() => onManage(provider, connection)}
+                className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center justify-center shrink-0"
+                title="Remove connection"
+              >
+                Remove
+              </button>
+            )}
+          </>
+        ) : null}
       </div>
     </div>
   );

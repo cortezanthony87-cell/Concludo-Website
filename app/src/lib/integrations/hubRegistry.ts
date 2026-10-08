@@ -45,7 +45,13 @@ export type ConnectionHealthStatus =
   | 'permission_required'
   | 'service_issue'
   | 'disconnected'
-  | 'setup_required';
+  | 'setup_required'
+  | 'authorising'
+  | 'verifying'
+  | 'failed'
+  | 'reauth_required'
+  | 'provider_unavailable'
+  | string;
 
 export interface TriggerDefinition {
   key: string;
@@ -80,6 +86,13 @@ export interface ProviderDefinition {
   setupInstructions?: string;
   triggers: TriggerDefinition[];
   actions: ActionDefinition[];
+  provider_family?: string | null;
+  availability?: 'available' | 'coming_soon' | 'not_planned' | string;
+  availability_note?: string | null;
+  nango_integration_id?: string | null;
+  requires_admin_consent?: boolean | null;
+  sort_order?: number | null;
+  wave?: number | null;
 }
 
 export interface IntegrationConnection {
@@ -1896,39 +1909,7 @@ export class IntegrationsHubService {
     return data as IntegrationConnection;
   }
 
-  /**
-   * Performs an actual test on the connection.
-   */
-  async testConnection(connectionId: string): Promise<{ success: boolean; message: string; testedAt: string }> {
-    const now = new Date().toISOString();
-    try {
-      const { data: conn, error } = await this.supabase
-        .from('integration_connections')
-        .select('*')
-        .eq('id', connectionId)
-        .single();
 
-      if (error || !conn) {
-        return { success: false, message: 'Connection record not found.', testedAt: now };
-      }
-
-      const isHealthy = isUsable({
-        status: conn.status,
-        verified_at: conn.verified_at,
-        last_test_at: conn.last_test_at,
-        last_test_result: conn.last_test_result,
-      });
-      // In Phase 0, browser cannot update status or health_details directly
-
-      return {
-        success: isHealthy,
-        message: isHealthy ? 'Connection verified successfully. All scopes active and verified.' : 'Connection check failed. Please re-authenticate.',
-        testedAt: now,
-      };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Test failed.', testedAt: now };
-    }
-  }
 
   /**
    * Soft-deletes / disconnects an integration.
@@ -1954,6 +1935,143 @@ export class IntegrationsHubService {
     if (error) throw error;
     return true;
   }
+
+  /**
+   * Starts a connection authorization session via connection-start edge function.
+   */
+  async startConnection(providerId: string): Promise<{
+    token: string;
+    nango_integration_id: string;
+    connection_id?: string;
+  }> {
+    const { data, error } = await this.supabase.functions.invoke('connection-start', {
+      body: { provider_id: providerId },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  /**
+   * Tests a connection through Nango proxy via connection-test edge function.
+   */
+  async testConnection(connectionId: string): Promise<{
+    success: boolean;
+    status: string;
+    account_label?: string | null;
+    error?: string | null;
+    status_reason?: string | null;
+    message?: string;
+    testedAt?: string;
+  }> {
+    const { data, error } = await this.supabase.functions.invoke('connection-test', {
+      body: { connection_id: connectionId },
+    });
+    if (error) throw error;
+    if (data?.error && !data?.status) throw new Error(data.error);
+    return {
+      success: data.success || data.status === 'connected',
+      status: data.status || (data.success ? 'connected' : 'failed'),
+      account_label: data.account_label || null,
+      error: data.error || null,
+      status_reason: data.status_reason || null,
+      message: data.status_reason || (data.status === 'connected' ? 'Connection verified successfully.' : 'Connection check failed.'),
+      testedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Fetches provider IDs requested by current user.
+   */
+  async getAppRequests(): Promise<Set<string>> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    if (!user) return new Set();
+
+    const { data, error } = await this.supabase
+      .from('integration_app_requests')
+      .select('provider_id');
+    if (error || !data) return new Set();
+    return new Set(data.map((r) => r.provider_id));
+  }
+
+  /**
+   * Records a user's request for an unreleased app.
+   */
+  async requestApp(providerId: string): Promise<boolean> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    if (!user) throw new Error('Authentication required to request an app.');
+
+    const { error } = await this.supabase
+      .from('integration_app_requests')
+      .insert({ provider_id: providerId });
+    if (error && error.code !== '23505') {
+      throw error;
+    }
+    return true;
+  }
+
+  /**
+   * Fetches real providers from database if available, merged with catalog.
+   */
+  async getProviders(): Promise<ProviderDefinition[]> {
+    const { data, error } = await this.supabase
+      .from('integration_providers')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      return INTEGRATION_PROVIDERS_CATALOG;
+    }
+
+    const dbMap = new Map();
+    for (const row of data) {
+      dbMap.set(row.id, row);
+    }
+
+    const merged = [];
+    const seen = new Set();
+
+    for (const catProvider of INTEGRATION_PROVIDERS_CATALOG) {
+      const dbRow = dbMap.get(catProvider.id);
+      seen.add(catProvider.id);
+      merged.push({
+        ...catProvider,
+        availability: dbRow?.availability || 'coming_soon',
+        provider_family: dbRow?.provider_family || null,
+        nango_integration_id: dbRow?.nango_integration_id || null,
+        requires_admin_consent: dbRow?.requires_admin_consent ?? null,
+        sort_order: dbRow?.sort_order ?? 1000,
+        availability_note: dbRow?.availability_note || null,
+      });
+    }
+
+    for (const row of data) {
+      if (!seen.has(row.id)) {
+        merged.push({
+          id: row.id,
+          name: row.name,
+          slug: row.slug || row.id,
+          category: row.category || 'Other',
+          description: row.description || '',
+          iconSlug: row.icon_slug || row.slug || row.id,
+          authenticationType: row.authentication_type || 'oauth2',
+          isTier1: false,
+          enabled: true,
+          triggers: [],
+          actions: [],
+          availability: row.availability || 'coming_soon',
+          provider_family: row.provider_family || null,
+          nango_integration_id: row.nango_integration_id || null,
+          requires_admin_consent: row.requires_admin_consent ?? null,
+          sort_order: row.sort_order ?? 1000,
+          availability_note: row.availability_note || null,
+        });
+      }
+    }
+
+    return merged;
+  }
+
 }
 
 export const integrationsHubService = new IntegrationsHubService();

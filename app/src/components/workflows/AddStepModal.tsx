@@ -371,6 +371,19 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
                             <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--ok)' }} />
                             Connected
                           </span>
+                        ) : p.availability === 'coming_soon' ? (
+                          <span
+                            style={{
+                              fontSize: '9px',
+                              color: 'var(--sub)',
+                              background: 'rgba(255,255,255,0.06)',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontFamily: 'var(--font-m)',
+                            }}
+                          >
+                            Coming soon
+                          </span>
                         ) : (
                           <span
                             style={{

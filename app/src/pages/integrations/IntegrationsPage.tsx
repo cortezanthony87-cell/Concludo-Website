@@ -12,7 +12,6 @@ import {
   Info,
 } from 'lucide-react';
 import {
-  INTEGRATION_PROVIDERS_CATALOG,
   INTEGRATION_CATEGORIES,
   IntegrationCategory,
   ProviderDefinition,
@@ -21,40 +20,59 @@ import {
 } from '../../lib/integrations/hubRegistry';
 import {
   isUsable,
-  statusSortRank,
   ConnectionEvidence,
 } from '../../lib/integrations/connectionStatus';
+import {
+  sortCatalogue,
+  familyLabel,
+  connectedCount as calcConnectedCount,
+  independenceLine,
+  connectionResultText,
+  type CatalogueApp,
+} from '../../lib/integrations/appCatalogue';
 import { IntegrationCard } from '../../components/integrations/IntegrationCard';
 import { IntegrationDetailDrawer } from '../../components/integrations/IntegrationDetailDrawer';
+import { RealConnectionModal } from '../../components/integrations/RealConnectionModal';
 
 export const IntegrationsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [providers, setProviders] = useState<ProviderDefinition[]>([]);
   const [connections, setConnections] = useState<IntegrationConnection[]>([]);
+  const [requestedAppIds, setRequestedAppIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<IntegrationCategory>('All Apps');
   const [statusFilter, setStatusFilter] = useState<'all' | 'connected' | 'not_connected'>('all');
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
 
-  // Drawer State
+  // Modal / Drawer State
+  const [modalProvider, setModalProvider] = useState<ProviderDefinition | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<ProviderDefinition | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [testingConnectionId, setTestingConnectionId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const loadConnections = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await integrationsHubService.getConnections();
-      setConnections(data);
+      const [fetchedProviders, fetchedConnections, requests] = await Promise.all([
+        integrationsHubService.getProviders(),
+        integrationsHubService.getConnections(),
+        integrationsHubService.getAppRequests(),
+      ]);
+      setProviders(fetchedProviders);
+      setConnections(fetchedConnections);
+      setRequestedAppIds(requests);
     } catch (err: any) {
-      console.error('Failed to load connections:', err);
+      console.error('Failed to load apps data:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadConnections();
+    loadData();
   }, []);
 
   const connectionsMap = useMemo(() => {
@@ -72,80 +90,125 @@ export const IntegrationsPage: React.FC = () => {
     last_test_result: (c as any)?.last_test_result || null,
   });
 
-  const connectedCount = useMemo(() => {
-    return connections.filter((c) => isUsable(toEvidence(c))).length;
+  const totalConnected = useMemo(() => {
+    const evs = connections.map(toEvidence);
+    return calcConnectedCount(evs);
   }, [connections]);
 
-  // Enhanced search across app name, category, and capabilities
+  // Enhanced search and filter
   const filteredProviders = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
 
-    const list = INTEGRATION_PROVIDERS_CATALOG.filter((p) => {
+    const list = providers.filter((p) => {
       const conn = connectionsMap.get(p.id) || null;
       const usable = isUsable(toEvidence(conn));
 
-      // 1. Category Filter
       if (selectedCategory === 'Connected') {
         if (!usable) return false;
       } else if (selectedCategory !== 'All Apps' && p.category !== selectedCategory) {
         return false;
       }
 
-      // 2. Status Filter
       if (statusFilter === 'connected') {
         if (!usable) return false;
       } else if (statusFilter === 'not_connected') {
         if (usable) return false;
       }
 
-      // 3. Search Query Filter
       if (!q) return true;
 
       const matchName = p.name.toLowerCase().includes(q);
       const matchCat = p.category.toLowerCase().includes(q);
       const matchDesc = p.description.toLowerCase().includes(q);
-      const matchTriggers = p.triggers.some((t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
-      const matchActions = p.actions.some((a) => a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q));
-
       const isEmailQuery = q === 'email' || q === 'mail';
-      const isEmailProvider = p.id === 'microsoft_outlook' || p.id === 'gmail' || p.id === 'mailchimp' || p.id === 'email_universal';
+      const isEmailProvider = p.id === 'microsoft_outlook' || p.id === 'gmail' || p.id === 'mailchimp';
 
-      const isAccountingQuery = q === 'accounting' || q === 'finance' || q === 'invoice';
-      const isAccountingProvider = p.category === 'Accounting & Finance' || p.id === 'xero' || p.id === 'myob' || p.id === 'quickbooks';
-
-      const isCrmQuery = q === 'crm' || q === 'sales' || q === 'leads';
-      const isCrmProvider = p.category === 'CRM & Sales' || p.id === 'salesforce' || p.id === 'hubspot' || p.id === 'dynamics_365';
-
-      return (
-        matchName ||
-        matchCat ||
-        matchDesc ||
-        matchTriggers ||
-        matchActions ||
-        (isEmailQuery && isEmailProvider) ||
-        (isAccountingQuery && isAccountingProvider) ||
-        (isCrmQuery && isCrmProvider)
-      );
+      return matchName || matchCat || matchDesc || (isEmailQuery && isEmailProvider);
     });
 
-    // Sort by statusSortRank so items needing attention come first
-    return list.sort((a, b) => {
-      const connA = connectionsMap.get(a.id) || null;
-      const connB = connectionsMap.get(b.id) || null;
-      const rankA = statusSortRank(toEvidence(connA));
-      const rankB = statusSortRank(toEvidence(connB));
-      if (rankA !== rankB) return rankA - rankB;
-      return a.name.localeCompare(b.name);
-    });
-  }, [searchQuery, selectedCategory, statusFilter, connectionsMap]);
+    return sortCatalogue(list as unknown as CatalogueApp[]) as unknown as ProviderDefinition[];
+  }, [providers, searchQuery, selectedCategory, statusFilter, connectionsMap]);
+
+  // Grouped providers: Microsoft 365, Google Workspace, Other apps
+  const groupedProviders = useMemo(() => {
+    const groups: { family: string; label: string; items: ProviderDefinition[] }[] = [
+      { family: 'microsoft', label: familyLabel('microsoft'), items: [] },
+      { family: 'google', label: familyLabel('google'), items: [] },
+      { family: 'other', label: familyLabel(null), items: [] },
+    ];
+
+    for (const p of filteredProviders) {
+      const fam = (p.provider_family || '').toLowerCase();
+      if (fam === 'microsoft') {
+        groups[0].items.push(p);
+      } else if (fam === 'google') {
+        groups[1].items.push(p);
+      } else {
+        groups[2].items.push(p);
+      }
+    }
+
+    return groups.filter((g) => g.items.length > 0);
+  }, [filteredProviders]);
+
+  const handleOpenConnect = (provider: ProviderDefinition) => {
+    setModalProvider(provider);
+    setIsModalOpen(true);
+  };
 
   const handleOpenManage = (provider: ProviderDefinition, connection: IntegrationConnection) => {
     setSelectedProvider(provider);
     setIsDrawerOpen(true);
   };
 
-  const handleStartConnect = (provider: ProviderDefinition) => {
-    navigate(`/integrations/connect/${provider.id}`);
+  const handleNotify = async (provider: ProviderDefinition) => {
+    try {
+      await integrationsHubService.requestApp(provider.id);
+      setRequestedAppIds((prev) => new Set([...prev, provider.id]));
+      setToastMessage({
+        type: 'success',
+        text: `Thanks for telling us you want ${provider.name}. We will prioritise it.`,
+      });
+    } catch (err: any) {
+      setToastMessage({
+        type: 'error',
+        text: err.message || 'Could not record request.',
+      });
+    }
+  };
+
+  const handleTestConnection = async (connection: IntegrationConnection) => {
+    setTestingConnectionId(connection.id);
+    const prov = providers.find((p) => p.id === connection.provider_id);
+    const appName = prov?.name || 'App';
+
+    try {
+      const res = await integrationsHubService.testConnection(connection.id);
+      await loadData();
+      if (res.status === 'connected') {
+        setToastMessage({
+          type: 'success',
+          text: connectionResultText('connected', appName, res.account_label || undefined),
+        });
+      } else if (res.status === 'permission_required') {
+        setToastMessage({
+          type: 'error',
+          text: connectionResultText('permission_required', appName),
+        });
+      } else {
+        setToastMessage({
+          type: 'error',
+          text: res.status_reason || connectionResultText('failed', appName),
+        });
+      }
+    } catch (err: any) {
+      setToastMessage({
+        type: 'error',
+        text: err.message || connectionResultText('failed', appName),
+      });
+    } finally {
+      setTestingConnectionId(null);
+    }
   };
 
   return (
@@ -154,9 +217,9 @@ export const IntegrationsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Integrations Hub</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Apps</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
-              {connectedCount} Connected
+              {totalConnected} Connected
             </span>
           </div>
           <p className="text-slate-400 text-sm mt-1">
@@ -187,9 +250,9 @@ export const IntegrationsPage: React.FC = () => {
             <Info className="w-4 h-4 text-[#E2B53C] flex-shrink-0 mt-0.5" />
             <div className="leading-relaxed">
               <strong className="text-white block mb-0.5">
-                Concludo now checks every connection with the app itself.
+                Connect your apps through their own sign-in pages.
               </strong>
-              Connections added before 6 October 2026 are marked Not verified, because Concludo never signed in to those apps. Secure sign-in for Microsoft 365 is being set up. Until then, no app is shown as connected.
+              You sign in with Microsoft or Google, approve what Concludo asks for, and Concludo checks the connection before it shows it as connected. Concludo never sees your password. Microsoft 365 and Google Workspace apps are being set up and show as Coming soon until each one is ready.
             </div>
           </div>
           <button
@@ -263,7 +326,7 @@ export const IntegrationsPage: React.FC = () => {
               statusFilter === 'connected' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'
             }`}
           >
-            Connected ({connectedCount})
+            Connected ({totalConnected})
           </button>
           <button
             onClick={() => setStatusFilter('not_connected')}
@@ -296,11 +359,11 @@ export const IntegrationsPage: React.FC = () => {
         })}
       </div>
 
-      {/* App Grid */}
+      {/* App Grid grouped by family: Microsoft 365, Google Workspace, Other apps */}
       {loading ? (
         <div className="py-20 text-center space-y-3">
           <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
-          <p className="text-xs text-slate-400">Loading Integrations Catalogue...</p>
+          <p className="text-xs text-slate-400">Loading Apps Catalogue...</p>
         </div>
       ) : filteredProviders.length === 0 ? (
         <div className="p-12 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-3">
@@ -321,23 +384,57 @@ export const IntegrationsPage: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProviders.map((provider) => {
-            const conn = connectionsMap.get(provider.id) || null;
-            return (
-              <IntegrationCard
-                key={provider.id}
-                provider={provider}
-                connection={conn}
-                onConnect={handleStartConnect}
-                onManage={handleOpenManage}
-              />
-            );
-          })}
+        <div className="space-y-10">
+          {groupedProviders.map((group) => (
+            <div key={group.family} className="space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-800/80 pb-2">
+                <h2 className="text-base font-bold text-white tracking-tight">
+                  {group.label}
+                </h2>
+                <span className="text-xs text-slate-400">
+                  ({group.items.length})
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {group.items.map((provider) => {
+                  const conn = connectionsMap.get(provider.id) || null;
+                  const isReq = requestedAppIds.has(provider.id);
+                  return (
+                    <IntegrationCard
+                      key={provider.id}
+                      provider={provider}
+                      connection={conn}
+                      isRequested={isReq}
+                      onConnect={handleOpenConnect}
+                      onManage={handleOpenManage}
+                      onTest={handleTestConnection}
+                      onNotify={handleNotify}
+                      isTesting={testingConnectionId === conn?.id}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Integration Detail Drawer */}
+      {/* Real Connect Modal */}
+      <RealConnectionModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setModalProvider(null);
+        }}
+        provider={modalProvider}
+        isRequested={modalProvider ? requestedAppIds.has(modalProvider.id) : false}
+        onNotify={modalProvider ? () => handleNotify(modalProvider) : undefined}
+        onSuccess={async () => {
+          await loadData();
+        }}
+      />
+
+      {/* Integration Detail Drawer (Remove) */}
       <IntegrationDetailDrawer
         provider={selectedProvider}
         connection={selectedProvider ? connectionsMap.get(selectedProvider.id) || null : null}
@@ -346,9 +443,14 @@ export const IntegrationsPage: React.FC = () => {
           setIsDrawerOpen(false);
           setSelectedProvider(null);
         }}
-        onConnect={handleStartConnect}
-        onRefresh={loadConnections}
+        onConnect={handleOpenConnect}
+        onRefresh={loadData}
       />
+
+      {/* Independence Line */}
+      <div className="pt-8 border-t border-slate-800/80 text-center text-xs text-slate-500 italic leading-relaxed">
+        {independenceLine()}
+      </div>
     </div>
   );
 };

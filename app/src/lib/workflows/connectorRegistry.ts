@@ -1418,8 +1418,8 @@ CONNECTOR_MANIFESTS['hubspot'] = {
   retryGuidance: 'Exponential backoff on 429 and 5xx up to 3 attempts',
   testConnectionOperation: 'GET /crm/v3/objects/contacts?limit=1',
   healthCheckOperation: 'GET /integrations/v1/me',
-  secretReferences: ['vault:hubspot_oauth_client_secret'],
-  availabilityState: 'available',
+  secretReferences: [],
+  availabilityState: 'coming_soon',
 };
 
 CONNECTOR_MANIFESTS['stripe'] = {
@@ -1439,8 +1439,8 @@ CONNECTOR_MANIFESTS['stripe'] = {
   retryGuidance: 'Respect Retry-After header on 429',
   testConnectionOperation: 'GET /v1/balance',
   healthCheckOperation: 'GET /v1/account',
-  secretReferences: ['vault:stripe_restricted_key'],
-  availabilityState: 'available',
+  secretReferences: [],
+  availabilityState: 'coming_soon',
 };
 
 CONNECTOR_MANIFESTS['google_sheets'] = {
@@ -1451,17 +1451,17 @@ CONNECTOR_MANIFESTS['google_sheets'] = {
   category: 'integrations',
   iconReference: 'FileSpreadsheet', inputAndOutputSchemas: {}, pagination: { supported: true }, errorMapping: {}, revocationOperation: '', deprecationState: 'active',
   authenticationType: 'oauth2',
-  requiredScopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  triggers: ['google_sheets.row_added', 'google_sheets.row_updated'],
-  actions: ['google_sheets.read_range', 'google_sheets.append_row', 'google_sheets.update_range', 'google_sheets.search_records'],
+  requiredScopes: ['https://www.googleapis.com/auth/drive.file'],
+  triggers: [],
+  actions: ['google_sheets.read_range', 'google_sheets.append_row'],
   webhookSupport: false,
   rateLimits: { requestsPerSecond: 5, burstLimit: 20 },
   paginationSupport: true,
   retryGuidance: 'Exponential backoff with jitter on 429',
-  testConnectionOperation: 'GET /v4/spreadsheets/{id}',
-  healthCheckOperation: 'GET /oauth2/v2/userinfo',
-  secretReferences: ['vault:google_oauth_client_secret'],
-  availabilityState: 'available',
+  testConnectionOperation: 'GET https://www.googleapis.com/drive/v3/about?fields=user',
+  healthCheckOperation: 'GET https://www.googleapis.com/drive/v3/about?fields=user',
+  secretReferences: [],
+  availabilityState: 'coming_soon',
 };
 
 CONNECTOR_MANIFESTS['google_calendar'] = {
@@ -1473,16 +1473,16 @@ CONNECTOR_MANIFESTS['google_calendar'] = {
   iconReference: 'Calendar', inputAndOutputSchemas: {}, pagination: { supported: true }, errorMapping: {}, revocationOperation: '', deprecationState: 'active',
   authenticationType: 'oauth2',
   requiredScopes: ['https://www.googleapis.com/auth/calendar.events'],
-  triggers: ['google_calendar.event_created'],
-  actions: ['google_calendar.create_event', 'google_calendar.list_calendars'],
+  triggers: [],
+  actions: ['google_calendar.create_event'],
   webhookSupport: true,
   rateLimits: { requestsPerSecond: 10, burstLimit: 30 },
   paginationSupport: true,
   retryGuidance: 'Exponential backoff',
-  testConnectionOperation: 'GET /calendar/v3/users/me/calendarList',
-  healthCheckOperation: 'GET /oauth2/v2/userinfo',
-  secretReferences: ['vault:google_oauth_client_secret'],
-  availabilityState: 'available',
+  testConnectionOperation: 'GET https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1',
+  healthCheckOperation: 'GET https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1',
+  secretReferences: [],
+  availabilityState: 'coming_soon',
 };
 
 CONNECTOR_MANIFESTS['google_drive'] = {
@@ -1493,17 +1493,17 @@ CONNECTOR_MANIFESTS['google_drive'] = {
   category: 'integrations',
   iconReference: 'HardDrive', inputAndOutputSchemas: {}, pagination: { supported: true }, errorMapping: {}, revocationOperation: '', deprecationState: 'active',
   authenticationType: 'oauth2',
-  requiredScopes: ['https://www.googleapis.com/auth/drive.readonly'],
-  triggers: ['google_drive.file_created'],
-  actions: ['google_drive.find_file', 'google_drive.get_metadata'],
+  requiredScopes: ['https://www.googleapis.com/auth/drive.file'],
+  triggers: [],
+  actions: ['google_drive.save_file'],
   webhookSupport: true,
   rateLimits: { requestsPerSecond: 10, burstLimit: 30 },
   paginationSupport: true,
   retryGuidance: 'Exponential backoff',
-  testConnectionOperation: 'GET /drive/v3/about?fields=user',
-  healthCheckOperation: 'GET /oauth2/v2/userinfo',
-  secretReferences: ['vault:google_oauth_client_secret'],
-  availabilityState: 'available',
+  testConnectionOperation: 'GET https://www.googleapis.com/drive/v3/about?fields=user',
+  healthCheckOperation: 'GET https://www.googleapis.com/drive/v3/about?fields=user',
+  secretReferences: [],
+  availabilityState: 'coming_soon',
 };
 
 CONNECTOR_MANIFESTS['microsoft_outlook'] = {
@@ -1514,17 +1514,17 @@ CONNECTOR_MANIFESTS['microsoft_outlook'] = {
   category: 'integrations',
   iconReference: 'Mail', inputAndOutputSchemas: {}, pagination: { supported: true }, errorMapping: {}, revocationOperation: '', deprecationState: 'active',
   authenticationType: 'oauth2',
-  requiredScopes: ['Mail.Read', 'Mail.Send'],
-  triggers: ['microsoft_outlook.message_received'],
-  actions: ['microsoft_outlook.send_approved_email', 'microsoft_outlook.create_draft'],
+  requiredScopes: ['Mail.Send'],
+  triggers: [],
+  actions: ['microsoft_outlook.send_approved_email'],
   webhookSupport: true,
   rateLimits: { requestsPerSecond: 10, burstLimit: 40 },
   paginationSupport: true,
   retryGuidance: 'Exponential backoff on 429',
-  testConnectionOperation: 'GET /v1.0/me/messages?$top=1',
-  healthCheckOperation: 'GET /v1.0/me',
-  secretReferences: ['vault:azure_oauth_client_secret'],
-  availabilityState: 'available',
+  testConnectionOperation: 'GET https://graph.microsoft.com/v1.0/me',
+  healthCheckOperation: 'GET https://graph.microsoft.com/v1.0/me',
+  secretReferences: [],
+  availabilityState: 'coming_soon',
 };
 
 CONNECTOR_MANIFESTS['slack'] = {
@@ -1544,8 +1544,8 @@ CONNECTOR_MANIFESTS['slack'] = {
   retryGuidance: 'Tier 3 rate limit backoff',
   testConnectionOperation: 'GET /api/auth.test',
   healthCheckOperation: 'GET /api/auth.test',
-  secretReferences: ['vault:slack_bot_token'],
-  availabilityState: 'available',
+  secretReferences: [],
+  availabilityState: 'coming_soon',
 };
 
 CONNECTOR_MANIFESTS['custom_api'] = {
@@ -1589,3 +1589,11 @@ CONNECTOR_MANIFESTS['custom_webhook'] = {
   secretReferences: ['vault:webhook_hmac_secret'],
   availabilityState: 'available',
 };
+
+export function syncConnectorAvailability(providers: Array<{ id: string; availability: string }>) {
+  for (const p of providers) {
+    if (CONNECTOR_MANIFESTS[p.id]) {
+      CONNECTOR_MANIFESTS[p.id].availabilityState = p.availability;
+    }
+  }
+}
