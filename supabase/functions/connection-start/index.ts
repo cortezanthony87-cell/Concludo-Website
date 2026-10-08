@@ -151,6 +151,12 @@ Deno.serve(async (request) => {
     };
 
     let sessionRes: Response;
+    const endUser = {
+      id: user.id,
+      email: user.email || 'user@concludo.au',
+      display_name: user.user_metadata?.full_name || user.email || 'User',
+    };
+
     if (isReconnect && nangoConnId) {
       sessionRes = await fetch(`${nangoHost}/connect/sessions/reconnect`, {
         method: 'POST',
@@ -161,6 +167,7 @@ Deno.serve(async (request) => {
         body: JSON.stringify({
           connection_id: nangoConnId,
           integration_id: provider.nango_integration_id,
+          end_user: endUser,
           tags,
         }),
       });
@@ -172,6 +179,7 @@ Deno.serve(async (request) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          end_user: endUser,
           tags,
           allowed_integrations: [provider.nango_integration_id],
         }),
