@@ -78,6 +78,7 @@ function formatSmartMeetingTitle(rawTitle: string, rawDate?: string, rawClient?:
 }
 
 import { ConcludoReportPayload } from './payloadTypes';
+import { routeDocumentIntelligence } from '../agents/documentRouting';
 
 export function parseOutputToPayload(
   outputType: string,
@@ -358,6 +359,28 @@ export function parseOutputToPayload(
       },
     },
   };
+
+  // Deterministic Document Intelligence Routing
+  try {
+    const routingResult = routeDocumentIntelligence({
+      transcriptText: rawContent,
+      decisions: parsedDecisions,
+      tier,
+    });
+    payload.document_routing = routingResult.routing;
+    if (routingResult.brief) payload.document_brief = routingResult.brief;
+    if (routingResult.intelligence) payload.document_intelligence = routingResult.intelligence;
+  } catch (err: any) {
+    payload.document_routing = {
+      stage_reached: 'detect',
+      document_detected: false,
+      documents_found: 0,
+      documents_supplied: 0,
+      meeting_type: 'unclear',
+      meeting_type_inferred: true,
+      agent_error: err?.message || 'Document intelligence routing error',
+    };
+  }
 
   return payload;
 }

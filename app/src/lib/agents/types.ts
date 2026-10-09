@@ -5,7 +5,9 @@ export type AgentType =
   | 'project_intelligence'
   | 'risk_monitoring'
   | 'report_generation'
-  | 'workflow_coordinator';
+  | 'workflow_coordinator'
+  | 'document_intelligence'
+  | 'inbox_command_centre';
 
 export interface AgentDefinition {
   id: AgentType;
@@ -16,6 +18,14 @@ export interface AgentDefinition {
   requiresReview: boolean;
   scheduleSupport: boolean;
   supportedOutputs: string[];
+  trigger?: 'on_demand' | 'scheduled' | 'on_output_generation';
+  requiresConnection?: string | null;
+  weeklyQuota?: {
+    starter: number | null;
+    pro: number | null;
+    team: number | null;
+    resets: 'weekly';
+  };
 }
 
 export const INITIAL_AGENTS: AgentDefinition[] = [
@@ -128,6 +138,48 @@ export const INITIAL_AGENTS: AgentDefinition[] = [
       'Task Generation Payload',
       'Integration Dispatch Payloads',
       'Approval Request Package',
+    ],
+  },
+  {
+    id: 'document_intelligence',
+    name: 'Document Intelligence Agent',
+    description: 'Reads the documents imported to a project and, when the meeting actually turned on one of them, explains inside the output what it is, what it obliges, what it costs and what has to be decided.',
+    purpose: 'Put a plain-English explanation of the document a meeting was about into the output that meeting produces, with every finding tied to a place in the document.',
+    category: 'Intelligence & Risk',
+    requiresReview: true,
+    scheduleSupport: false,
+    trigger: 'on_output_generation',
+    requiresConnection: null,
+    supportedOutputs: [
+      'Document brief',
+      'Document intelligence section',
+      'Obligations and dates',
+      'Document risk register',
+      'Professional review routing',
+    ],
+  },
+  {
+    id: 'inbox_command_centre',
+    name: 'Inbox Command Centre Agent',
+    description: 'Reads a connected mailbox and turns it into a plan: what needs a person today, what is waiting on someone else, what deadlines and commitments are buried in threads, and which replies are safe to draft.',
+    purpose: 'Reduce the time it takes to work out what an inbox is asking of someone, without sending, filing or deleting anything.',
+    category: 'Operations & Tasks',
+    requiresReview: true,
+    scheduleSupport: true,
+    trigger: 'scheduled',
+    requiresConnection: 'mailbox',
+    weeklyQuota: {
+      starter: 3,
+      pro: null,
+      team: null,
+      resets: 'weekly',
+    },
+    supportedOutputs: [
+      'Morning inbox briefing',
+      'Priority queue',
+      'Deadlines and commitments',
+      'Waiting on others',
+      'Reply drafts for approval',
     ],
   },
 ];

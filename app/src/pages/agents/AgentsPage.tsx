@@ -12,6 +12,7 @@ import { fetchAgentActivity } from '../../lib/agents/agentMemoryService';
 import { runAgent } from '../../lib/agents/agentRunner';
 import { fetchWorkflowApprovals } from '../../lib/workflows/workflowService';
 import { WorkflowApprovalRecord } from '../../lib/workflows/types';
+import { fetchIntegrations } from '../../lib/integrations/integrationClient';
 import './agents-page-template.css';
 
 interface AgentEditorialCopy {
@@ -142,6 +143,49 @@ const AGENT_EDITORIAL: Record<AgentType, AgentEditorialCopy> = {
       </svg>
     ),
   },
+  document_intelligence: {
+    voice: 'I read the document the meeting was actually about, and I put what it means into the output, so nobody has to open the contract to understand it.',
+    watches: 'Documents imported to a project, and whether the meeting engaged with any of them.',
+    handsYou: [
+      'Document brief, in every output that needs one',
+      'What the document obliges, and by when',
+      'The dates and amounts, with their source',
+      'Risks, rated, with a clause reference',
+      'Who to take it to, and what to ask them',
+    ],
+    note: 'It explains documents. It does not give legal, accounting or tax advice, and it never says whether a clause is enforceable.',
+    sigilSvg: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 3h11l5 5v13H4z" />
+        <path d="M15 3v5h5" />
+        <path d="M8 13h8" stroke="#F59E0B" />
+        <circle cx="10" cy="17" r="2.2" />
+        <path d="M11.6 18.6L14 21" />
+      </svg>
+    ),
+  },
+  inbox_command_centre: {
+    voice: 'I read your inbox before you do, and I tell you what needs you today, what is waiting on someone else, and what can wait until Friday.',
+    watches: 'A connected mailbox, in read-only. Work and personal stay separate.',
+    handsYou: [
+      'A morning briefing, ranked',
+      'What is waiting on you, and what you are waiting on',
+      'Deadlines and commitments buried in threads',
+      'Reply drafts, held for your approval',
+      'Anything that looks like phishing or fraud',
+    ],
+    note: 'It never sends, deletes, files or unsubscribes. A draft reaches your mailbox only after you approve that exact text. Starter: 3 runs/week (resets weekly). Pro and Team: unlimited.',
+    sigilSvg: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#E2B53C" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6l9 6 9-6" />
+        <path d="M3 6v12h5" />
+        <path d="M21 6v5" />
+        <path d="M12 13h9" />
+        <path d="M12 17h6" />
+        <path d="M12 21h3" />
+      </svg>
+    ),
+  },
 };
 
 export const AgentsPage: React.FC = () => {
@@ -149,6 +193,7 @@ export const AgentsPage: React.FC = () => {
   const [agents] = useState<AgentDefinition[]>(INITIAL_AGENTS);
   const [activities, setActivities] = useState<AgentActivityRecord[]>([]);
   const [approvals, setApprovals] = useState<WorkflowApprovalRecord[]>([]);
+  const [hasMailboxConnected, setHasMailboxConnected] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -169,12 +214,19 @@ export const AgentsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [actData, appData] = await Promise.all([
+      const [actData, appData, intData] = await Promise.all([
         fetchAgentActivity({ userId: user.id }),
         fetchWorkflowApprovals({ userId: user.id }).catch(() => []),
+        fetchIntegrations().catch(() => []),
       ]);
       setActivities(actData);
       setApprovals(appData);
+      const mailboxConnected = (intData as any[]).some(
+        (i: any) =>
+          (i.provider === 'outlook_mail' || i.provider === 'gmail' || i.provider === 'mailbox') &&
+          i.status === 'connected'
+      );
+      setHasMailboxConnected(mailboxConnected);
     } catch (err: any) {
       setError('Failed to load agents activity logs. Please verify permissions.');
     } finally {
@@ -275,10 +327,12 @@ export const AgentsPage: React.FC = () => {
 
     const isRunning = executing && runningAgent === agent.id;
     const isWaiting = pendingApprovalsByAgent.has(agent.id);
+    const needsMailbox = agent.requiresConnection === 'mailbox' && !hasMailboxConnected;
 
     let cardStateClass = '';
     if (isRunning) cardStateClass = 'state-running';
     else if (isWaiting) cardStateClass = 'state-waiting';
+    else if (needsMailbox) cardStateClass = 'state-needs-connection';
 
     return (
       <article key={agent.id} className={`agents-card ${cardStateClass}`}>
@@ -328,16 +382,27 @@ export const AgentsPage: React.FC = () => {
           </div>
         )}
 
+        {needsMailbox && (
+          <div className="agents-card-notice notice-missing">
+            <span>Connect a mailbox to run this agent</span>
+            <Link to="/integrations" style={{ textDecoration: 'underline', fontWeight: 600 }}>
+              Connect →
+            </Link>
+          </div>
+        )}
+
         <div className="agents-foot">
           <span className="agents-sched">
             {isRunning ? (
               <span style={{ color: 'var(--gold)', fontWeight: 600 }}>
                 Running {elapsedSeconds}s...
               </span>
+            ) : agent.trigger === 'on_output_generation' ? (
+              'Runs with every output'
             ) : agent.scheduleSupport ? (
               'Schedulable'
             ) : (
-              'Manual trigger'
+              'Run when you need it'
             )}
           </span>
 
@@ -350,14 +415,25 @@ export const AgentsPage: React.FC = () => {
             View outputs
           </button>
 
-          <button
-            type="button"
-            className="agents-run"
-            onClick={() => handleRunAgent(agent.id)}
-            disabled={executing}
-          >
-            {isRunning ? `Running (${elapsedSeconds}s)` : 'Run agent'}
-          </button>
+          {agent.trigger === 'on_output_generation' ? (
+            <button
+              type="button"
+              className="agents-run"
+              onClick={() => setViewingOutputsAgent(agent.id)}
+              title="View what Document Intelligence added to outputs"
+            >
+              View what it added
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="agents-run"
+              onClick={() => handleRunAgent(agent.id)}
+              disabled={executing || needsMailbox}
+            >
+              {isRunning ? `Running (${elapsedSeconds}s)` : 'Run agent'}
+            </button>
+          )}
         </div>
       </article>
     );
@@ -401,7 +477,7 @@ export const AgentsPage: React.FC = () => {
         {/* Band 01: Hero Identity & Promise */}
         <section className="agents-hero">
           <p className="agents-eyebrow">AI Agents</p>
-          <h2>Seven agents that do the work after the meeting</h2>
+          <h2>Nine agents that do the work after the meeting</h2>
           <p className="agents-lede">
             Each one watches something specific, drafts what it finds, and then stops. Nothing is
             sent, assigned or changed until a person approves it.
@@ -479,7 +555,7 @@ export const AgentsPage: React.FC = () => {
               <div className="agents-n">03</div>
               <div className="agents-t">Agents read and draft</div>
               <div className="agents-d">
-                Seven agents watch what was produced and draft what comes next.
+                Nine agents watch what was produced and draft what comes next.
               </div>
             </div>
             <div className="agents-step agents-step-gate">
@@ -503,7 +579,7 @@ export const AgentsPage: React.FC = () => {
             <div className="agents-p">
               <span className="agents-pill decide">Proposes. You decide</span>
               <div className="agents-body">
-                <strong>{proposeCount === 5 ? 'Five agents' : `${proposeCount} agents`}</strong>
+                <strong>{proposeCount === 7 ? 'Seven agents' : `${proposeCount} agents`}</strong>
                 Draft work and hold it. The draft exists, nobody else has seen it, and it goes
                 nowhere until you approve it.
               </div>
@@ -554,12 +630,11 @@ export const AgentsPage: React.FC = () => {
           </div>
           <div className="agents-grid">
             {operationsLane.map(renderCard)}
-            <aside className="agents-note agents-span2">
-              <div className="agents-k">Why there is only one</div>
+            <aside className="agents-note">
+              <div className="agents-k">Two focused operating agents</div>
               <p>
-                Chasing work is a single job. Splitting it across several agents would mean several
-                drafts to approve for the same overdue task. The escalation it writes describes the
-                action and its due date. It does not describe the person.
+                Action tracking and mailbox triage are kept clean and distinct. Neither agent modifies
+                external records or dispatches replies without a person approving the exact text.
               </p>
             </aside>
           </div>

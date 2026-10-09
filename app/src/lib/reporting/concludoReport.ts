@@ -75,7 +75,7 @@ export const TIERS: Record<string, { label: string; max_pages: number | null; se
     label: 'Workspace Starter',
     max_pages: 100,
     sections: new Set([
-      'inputs', 'executive', 'meeting_summary', 'decisions', 'actions',
+      'inputs', 'document_brief', 'document_intelligence', 'executive', 'meeting_summary', 'decisions', 'actions',
       'risks', 'recommendations', 'health', 'closing'
     ]),
   },
@@ -83,7 +83,7 @@ export const TIERS: Record<string, { label: string; max_pages: number | null; se
     label: 'Workspace Pro',
     max_pages: 100,
     sections: new Set([
-      'inputs', 'executive', 'meeting_summary', 'decisions', 'actions',
+      'inputs', 'document_brief', 'document_intelligence', 'executive', 'meeting_summary', 'decisions', 'actions',
       'risks', 'recommendations', 'health', 'closing', 'board_report',
       'evidence_register', 'traceability', 'strategic', 'coaching'
     ]),
@@ -150,6 +150,36 @@ interface LoadedFonts {
   MB: PDFFont;
 }
 
+
+// Ensure fontkit safely handles empty TTF glyphs without throwing RangeError
+let fontkitPatched = false;
+function ensureFontkitPatched(fk: any) {
+  if (fontkitPatched || !fk) return;
+  try {
+    const dummyFont = fk.create(b64ToUint8Array(FONT_IBMPLEXMONO_REGULAR_TTF_B64));
+    if (dummyFont && dummyFont.getGlyph) {
+      const g0 = dummyFont.getGlyph(0);
+      if (g0) {
+        const gProto = Object.getPrototypeOf(g0);
+        const origGetCBox = gProto._getCBox;
+        gProto._getCBox = function (internal: any) {
+          if (this._font && this._font.loca && this._font.loca.offsets) {
+            const offset = this._font.loca.offsets[this.id];
+            const nextOffset = this._font.loca.offsets[this.id + 1];
+            if (offset === nextOffset) {
+              return Object.freeze({ minX: 0, minY: 0, maxX: 0, maxY: 0 });
+            }
+          }
+          return origGetCBox.call(this, internal);
+        };
+        fontkitPatched = true;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not patch fontkit empty glyph handler:", err);
+  }
+}
+
 class Doc {
   pdf: PDFDocument;
   payload: ConcludoReportPayload;
@@ -169,7 +199,9 @@ class Doc {
   }
 
   async init() {
-    this.pdf.registerFontkit((fontkit as any).default || fontkit);
+    const fk = (fontkit as any).default || fontkit;
+    ensureFontkitPatched(fk);
+    this.pdf.registerFontkit(fk);
 
     const poppinsBold = await this.pdf.embedFont(b64ToUint8Array(FONT_POPPINS_BOLD_TTF_B64));
     const poppinsMed = await this.pdf.embedFont(b64ToUint8Array(FONT_POPPINS_MEDIUM_TTF_B64));

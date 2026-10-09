@@ -79,6 +79,7 @@ function formatSmartMeetingTitle(rawTitle: string, rawDate?: string, rawClient?:
 
 import { ConcludoReportPayload } from './payloadTypes';
 import { ExtractedIntelligence, MeetingMetadata } from '../intelligence/transcriptExtractor';
+import { routeDocumentIntelligence } from '../agents/documentRouting';
 
 export function buildConcludoPayload(
   intel: ExtractedIntelligence,
@@ -332,6 +333,42 @@ export function buildConcludoPayload(
       }
     }
   };
+
+  // Deterministic Document Intelligence Routing
+  try {
+    const docContextSources = (sources || [])
+      .filter(s => s.kind === 'document')
+      .map(s => ({
+        name: s.title || 'Attached Document',
+        content: s.content || '',
+        documentClass: s.documentClass,
+        isSupplied: true,
+        isReadable: true,
+      }));
+
+    const routingResult = routeDocumentIntelligence({
+      projectDocuments: docContextSources,
+      transcriptText: (meta as any).rawContent || '',
+      meetingType: (meta as any).meetingType,
+      decisions: intel.decisions,
+      actions: intel.actions,
+      tier,
+    });
+
+    payload.document_routing = routingResult.routing;
+    if (routingResult.brief) payload.document_brief = routingResult.brief;
+    if (routingResult.intelligence) payload.document_intelligence = routingResult.intelligence;
+  } catch (err: any) {
+    payload.document_routing = {
+      stage_reached: 'detect',
+      document_detected: false,
+      documents_found: 0,
+      documents_supplied: 0,
+      meeting_type: 'unclear',
+      meeting_type_inferred: true,
+      agent_error: err?.message || 'Document intelligence routing error',
+    };
+  }
 
   return payload;
 }
