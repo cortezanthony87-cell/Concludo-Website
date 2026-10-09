@@ -95,7 +95,7 @@ export const INITIAL_AGENTS: AgentDefinition[] = [
       'Deadline Breach Patterns',
       'Repeated Delays Index',
       'Recurring Risk Flags',
-      'Owner Bottleneck Analysis',
+      'Where work is queuing',
       'Project Drift Warnings',
     ],
   },
