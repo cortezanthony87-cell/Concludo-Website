@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2, RefreshCw, ExternalLink } from 'lucide-react';
 import {
   ProviderDefinition,
   integrationsHubService,
@@ -35,6 +35,36 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [hasRequestedLocal, setHasRequestedLocal] = useState(false);
+  const [prefetchedSession, setPrefetchedSession] = useState<{ token: string; nango_integration_id: string } | null>(null);
+  const [isPrefetching, setIsPrefetching] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen && provider) {
+      setStep('idle');
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      setHasRequestedLocal(false);
+      setPrefetchedSession(null);
+
+      const availability = normaliseAvailability(provider.availability);
+      if (availability === 'available') {
+        setIsPrefetching(true);
+        integrationsHubService.startConnection(provider.id)
+          .then((session) => {
+            setPrefetchedSession(session);
+          })
+          .catch((err) => {
+            console.warn('Pre-fetch connection session warning:', err);
+          })
+          .finally(() => {
+            setIsPrefetching(false);
+          });
+      }
+    } else {
+      setPrefetchedSession(null);
+      setIsPrefetching(false);
+    }
+  }, [isOpen, provider?.id]);
 
   if (!isOpen || !provider) return null;
 
@@ -56,42 +86,66 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
   };
 
   const handleStartConnect = async () => {
+    if (!provider) return;
     setErrorMsg(null);
     setSuccessMsg(null);
-    setStep('starting');
 
+    let session = prefetchedSession;
+    if (!session) {
+      setStep('starting');
+      try {
+        session = await integrationsHubService.startConnection(provider.id);
+        setPrefetchedSession(session);
+      } catch (err: any) {
+        setStep('idle');
+        setErrorMsg(err.message || connectionResultText('failed', provider.name));
+        return;
+      }
+    }
+
+    setStep('waiting_auth');
     try {
-      const { token, nango_integration_id } = await integrationsHubService.startConnection(provider.id);
-
-      setStep('waiting_auth');
-      const nango = new Nango({ connectSessionToken: token, host: 'https://api.nango.dev' });
+      const nango = new Nango({ connectSessionToken: session.token, host: 'https://api.nango.dev' });
 
       let authSucceeded = false;
       try {
-        await nango.auth(nango_integration_id);
+        await nango.auth(session.nango_integration_id);
         authSucceeded = true;
       } catch (authErr: any) {
-        // If popup was blocked by browser, fallback to openConnectUI modal
-        if (authErr?.type === 'blocked_by_browser') {
-          await new Promise<void>((resolve, reject) => {
-            const connectUI = nango.openConnectUI({
-              sessionToken: token,
-              onEvent: (event) => {
-                if (event.type === 'connect') {
-                  connectUI.close();
-                  authSucceeded = true;
-                  resolve();
-                } else if (event.type === 'close') {
-                  connectUI.close();
-                  resolve();
-                } else if (event.type === 'error') {
-                  connectUI.close();
-                  reject(new Error(event.payload.errorMessage));
-                }
-              },
+        console.warn('Nango auth error:', authErr);
+        const isPopupBlocked =
+          authErr?.type === 'blocked_by_browser' ||
+          authErr?.message?.toLowerCase().includes('blocked') ||
+          authErr?.message?.toLowerCase().includes('popup') ||
+          authErr?.message?.toLowerCase().includes('modal') ||
+          authErr?.message?.toLowerCase().includes('window');
+
+        if (isPopupBlocked) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const connectUI = nango.openConnectUI({
+                sessionToken: session!.token,
+                onEvent: (event) => {
+                  if (event.type === 'connect') {
+                    connectUI.close();
+                    authSucceeded = true;
+                    resolve();
+                  } else if (event.type === 'close') {
+                    connectUI.close();
+                    resolve();
+                  } else if (event.type === 'error') {
+                    connectUI.close();
+                    reject(new Error(event.payload.errorMessage));
+                  }
+                },
+              });
+              connectUI.open();
             });
-            connectUI.open();
-          });
+          } catch (uiErr: any) {
+            setStep('idle');
+            setErrorMsg(uiErr.message || 'Pop-up was blocked. Please allow pop-ups for app.concludo.com.au.');
+            return;
+          }
         } else {
           setStep('idle');
           setErrorMsg(connectionResultText('cancelled', provider.name));
@@ -226,9 +280,14 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
           )}
 
           {step === 'waiting_auth' && (
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs flex items-center gap-2.5">
-              <RefreshCw className="w-4 h-4 text-[#E2B53C] animate-spin shrink-0" />
-              <span>Waiting for sign-in on provider page...</span>
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs flex flex-col gap-2">
+              <div className="flex items-center gap-2.5">
+                <RefreshCw className="w-4 h-4 text-[#E2B53C] animate-spin shrink-0" />
+                <span>Waiting for sign-in window to complete...</span>
+              </div>
+              <p className="text-[11px] text-slate-400 pl-6">
+                If a pop-up window did not open, check your browser address bar to allow pop-ups from app.concludo.com.au, or click the button below.
+              </p>
             </div>
           )}
 
@@ -250,6 +309,23 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
             >
               Done
             </button>
+          ) : step === 'waiting_auth' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep('idle')}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStartConnect}
+                className="btn-connect-gold px-4 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-xl text-xs transition flex items-center gap-2"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Re-open sign-in window
+              </button>
+            </>
           ) : availability === 'available' ? (
             <>
               <button
@@ -263,10 +339,10 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
               <button
                 type="button"
                 onClick={handleStartConnect}
-                disabled={step !== 'idle'}
+                disabled={step !== 'idle' || isPrefetching}
                 className="btn-connect-gold px-5 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-sm disabled:opacity-50"
               >
-                {step === 'idle' ? panel.primary || 'Connect' : 'Connecting...'}
+                {isPrefetching ? 'Preparing sign-in...' : step === 'idle' ? panel.primary || 'Connect' : 'Connecting...'}
               </button>
             </>
           ) : availability === 'coming_soon' ? (

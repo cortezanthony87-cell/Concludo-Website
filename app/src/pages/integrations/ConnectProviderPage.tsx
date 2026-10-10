@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle2, RefreshCw, ExternalLink } from 'lucide-react';
 import {
   INTEGRATION_PROVIDERS_CATALOG,
   ProviderDefinition,
@@ -26,6 +26,8 @@ export const ConnectProviderPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isRequested, setIsRequested] = useState(false);
+  const [prefetchedSession, setPrefetchedSession] = useState<{ token: string; nango_integration_id: string } | null>(null);
+  const [isPrefetching, setIsPrefetching] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -39,6 +41,14 @@ export const ConnectProviderPage: React.FC = () => {
         const requests = await integrationsHubService.getAppRequests();
         if (providerId && requests.has(providerId)) {
           setIsRequested(true);
+        }
+
+        if (found && normaliseAvailability(found.availability) === 'available') {
+          setIsPrefetching(true);
+          integrationsHubService.startConnection(found.id)
+            .then((session) => setPrefetchedSession(session))
+            .catch((err) => console.warn('Pre-fetch connection session warning:', err))
+            .finally(() => setIsPrefetching(false));
         }
       } catch (err: any) {
         console.error('Failed to load provider details:', err);
@@ -90,42 +100,66 @@ export const ConnectProviderPage: React.FC = () => {
   };
 
   const handleStartConnect = async () => {
+    if (!provider) return;
     setErrorMsg(null);
     setSuccessMsg(null);
-    setStep('starting');
 
+    let session = prefetchedSession;
+    if (!session) {
+      setStep('starting');
+      try {
+        session = await integrationsHubService.startConnection(provider.id);
+        setPrefetchedSession(session);
+      } catch (err: any) {
+        setStep('idle');
+        setErrorMsg(err.message || connectionResultText('failed', provider.name));
+        return;
+      }
+    }
+
+    setStep('waiting_auth');
     try {
-      const { token, nango_integration_id } = await integrationsHubService.startConnection(provider.id);
-
-      setStep('waiting_auth');
-      const nango = new Nango({ connectSessionToken: token, host: 'https://api.nango.dev' });
+      const nango = new Nango({ connectSessionToken: session.token, host: 'https://api.nango.dev' });
 
       let authSucceeded = false;
       try {
-        await nango.auth(nango_integration_id);
+        await nango.auth(session.nango_integration_id);
         authSucceeded = true;
       } catch (authErr: any) {
-        // If popup was blocked by browser, fallback to openConnectUI modal
-        if (authErr?.type === 'blocked_by_browser') {
-          await new Promise<void>((resolve, reject) => {
-            const connectUI = nango.openConnectUI({
-              sessionToken: token,
-              onEvent: (event) => {
-                if (event.type === 'connect') {
-                  connectUI.close();
-                  authSucceeded = true;
-                  resolve();
-                } else if (event.type === 'close') {
-                  connectUI.close();
-                  resolve();
-                } else if (event.type === 'error') {
-                  connectUI.close();
-                  reject(new Error(event.payload.errorMessage));
-                }
-              },
+        console.warn('Nango auth error:', authErr);
+        const isPopupBlocked =
+          authErr?.type === 'blocked_by_browser' ||
+          authErr?.message?.toLowerCase().includes('blocked') ||
+          authErr?.message?.toLowerCase().includes('popup') ||
+          authErr?.message?.toLowerCase().includes('modal') ||
+          authErr?.message?.toLowerCase().includes('window');
+
+        if (isPopupBlocked) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const connectUI = nango.openConnectUI({
+                sessionToken: session!.token,
+                onEvent: (event) => {
+                  if (event.type === 'connect') {
+                    connectUI.close();
+                    authSucceeded = true;
+                    resolve();
+                  } else if (event.type === 'close') {
+                    connectUI.close();
+                    resolve();
+                  } else if (event.type === 'error') {
+                    connectUI.close();
+                    reject(new Error(event.payload.errorMessage));
+                  }
+                },
+              });
+              connectUI.open();
             });
-            connectUI.open();
-          });
+          } catch (uiErr: any) {
+            setStep('idle');
+            setErrorMsg(uiErr.message || 'Pop-up was blocked. Please allow pop-ups for app.concludo.com.au.');
+            return;
+          }
         } else {
           setStep('idle');
           setErrorMsg(connectionResultText('cancelled', provider.name));
@@ -268,14 +302,33 @@ export const ConnectProviderPage: React.FC = () => {
             {step === 'completed' ? 'Back to Apps' : 'Close'}
           </Link>
 
-          {availability === 'available' && step !== 'completed' && (
+          {availability === 'available' && step === 'waiting_auth' && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setStep('idle')}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStartConnect}
+                className="btn-connect-gold px-4 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-lg text-xs transition flex items-center gap-2"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Re-open sign-in window
+              </button>
+            </div>
+          )}
+
+          {availability === 'available' && step !== 'completed' && step !== 'waiting_auth' && (
             <button
               type="button"
               onClick={handleStartConnect}
-              disabled={step !== 'idle'}
+              disabled={step !== 'idle' || isPrefetching}
               className="btn-connect-gold px-5 py-2.5 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-sm disabled:opacity-50"
             >
-              {step === 'idle' ? panel.primary || 'Connect' : 'Connecting...'}
+              {isPrefetching ? 'Preparing sign-in...' : step === 'idle' ? panel.primary || 'Connect' : 'Connecting...'}
             </button>
           )}
 
