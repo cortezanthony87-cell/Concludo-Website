@@ -107,8 +107,8 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
       try {
         session = await integrationsHubService.startConnection(provider.id, {
           email_hint: emailHint || undefined,
-          connection_id: existingConnection?.id,
-          is_new: isNew,
+          connection_id: prefetchedSession?.connection_id || existingConnection?.id,
+          is_new: isNew && !prefetchedSession?.connection_id,
         });
         setPrefetchedSession(session);
       } catch (err: any) {
@@ -299,7 +299,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
           {availability === 'available' && step === 'idle' && (
             <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
               <label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
-                <span>Account email (optional)</span>
+                <span>Email address of your choosing (optional)</span>
                 <span className="text-[10.5px] font-normal text-slate-400">Choose which account to use</span>
               </label>
               <input

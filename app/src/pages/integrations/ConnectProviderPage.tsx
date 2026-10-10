@@ -112,6 +112,7 @@ export const ConnectProviderPage: React.FC = () => {
       try {
         session = await integrationsHubService.startConnection(provider.id, {
           email_hint: emailHint || undefined,
+          connection_id: prefetchedSession?.connection_id,
         });
         setPrefetchedSession(session);
       } catch (err: any) {
@@ -194,7 +195,10 @@ export const ConnectProviderPage: React.FC = () => {
         attempts += 1;
 
         const connections = await integrationsHubService.getConnections();
-        const conn = connections.find((c) => c.provider_id === provider.id);
+        const targetId = session?.connection_id;
+        const conn = targetId
+          ? connections.find((c) => c.id === targetId) || connections.find((c) => c.provider_id === provider.id)
+          : connections.find((c) => c.provider_id === provider.id);
 
         if (conn) {
           if (conn.status === 'connected') {
@@ -260,7 +264,7 @@ export const ConnectProviderPage: React.FC = () => {
           {availability === 'available' && step === 'idle' && (
             <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
               <label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
-                <span>Account email (optional)</span>
+                <span>Email address of your choosing (optional)</span>
                 <span className="text-[10.5px] font-normal text-slate-400">Choose which account to use</span>
               </label>
               <input

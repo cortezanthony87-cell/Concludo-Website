@@ -7,6 +7,7 @@ import {
   Check,
   Plus,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import {
   ProviderDefinition,
@@ -264,6 +265,17 @@ export const IntegrationDetailDrawer: React.FC<IntegrationDetailDrawerProps> = (
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onConnect(provider, connection, false);
+                      }}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-slate-700"
+                    >
+                      <RefreshCw className="w-3 h-3 text-[#E2B53C]" />
+                      <span>Re-authenticate</span>
+                    </button>
                     <button
                       type="button"
                       disabled={isSaving}

@@ -97,17 +97,20 @@ Deno.serve(async (request) => {
       .lte('updated_at', fifteenMinutesAgo);
 
     // 5. Determine whether to reuse an existing row or create a new one
-    let targetRow: { id: string; nango_connection_id: string | null; status: string } | null = null;
+    let targetRow: { id: string; nango_connection_id: string | null; status: string; account_label?: string | null } | null = null;
 
     if (explicitConnectionId) {
-      // Caller explicitly requested a specific connection row (e.g. reconnect)
+      // Caller explicitly requested a specific connection row (e.g. reconnect or update prefetched session)
       const { data: row } = await service
         .from('integration_connections')
-        .select('id, nango_connection_id, status')
+        .select('id, nango_connection_id, status, provider_id, account_label')
         .eq('id', explicitConnectionId)
         .eq('user_id', user.id)
         .is('deleted_at', null)
         .maybeSingle();
+      if (!row || row.provider_id !== providerId) {
+        return jsonResponse({ error: 'Connection record not found for this provider' }, 404, request);
+      }
       targetRow = row;
     } else if (!isNew) {
       // If not explicitly requesting a new account, check if an existing row matches email_hint or is uncompleted
@@ -199,8 +202,9 @@ Deno.serve(async (request) => {
     const authParams: Record<string, string> = {
       prompt: 'select_account',
     };
-    if (emailHint) {
-      authParams.login_hint = emailHint;
+    const effectiveEmail = emailHint || targetRow?.account_label || '';
+    if (effectiveEmail) {
+      authParams.login_hint = effectiveEmail;
     }
 
     let sessionRes: Response;
