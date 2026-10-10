@@ -230,7 +230,7 @@ export const IntegrationsPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link
             to="/workflows/builder"
-            className="px-4 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-sm"
+            className="btn-connect-gold px-4 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-sm"
           >
             <Play className="w-3.5 h-3.5 fill-current" /> Open Workflow Builder
           </Link>

@@ -264,7 +264,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                 type="button"
                 onClick={handleStartConnect}
                 disabled={step !== 'idle'}
-                className="px-5 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-slate-950 font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-sm disabled:opacity-50"
+                className="btn-connect-gold px-5 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-sm disabled:opacity-50"
               >
                 {step === 'idle' ? panel.primary || 'Connect' : 'Connecting...'}
               </button>

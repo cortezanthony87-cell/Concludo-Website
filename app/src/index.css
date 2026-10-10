@@ -910,19 +910,31 @@ input, select, textarea {
 
 /* Luminous Glowing Yellow/Gold Connect Button */
 .btn-connect-gold,
+button.btn-connect-gold,
+button[class*="btn-connect-gold"],
+a.btn-connect-gold,
+a[class*="btn-connect-gold"],
 button.bg-amber-500,
 button[class*="bg-amber-500"],
-.bg-amber-500 {
+.bg-amber-500,
+button[class*="bg-[#E2B53C]"],
+a[class*="bg-[#E2B53C]"],
+button[class*="bg-[#e2b53c]"],
+a[class*="bg-[#e2b53c]"],
+.bg-\[\#E2B53C\],
+.bg-\[\#e2b53c\] {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 8px !important;
   width: 100% !important;
   max-width: 100% !important;
+  min-height: 40px !important;
   box-sizing: border-box !important;
-  padding: 10px 14px !important;
+  padding: 10px 16px !important;
   background: linear-gradient(135deg, #f7d57a 0%, #e2b53c 50%, #bc8a1c 100%) !important;
-  color: #060a12 !important;
+  background-color: #e2b53c !important;
+  color: #16263F !important;
   font-family: var(--font-body, "Inter", sans-serif) !important;
   font-weight: 700 !important;
   font-size: 0.85rem !important;
@@ -939,28 +951,86 @@ button[class*="bg-amber-500"],
 }
 
 .btn-connect-gold:hover,
+button.btn-connect-gold:hover,
+button[class*="btn-connect-gold"]:hover,
+a.btn-connect-gold:hover,
+a[class*="btn-connect-gold"]:hover,
 button.bg-amber-500:hover,
 button[class*="bg-amber-500"]:hover,
-.bg-amber-500:hover {
+.bg-amber-500:hover,
+button[class*="bg-[#E2B53C]"]:hover,
+a[class*="bg-[#E2B53C]"]:hover,
+button[class*="bg-[#e2b53c]"]:hover,
+a[class*="bg-[#e2b53c]"]:hover,
+.bg-\[\#E2B53C\]:hover,
+.bg-\[\#e2b53c\]:hover {
   background: linear-gradient(135deg, #fae08f 0%, #f3c958 50%, #d49f25 100%) !important;
-  color: #060a12 !important;
+  background-color: #f3c958 !important;
+  color: #16263F !important;
   transform: translateY(-1px) !important;
   box-shadow: 0 0 24px rgba(226, 181, 60, 0.75), 0 4px 14px rgba(0, 0, 0, 0.45) !important;
 }
 
 .btn-connect-gold:active,
-button.bg-amber-500:active {
+button.btn-connect-gold:active,
+button[class*="btn-connect-gold"]:active,
+a.btn-connect-gold:active,
+a[class*="btn-connect-gold"]:active,
+button.bg-amber-500:active,
+button[class*="bg-[#E2B53C]"]:active,
+a[class*="bg-[#E2B53C]"]:active {
   transform: translateY(0) !important;
 }
 
 /* Ensure icons inside the connect button are dark navy and crisp */
 .btn-connect-gold svg,
+button[class*="btn-connect-gold"] svg,
+a[class*="btn-connect-gold"] svg,
 button.bg-amber-500 svg,
-button[class*="bg-amber-500"] svg {
-  stroke: #060a12 !important;
-  color: #060a12 !important;
+button[class*="bg-amber-500"] svg,
+button[class*="bg-[#E2B53C]"] svg,
+a[class*="bg-[#E2B53C]"] svg {
+  stroke: #16263F !important;
+  color: #16263F !important;
   stroke-width: 2.5 !important;
   flex-shrink: 0 !important;
+}
+
+/* Additional brand utility fallbacks */
+.text-\[\#16263F\],
+.text-\[\#16263f\] {
+  color: #16263F !important;
+}
+.text-\[\#E2B53C\],
+.text-\[\#e2b53c\] {
+  color: #E2B53C !important;
+}
+.border-\[\#E2B53C\],
+.border-\[\#e2b53c\] {
+  border-color: #E2B53C !important;
+}
+.bg-\[\#E2B53C\]\/10,
+.bg-\[\#e2b53c\]\/10 {
+  background-color: rgba(226, 181, 60, 0.1) !important;
+}
+.bg-\[\#E2B53C\]\/20,
+.bg-\[\#e2b53c\]\/20 {
+  background-color: rgba(226, 181, 60, 0.2) !important;
+}
+.border-\[\#E2B53C\]\/20,
+.border-\[\#e2b53c\]\/20 {
+  border-color: rgba(226, 181, 60, 0.2) !important;
+}
+.border-\[\#E2B53C\]\/30,
+.border-\[\#e2b53c\]\/30 {
+  border-color: rgba(226, 181, 60, 0.3) !important;
+}
+.border-\[\#E2B53C\]\/40,
+.border-\[\#e2b53c\]\/40 {
+  border-color: rgba(226, 181, 60, 0.4) !important;
+}
+.shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
 /* Connection Modal & Page Input Styles - Explicit Black Text on White Background with Generous Touch Sizing */

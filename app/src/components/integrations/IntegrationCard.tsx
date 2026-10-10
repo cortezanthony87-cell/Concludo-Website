@@ -166,7 +166,7 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           <button
             type="button"
             onClick={() => onConnect(provider)}
-            className="w-full min-h-[40px] py-2 px-4 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center shadow-sm"
+            className="btn-connect-gold w-full min-h-[40px] py-2 px-4 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-lg text-xs transition flex items-center justify-center shadow-sm"
           >
             Connect
           </button>
