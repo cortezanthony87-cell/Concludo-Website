@@ -65,8 +65,38 @@ export const IntegrationDetailDrawer: React.FC<IntegrationDetailDrawerProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg bg-slate-900 border-l border-slate-800 h-full flex flex-col shadow-2xl overflow-hidden justify-between p-6">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'flex-end',
+      }}
+    >
+      <div
+        className="relative w-full max-w-lg bg-slate-900 border-l border-slate-800 h-full flex flex-col shadow-2xl overflow-hidden justify-between p-6"
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '32rem',
+          backgroundColor: '#0f172a',
+          borderLeft: '1px solid #1e293b',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '1.5rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
+        }}
+      >
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">

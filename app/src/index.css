@@ -1903,3 +1903,44 @@ input[type="password"].bg-white::placeholder {
 .whitespace-nowrap { white-space: nowrap !important; }
 .shrink-0 { flex-shrink: 0 !important; }
 .h-full { height: 100% !important; }
+
+/* Global Overlay & Modal Utilities */
+.fixed {
+  position: fixed !important;
+}
+
+.inset-0 {
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+}
+
+.z-50 {
+  z-index: 99999 !important;
+}
+
+.bg-black\/75 {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+.bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-end {
+  justify-content: flex-end;
+}
