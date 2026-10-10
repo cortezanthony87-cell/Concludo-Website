@@ -1937,15 +1937,49 @@ export class IntegrationsHubService {
   }
 
   /**
+   * Updates connection name and/or user-chosen account email label.
+   */
+  async updateConnection(
+    connectionId: string,
+    updates: { connection_name?: string; account_label?: string | null }
+  ): Promise<boolean> {
+    const payload: Record<string, any> = {};
+    if (updates.connection_name !== undefined) {
+      payload.connection_name = updates.connection_name;
+    }
+    if (updates.account_label !== undefined) {
+      payload.account_label = updates.account_label;
+      payload.external_account_reference = updates.account_label || 'connected';
+    }
+
+    const { error } = await this.supabase
+      .from('integration_connections')
+      .update(payload)
+      .eq('id', connectionId);
+
+    if (error) throw error;
+    return true;
+  }
+
+  /**
    * Starts a connection authorization session via connection-start edge function.
    */
-  async startConnection(providerId: string): Promise<{
+  async startConnection(
+    providerId: string,
+    options?: { email_hint?: string; connection_id?: string; is_new?: boolean }
+  ): Promise<{
     token: string;
     nango_integration_id: string;
     connection_id?: string;
+    auth_params?: Record<string, string>;
   }> {
     const { data, error } = await this.supabase.functions.invoke('connection-start', {
-      body: { provider_id: providerId },
+      body: {
+        provider_id: providerId,
+        email_hint: options?.email_hint,
+        connection_id: options?.connection_id,
+        is_new: options?.is_new,
+      },
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);

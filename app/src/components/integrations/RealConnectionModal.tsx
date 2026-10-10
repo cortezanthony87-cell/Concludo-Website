@@ -18,6 +18,8 @@ export interface RealConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   provider: ProviderDefinition | null;
+  existingConnection?: any;
+  isNew?: boolean;
   onSuccess?: (conn?: any) => void;
   isRequested?: boolean;
   onNotify?: (provider: ProviderDefinition) => void;
@@ -27,6 +29,8 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
   isOpen,
   onClose,
   provider,
+  existingConnection,
+  isNew = false,
   onSuccess,
   isRequested = false,
   onNotify,
@@ -35,8 +39,9 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [hasRequestedLocal, setHasRequestedLocal] = useState(false);
-  const [prefetchedSession, setPrefetchedSession] = useState<{ token: string; nango_integration_id: string } | null>(null);
+  const [prefetchedSession, setPrefetchedSession] = useState<{ token: string; nango_integration_id: string; connection_id?: string } | null>(null);
   const [isPrefetching, setIsPrefetching] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
 
   React.useEffect(() => {
     if (isOpen && provider) {
@@ -45,11 +50,15 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
       setSuccessMsg(null);
       setHasRequestedLocal(false);
       setPrefetchedSession(null);
+      setAccountEmail(existingConnection?.account_label || '');
 
       const availability = normaliseAvailability(provider.availability);
       if (availability === 'available') {
         setIsPrefetching(true);
-        integrationsHubService.startConnection(provider.id)
+        integrationsHubService.startConnection(provider.id, {
+          connection_id: existingConnection?.id,
+          is_new: isNew,
+        })
           .then((session) => {
             setPrefetchedSession(session);
           })
@@ -90,11 +99,17 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const emailHint = accountEmail.trim();
     let session = prefetchedSession;
-    if (!session) {
+    // If user entered a specific email hint, re-fetch the session with it to configure login_hint and custom naming
+    if (!session || emailHint) {
       setStep('starting');
       try {
-        session = await integrationsHubService.startConnection(provider.id);
+        session = await integrationsHubService.startConnection(provider.id, {
+          email_hint: emailHint || undefined,
+          connection_id: existingConnection?.id,
+          is_new: isNew,
+        });
         setPrefetchedSession(session);
       } catch (err: any) {
         setStep('idle');
@@ -107,9 +122,16 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
     try {
       const nango = new Nango({ connectSessionToken: session.token, host: 'https://api.nango.dev' });
 
+      const authOpts: any = {
+        authorization_params: {
+          prompt: 'select_account',
+          ...(emailHint ? { login_hint: emailHint } : {}),
+        },
+      };
+
       let authSucceeded = false;
       try {
-        await nango.auth(session.nango_integration_id);
+        await nango.auth(session.nango_integration_id, authOpts);
         authSucceeded = true;
       } catch (authErr: any) {
         console.warn('Nango auth error:', authErr);
@@ -170,7 +192,10 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
         attempts += 1;
 
         const connections = await integrationsHubService.getConnections();
-        const conn = connections.find((c) => c.provider_id === provider.id);
+        const targetId = session?.connection_id || existingConnection?.id;
+        const conn = targetId
+          ? connections.find((c) => c.id === targetId) || connections.find((c) => c.provider_id === provider.id)
+          : connections.find((c) => c.provider_id === provider.id);
 
         if (conn) {
           if (conn.status === 'connected') {
@@ -269,6 +294,26 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
           {panel.body.map((paragraph, idx) => (
             <p key={idx}>{paragraph}</p>
           ))}
+
+          {/* Account Email of user's choosing */}
+          {availability === 'available' && step === 'idle' && (
+            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+              <label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
+                <span>Account email (optional)</span>
+                <span className="text-[10.5px] font-normal text-slate-400">Choose which account to use</span>
+              </label>
+              <input
+                type="email"
+                value={accountEmail}
+                onChange={(e) => setAccountEmail(e.target.value)}
+                placeholder="e.g. yourname@company.com or personal@gmail.com"
+                className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700/80 focus:border-[#E2B53C] focus:ring-1 focus:ring-[#E2B53C] rounded-lg text-xs text-white placeholder-slate-500 outline-none transition"
+              />
+              <p className="text-[11px] text-slate-400 leading-normal">
+                People may have multiple accounts. Enter the email address of your choosing to direct your sign-in to that specific account, or leave blank to choose during provider sign-in.
+              </p>
+            </div>
+          )}
 
           {/* Scopes & Permissions Summary for available apps */}
           {availability === 'available' && panel.permissions && (

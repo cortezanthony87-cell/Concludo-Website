@@ -12,6 +12,9 @@ import {
 
 interface StartRequest {
   provider_id?: string;
+  email_hint?: string;
+  connection_id?: string;
+  is_new?: boolean;
 }
 
 Deno.serve(async (request) => {
@@ -21,6 +24,9 @@ Deno.serve(async (request) => {
     const { user } = await requireUser(request);
     const body = (await request.json().catch(() => ({}))) as StartRequest;
     const providerId = typeof body.provider_id === 'string' ? body.provider_id.trim() : '';
+    const emailHint = typeof body.email_hint === 'string' ? body.email_hint.trim() : '';
+    const isNew = Boolean(body.is_new);
+    const explicitConnectionId = typeof body.connection_id === 'string' ? body.connection_id.trim() : '';
 
     if (!providerId) {
       return jsonResponse({ error: 'provider_id is required' }, 400, request);
@@ -90,42 +96,74 @@ Deno.serve(async (request) => {
       .eq('status', 'authorising')
       .lte('updated_at', fifteenMinutesAgo);
 
-    // 5. Find caller's live row for this provider
-    const { data: existingRow } = await service
-      .from('integration_connections')
-      .select('id, nango_connection_id, status')
-      .eq('user_id', user.id)
-      .eq('provider_id', providerId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 5. Determine whether to reuse an existing row or create a new one
+    let targetRow: { id: string; nango_connection_id: string | null; status: string } | null = null;
+
+    if (explicitConnectionId) {
+      // Caller explicitly requested a specific connection row (e.g. reconnect)
+      const { data: row } = await service
+        .from('integration_connections')
+        .select('id, nango_connection_id, status')
+        .eq('id', explicitConnectionId)
+        .eq('user_id', user.id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      targetRow = row;
+    } else if (!isNew) {
+      // If not explicitly requesting a new account, check if an existing row matches email_hint or is uncompleted
+      let query = service
+        .from('integration_connections')
+        .select('id, nango_connection_id, status, account_label')
+        .eq('user_id', user.id)
+        .eq('provider_id', providerId)
+        .is('deleted_at', null);
+
+      if (emailHint) {
+        query = query.ilike('account_label', emailHint);
+      } else {
+        query = query.neq('status', 'connected');
+      }
+
+      const { data: candidate } = await query
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      targetRow = candidate;
+    }
 
     let connectionRowId: string;
     let isReconnect = false;
-    let nangoConnId = existingRow?.nango_connection_id;
+    let nangoConnId = targetRow?.nango_connection_id;
 
-    if (existingRow) {
-      connectionRowId = existingRow.id;
+    if (targetRow) {
+      connectionRowId = targetRow.id;
       isReconnect = Boolean(nangoConnId);
+      const updatePayload: Record<string, any> = {
+        status: 'authorising',
+        nango_integration_id: provider.nango_integration_id,
+        status_reason: null,
+        updated_at: new Date().toISOString(),
+      };
+      if (emailHint) {
+        updatePayload.account_label = emailHint;
+        updatePayload.external_account_reference = emailHint;
+      }
       await service
         .from('integration_connections')
-        .update({
-          status: 'authorising',
-          nango_integration_id: provider.nango_integration_id,
-          status_reason: null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', connectionRowId);
     } else {
+      const connName = emailHint ? `${provider.name} (${emailHint})` : provider.name;
       const { data: inserted, error: insertErr } = await service
         .from('integration_connections')
         .insert({
           user_id: user.id,
           organization_id: organizationId,
           provider_id: providerId,
-          connection_name: provider.name,
-          external_account_reference: 'pending',
+          connection_name: connName,
+          account_label: emailHint || null,
+          external_account_reference: emailHint || 'pending',
           status: 'authorising',
           nango_integration_id: provider.nango_integration_id,
         })
@@ -152,13 +190,20 @@ Deno.serve(async (request) => {
       tags.organization_id = organizationId;
     }
 
-    let sessionRes: Response;
     const endUser = {
       id: user.id,
       email: user.email || 'user@concludo.au',
       display_name: user.user_metadata?.full_name || user.email || 'User',
     };
 
+    const authParams: Record<string, string> = {
+      prompt: 'select_account',
+    };
+    if (emailHint) {
+      authParams.login_hint = emailHint;
+    }
+
+    let sessionRes: Response;
     if (isReconnect && nangoConnId) {
       sessionRes = await fetch(`${nangoHost}/connect/sessions/reconnect`, {
         method: 'POST',
@@ -171,6 +216,11 @@ Deno.serve(async (request) => {
           integration_id: provider.nango_integration_id,
           end_user: endUser,
           tags,
+          integrations_config_defaults: {
+            [provider.nango_integration_id]: {
+              authorization_params: authParams,
+            },
+          },
         }),
       });
     } else {
@@ -184,6 +234,11 @@ Deno.serve(async (request) => {
           end_user: endUser,
           tags,
           allowed_integrations: [provider.nango_integration_id],
+          integrations_config_defaults: {
+            [provider.nango_integration_id]: {
+              authorization_params: authParams,
+            },
+          },
         }),
       });
     }
@@ -220,6 +275,7 @@ Deno.serve(async (request) => {
         token,
         nango_integration_id: provider.nango_integration_id,
         connection_id: connectionRowId,
+        auth_params: authParams,
       },
       200,
       request,

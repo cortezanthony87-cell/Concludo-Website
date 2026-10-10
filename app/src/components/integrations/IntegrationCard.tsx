@@ -17,8 +17,10 @@ import { IntegrationIcon } from './IntegrationIcon';
 export interface IntegrationCardProps {
   provider: ProviderDefinition;
   connection?: IntegrationConnection | null;
+  connections?: IntegrationConnection[];
   isRequested?: boolean;
   onConnect: (provider: ProviderDefinition) => void;
+  onAddAccount?: (provider: ProviderDefinition) => void;
   onManage: (provider: ProviderDefinition, connection: IntegrationConnection) => void;
   onTest?: (connection: IntegrationConnection) => void;
   onNotify?: (provider: ProviderDefinition) => void;
@@ -31,8 +33,10 @@ export interface IntegrationCardProps {
 export const IntegrationCard: React.FC<IntegrationCardProps> = ({
   provider,
   connection,
+  connections = [],
   isRequested = false,
   onConnect,
+  onAddAccount,
   onManage,
   onTest,
   onNotify,
@@ -43,20 +47,29 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
 }) => {
   const isAustralian = provider.id === 'xero' || provider.id === 'myob';
 
+  const allConns = (connections && connections.length > 0)
+    ? connections
+    : (connection ? [connection] : []);
+  const activeConns = allConns.filter((c) => c.status !== 'disconnected');
+  const primaryConn = activeConns[0] || null;
+  const hasMultiple = activeConns.length > 1;
+
   const connEvidence: ConnectionEvidence = {
-    status: connection?.status || 'not_connected',
-    verified_at: (connection as any)?.verified_at || null,
-    last_test_at: (connection as any)?.last_test_at || null,
-    last_test_result: (connection as any)?.last_test_result || null,
+    status: primaryConn?.status || 'not_connected',
+    verified_at: (primaryConn as any)?.verified_at || null,
+    last_test_at: (primaryConn as any)?.last_test_at || null,
+    last_test_result: (primaryConn as any)?.last_test_result || null,
   };
 
-  const cardState = appCardState(provider as unknown as CatalogueApp, connection ? connEvidence : null, isRequested);
-  const usable = connection ? isUsable(connEvidence) : false;
+  const cardState = appCardState(provider as unknown as CatalogueApp, primaryConn ? connEvidence : null, isRequested);
+  const usable = primaryConn ? isUsable(connEvidence) : false;
 
   const displayBadge = isChecking
     ? 'Checking the connection'
     : isWaitingAuth
     ? 'Waiting for sign-in'
+    : hasMultiple
+    ? `${activeConns.length} accounts connected`
     : cardState.badge;
 
   const displayTone = isChecking || isWaitingAuth ? 'attention' : cardState.tone;
@@ -122,18 +135,46 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
           {cardState.detail}
         </p>
 
-        {/* Connected info: Signed in as {account_label} (only if non-empty) */}
-        {usable && accountLabel && (
+        {/* Connected accounts info */}
+        {usable && !hasMultiple && primaryConn && (
           <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-slate-950/70 border border-slate-800/90 text-[11px] flex items-center justify-between">
             <span className="text-slate-400">Signed in as</span>
-            <span className="text-slate-300 font-mono truncate max-w-[170px]" title={accountLabel}>
-              {accountLabel}
+            <span className="text-slate-300 font-mono truncate max-w-[170px]" title={(primaryConn as any)?.account_label || primaryConn.connection_name}>
+              {(primaryConn as any)?.account_label || primaryConn.connection_name}
             </span>
           </div>
         )}
 
+        {usable && hasMultiple && (
+          <div className="mt-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+              <span>{activeConns.length} accounts connected</span>
+              <span className="text-[#E2B53C] text-[10px] font-semibold">Active</span>
+            </div>
+            <div className="space-y-1 max-h-24 overflow-y-auto pr-0.5">
+              {activeConns.map((c) => (
+                <div
+                  key={c.id}
+                  className="px-2 py-1 rounded bg-slate-950/70 border border-slate-800/90 text-[11px] flex items-center justify-between gap-1.5"
+                >
+                  <span className="text-slate-300 font-mono truncate text-[10.5px]" title={(c as any)?.account_label || c.connection_name}>
+                    {(c as any)?.account_label || c.connection_name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onManage(provider, c)}
+                    className="text-[10px] text-slate-400 hover:text-white underline shrink-0"
+                  >
+                    Manage
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Last Checked Text */}
-        {connection && usable && (
+        {primaryConn && usable && (
           <div className="mt-2 text-[10.5px] text-slate-400">
             {lastCheckedText(connEvidence)}
           </div>
@@ -171,24 +212,34 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
             Connect
           </button>
         ) : cardState.action === 'test' ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onTest && connection && onTest(connection)}
-              disabled={isTesting}
-              className="flex-1 min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700 disabled:opacity-50"
-            >
-              {isTesting ? 'Testing...' : 'Test connection'}
-            </button>
-            <button
-              type="button"
-              onClick={() => onManage(provider, connection!)}
-              className="min-h-[40px] py-2 px-3 bg-slate-800/60 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center justify-center shrink-0"
-              title="Remove connection"
-            >
-              Remove
-            </button>
-          </>
+          <div className="w-full flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => onTest && primaryConn && onTest(primaryConn)}
+                disabled={isTesting}
+                className="flex-1 min-h-[38px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 border border-slate-700 disabled:opacity-50"
+              >
+                {isTesting ? 'Testing...' : 'Test connection'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onManage(provider, primaryConn!)}
+                className="min-h-[38px] py-2 px-3 bg-slate-800/60 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition border border-slate-700/60 flex items-center justify-center"
+              >
+                Manage
+              </button>
+            </div>
+            {provider.availability === 'available' && (
+              <button
+                type="button"
+                onClick={() => onAddAccount ? onAddAccount(provider) : onConnect(provider)}
+                className="w-full py-1.5 px-3 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white rounded-lg text-[11px] font-medium transition flex items-center justify-center gap-1"
+              >
+                + Connect another account
+              </button>
+            )}
+          </div>
         ) : cardState.action === 'reconnect' || cardState.action === 'review_permissions' || cardState.action === 'try_again' ? (
           <>
             <button

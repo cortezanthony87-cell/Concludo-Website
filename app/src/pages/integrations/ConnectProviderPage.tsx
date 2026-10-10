@@ -26,8 +26,9 @@ export const ConnectProviderPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isRequested, setIsRequested] = useState(false);
-  const [prefetchedSession, setPrefetchedSession] = useState<{ token: string; nango_integration_id: string } | null>(null);
+  const [prefetchedSession, setPrefetchedSession] = useState<{ token: string; nango_integration_id: string; connection_id?: string } | null>(null);
   const [isPrefetching, setIsPrefetching] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -104,11 +105,14 @@ export const ConnectProviderPage: React.FC = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const emailHint = accountEmail.trim();
     let session = prefetchedSession;
-    if (!session) {
+    if (!session || emailHint) {
       setStep('starting');
       try {
-        session = await integrationsHubService.startConnection(provider.id);
+        session = await integrationsHubService.startConnection(provider.id, {
+          email_hint: emailHint || undefined,
+        });
         setPrefetchedSession(session);
       } catch (err: any) {
         setStep('idle');
@@ -121,9 +125,16 @@ export const ConnectProviderPage: React.FC = () => {
     try {
       const nango = new Nango({ connectSessionToken: session.token, host: 'https://api.nango.dev' });
 
+      const authOpts: any = {
+        authorization_params: {
+          prompt: 'select_account',
+          ...(emailHint ? { login_hint: emailHint } : {}),
+        },
+      };
+
       let authSucceeded = false;
       try {
-        await nango.auth(session.nango_integration_id);
+        await nango.auth(session.nango_integration_id, authOpts);
         authSucceeded = true;
       } catch (authErr: any) {
         console.warn('Nango auth error:', authErr);
@@ -244,6 +255,26 @@ export const ConnectProviderPage: React.FC = () => {
           {panel.body.map((paragraph, idx) => (
             <p key={idx}>{paragraph}</p>
           ))}
+
+          {/* Account Email of user's choosing */}
+          {availability === 'available' && step === 'idle' && (
+            <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+              <label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
+                <span>Account email (optional)</span>
+                <span className="text-[10.5px] font-normal text-slate-400">Choose which account to use</span>
+              </label>
+              <input
+                type="email"
+                value={accountEmail}
+                onChange={(e) => setAccountEmail(e.target.value)}
+                placeholder="e.g. yourname@company.com or personal@gmail.com"
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 focus:border-[#E2B53C] rounded-lg text-xs text-white placeholder-slate-500 outline-none transition"
+              />
+              <p className="text-[11px] text-slate-400 leading-normal">
+                People may have multiple accounts. Enter the email address of your choosing to direct your sign-in to that specific account, or leave blank to choose during provider sign-in.
+              </p>
+            </div>
+          )}
 
           {availability === 'available' && panel.permissions && (
             <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-2.5">

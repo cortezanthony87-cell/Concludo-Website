@@ -47,8 +47,11 @@ export const IntegrationsPage: React.FC = () => {
 
   // Modal / Drawer State
   const [modalProvider, setModalProvider] = useState<ProviderDefinition | null>(null);
+  const [modalExistingConn, setModalExistingConn] = useState<IntegrationConnection | null>(null);
+  const [modalIsNew, setModalIsNew] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<ProviderDefinition | null>(null);
+  const [selectedConnection, setSelectedConnection] = useState<IntegrationConnection | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [testingConnectionId, setTestingConnectionId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -75,10 +78,24 @@ export const IntegrationsPage: React.FC = () => {
     loadData();
   }, []);
 
+  const connectionsByProvider = useMemo(() => {
+    const map = new Map<string, IntegrationConnection[]>();
+    for (const c of connections) {
+      if (c.status === 'disconnected') continue;
+      const list = map.get(c.provider_id) || [];
+      list.push(c);
+      map.set(c.provider_id, list);
+    }
+    return map;
+  }, [connections]);
+
   const connectionsMap = useMemo(() => {
     const map = new Map<string, IntegrationConnection>();
     for (const c of connections) {
-      map.set(c.provider_id, c);
+      if (c.status === 'disconnected') continue;
+      if (!map.has(c.provider_id) || c.status === 'connected') {
+        map.set(c.provider_id, c);
+      }
     }
     return map;
   }, [connections]);
@@ -151,13 +168,20 @@ export const IntegrationsPage: React.FC = () => {
     return groups.filter((g) => g.items.length > 0);
   }, [filteredProviders]);
 
-  const handleOpenConnect = (provider: ProviderDefinition) => {
+  const handleOpenConnect = (
+    provider: ProviderDefinition,
+    existingConn?: IntegrationConnection | null,
+    isNewAccount = false
+  ) => {
     setModalProvider(provider);
+    setModalExistingConn(existingConn || null);
+    setModalIsNew(isNewAccount);
     setIsModalOpen(true);
   };
 
   const handleOpenManage = (provider: ProviderDefinition, connection: IntegrationConnection) => {
     setSelectedProvider(provider);
+    setSelectedConnection(connection);
     setIsDrawerOpen(true);
   };
 
@@ -398,14 +422,17 @@ export const IntegrationsPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {group.items.map((provider) => {
                   const conn = connectionsMap.get(provider.id) || null;
+                  const appConns = connectionsByProvider.get(provider.id) || [];
                   const isReq = requestedAppIds.has(provider.id);
                   return (
                     <IntegrationCard
                       key={provider.id}
                       provider={provider}
                       connection={conn}
+                      connections={appConns}
                       isRequested={isReq}
-                      onConnect={handleOpenConnect}
+                      onConnect={(p) => handleOpenConnect(p, null, false)}
+                      onAddAccount={(p) => handleOpenConnect(p, null, true)}
                       onManage={handleOpenManage}
                       onTest={handleTestConnection}
                       onNotify={handleNotify}
@@ -425,8 +452,12 @@ export const IntegrationsPage: React.FC = () => {
         onClose={() => {
           setIsModalOpen(false);
           setModalProvider(null);
+          setModalExistingConn(null);
+          setModalIsNew(false);
         }}
         provider={modalProvider}
+        existingConnection={modalExistingConn}
+        isNew={modalIsNew}
         isRequested={modalProvider ? requestedAppIds.has(modalProvider.id) : false}
         onNotify={modalProvider ? () => handleNotify(modalProvider) : undefined}
         onSuccess={async () => {
@@ -434,17 +465,20 @@ export const IntegrationsPage: React.FC = () => {
         }}
       />
 
-      {/* Integration Detail Drawer (Remove) */}
+      {/* Integration Detail Drawer */}
       <IntegrationDetailDrawer
         provider={selectedProvider}
-        connection={selectedProvider ? connectionsMap.get(selectedProvider.id) || null : null}
+        connection={selectedConnection || (selectedProvider ? connectionsMap.get(selectedProvider.id) || null : null)}
+        allConnections={selectedProvider ? connectionsByProvider.get(selectedProvider.id) || [] : []}
         isOpen={isDrawerOpen}
         onClose={() => {
           setIsDrawerOpen(false);
           setSelectedProvider(null);
+          setSelectedConnection(null);
         }}
-        onConnect={handleOpenConnect}
+        onConnect={(p, conn, isNew) => handleOpenConnect(p, conn, isNew)}
         onRefresh={loadData}
+        onSelectConnection={(conn) => setSelectedConnection(conn)}
       />
 
       {/* Independence Line */}
