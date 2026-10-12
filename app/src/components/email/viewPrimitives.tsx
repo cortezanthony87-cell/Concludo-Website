@@ -103,30 +103,13 @@ export const AccountBadge: React.FC<{ accountType: 'work' | 'personal'; label?: 
 /* --------------------------------------------------------------- dates */
 
 /**
- * Dates are formatted in the account's time zone, never the browser's.
- * A deadline belongs to the person's working day, not to the machine the page
- * happens to be open on.
+ * The formatters moved to `lib/email/outputFormat.ts` in Stage 8, because the
+ * output builders need them and a library module importing a component file to
+ * get a date formatter is a dependency nobody expects. Re-exported here so
+ * every existing call site keeps working.
  */
-const ZONE = 'Australia/Melbourne';
-
-export function formatDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: ZONE });
-}
-
-export function formatDayTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString('en-AU', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: ZONE,
-  });
-}
+export { formatDay, formatDayTime, formatFullDate, ACCOUNT_TIME_ZONE } from '../../lib/email/outputFormat';
+import { formatDay, formatDayTime } from '../../lib/email/outputFormat';
 
 /**
  * A date, carrying where it came from.

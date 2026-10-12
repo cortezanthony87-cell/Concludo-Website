@@ -1,21 +1,19 @@
 /**
- * The module shell. One sidebar entry leads here; the eleven destinations are tabs.
+ * The module shell. One sidebar entry leads here; the ten destinations are tabs.
  *
  * This renders inside the existing WorkspaceLayout Outlet. It does not replace
  * the sidebar, the top bar or the mobile drawer, and it adds no second layout.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import { EMAIL_MODULE_DESTINATIONS, destinationForPath } from '../../lib/email/moduleNav';
 import { useEmailViewState, useEmailScrollMemory } from '../../lib/email/useEmailViewState';
 import { resolveAccount } from '../../lib/email/viewState';
 import { SYNTHETIC_ACCOUNTS, syntheticSyncStatus } from '../../lib/email/shellAdapter';
-import { loadUserEmailAccounts } from '../../lib/email/connectedMailboxes';
 import { EmailDashboardHeader } from './EmailDashboardHeader';
 import { LocalActionProvider } from '../../lib/email/localActions';
 import '../../styles/email-command-centre.css';
-import { EmailAccountSummary } from '../../lib/email/types';
 
 /** Resolves a lucide icon by name, falling back to a neutral mark. */
 function Icon({ name, size = 15 }: { name: string; size?: number }) {
@@ -38,30 +36,11 @@ export const EmailModuleLayout: React.FC = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [accounts, setAccounts] = useState<readonly EmailAccountSummary[]>(SYNTHETIC_ACCOUNTS);
-
-  // Dynamic connected accounts detection from Supabase integration_connections
-  useEffect(() => {
-    let mounted = true;
-    loadUserEmailAccounts().then(({ accounts: liveAccounts, hasLiveAccounts }) => {
-      if (!mounted) return;
-      if (hasLiveAccounts && liveAccounts.length > 0) {
-        setAccounts(liveAccounts);
-        // If current selected accountId is synthetic or not in live list, switch to first live account
-        if (!liveAccounts.some((a) => a.id === viewState.accountId)) {
-          setViewState({ accountId: liveAccounts[0].id });
-        }
-      }
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const { account, substituted } = useMemo(() => {
-    const resolved = resolveAccount(accounts, viewState.accountId);
+    const resolved = resolveAccount(SYNTHETIC_ACCOUNTS, viewState.accountId);
     return { account: resolved.account, substituted: resolved.substituted };
-  }, [accounts, viewState.accountId]);
+  }, [viewState.accountId]);
 
   const syncStatus = useMemo(
     () => syntheticSyncStatus(account?.id ?? viewState.accountId),
@@ -77,6 +56,8 @@ export const EmailModuleLayout: React.FC = () => {
   }, []);
 
   const handlePersonalise = useCallback(() => {
+    // Stage 2 has no persistence layer, so personalisation opens its own page
+    // rather than pretending to save a preference that nothing stores.
     window.location.assign(linkTo('/email/settings'));
   }, [linkTo]);
 
@@ -87,6 +68,9 @@ export const EmailModuleLayout: React.FC = () => {
   };
 
   return (
+    // Stage 4 adds the session-only action state. It is held at the module so
+    // a thread deferred on Needs Attention is still deferred when the person
+    // moves to the Reply Queue, and so the whole lot clears when they leave.
     <LocalActionProvider>
     <div className="ecc-module">
       <a href="#ecc-main" className="ecc-skip-link">
@@ -94,7 +78,7 @@ export const EmailModuleLayout: React.FC = () => {
       </a>
 
       <EmailDashboardHeader
-        accounts={accounts}
+        accounts={SYNTHETIC_ACCOUNTS}
         account={account}
         viewState={viewState}
         setViewState={setViewState}
