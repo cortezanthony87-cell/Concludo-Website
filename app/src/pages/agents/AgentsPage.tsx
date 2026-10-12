@@ -13,6 +13,7 @@ import { runAgent } from '../../lib/agents/agentRunner';
 import { fetchWorkflowApprovals } from '../../lib/workflows/workflowService';
 import { WorkflowApprovalRecord } from '../../lib/workflows/types';
 import { fetchIntegrations } from '../../lib/integrations/integrationClient';
+import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 import './agents-page-template.css';
 
 interface AgentEditorialCopy {
@@ -194,6 +195,9 @@ export const AgentsPage: React.FC = () => {
   const [activities, setActivities] = useState<AgentActivityRecord[]>([]);
   const [approvals, setApprovals] = useState<WorkflowApprovalRecord[]>([]);
   const [hasMailboxConnected, setHasMailboxConnected] = useState<boolean>(false);
+  const [connectedMailboxAccounts, setConnectedMailboxAccounts] = useState<any[]>([]);
+  const [showAccountSelectorModal, setShowAccountSelectorModal] = useState<boolean>(false);
+  const [selectedMailboxAccount, setSelectedMailboxAccount] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -221,7 +225,28 @@ export const AgentsPage: React.FC = () => {
       ]);
       setActivities(actData);
       setApprovals(appData);
-      const mailboxConnected = (intData as any[]).some(
+      // Query active live connected accounts from integration_connections
+      const supabase = getSupabaseBrowserClient();
+      const { data: connData } = await supabase
+        .from('integration_connections')
+        .select('id, provider_id, external_account_reference, account_label, status, created_at')
+        .in('provider_id', ['gmail', 'microsoft_outlook'])
+        .eq('status', 'connected')
+        .is('deleted_at', null);
+
+      const activeMailboxes = (connData || []).map((row: any) => ({
+        id: row.id,
+        email: row.account_label || row.external_account_reference || 'Connected account',
+        provider: row.provider_id === 'gmail' ? 'Google Workspace' : 'Microsoft 365',
+        type: (row.account_label || row.external_account_reference || '').endsWith('@gmail.com') ||
+              (row.account_label || row.external_account_reference || '').endsWith('@live.com') ||
+              (row.account_label || row.external_account_reference || '').endsWith('@outlook.com')
+                ? 'Personal'
+                : 'Work',
+      }));
+
+      setConnectedMailboxAccounts(activeMailboxes);
+      const mailboxConnected = activeMailboxes.length > 0 || (intData as any[]).some(
         (i: any) =>
           (i.provider === 'outlook_mail' || i.provider === 'gmail' || i.provider === 'mailbox') &&
           i.status === 'connected'
@@ -286,8 +311,17 @@ export const AgentsPage: React.FC = () => {
     return map;
   }, [approvals]);
 
-  const handleRunAgent = async (agentType: AgentType) => {
+  const handleRunAgent = async (agentType: AgentType, chosenAccount?: any) => {
     if (!user || executing) return;
+
+    // If running inbox_command_centre and user has multiple connected mailboxes,
+    // prompt user to choose which account to analyse unless already chosen.
+    if (agentType === 'inbox_command_centre' && !chosenAccount && connectedMailboxAccounts.length > 1) {
+      setShowAccountSelectorModal(true);
+      return;
+    }
+
+    setShowAccountSelectorModal(false);
     setRunningAgent(agentType);
     setExecuting(true);
     setRunResult(null);
@@ -297,6 +331,10 @@ export const AgentsPage: React.FC = () => {
       const result = await runAgent({
         agentType,
         userId: user.id,
+        parameters: chosenAccount ? {
+          accountId: chosenAccount.id,
+          accountEmail: chosenAccount.email,
+        } : undefined,
       });
       setRunResult(result);
       await loadPageData();
@@ -829,6 +867,15 @@ export const AgentsPage: React.FC = () => {
             )}
 
             <div style={{ marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--navy2)', display: 'flex', justifyContent: 'flex-end' }}>
+              {runResult?.agentType === 'inbox_command_centre' && (
+                <Link
+                  to="/email"
+                  className="agents-run"
+                  style={{ textDecoration: 'none', marginRight: 'auto', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  Open Email Command Centre &rarr;
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={handleCloseModal}
