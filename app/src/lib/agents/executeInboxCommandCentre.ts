@@ -6,6 +6,7 @@ import { checkWeeklyQuota } from './inboxCommandCentreService';
 import { getDataset, WORK_ACCOUNT, PERSONAL_ACCOUNT } from '../email/data';
 import { buildDashboard } from '../email/aggregation';
 import { DEMO_NOW } from '../email/data/clock';
+import { registerScanDataset } from '../email/dynamicDataset';
 
 export async function executeInboxCommandCentre(
   params: AgentRunParams,
@@ -35,7 +36,8 @@ export async function executeInboxCommandCentre(
   // 2. Query user connected mailboxes from integration_connections
   const { data: connections } = await client
     .from('integration_connections')
-    .select('id, provider_id, external_account_reference, account_label, status, created_at')
+    .select('id, provider_id, external_account_reference, account_label, status, created_at, nango_connection_id, nango_integration_id')
+    .eq('user_id', params.userId)
     .in('provider_id', ['gmail', 'microsoft_outlook'])
     .eq('status', 'connected')
     .is('deleted_at', null);
@@ -54,6 +56,60 @@ export async function executeInboxCommandCentre(
     selectedConnection = connectedList[0];
   }
 
+  // If live connection exists, call the email-scan edge function
+  if (selectedConnection && selectedConnection.status === 'connected' && selectedConnection.nango_connection_id) {
+    const { data: scanResponse, error: scanErr } = await client.functions.invoke('email-scan', {
+      body: {
+        connection_id: selectedConnection.id,
+        account_email: targetAccountEmail || selectedConnection.account_label || selectedConnection.external_account_reference,
+        limit: 20,
+      },
+    });
+
+    if (scanErr || !scanResponse?.success) {
+      const errDetail = scanResponse?.error || scanErr?.message || 'Edge function email-scan failed';
+      throw new Error(`Email scan failed: ${errDetail}`);
+    }
+
+    const scanData = scanResponse.data;
+    const rawAddress = targetAccountEmail || selectedConnection.account_label || selectedConnection.external_account_reference || 'Connected mailbox';
+    const isPers = rawAddress.endsWith('@gmail.com') || rawAddress.endsWith('@live.com') || rawAddress.endsWith('@outlook.com');
+    const acctType = isPers ? 'personal' : 'work';
+
+    // Register dynamic dataset for this live connection
+    registerScanDataset(
+      {
+        id: selectedConnection.id,
+        label: selectedConnection.provider_id === 'gmail' ? 'Google Workspace' : 'Microsoft 365',
+        address: rawAddress,
+        accountType: acctType,
+        lastSynchronisedAt: scanData.scannedAt,
+        connected: true,
+      },
+      scanData
+    );
+
+    await setAgentMemory({
+      agentType: 'inbox_command_centre',
+      memoryKey: `inbox_briefing_${acctType}_${rawAddress.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      memoryValue: scanData,
+      ownerId: params.userId,
+      teamId: params.teamId,
+      organizationId: params.organizationId,
+      admin: params.admin,
+    });
+
+    return {
+      agentType: 'inbox_command_centre',
+      status: 'completed',
+      summary: scanResponse.summary,
+      data: scanData,
+      requiresApproval: false,
+      executionDurationMs: 0,
+    };
+  }
+
+  // Fallback for demo/synthetic mode
   const emailAddress = selectedConnection?.account_label || selectedConnection?.external_account_reference || 'you@your-practice.example';
   const isPersonal = emailAddress.endsWith('@gmail.com') || emailAddress.endsWith('@live.com') || emailAddress.endsWith('@outlook.com');
   const accountType = isPersonal ? 'personal' : 'work';

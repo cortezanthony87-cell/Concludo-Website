@@ -57,7 +57,9 @@ export function useEmailScrollMemory(scrollRef: React.RefObject<HTMLElement>): v
   const previousPath = useRef<string | null>(null);
 
   useEffect(() => {
-    const element = scrollRef.current;
+    const targetElement =
+      document.querySelector<HTMLElement>('.main-content-area') || scrollRef.current;
+    const element = targetElement;
     const leaving = previousPath.current;
 
     if (leaving && element) rememberScroll(leaving, element.scrollTop);
@@ -72,7 +74,9 @@ export function useEmailScrollMemory(scrollRef: React.RefObject<HTMLElement>): v
   }, [location.pathname, scrollRef]);
 
   useEffect(() => {
-    const element = scrollRef.current;
+    const targetElement =
+      document.querySelector<HTMLElement>('.main-content-area') || scrollRef.current;
+    const element = targetElement;
     return () => {
       if (element && previousPath.current) rememberScroll(previousPath.current, element.scrollTop);
     };

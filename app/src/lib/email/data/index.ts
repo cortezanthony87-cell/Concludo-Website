@@ -218,7 +218,11 @@ const BY_ID: Readonly<Record<string, AccountDataset>> = {
  * A silent fallback here would show one person's work inbox under another
  * account's name, which is the single worst thing this module could do.
  */
+import { getDynamicDataset } from '../dynamicDataset';
+
 export function datasetFor_(accountId: string): AccountDataset | null {
+  const dynamic = getDynamicDataset(accountId);
+  if (dynamic) return dynamic;
   return BY_ID[accountId] ?? null;
 }
 

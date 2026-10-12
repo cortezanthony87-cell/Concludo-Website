@@ -6,6 +6,7 @@ export interface UserConnectedMailbox {
   id: string;
   providerId: 'gmail' | 'microsoft_outlook';
   emailAddress: string;
+  connectionId: string;
   label: string;
   accountType: EmailAccountType;
   connectedAt: string;
@@ -17,7 +18,7 @@ export interface UserConnectedMailbox {
  * and preserves exact user email display in the account selector.
  */
 export async function loadUserEmailAccounts(): Promise<{
-  accounts: EmailAccountSummary[];
+  accounts: (EmailAccountSummary & { connectionId?: string })[];
   hasLiveAccounts: boolean;
   userEmail: string | null;
 }> {
@@ -40,21 +41,21 @@ export async function loadUserEmailAccounts(): Promise<{
       return { accounts: [...SYNTHETIC_ACCOUNTS], hasLiveAccounts: false, userEmail: user.email || null };
     }
 
-    const liveAccounts: EmailAccountSummary[] = (data as any[]).map((row) => {
-      const email = row.account_label || row.external_account_reference || 'Connected mailbox';
-      const isPersonal = email.endsWith('@gmail.com') || email.endsWith('@live.com') || email.endsWith('@outlook.com') || email.endsWith('@hotmail.com');
+    const liveAccounts: (EmailAccountSummary & { connectionId?: string })[] = (data as any[]).map((row) => {
+      const rawEmail = (row.account_label || row.external_account_reference || '').trim();
+      const email = rawEmail && rawEmail.includes('@') ? rawEmail : (user.email || 'Connected mailbox');
+      const isPersonal = email.toLowerCase().endsWith('@gmail.com') || email.toLowerCase().endsWith('@live.com') || email.toLowerCase().endsWith('@outlook.com') || email.toLowerCase().endsWith('@hotmail.com');
       const accountType: EmailAccountType = isPersonal ? 'personal' : 'work';
       const providerLabel = row.provider_id === 'gmail' ? 'Google Workspace' : 'Microsoft 365';
 
-      const mappedDatasetId = accountType === 'personal' ? 'acct-personal-01' : 'acct-work-01';
-
       return {
-        id: mappedDatasetId,
+        id: row.id,
         label: `${providerLabel} (${accountType === 'work' ? 'Work' : 'Personal'})`,
         address: email,
         accountType,
         lastSynchronisedAt: row.created_at,
         connected: true,
+        connectionId: row.id,
       };
     });
 

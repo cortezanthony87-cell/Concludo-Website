@@ -46,6 +46,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding-top: 8px;
+  box-sizing: border-box;
   font-family: var(--font-body);
   color: var(--text-primary);
 }
@@ -120,7 +122,7 @@
 /* ------------------------------------------------------------------- header */
 
 .ecc-header {
-  padding: 0 0 var(--ecc-gap);
+  padding: 4px 0 var(--ecc-gap);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -4046,4 +4048,187 @@
   .ecc-overview-foot .ecc-text-button {
     min-height: 44px;
   }
+}
+
+/* ----------------------------------------------------------- Scan emails */
+
+.ecc-scan-emails-btn {
+  background-color: var(--gold-500, #e2b53c);
+  color: #060a12;
+  padding: 8px 16px;
+  font-size: 0.84rem;
+  cursor: pointer;
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-scan-emails-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Modal styles for Inbox Command Centre Agent scanning */
+.ecc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 10, 18, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ecc-modal-box {
+  background: var(--navy-800, #16263f);
+  border: 1px solid var(--border-gold, rgba(226, 181, 60, 0.3));
+  border-radius: var(--ecc-radius-card);
+  max-width: 620px;
+  width: 100%;
+  padding: 28px;
+  position: relative;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
+  color: var(--text-primary);
+}
+
+.ecc-modal-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.ecc-modal-close:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ecc-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ecc-modal-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(226, 181, 60, 0.15);
+  border: 1px solid var(--gold-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold-400);
+  flex-shrink: 0;
+}
+
+.ecc-modal-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+
+.ecc-modal-subtitle {
+  font-size: 0.82rem;
+  color: var(--ecc-text-quiet);
+  margin: 0;
+}
+
+.ecc-modal-loading {
+  text-align: center;
+  padding: 32px 0;
+}
+
+.ecc-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(226, 181, 60, 0.2);
+  border-top-color: var(--gold-400);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.ecc-scan-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.ecc-scan-metric-card {
+  background: rgba(9, 14, 26, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+  padding: 12px 14px;
+}
+
+.ecc-scan-metric-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ecc-text-quiet);
+  margin-bottom: 4px;
+}
+
+.ecc-scan-metric-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gold-400);
+}
+
+.ecc-scan-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 16px 0;
+}
+
+.ecc-scan-action-item {
+  background: rgba(9, 14, 26, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+  padding: 10px 12px;
+}
+
+.ecc-scan-action-title {
+  font-weight: 600;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.ecc-scan-action-desc {
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
 }

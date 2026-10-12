@@ -6,7 +6,7 @@
  * and carries a word as well as a colour.
  */
 import React from 'react';
-import { RefreshCw, Search, SlidersHorizontal, Settings2, Briefcase, House } from 'lucide-react';
+import { RefreshCw, Search, SlidersHorizontal, Settings2, Briefcase, House, Sparkles } from 'lucide-react';
 import {
   EmailAccountSummary,
   EmailViewState,
@@ -27,6 +27,8 @@ interface Props {
   onPersonalise: () => void;
   /** True when the requested account was missing and another was used. */
   accountSubstituted: boolean;
+  onScanEmails?: () => void;
+  isScanning?: boolean;
 }
 
 function syncText(status: EmailSyncStatus): string {
@@ -52,6 +54,8 @@ export const EmailDashboardHeader: React.FC<Props> = ({
   refreshing,
   onPersonalise,
   accountSubstituted,
+  onScanEmails,
+  isScanning = false,
 }) => {
   const isWork = account?.accountType === 'work';
 
@@ -185,6 +189,19 @@ export const EmailDashboardHeader: React.FC<Props> = ({
         </div>
 
         <div className="ecc-control ecc-control-buttons">
+          {onScanEmails && (
+            <button
+              type="button"
+              className="btn-gold ecc-scan-emails-btn"
+              onClick={onScanEmails}
+              disabled={isScanning}
+              aria-label={isScanning ? 'Inbox Command Centre Agent scanning emails...' : 'Scan emails with Inbox Command Centre Agent'}
+            >
+              <Sparkles size={14} aria-hidden="true" className={isScanning ? 'ecc-spin' : undefined} />
+              <span>{isScanning ? 'Scanning emails...' : 'Scan emails'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             className="btn-secondary ecc-icon-button"
