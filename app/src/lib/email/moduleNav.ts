@@ -64,10 +64,11 @@ export const EMAIL_MODULE_DESTINATIONS: readonly EmailModuleDestination[] = [
     accessibleDescription: 'All Email. Every analysed thread in the selected account.',
   },
   {
-    path: '/email/drafts',
-    label: 'Drafts',
-    iconName: 'FilePen',
-    accessibleDescription: 'Drafts. Replies prepared for your approval. Nothing is sent from here.',
+    path: '/email/outputs',
+    label: 'Outputs',
+    iconName: 'FileOutput',
+    accessibleDescription:
+      'Outputs. Finished documents built from a conversation, and the replies prepared for your review. Nothing is sent from here.',
   },
   {
     path: '/email/security-review',
