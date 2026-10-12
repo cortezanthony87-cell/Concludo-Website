@@ -1,0 +1,3298 @@
+/**
+ * Email Command Centre styles.
+ *
+ * Adaptation, recorded. The Stage 2 brief lists a light palette: soft background
+ * #F4F6FA, white #FFFFFF, border grey #D5DBE6, muted text #5A6478. The Workspace
+ * is dark: index.css sets --bg-deep #060a12 and --text-primary #f8fafc. Those
+ * four values are the Concludo document and print palette, not the application
+ * surface. Anthony confirmed the dark theme on 12 October 2026, so this file
+ * reads the existing tokens and introduces no light surface.
+ *
+ * It is a separate file rather than an addition to index.css, so the module can
+ * be reviewed, moved or removed without touching a 1,710 line shared stylesheet
+ * that every other page depends on.
+ *
+ * Every selector is prefixed .ecc- and nothing here is global, with one
+ * deliberate exception noted at the end.
+ */
+
+.ecc-module {
+  /* Local tokens. Navy, gold, Poppins and Inter already exist in index.css and
+     are reused rather than redeclared. These are the two status colours the
+     Workspace does not yet have, plus the module's own geometry. */
+  --ecc-attention: #f3c958;        /* amber, 8.9:1 on the deep ground */
+  --ecc-attention-bg: #2a2008;
+  --ecc-attention-border: #5c4310;
+  --ecc-alert: #f87171;            /* red, 6.4:1 on the deep ground */
+  --ecc-alert-bg: #2b1113;
+  --ecc-alert-border: #6b2326;
+  --ecc-done: var(--emerald-400);
+  --ecc-done-bg: #07251b;
+  --ecc-done-border: #0d4733;
+
+  /* Quiet text. The Workspace --text-muted (#64748b) measures 4.05:1 on the
+     base ground and 3.41:1 on an elevated card, so it fails WCAG 2.2 AA for
+     body text wherever this module puts it. This value holds 4.77:1 or better
+     on every surface the module uses and still reads as secondary.
+     Recommend auditing --text-muted across the rest of the application; the
+     same failure will exist on every page that uses it for small text. */
+  --ecc-text-quiet: #8593a9;
+
+  --ecc-radius-card: 12px;
+  --ecc-radius-control: 8px;
+  --ecc-gap: 20px;
+  --ecc-gutter: 24px;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- utilities */
+
+.ecc-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ecc-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 20;
+  padding: 10px 16px;
+  background: var(--gold-500);
+  color: var(--navy-900);
+  font-weight: 600;
+  border-radius: 0 0 var(--ecc-radius-control) 0;
+  text-decoration: none;
+}
+.ecc-skip-link:focus {
+  left: 0;
+}
+
+/* Focus. index.css has no :focus-visible rule at all, so the module brings its
+   own. Scoped deliberately: rolling it out application wide is a separate
+   change that touches every page and needs its own review. */
+.ecc-module :focus-visible {
+  outline: 2px solid var(--gold-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+  /* A DEFECT FOUND BY THE STAGE 7 KEYBOARD TEST.
+     index.css puts `transition: all 0.2s ease` on .btn-secondary, which the
+     module reuses for the three header buttons. That transition includes the
+     outline, so the focus ring faded in over 200 ms: measured immediately
+     after a Tab keypress, the focused button had an outline width of 0. For
+     somebody moving quickly through a form with the keyboard, the ring is
+     behind them. It is also motion that a person who asked for less of it did
+     not ask for. Focus is not a decorative state and does not animate. */
+  transition: none;
+}
+
+.ecc-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--gold-400);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+.ecc-text-button:hover {
+  color: var(--gold-300);
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------- header */
+
+.ecc-header {
+  padding: 0 0 var(--ecc-gap);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ecc-header-titles {
+  margin-bottom: 18px;
+}
+
+.ecc-substituted {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--ecc-radius-control);
+  background: var(--ecc-attention-bg);
+  border: 1px solid var(--ecc-attention-border);
+  color: var(--ecc-attention);
+  font-size: 0.82rem;
+}
+
+.ecc-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px 18px;
+  align-items: end;
+}
+
+.ecc-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ecc-control-account {
+  grid-column: span 2;
+}
+
+.ecc-control-search {
+  grid-column: span 2;
+}
+
+.ecc-control-buttons {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: span 2;
+}
+
+.ecc-control-label {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold-600);
+}
+
+.ecc-control-note {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-select,
+.ecc-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--ecc-radius-control);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.ecc-select:hover,
+.ecc-input:hover {
+  border-color: var(--border-gold);
+}
+
+.ecc-account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ecc-account-row .ecc-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.ecc-account-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ecc-account-work {
+  color: var(--gold-400);
+  background: var(--ecc-attention-bg);
+  border-color: var(--ecc-attention-border);
+}
+.ecc-account-personal {
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-glass);
+}
+
+.ecc-search-wrap {
+  position: relative;
+}
+.ecc-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ecc-text-quiet);
+  pointer-events: none;
+}
+.ecc-search-wrap .ecc-input {
+  padding-left: 32px;
+}
+
+.ecc-icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+}
+
+.ecc-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--gold-500);
+  color: var(--navy-900);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.ecc-sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+}
+.ecc-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.ecc-sync-synchronised { background: var(--emerald-400); }
+.ecc-sync-synchronising { background: var(--gold-500); }
+.ecc-sync-error { background: var(--ecc-alert); }
+
+/* --------------------------------------------------------------------- tabs */
+
+.ecc-tabs {
+  margin: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ecc-tab-list {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.ecc-tab-list::-webkit-scrollbar {
+  display: none;
+}
+
+.ecc-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 14px;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.83rem;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.ecc-tab:hover {
+  color: var(--text-primary);
+}
+.ecc-tab-active {
+  color: var(--gold-400);
+  border-bottom-color: var(--gold-500);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------- main */
+
+.ecc-main {
+  flex: 1;
+  min-height: 0;
+  padding: var(--ecc-gutter) 0 0;
+}
+.ecc-main:focus {
+  outline: none;
+}
+
+.ecc-foot-note {
+  margin: 28px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+}
+
+/* ------------------------------------------------------------------ metrics */
+
+.ecc-metrics-section {
+  margin-bottom: var(--ecc-gutter);
+}
+
+.ecc-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--ecc-gap);
+}
+
+.ecc-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 118px;
+  padding: 16px 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-card);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease-out, background 0.15s ease-out;
+}
+.ecc-metric-card:hover {
+  border-color: var(--border-gold);
+  background: var(--bg-surface-elevated);
+}
+
+.ecc-metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ecc-metric-label {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.ecc-metric-flag {
+  color: var(--ecc-attention);
+}
+
+.ecc-metric-value {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+}
+
+.ecc-metric-number {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.9rem;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.ecc-metric-zero {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-metric-explanation {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-metric-attention {
+  border-color: var(--ecc-attention-border);
+  background: linear-gradient(180deg, var(--ecc-attention-bg) 0%, var(--bg-surface) 70%);
+}
+.ecc-metric-attention .ecc-metric-number {
+  color: var(--ecc-attention);
+}
+
+.ecc-metric-error {
+  border-color: var(--ecc-alert-border);
+}
+
+/* ------------------------------------------------------------------- panels */
+
+.ecc-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--ecc-gap);
+}
+
+.ecc-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-card);
+  padding: 18px 20px 20px;
+  min-height: 190px;
+}
+
+.ecc-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.ecc-panel-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
+.ecc-panel-description {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ecc-text-quiet);
+  max-width: 52ch;
+}
+
+.ecc-panel-link {
+  flex: 0 0 auto;
+}
+
+/* --------------------------------------------------------------------- rows */
+
+.ecc-row-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.ecc-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.ecc-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ecc-row-main {
+  min-width: 0;
+}
+
+.ecc-row-sender {
+  margin: 0 0 2px;
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-row-subject {
+  margin: 0 0 4px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.ecc-row-summary {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  max-width: 62ch;
+}
+
+.ecc-row-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ecc-row-reasons li {
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+.ecc-row-reasons li::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--gold-600);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.ecc-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.ecc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ecc-tone-attention {
+  color: var(--ecc-attention);
+  background: var(--ecc-attention-bg);
+  border-color: var(--ecc-attention-border);
+}
+.ecc-tone-alert {
+  color: var(--ecc-alert);
+  background: var(--ecc-alert-bg);
+  border-color: var(--ecc-alert-border);
+}
+.ecc-tone-done {
+  color: var(--ecc-done);
+  background: var(--ecc-done-bg);
+  border-color: var(--ecc-done-border);
+}
+.ecc-tone-quiet {
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-glass);
+}
+
+.ecc-row-score {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.ecc-row-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-inferred-mark {
+  color: var(--gold-600);
+}
+
+/* ------------------------------------------------------------------- states */
+
+.ecc-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 0 4px;
+}
+
+.ecc-state-message {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.ecc-state-note {
+  margin: 4px 0 0;
+  font-size: 0.74rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-empty-icon {
+  color: var(--emerald-400);
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.ecc-error-icon {
+  color: var(--ecc-alert);
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.ecc-state-error {
+  padding: 12px 14px;
+  border-radius: var(--ecc-radius-control);
+  background: var(--ecc-alert-bg);
+  border: 1px solid var(--ecc-alert-border);
+}
+.ecc-state-error .ecc-state-message {
+  color: var(--ecc-alert);
+}
+
+.ecc-skeleton-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ecc-skeleton-row {
+  height: 11px;
+  border-radius: 4px;
+  background: var(--bg-surface-elevated);
+}
+.ecc-skeleton-row:nth-child(2) { width: 82%; }
+.ecc-skeleton-row:nth-child(3) { width: 64%; }
+
+.ecc-spin {
+  animation: ecc-rotate 0.9s linear infinite;
+  color: var(--gold-500);
+}
+@keyframes ecc-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------- inner page */
+
+.ecc-page-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.3rem;
+  margin: 0 0 6px;
+}
+
+.ecc-page-description {
+  margin: 0 0 18px;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  max-width: 72ch;
+}
+
+.ecc-placeholder {
+  padding: 22px;
+}
+
+.ecc-placeholder-account {
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+}
+
+/* ----------------------------------------------------------------- settings */
+
+.ecc-settings-card {
+  padding: 20px 22px;
+  margin-bottom: var(--ecc-gap);
+}
+
+.ecc-settings-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.98rem;
+  margin: 0 0 14px;
+}
+
+.ecc-settings-note {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  color: var(--ecc-text-quiet);
+  max-width: 76ch;
+}
+
+.ecc-account-list,
+.ecc-rule-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ecc-account-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.ecc-account-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ecc-account-name {
+  font-size: 0.86rem;
+  margin-right: auto;
+}
+
+.ecc-account-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-rule-list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+.ecc-rule-list svg {
+  color: var(--emerald-400);
+  flex: 0 0 auto;
+}
+
+/* ------------------------------------------------------- review controls */
+
+.ecc-demo-switch {
+  margin-top: var(--ecc-gutter);
+  padding: 16px 20px;
+  border: 1px dashed var(--border-glass);
+  border-radius: var(--ecc-radius-card);
+  background: rgba(14, 23, 41, 0.5);
+}
+
+.ecc-demo-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.82rem;
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+}
+
+.ecc-demo-note {
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+  max-width: 78ch;
+}
+
+.ecc-demo-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ecc-demo-active {
+  border-color: var(--gold-500) !important;
+  color: var(--gold-400) !important;
+}
+
+/* --------------------------------------------------------------- responsive */
+
+/* Tablet. Two columns of metrics, panels stay two across. */
+@media (max-width: 1280px) {
+  .ecc-metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* The Workspace layout breakpoint. The sidebar becomes a drawer at 900px, so
+   the module collapses to one column at the same point rather than adding an
+   eighth breakpoint to the application. */
+@media (max-width: 900px) {
+  .ecc-module {
+    --ecc-gap: 14px;
+    --ecc-gutter: 18px;
+  }
+
+  .ecc-controls {
+    grid-template-columns: 1fr;
+  }
+  .ecc-control-account,
+  .ecc-control-search,
+  .ecc-control-buttons {
+    grid-column: span 1;
+  }
+  .ecc-control-buttons .btn-secondary {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .ecc-metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ecc-panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Mobile ordering, per the brief: Handle First, Replies, Deadlines,
+     Quick Wins and Waiting come first. Panels carry .ecc-panel-priority. */
+  .ecc-panel-priority {
+    order: -1;
+  }
+
+  .ecc-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ecc-row-meta {
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    gap: 10px;
+  }
+
+  .ecc-tab {
+    padding: 12px;
+    min-height: 44px;
+  }
+}
+
+/* Phone. The metrics stay two across rather than becoming eight full-width
+   cards: a count is read by scanning, and a single column pushes the panels,
+   which are the actual work, roughly a screen and a half further down. */
+@media (max-width: 520px) {
+  .ecc-metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .ecc-metric-card {
+    min-height: 0;
+    padding: 14px 14px 16px;
+  }
+}
+
+/* Below this the two columns would be about 150px wide, which starts breaking
+   the longer card titles across three lines. One column is the better trade. */
+@media (max-width: 359px) {
+  .ecc-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Text scaling. Nothing in the module is sized in px for type, and no container
+   has a fixed height, so a 200 per cent zoom reflows rather than clipping. */
+
+/* Reduced motion. index.css has no prefers-reduced-motion block, and uses
+   .spin-animation in several places. This is the one deliberate global rule in
+   this file, because honouring the setting only inside one module while the
+   rest of the application keeps spinning is not honouring it.
+   Recommend promoting this to index.css in a separate change. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===================================================================
+   STAGE 4: the eight operational views.
+
+   Added below rather than interleaved, so the Stage 2 shell styles stay
+   reviewable on their own. Every selector is still .ecc- prefixed and
+   nothing here is global.
+   =================================================================== */
+
+/* ------------------------------------------------------- view scaffold */
+
+.ecc-view-head {
+  margin-bottom: 18px;
+}
+
+.ecc-view-account {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-view-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px var(--ecc-gutter);
+  margin-bottom: 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-card);
+}
+
+.ecc-view-count {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-legend-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.ecc-legend-warn {
+  padding: 10px 12px;
+  color: var(--ecc-attention);
+  background: var(--ecc-attention-bg);
+  border: 1px solid var(--ecc-attention-border);
+  border-radius: var(--ecc-radius-control);
+}
+
+/* ------------------------------------------------------------- chips */
+
+.ecc-chips,
+.ecc-style-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ecc-chips-legend {
+  padding: 0;
+  font-family: var(--font-heading);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-500);
+}
+
+.ecc-chips-note {
+  margin: 4px 0 10px;
+  font-size: 0.74rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ecc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.ecc-chip:hover {
+  color: var(--text-primary);
+  border-color: var(--gold-700);
+}
+
+/* A pressed chip differs by background, border, weight and a tick, never by
+   colour alone. */
+.ecc-chip-on {
+  font-weight: 600;
+  color: var(--navy-900);
+  background: var(--gold-500);
+  border-color: var(--gold-500);
+}
+
+.ecc-chip-count {
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+}
+
+.ecc-chip-on .ecc-chip-count {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.ecc-chip-clear {
+  margin-left: 4px;
+}
+
+/* -------------------------------------------------------------- cards */
+
+.ecc-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ecc-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-card {
+  padding: 18px var(--ecc-gutter);
+}
+
+.ecc-card-flagged {
+  border-left: 3px solid var(--ecc-attention);
+}
+
+.ecc-card-security {
+  border-left: 3px solid var(--ecc-alert);
+}
+
+.ecc-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ecc-card-identity {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.ecc-card-sender {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 3px;
+  font-size: 0.78rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-card-address {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.ecc-card-subject {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.ecc-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.ecc-card-summary {
+  margin: 0 0 14px;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.ecc-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ecc-card-consequence {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ecc-attention);
+}
+
+/* -------------------------------------------------------------- fields */
+
+.ecc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.ecc-field-inline {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ecc-field-label {
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-500);
+}
+
+.ecc-field-value {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.ecc-reason-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.ecc-reason-list li + li {
+  margin-top: 3px;
+}
+
+.ecc-commitments li {
+  color: var(--ecc-attention);
+}
+
+/* ----------------------------------------------------- date and chips */
+
+.ecc-date-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-date-origin {
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: var(--ecc-text-quiet);
+}
+
+/* A suggested date is marked by a border, a background, an icon and the words
+   "Suggested date, confirm". Remove any one of the four and it still reads. */
+.ecc-date-suggested {
+  color: var(--ecc-attention);
+  background: var(--ecc-attention-bg);
+  border-color: var(--ecc-attention-border);
+  border-style: dashed;
+}
+
+.ecc-date-suggested .ecc-date-origin {
+  font-weight: 600;
+  color: var(--ecc-attention);
+}
+
+.ecc-date-user-created {
+  border-style: dotted;
+}
+
+.ecc-date-none {
+  font-size: 0.74rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-confidence {
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-confidence-low {
+  color: var(--ecc-attention);
+}
+
+.ecc-attach-chip,
+.ecc-draft-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-attach-awaiting {
+  font-weight: 600;
+  color: var(--ecc-attention);
+}
+
+.ecc-draft-available {
+  color: var(--emerald-400);
+}
+
+.ecc-draft-withheld-for-safety,
+.ecc-draft-clarification-required {
+  color: var(--ecc-attention);
+}
+
+/* ----------------------------------------------------------- warnings */
+
+.ecc-warning {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--ecc-radius-control);
+  border: 1px solid;
+}
+
+.ecc-warning-security {
+  color: var(--ecc-alert);
+  background: var(--ecc-alert-bg);
+  border-color: var(--ecc-alert-border);
+}
+
+.ecc-warning-sensitive {
+  color: var(--ecc-attention);
+  background: var(--ecc-attention-bg);
+  border-color: var(--ecc-attention-border);
+}
+
+.ecc-warning-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-family: var(--font-heading);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ecc-warning-text,
+.ecc-warning-check {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.ecc-warning-check {
+  margin-top: 6px;
+}
+
+/* ------------------------------------------------------------ actions */
+
+.ecc-actions {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ecc-actions-toggle {
+  min-height: 34px;
+  font-size: 0.78rem;
+}
+
+.ecc-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* Found in a screenshot review: a `display` rule beats the `hidden` attribute,
+   so the collapsed action group was invisible to a screen reader and fully
+   visible to everyone else. The two must agree, or `aria-expanded` is lying to
+   one of them. */
+.ecc-action-group[hidden] {
+  display: none;
+}
+
+.ecc-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 11px;
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+  cursor: pointer;
+}
+
+.ecc-action:hover {
+  color: var(--text-primary);
+  border-color: var(--gold-700);
+}
+
+.ecc-action-on {
+  font-weight: 600;
+  color: var(--navy-900);
+  background: var(--gold-500);
+  border-color: var(--gold-500);
+}
+
+.ecc-action-state {
+  margin: 10px 0 0;
+  font-size: 0.74rem;
+  color: var(--ecc-attention);
+}
+
+.ecc-suggestions {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+}
+
+.ecc-suggestions li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 10px;
+  margin-top: 6px;
+  background: var(--bg-surface-elevated);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-suggestion-kind {
+  font-family: var(--font-heading);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-500);
+}
+
+.ecc-suggestion-text {
+  flex: 1 1 200px;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------- actions & deadlines */
+
+.ecc-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ecc-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  font-family: var(--font-heading);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.ecc-group-overdue {
+  color: var(--ecc-alert);
+}
+
+.ecc-group-today {
+  color: var(--ecc-attention);
+}
+
+.ecc-group-count {
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+}
+
+.ecc-group-note {
+  margin: 0 0 10px;
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-dated-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-dated {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 13px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-dated-explicit-email {
+  border-left-color: var(--gold-700);
+}
+
+.ecc-dated-suggested {
+  border-left-color: var(--ecc-attention);
+  border-left-style: dashed;
+}
+
+.ecc-dated-user-created {
+  border-left-color: var(--emerald-400);
+  border-left-style: dotted;
+}
+
+.ecc-dated-main {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.ecc-dated-description {
+  margin: 0 0 3px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-dated-thread,
+.ecc-dated-consequence,
+.ecc-dated-blocked {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-dated-consequence {
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+
+.ecc-dated-blocked {
+  margin-top: 4px;
+  color: var(--ecc-attention);
+}
+
+.ecc-dated-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ----------------------------------------------------------- waiting */
+
+.ecc-waiting-status {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.ecc-ownership {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-ownership-basis {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ecc-text-quiet);
+}
+
+/* -------------------------------------------------------- quick wins */
+
+.ecc-high-consequence {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--ecc-attention);
+  background: var(--ecc-attention-bg);
+  border: 1px solid var(--ecc-attention-border);
+  border-radius: var(--ecc-radius-control);
+}
+
+/* ------------------------------------------------------------ drafts */
+
+.ecc-draft-block {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-draft-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.ecc-draft-style-note {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-draft-body {
+  margin: 0;
+  padding: 14px;
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+  overflow-x: auto;
+}
+
+.ecc-draft-withheld {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--ecc-attention);
+}
+
+.ecc-attach-reminder {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ecc-attention);
+}
+
+.ecc-safety-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--emerald-400);
+  border-radius: var(--ecc-radius-control);
+}
+
+/* --------------------------------------------------- security review */
+
+.ecc-disclaimer {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  background: var(--ecc-alert-bg);
+  border: 1px solid var(--ecc-alert-border);
+  border-radius: var(--ecc-radius-card);
+}
+
+.ecc-disclaimer-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ecc-alert);
+}
+
+.ecc-disclaimer-sub {
+  margin: 6px 0 0 23px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.ecc-severity-high {
+  color: var(--ecc-alert);
+  background: var(--ecc-alert-bg);
+  border: 1px solid var(--ecc-alert-border);
+}
+
+.ecc-severity-medium {
+  color: var(--ecc-attention);
+  background: var(--ecc-attention-bg);
+  border: 1px solid var(--ecc-attention-border);
+}
+
+.ecc-severity-low {
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.ecc-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-category {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 8px 11px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+/* No text-transform. These are the nine category names as the brief words
+   them, and `capitalize` was quietly rendering "Bank-detail change" as
+   "Bank-detail Change". A label a person is meant to recognise should not be
+   rewritten by a stylesheet. */
+.ecc-category-label {
+  font-family: var(--font-heading);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ecc-category-meaning {
+  flex: 1 1 260px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-security-explanation {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.ecc-security-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-category-reference {
+  margin-top: var(--ecc-gap);
+  padding: 18px var(--ecc-gutter);
+}
+
+/* -------------------------------------------------------- all email */
+
+.ecc-all-controls {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 14px;
+}
+
+.ecc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.ecc-table caption {
+  text-align: left;
+}
+
+.ecc-table th,
+.ecc-table td {
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ecc-table thead th {
+  padding: 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--gold-700);
+}
+
+.ecc-sort-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 42px;
+  padding: 11px 12px;
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--gold-500);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.ecc-sort-button:hover {
+  color: var(--text-primary);
+}
+
+.ecc-sort-idle {
+  opacity: 0.4;
+}
+
+.ecc-table tbody tr:hover {
+  background: var(--bg-surface);
+}
+
+.ecc-table-subject {
+  font-weight: 400;
+}
+
+.ecc-table-subject-text {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-table-summary {
+  display: block;
+  margin-top: 3px;
+  max-width: 46ch;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-table-sender {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.ecc-table-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--ecc-text-quiet);
+}
+
+/* The phone view. Hidden on desktop; the table is hidden below 900px. */
+.ecc-table-cards {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-table-card {
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.ecc-table-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ecc-table-card-sender {
+  margin: 0 0 2px;
+  font-size: 0.76rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-table-card-subject {
+  margin: 0 0 5px;
+  font-family: var(--font-heading);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.ecc-table-card-summary {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.ecc-table-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+}
+
+.ecc-table-card-last {
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ecc-pagination-count,
+.ecc-pagination-position {
+  margin: 0;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-pagination-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ecc-pagination-buttons .btn-secondary {
+  min-height: 38px;
+}
+
+.ecc-pagination-buttons .btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------- stage 4 responsive */
+
+@media (max-width: 1100px) {
+  .ecc-all-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  /* The table becomes cards. Six columns at phone width is a horizontal
+     scroll with a table in it, which is not a table anybody reads. */
+  .ecc-table {
+    display: none;
+  }
+  .ecc-table-cards {
+    display: block;
+  }
+
+  .ecc-card-top {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ecc-dated {
+    flex-direction: column;
+  }
+
+  /* Found by the browser tests: the header selects were 40px and the search
+     input 41px at phone width, under the 44px target minimum. Every control
+     in the module is raised here rather than per component, so a control
+     added later inherits the rule instead of missing it. */
+  .ecc-action,
+  .ecc-chip,
+  .ecc-actions-toggle,
+  .ecc-select,
+  .ecc-input,
+  .ecc-sort-button {
+    min-height: 44px;
+  }
+
+  .ecc-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ecc-pagination-buttons {
+    justify-content: space-between;
+  }
+  .ecc-pagination-buttons .btn-secondary {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .ecc-card {
+    padding: 15px 16px;
+  }
+  .ecc-action-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ecc-action {
+    justify-content: flex-start;
+  }
+  .ecc-draft-body {
+    font-size: 0.8rem;
+  }
+}
+
+/* ===================================================================
+   STAGE 5: the Thread Intelligence workspace and Draft Review.
+   =================================================================== */
+
+.ecc-workspace-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ecc-thread-head {
+  margin-bottom: 14px;
+}
+
+.ecc-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* ------------------------------------------------------ three columns */
+
+.ecc-workspace {
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) minmax(420px, 1.9fr) minmax(380px, 1.6fr);
+  gap: var(--ecc-gap);
+  align-items: start;
+  min-height: 0;
+}
+
+.ecc-col {
+  min-width: 0;
+  padding: 16px var(--ecc-gutter);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-card);
+  /* Each column scrolls on its own so the three stay aligned at the top and a
+     long conversation does not push the analysis off the bottom of the page.
+
+     The cap is expressed in rem against the viewport rather than as a fixed
+     pixel subtraction, because the subtraction was a guess at the module
+     header's height and would clip content the day that header changed. The
+     floor stops a short viewport from collapsing a column to nothing, and
+     `scrollbar-gutter` keeps the text from shifting when a scrollbar appears. */
+  max-height: calc(100vh - 14rem);
+  min-height: 20rem;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.ecc-column-title {
+  margin: 0 0 4px;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-500);
+}
+
+.ecc-column-note {
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--ecc-text-quiet);
+}
+
+/* The pane switcher is hidden where all three columns are visible at once. */
+.ecc-pane-switch {
+  display: none;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.ecc-pane-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+  cursor: pointer;
+}
+
+.ecc-pane-tab-active {
+  font-weight: 600;
+  color: var(--navy-900);
+  background: var(--gold-500);
+  border-color: var(--gold-500);
+}
+
+/* ---------------------------------------------------- left: thread list */
+
+.ecc-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-thread-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  text-decoration: none;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-thread-item:hover {
+  border-color: var(--gold-700);
+}
+
+.ecc-thread-item-current {
+  border-left-color: var(--gold-500);
+  background: var(--bg-base);
+}
+
+.ecc-thread-sender {
+  font-size: 0.72rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-thread-subject {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.ecc-thread-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.ecc-thread-date {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ecc-text-quiet);
+}
+
+/* ------------------------------------------------ centre: conversation */
+
+.ecc-selection-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  background: var(--ecc-attention-bg);
+  border: 1px solid var(--ecc-attention-border);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-selection-text {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ecc-attention);
+}
+
+.ecc-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-message {
+  padding: 13px 15px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-message-own {
+  background: var(--bg-base);
+}
+
+/* The source message is marked by a border, a background shift AND a line of
+   text, so it survives without colour. */
+.ecc-message-source {
+  border-left-color: var(--gold-500);
+  background: var(--ecc-attention-bg);
+}
+
+.ecc-source-flag {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ecc-attention);
+}
+
+.ecc-message-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ecc-message-sender {
+  margin: 0 0 2px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-message-address,
+.ecc-message-to {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-message-to {
+  margin: 0;
+}
+
+.ecc-message-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.ecc-message-time {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-message-replyto {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+  color: var(--ecc-alert);
+}
+
+.ecc-message-body {
+  font-size: 0.84rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
+
+/* The highlight carries a background, an underline and a weight change. */
+.ecc-source-mark {
+  padding: 1px 2px;
+  font-weight: 600;
+  color: var(--navy-900);
+  background: var(--gold-500);
+  border-radius: 2px;
+  text-decoration: underline;
+}
+
+.ecc-quoted {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.ecc-quoted-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 0;
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  color: var(--gold-500);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.ecc-quoted-note {
+  margin: 6px 0 4px;
+  font-size: 0.7rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-quoted-body {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--ecc-text-quiet);
+  background: var(--bg-deep);
+  border-left: 2px solid var(--border-subtle);
+  border-radius: 0 var(--ecc-radius-control) var(--ecc-radius-control) 0;
+}
+
+.ecc-message-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.74rem;
+}
+
+.ecc-message-attachments li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+  color: var(--text-secondary);
+}
+
+.ecc-attachment-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-attachment-size,
+.ecc-attachment-caveat {
+  font-size: 0.7rem;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-attachment-caveat {
+  font-style: italic;
+}
+
+/* --------------------------------------------- right: intelligence tabs */
+
+.ecc-itab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ecc-itab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--ecc-radius-control);
+  cursor: pointer;
+}
+
+.ecc-itab:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+}
+
+.ecc-itab-active {
+  font-weight: 600;
+  color: var(--navy-900);
+  background: var(--gold-500);
+  border-color: var(--gold-500);
+}
+
+.ecc-itab-panel:focus-visible {
+  outline: 2px solid var(--gold-500);
+  outline-offset: 3px;
+}
+
+.ecc-tab-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-overview-summary {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.ecc-evidence {
+  margin-top: 18px;
+}
+
+.ecc-evidence-head {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.ecc-evidence-fact {
+  color: var(--emerald-400);
+}
+
+.ecc-evidence-inference {
+  color: var(--ecc-attention);
+}
+
+.ecc-evidence-unknown,
+.ecc-evidence-conflict {
+  color: var(--ecc-alert);
+}
+
+.ecc-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-evidence-list > li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+/* An extraction is a button because selecting it does something. */
+.ecc-extraction,
+.ecc-source-link {
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  text-align: left;
+  color: var(--text-primary);
+  background: none;
+  border: 0;
+  border-bottom: 1px dotted var(--gold-700);
+  cursor: pointer;
+}
+
+.ecc-extraction:hover,
+.ecc-source-link:hover {
+  color: var(--gold-500);
+  border-bottom-color: var(--gold-500);
+}
+
+.ecc-extraction-selected {
+  font-weight: 600;
+  color: var(--gold-500);
+  border-bottom: 2px solid var(--gold-500);
+}
+
+/*
+  Found by the browser tests: these inline buttons measured 20px tall, which
+  fails WCAG 2.2 SC 2.5.8 Target Size (Minimum) even though they sit inside a
+  block of text. The criterion has an exception for inline targets, but 20px is
+  under the 24px minimum regardless, and an exception is not a reason to leave a
+  control hard to hit. They are given a real hit area here, and a larger one on
+  a phone, without changing how the text around them flows.
+*/
+.ecc-extraction,
+.ecc-source-link {
+  min-height: 26px;
+  padding-block: 3px;
+}
+
+@media (max-width: 900px) {
+  .ecc-extraction,
+  .ecc-source-link {
+    min-height: 34px;
+    padding-block: 7px;
+  }
+}
+
+.ecc-item-meta,
+.ecc-unknown-why,
+.ecc-inference-tag,
+.ecc-recommended-caveat {
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-inference-tag {
+  font-weight: 600;
+  color: var(--ecc-attention);
+}
+
+.ecc-recommended-caveat {
+  font-style: italic;
+}
+
+.ecc-unknown-text {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+.ecc-item-blocked {
+  font-size: 0.72rem;
+  color: var(--ecc-attention);
+}
+
+.ecc-conflict-positions {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ecc-text-quiet);
+}
+
+/* -------------------------------------------------------- draft review */
+
+.ecc-draft-review {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ecc-approval {
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-approval-none {
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-subtle);
+}
+
+.ecc-approval-approved {
+  color: var(--emerald-400);
+  background: var(--ecc-done-bg);
+  border-color: var(--ecc-done-border);
+}
+
+.ecc-approval-expired {
+  color: var(--ecc-alert);
+  background: var(--ecc-alert-bg);
+  border-color: var(--ecc-alert-border);
+}
+
+.ecc-approval-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 5px;
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.ecc-approval-text {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.ecc-approval-diff {
+  margin-top: 10px;
+  font-size: 0.78rem;
+}
+
+.ecc-approval-diff summary {
+  cursor: pointer;
+  color: var(--gold-500);
+}
+
+.ecc-diff-list {
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.ecc-diff-list dt {
+  font-weight: 600;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-diff-list dd {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+}
+
+.ecc-diff-body {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: var(--bg-deep);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-envelope {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-envelope-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.ecc-envelope-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.ecc-withheld {
+  padding: 13px 15px;
+  background: var(--ecc-attention-bg);
+  border: 1px solid var(--ecc-attention-border);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-withheld-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+  font-family: var(--font-heading);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ecc-attention);
+}
+
+.ecc-withheld-reason {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.ecc-edit-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 13px 15px;
+  background: var(--bg-base);
+  border: 1px solid var(--gold-700);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: 11px 13px;
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+  resize: vertical;
+}
+
+.ecc-textarea-short {
+  min-height: 80px;
+}
+
+.ecc-figure-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecc-figure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 10px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+}
+
+.ecc-figure-amount {
+  border-color: var(--ecc-attention-border);
+}
+
+.ecc-figure-kind {
+  font-family: var(--font-heading);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-500);
+}
+
+.ecc-figure-text {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.ecc-unverified {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ecc-attention);
+}
+
+.ecc-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ecc-draft-action {
+  min-height: 40px;
+  font-size: 0.78rem;
+}
+
+.ecc-draft-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ecc-draft-footnote {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.55;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-draft-final {
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.ecc-table-subject-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--gold-700);
+}
+
+.ecc-table-subject-link:hover {
+  color: var(--gold-500);
+  border-bottom-color: var(--gold-500);
+}
+
+/* ------------------------------------------------- stage 5 responsive */
+
+@media (max-width: 1400px) {
+  .ecc-workspace {
+    grid-template-columns: minmax(200px, 0.9fr) minmax(360px, 1.8fr) minmax(340px, 1.6fr);
+  }
+}
+
+/*
+  Below this the three columns become three sections, reached from the switcher.
+  Three columns on a tablet is three columns nobody can read, and the original
+  email is the one thing that must never become hard to reach.
+*/
+@media (max-width: 1100px) {
+  .ecc-pane-switch {
+    display: flex;
+  }
+
+  .ecc-workspace {
+    display: block;
+  }
+
+  .ecc-col {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .ecc-pane-list .ecc-col-conversation,
+  .ecc-pane-list .ecc-col-intelligence,
+  .ecc-pane-conversation .ecc-col-list,
+  .ecc-pane-conversation .ecc-col-intelligence,
+  .ecc-pane-intelligence .ecc-col-list,
+  .ecc-pane-intelligence .ecc-col-conversation {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .ecc-itab {
+    min-height: 44px;
+  }
+  .ecc-quoted-toggle {
+    min-height: 44px;
+  }
+  .ecc-draft-action {
+    flex: 1 1 160px;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .ecc-envelope-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .ecc-col {
+    padding: 14px 16px;
+  }
+  .ecc-pane-tab {
+    font-size: 0.74rem;
+    padding: 8px 6px;
+  }
+}
+
+/* ======================================================= Stage 7 additions */
+
+/* --------------------------------------------------------------- notices */
+
+.ecc-notice {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--ecc-radius-control);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+}
+
+.ecc-notice-caution {
+  border-color: var(--ecc-attention-border);
+  background: var(--ecc-attention-bg);
+}
+
+.ecc-notice-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 4px;
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-notice-caution .ecc-notice-head {
+  color: var(--ecc-attention);
+}
+
+.ecc-notice-body,
+.ecc-notice-body p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------- backlog set up */
+
+.ecc-backlog-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ecc-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.ecc-labelled-control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.ecc-labelled-control > span:first-child {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-labelled-control select,
+.ecc-labelled-control input {
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: var(--ecc-radius-control);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.ecc-labelled-control input[readonly] {
+  color: var(--ecc-text-quiet);
+  background: var(--bg-base);
+}
+
+.ecc-labelled-control .ecc-control-note {
+  font-size: 0.73rem;
+  line-height: 1.5;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-checkbox-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ecc-radius-control);
+  background: var(--bg-base);
+}
+
+.ecc-checkbox-set legend {
+  padding: 0 6px;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ecc-checkbox input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--gold-400);
+}
+
+.ecc-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ecc-bl-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  font-size: 0.8rem;
+}
+
+.ecc-bl-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ecc-resume-card {
+  border-color: var(--gold-700, var(--border-subtle));
+}
+
+/* ------------------------------------------------------- backlog review */
+
+.ecc-backlog-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.ecc-order-reason {
+  margin: 0 0 10px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-group-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  border-radius: var(--ecc-radius-control);
+  border: 1px dashed var(--border-subtle);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.ecc-decision-note {
+  margin: 12px 0 0;
+  font-size: 0.79rem;
+  color: var(--ecc-done);
+}
+
+.ecc-decision-set {
+  margin: 16px 0 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ecc-decision-set legend {
+  padding: 0;
+  font-family: var(--font-heading);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-decision-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ecc-decision-button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 44px;
+  padding: 11px 13px;
+  text-align: left;
+  border-radius: var(--ecc-radius-control);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ecc-decision-button:hover {
+  border-color: var(--gold-400);
+}
+
+.ecc-decision-button.is-chosen {
+  border-color: var(--ecc-done-border);
+  background: var(--ecc-done-bg);
+}
+
+.ecc-decision-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ecc-decision-meaning {
+  font-size: 0.77rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ecc-decision-effect {
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-summary-list {
+  margin: 10px 0;
+  padding-left: 20px;
+  font-size: 0.82rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+.ecc-inline-link {
+  color: var(--gold-400);
+  font-size: 0.78rem;
+}
+
+/* --------------------------------------------------- approvals register */
+
+.ecc-approval-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.79rem;
+}
+
+.ecc-approval-table th,
+.ecc-approval-table td {
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-subtle);
+  line-height: 1.55;
+}
+
+.ecc-approval-table th {
+  font-family: var(--font-heading);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--ecc-text-quiet);
+}
+
+.ecc-approval-state {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ecc-approval-state.is-available {
+  border: 1px solid var(--ecc-attention-border);
+  background: var(--ecc-attention-bg);
+  color: var(--ecc-attention);
+}
+
+.ecc-approval-state.is-off {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  color: var(--ecc-text-quiet);
+}
+
+/* Touch targets and narrow widths, matching the module's existing rules. */
+
+@media (max-width: 900px) {
+  .ecc-labelled-control select,
+  .ecc-labelled-control input {
+    min-height: 44px;
+  }
+  .ecc-bl-button {
+    min-height: 44px;
+    flex: 1 1 150px;
+    justify-content: center;
+  }
+  .ecc-checkbox {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .ecc-decision-grid {
+    grid-template-columns: 1fr;
+  }
+  .ecc-backlog-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ecc-approval-table,
+  .ecc-approval-table thead,
+  .ecc-approval-table tbody,
+  .ecc-approval-table tr,
+  .ecc-approval-table th,
+  .ecc-approval-table td {
+    display: block;
+  }
+  .ecc-approval-table thead {
+    display: none;
+  }
+  .ecc-approval-table tr {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .ecc-approval-table td {
+    border: 0;
+    padding: 3px 0;
+  }
+  .ecc-approval-table td::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--ecc-text-quiet);
+  }
+}
+
+/* Reduced motion. The module has no decorative animation, and the loading
+   shimmer is the one thing that moves. A person who asked for less motion
+   gets a static block that still says it is loading. */
+
+@media (prefers-reduced-motion: reduce) {
+  .ecc-module *,
+  .ecc-module *::before,
+  .ecc-module *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast and forced colours. Borders carry the meaning that colour
+   carries elsewhere, so they are kept rather than removed. */
+
+@media (forced-colors: active) {
+  .ecc-badge,
+  .ecc-decision-button,
+  .ecc-notice,
+  .ecc-warning,
+  .ecc-approval-state {
+    border: 1px solid CanvasText;
+  }
+  .ecc-decision-button.is-chosen {
+    outline: 2px solid Highlight;
+  }
+}
+
+.ecc-settings-subtitle {
+  margin: 18px 0 8px;
+  font-family: var(--font-heading);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ecc-panel-more {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ecc-text-quiet);
+}
+
+/* Target size. Two SC 2.5.8 failures found by the Stage 7 accessibility run.
+
+   The panel "View all" links measured 62 by 20 pixels. They are standalone
+   controls in a panel header, not links inside a sentence, so the 24 pixel
+   minimum applies to them and the inline exception does not.
+
+   The backlog checkboxes measured 17 by 17. Clicking the label works, and the
+   label is large enough, but a person aiming at the box itself is aiming at a
+   17 pixel target. Making the box the right size is simpler than relying on
+   everyone knowing the label is clickable. */
+
+.ecc-panel-link {
+  min-height: 24px;
+  align-items: center;
+}
+
+.ecc-checkbox input {
+  width: 24px;
+  height: 24px;
+}
+
+@media (max-width: 900px) {
+  .ecc-panel-link {
+    min-height: 44px;
+  }
+  .ecc-checkbox input {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* The eleventh tab, added in Stage 7, pushed the strip past the available
+   width on a 1440 pixel screen: 1,379 pixels of tabs in a 1,352 pixel row. The
+   strip scrolls, so nothing was unreachable, but a navigation row that a
+   desktop user has to scroll is a navigation row they will not read to the end
+   of. Tightening the horizontal padding on wide screens fits all eleven. The
+   vertical padding is untouched, so the 44 pixel target height is unchanged,
+   and narrow widths keep the roomier spacing and the scroll. */
+
+@media (min-width: 1200px) {
+  .ecc-tab {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
