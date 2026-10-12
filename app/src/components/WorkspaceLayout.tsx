@@ -8,6 +8,7 @@ import {
   FolderKanban,
   Search,
   FileText,
+  Mail,
   BrainCircuit,
   CheckSquare,
   Settings,
@@ -383,6 +384,18 @@ export const WorkspaceLayout: React.FC = () => {
             >
               <FileText size={18} />
               <span>New Transcript</span>
+            </NavLink>
+
+            {/* Email Command Centre. One entry; the eleven destinations are
+                tabs inside the module. Reads and recommends only. */}
+            <NavLink
+              to="/email"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Mail size={18} />
+              <span>Email</span>
             </NavLink>
 
             {(profile?.plan === 'team' || profile?.plan === 'admin' || profile?.role === 'admin') && (

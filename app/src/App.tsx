@@ -75,6 +75,10 @@ import { ScenarioModelingPage } from './pages/strategic/ScenarioModelingPage';
 import { PerformanceDashboardPage } from './pages/strategic/PerformanceDashboardPage';
 import { ExecutiveBriefingCenterPage } from './pages/strategic/ExecutiveBriefingCenterPage';
 
+// Email Command Centre
+import { EmailModuleLayout } from './components/email/EmailModuleLayout';
+import { EMAIL_ROUTES, EMAIL_DETAIL_ROUTES } from './pages/email/emailRouteTable';
+
 // Billing & Checkout Pages
 import { CheckoutPage } from './pages/CheckoutPage';
 import { CheckoutSuccessPage } from './pages/billing/CheckoutSuccessPage';
@@ -194,6 +198,22 @@ export const App: React.FC = () => {
             <Route path="/scenario-modeling" element={<ScenarioModelingPage />} />
             <Route path="/performance" element={<PerformanceDashboardPage />} />
             <Route path="/executive-center" element={<ExecutiveBriefingCenterPage />} />
+
+            {/* Email Command Centre. One parent, eleven children, generated
+                from the same destination list the tab row reads, so a tab can
+                never point at a route that does not exist. */}
+            <Route path="/email" element={<EmailModuleLayout />}>
+              {EMAIL_ROUTES.map(({ path, segment, isIndex, Component }) =>
+                isIndex ? (
+                  <Route key={path} index element={<Component />} />
+                ) : (
+                  <Route key={path} path={segment} element={<Component />} />
+                )
+              )}
+              {EMAIL_DETAIL_ROUTES.map(({ segment, Component }) => (
+                <Route key={segment} path={segment} element={<Component />} />
+              ))}
+            </Route>
 
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>

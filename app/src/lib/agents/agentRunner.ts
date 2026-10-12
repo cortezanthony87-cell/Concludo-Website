@@ -6,6 +6,7 @@ import { logAgentActivity, setAgentMemory, getAgentMemory } from './agentMemoryS
 import { recordAuditLog } from '../enterprise/auditService';
 import { runPredictiveEngine } from '../predictive/predictiveEngine';
 import { KnowledgeEngine } from '../knowledge/knowledgeEngine';
+import { executeInboxCommandCentre } from './executeInboxCommandCentre';
 
 function getClient(admin: boolean = false): SupabaseClient {
   if (admin && typeof window === 'undefined') {
@@ -56,6 +57,9 @@ export async function runAgent(params: AgentRunParams): Promise<AgentRunResult> 
         break;
       case 'workflow_coordinator':
         result = await executeWorkflowCoordinator(params, client);
+        break;
+      case 'inbox_command_centre':
+        result = await executeInboxCommandCentre(params, client);
         break;
       default:
         throw new Error(`Unsupported agent type: ${params.agentType}`);
