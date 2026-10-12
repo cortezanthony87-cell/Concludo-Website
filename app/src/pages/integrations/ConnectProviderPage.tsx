@@ -233,13 +233,23 @@ export const ConnectProviderPage: React.FC = () => {
   return (
     <div className="p-6 lg:p-10 max-w-2xl mx-auto space-y-6">
       <div>
-        <Link
-          to="/integrations"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-xs font-medium transition"
+        <button
+          type="button"
+          onClick={async () => {
+            if (provider && step !== 'completed') {
+              try {
+                await integrationsHubService.cancelConnection(prefetchedSession?.connection_id, provider.id);
+              } catch (e) {
+                // best effort
+              }
+            }
+            navigate('/integrations');
+          }}
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-xs font-medium transition cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Apps</span>
-        </Link>
+        </button>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6">

@@ -228,8 +228,19 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
     }
   };
 
-  const handleModalClose = () => {
+  const handleModalClose = async () => {
     if (step === 'checking' || step === 'starting') return;
+    // If not completed, cancel the pending authorising record so Connect button reappears
+    if (step !== 'completed' && provider) {
+      try {
+        await integrationsHubService.cancelConnection(
+          prefetchedSession?.connection_id || existingConnection?.id,
+          provider.id
+        );
+      } catch (err) {
+        console.warn('cancelConnection on modal close warning:', err);
+      }
+    }
     setStep('idle');
     setErrorMsg(null);
     setSuccessMsg(null);

@@ -1914,6 +1914,42 @@ export class IntegrationsHubService {
   /**
    * Soft-deletes / disconnects an integration.
    */
+  /**
+   * Cancels a pending authorization session and resets status to disconnected so Connect button reappears.
+   */
+  async cancelConnection(connectionId?: string, providerId?: string): Promise<boolean> {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) return false;
+
+      let query = this.supabase
+        .from('integration_connections')
+        .update({
+          status: 'disconnected',
+          status_reason: 'Sign-in cancelled by user',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      if (connectionId) {
+        query = query.eq('id', connectionId);
+      } else if (providerId) {
+        query = query.eq('provider_id', providerId).eq('status', 'authorising');
+      } else {
+        return false;
+      }
+
+      const { error } = await query;
+      if (error) {
+        console.warn('cancelConnection database update warning:', error);
+      }
+      return true;
+    } catch (err) {
+      console.warn('cancelConnection error:', err);
+      return false;
+    }
+  }
+
   async disconnect(connectionId: string): Promise<boolean> {
     const { data, error } = await this.supabase.functions.invoke('connection-remove', {
       body: { connectionId },

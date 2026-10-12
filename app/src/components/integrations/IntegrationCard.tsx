@@ -183,14 +183,24 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
 
       {/* Primary Card Actions */}
       <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
-        {isWaitingAuth ? (
-          <button
-            type="button"
-            onClick={() => onCancel && onCancel(provider)}
-            className="w-full min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center justify-center border border-slate-700"
-          >
-            Cancel
-          </button>
+        {isWaitingAuth || cardState.action === 'cancel' ? (
+          <div className="w-full flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onConnect(provider)}
+              className="btn-connect-gold flex-1 min-h-[40px] py-2 px-3 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-lg text-xs transition flex items-center justify-center shadow-sm"
+            >
+              Connect
+            </button>
+            <button
+              type="button"
+              onClick={() => onCancel && onCancel(provider)}
+              className="min-h-[40px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition flex items-center justify-center border border-slate-700"
+              title="Reset sign-in state"
+            >
+              Reset
+            </button>
+          </div>
         ) : isChecking ? (
           <div className="w-full min-h-[40px] py-2 px-3 bg-slate-800/60 text-slate-400 rounded-lg text-xs font-medium flex items-center justify-center border border-slate-800">
             Checking the connection...

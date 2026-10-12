@@ -168,6 +168,15 @@ export const IntegrationsPage: React.FC = () => {
     return groups.filter((g) => g.items.length > 0);
   }, [filteredProviders]);
 
+  const handleCancelConnection = async (provider: ProviderDefinition) => {
+    try {
+      await integrationsHubService.cancelConnection(undefined, provider.id);
+      await loadData();
+    } catch (err) {
+      console.warn('handleCancelConnection error:', err);
+    }
+  };
+
   const handleOpenConnect = (
     provider: ProviderDefinition,
     existingConn?: IntegrationConnection | null,
@@ -436,6 +445,7 @@ export const IntegrationsPage: React.FC = () => {
                       onManage={handleOpenManage}
                       onTest={handleTestConnection}
                       onNotify={handleNotify}
+                      onCancel={handleCancelConnection}
                       isTesting={testingConnectionId === conn?.id}
                     />
                   );
@@ -449,11 +459,12 @@ export const IntegrationsPage: React.FC = () => {
       {/* Real Connect Modal */}
       <RealConnectionModal
         isOpen={isModalOpen}
-        onClose={() => {
+        onClose={async () => {
           setIsModalOpen(false);
           setModalProvider(null);
           setModalExistingConn(null);
           setModalIsNew(false);
+          await loadData();
         }}
         provider={modalProvider}
         existingConnection={modalExistingConn}
