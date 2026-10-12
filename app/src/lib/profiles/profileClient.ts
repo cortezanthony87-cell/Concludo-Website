@@ -103,3 +103,37 @@ export async function repairOrEnsureProfile(user: {
     };
   }
 }
+
+/**
+ * Client-side helper to update the authenticated user's location and timezone.
+ */
+export async function updateUserLocation(
+  userId: string,
+  params: { country?: string; city?: string; timezone?: string }
+): Promise<{ profile: UserProfile | null; error: Error | null }> {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const updateData: Record<string, any> = {};
+    if (params.country !== undefined) updateData.country = params.country.trim();
+    if (params.city !== undefined) updateData.city = params.city.trim();
+    if (params.timezone !== undefined) updateData.timezone = params.timezone.trim();
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      return { profile: null, error: new Error(error.message) };
+    }
+
+    return { profile: data as UserProfile, error: null };
+  } catch (err) {
+    return {
+      profile: null,
+      error: err instanceof Error ? err : new Error('Failed to update location preferences'),
+    };
+  }
+}

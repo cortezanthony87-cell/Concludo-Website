@@ -14,6 +14,9 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
+  country?: string | null;
+  city?: string | null;
+  timezone?: string | null;
   plan: PlanType;
   role: RoleType;
   trial_start_date?: string | null;

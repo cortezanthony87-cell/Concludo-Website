@@ -1,7 +1,7 @@
 import { trackSignup } from '../lib/analytics';
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, Mail, Lock, User, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowRight, Mail, Lock, User, AlertCircle, CheckCircle2, Loader2, Globe, MapPin } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getAuthErrorMessage } from '../lib/auth/authErrors';
 
@@ -15,6 +15,15 @@ export const SignupPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [country, setCountry] = useState('Australia');
+  const [city, setCity] = useState('Melbourne');
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Melbourne';
+    } catch {
+      return 'Australia/Melbourne';
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [confirmationSent, setConfirmationSent] = useState(false);
@@ -52,7 +61,16 @@ export const SignupPage: React.FC = () => {
     }
 
     setLoading(true);
-    const { session, needsConfirmation, error } = await signUp(trimmedEmail, password, fullName);
+    const { session, needsConfirmation, error } = await signUp(
+      trimmedEmail,
+      password,
+      fullName,
+      {
+        country: country.trim() || 'Australia',
+        city: city.trim() || 'Melbourne',
+        timezone: timezone || 'Australia/Melbourne',
+      }
+    );
     setLoading(false);
 
     if (error) {
@@ -279,6 +297,96 @@ export const SignupPage: React.FC = () => {
               onChange={(e) => setFullName(e.target.value)}
               autoComplete="name"
             />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="signup-country"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Globe size={15} color="#f3c958" />
+                <span>Country</span>
+              </label>
+              <input
+                id="signup-country"
+                type="text"
+                className="form-input"
+                placeholder="Australia"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                autoComplete="country-name"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="signup-city"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <MapPin size={15} color="#f3c958" />
+                <span>City</span>
+              </label>
+              <input
+                id="signup-city"
+                type="text"
+                className="form-input"
+                placeholder="Melbourne"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                autoComplete="address-level2"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label
+              className="form-label"
+              htmlFor="signup-timezone"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Globe size={15} color="#f3c958" />
+              <span>Calendar Timezone</span>
+            </label>
+            <select
+              id="signup-timezone"
+              className="form-select"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '11px 16px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-glass)',
+                background: 'rgba(8, 14, 25, 0.75)',
+                color: '#f8fafc',
+                fontSize: '0.92rem',
+              }}
+            >
+              <option value="Australia/Melbourne">Australia / Melbourne (AEST/AEDT)</option>
+              <option value="Australia/Sydney">Australia / Sydney (AEST/AEDT)</option>
+              <option value="Australia/Brisbane">Australia / Brisbane (AEST)</option>
+              <option value="Australia/Adelaide">Australia / Adelaide (ACST/ACDT)</option>
+              <option value="Australia/Perth">Australia / Perth (AWST)</option>
+              <option value="Australia/Darwin">Australia / Darwin (ACST)</option>
+              <option value="Australia/Hobart">Australia / Hobart (AEST/AEDT)</option>
+              <option value="Pacific/Auckland">New Zealand (Auckland/Wellington)</option>
+              <option value="Asia/Singapore">Singapore / Hong Kong / Perth (UTC+8)</option>
+              <option value="Asia/Tokyo">Japan / Tokyo (JST UTC+9)</option>
+              <option value="Europe/London">UK / London (GMT/BST)</option>
+              <option value="America/New_York">US Eastern (New York UTC-5/-4)</option>
+              <option value="America/Chicago">US Central (Chicago UTC-6/-5)</option>
+              <option value="America/Denver">US Mountain (Denver UTC-7/-6)</option>
+              <option value="America/Los_Angeles">US Pacific (Los Angeles UTC-8/-7)</option>
+              <option value="UTC">UTC (Universal Coordinated Time)</option>
+            </select>
+            <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>
+              Used to accurately position today's date, deadlines, and schedule on your calendar.
+            </div>
           </div>
 
           <button

@@ -37,7 +37,7 @@ interface AuthContextType {
   authError: string | null;
   clearAuthError: () => void;
   retryAuth: () => Promise<void>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<AuthResponse>;
+  signUp: (email: string, password: string, fullName?: string, locationMeta?: { country?: string; city?: string; timezone?: string }) => Promise<AuthResponse>;
   signIn: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -205,7 +205,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (
     email: string,
     password: string,
-    fullName?: string
+    fullName?: string,
+    locationMeta?: { country?: string; city?: string; timezone?: string }
   ): Promise<AuthResponse> => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
@@ -228,6 +229,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const metadata: Record<string, any> = {};
       if (fullName && fullName.trim()) {
         metadata.full_name = fullName.trim();
+      }
+      if (locationMeta) {
+        if (locationMeta.country && locationMeta.country.trim()) {
+          metadata.country = locationMeta.country.trim();
+        }
+        if (locationMeta.city && locationMeta.city.trim()) {
+          metadata.city = locationMeta.city.trim();
+        }
+        if (locationMeta.timezone && locationMeta.timezone.trim()) {
+          metadata.timezone = locationMeta.timezone.trim();
+        }
       }
 
       const { data, error } = await supabase.auth.signUp({

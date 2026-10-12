@@ -51,8 +51,24 @@ import {
 
 type CalendarSubView = 'home' | 'day' | 'week' | 'month' | 'agenda' | 'board';
 
+
+function getTodayInTimezone(tz?: string | null): string {
+  try {
+    const targetTz = tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Melbourne';
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: targetTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return formatter.format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
 export const CalendarPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [currentView, setCurrentView] = useState<CalendarSubView>('home');
@@ -61,17 +77,35 @@ export const CalendarPage: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState<boolean>(false);
 
+  // Determine user timezone from profile, browser, or default to Australia/Melbourne
+  const userTimezone = useMemo(() => {
+    return profile?.timezone || 'Australia/Melbourne';
+  }, [profile?.timezone]);
+
+  // Compute today's date formatted as YYYY-MM-DD in user's timezone
+  const todayStr = useMemo(() => {
+    return getTodayInTimezone(userTimezone);
+  }, [userTimezone]);
+
   // Selected date for day view and calendar selection
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return '2026-09-28';
+    return getTodayInTimezone('Australia/Melbourne');
   });
 
-  // Active week reference date (defaults to 2026-09-28)
-  const [weekRefDate, setWeekRefDate] = useState<string>('2026-09-28');
+  // Active week reference date
+  const [weekRefDate, setWeekRefDate] = useState<string>(() => {
+    return getTodayInTimezone('Australia/Melbourne');
+  });
 
   // Calendar month/year navigation
-  const [calendarYear, setCalendarYear] = useState<number>(2026);
-  const [calendarMonth, setCalendarMonth] = useState<number>(8); // 0-indexed: 8 = September
+  const [calendarYear, setCalendarYear] = useState<number>(() => {
+    const today = getTodayInTimezone('Australia/Melbourne');
+    return parseInt(today.split('-')[0], 10);
+  });
+  const [calendarMonth, setCalendarMonth] = useState<number>(() => {
+    const today = getTodayInTimezone('Australia/Melbourne');
+    return parseInt(today.split('-')[1], 10) - 1; // 0-indexed
+  });
 
   // Daily note for the selected date
   const [dailyNoteText, setDailyNoteText] = useState<string>('');
@@ -81,7 +115,7 @@ export const CalendarPage: React.FC = () => {
   // Quick Create / New Item Form State
   const [quickTitle, setQuickTitle] = useState('');
   const [quickType, setQuickType] = useState<CalendarItemType>('task');
-  const [quickDueDate, setQuickDueDate] = useState('2026-10-28');
+  const [quickDueDate, setQuickDueDate] = useState(() => getTodayInTimezone('Australia/Melbourne'));
   const [quickDueTime, setQuickDueTime] = useState('09:00');
   const [quickOwner, setQuickOwner] = useState('');
   const [quickPriority, setQuickPriority] = useState<CalendarItemPriority>('medium');
@@ -118,6 +152,20 @@ export const CalendarPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [user]);
+
+  // Synchronise calendar date to user's timezone when profile is loaded
+  useEffect(() => {
+    if (todayStr) {
+      const parts = todayStr.split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      setSelectedDate(todayStr);
+      setWeekRefDate(todayStr);
+      setCalendarYear(y);
+      setCalendarMonth(m);
+    }
+  }, [todayStr]);
+
 
   // Load daily note when selectedDate or user changes
   useEffect(() => {
@@ -259,7 +307,7 @@ export const CalendarPage: React.FC = () => {
     if (data) {
       setItems((prev) => [data, ...prev]);
       setQuickTitle('');
-      setQuickDueDate(selectedDate || '2026-10-28');
+      setQuickDueDate(selectedDate || todayStr);
       setQuickDueTime('09:00');
       setQuickOwner('');
       setQuickDescription('');
@@ -315,7 +363,7 @@ export const CalendarPage: React.FC = () => {
     }
   };
 
-  const todayStr = '2026-09-28';
+  // todayStr is dynamically derived from userTimezone above
 
   // Format date readable
   const formatReadableDate = (dateStr: string) => {
@@ -337,7 +385,7 @@ export const CalendarPage: React.FC = () => {
   // Days in month calculation for the calendar grid
   // Compute 7 days for the active week view (Monday to Sunday)
   const currentWeekDays = useMemo(() => {
-    const parts = (weekRefDate || '2026-09-28').split('-');
+    const parts = (weekRefDate || todayStr).split('-');
     const ref = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     const day = ref.getDay();
     const diffToMonday = (day + 6) % 7;
@@ -370,7 +418,7 @@ export const CalendarPage: React.FC = () => {
 
   // Navigate week
   const handlePrevWeek = () => {
-    const parts = (weekRefDate || '2026-09-28').split('-');
+    const parts = (weekRefDate || todayStr).split('-');
     const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     d.setDate(d.getDate() - 7);
     const y = d.getFullYear();
@@ -380,7 +428,7 @@ export const CalendarPage: React.FC = () => {
   };
 
   const handleNextWeek = () => {
-    const parts = (weekRefDate || '2026-09-28').split('-');
+    const parts = (weekRefDate || todayStr).split('-');
     const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     d.setDate(d.getDate() + 7);
     const y = d.getFullYear();
