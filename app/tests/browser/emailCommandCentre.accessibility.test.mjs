@@ -44,7 +44,7 @@ const ALL_VIEWS = [
   { path: '/email/quick-wins', heading: 'Quick Wins', tab: 'Quick Wins' },
   { path: '/email/clear-backlog', heading: 'Clear Backlog', tab: 'Clear Backlog' },
   { path: '/email/all', heading: 'All Email', tab: 'All Email' },
-  { path: '/email/drafts', heading: 'Drafts', tab: 'Drafts' },
+  { path: '/email/outputs', heading: 'Outputs', tab: 'Outputs' },
   { path: '/email/security-review', heading: 'Security Review', tab: 'Security Review' },
   { path: '/email/settings', heading: 'Email Settings', tab: 'Email Settings' },
 ];
@@ -74,7 +74,12 @@ async function open(path, options = {}) {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`${BASE}?p=${encodeURIComponent(path + query)}`, { waitUntil: 'domcontentloaded' });
+  // A path that already carries a query needs `&`, not a second `?`. The first
+  // version produced `/email/outputs?mode=drafts?demo=loading`, which the
+  // router read as one long mode value, and three state tests failed against a
+  // page that had never been asked for the state.
+  const joined = query && path.includes('?') ? path + query.replace(/^\?/, '&') : path + query;
+  await page.goto(`${BASE}?p=${encodeURIComponent(joined)}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.ecc-main', { timeout: 15_000 });
   await page.waitForTimeout(250);
   return { context, page, errors };
@@ -100,9 +105,23 @@ for (const view of ALL_VIEWS) {
     );
     return {
       total: inMain.length,
+      // A tablist uses roving tabindex BY DESIGN: exactly one tab is in the tab
+      // order and the rest are reached with arrow keys. Counting those as
+      // "removed from the tab order" would fail the one pattern the ARIA
+      // authoring practices require, so they are exempt here and checked
+      // properly just below.
       negativeTabIndex: inMain.filter(
-        (el) => el.getAttribute('tabindex') !== null && Number(el.getAttribute('tabindex')) < 0
+        (el) =>
+          el.getAttribute('tabindex') !== null &&
+          Number(el.getAttribute('tabindex')) < 0 &&
+          !el.closest('[role="tablist"]')
       ).length,
+      tablists: Array.from(document.querySelectorAll('.ecc-module [role="tablist"]')).map(
+        (list) =>
+          Array.from(list.querySelectorAll('[role="tab"]')).filter(
+            (t) => t.getAttribute('tabindex') === '0'
+          ).length
+      ),
       unlabelled: inMain.filter((el) => {
         const text = (el.innerText ?? '').trim();
         const label =
@@ -128,6 +147,10 @@ for (const view of ALL_VIEWS) {
   assert(
     reachable.unlabelled === 0,
     `${view.tab}: every control has an accessible name (${reachable.unlabelled} without one).`
+  );
+  assert(
+    reachable.tablists.every((inOrder) => inOrder === 1),
+    `${view.tab}: each tablist keeps exactly one tab in the tab order (${reachable.tablists.join(', ')}).`
   );
 
   // Walk the first dozen stops and confirm focus actually moves and stays
@@ -705,7 +728,7 @@ const STATE_VIEWS = [
   '/email/waiting',
   '/email/quick-wins',
   '/email/all',
-  '/email/drafts',
+  '/email/outputs?mode=drafts',
   '/email/security-review',
 ];
 
@@ -798,7 +821,7 @@ group('Disabled and permission states are visible and explained');
 }
 
 {
-  const { context, page } = await open('/email/drafts');
+  const { context, page } = await open('/email/outputs', { query: '?mode=drafts' });
   const text = await page.evaluate(() => document.querySelector('.ecc-main').innerText);
   assert(
     /nothing is sent|not sent|never sent/i.test(text),

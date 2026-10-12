@@ -30,7 +30,7 @@ import { EmailWaitingPage } from './EmailWaitingPage';
 import { EmailQuickWinsPage } from './EmailQuickWinsPage';
 import { EmailClearBacklogPage } from './EmailClearBacklogPage';
 import { EmailAllPage } from './EmailAllPage';
-import { EmailDraftsPage } from './EmailDraftsPage';
+import { EmailOutputsPage } from './EmailOutputsPage';
 import { EmailSecurityReviewPage } from './EmailSecurityReviewPage';
 import { EmailSettingsPage } from './EmailSettingsPage';
 import { EmailThreadPage } from './EmailThreadPage';
@@ -48,7 +48,7 @@ const COMPONENTS: Record<EmailModulePath, React.ComponentType> = {
   '/email/quick-wins': EmailQuickWinsPage,
   '/email/clear-backlog': EmailClearBacklogPage,
   '/email/all': EmailAllPage,
-  '/email/drafts': EmailDraftsPage,
+  '/email/outputs': EmailOutputsPage,
   '/email/security-review': EmailSecurityReviewPage,
   '/email/settings': EmailSettingsPage,
 };

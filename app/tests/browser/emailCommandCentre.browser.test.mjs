@@ -43,7 +43,7 @@ const VIEWS = [
   { path: '/email/waiting', tab: 'Waiting', heading: 'Waiting' },
   { path: '/email/quick-wins', tab: 'Quick Wins', heading: 'Quick Wins' },
   { path: '/email/all', tab: 'All Email', heading: 'All Email' },
-  { path: '/email/drafts', tab: 'Drafts', heading: 'Drafts' },
+  { path: '/email/outputs', tab: 'Outputs', heading: 'Outputs' },
   { path: '/email/security-review', tab: 'Security Review', heading: 'Security Review' },
 ];
 
@@ -206,7 +206,7 @@ group('Each view shows what it is meant to show');
 }
 
 {
-  const { context, page } = await open('/email/drafts');
+  const { context, page } = await open('/email/outputs', { query: '?mode=drafts' });
   const text = await page.evaluate(() => document.querySelector('.ecc-main').innerText);
   assert(text.includes('Draft ready for review') || text.includes('Draft withheld'), 'Drafts shows draft states.');
   assert(
