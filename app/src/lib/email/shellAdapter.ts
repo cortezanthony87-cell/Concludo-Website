@@ -52,7 +52,7 @@ export function syntheticSyncStatus(accountId: string): EmailSyncStatus {
 /* ------------------------------------------------------------- projections */
 
 /** Where each count's card navigates to. */
-const METRIC_DESTINATION: Record<EmailMetricKey, EmailModulePath> = {
+export const METRIC_DESTINATION: Record<EmailMetricKey, EmailModulePath> = {
   needs_attention: '/email/needs-attention',
   replies_due: '/email/reply-queue',
   actions_required: '/email/actions-deadlines',

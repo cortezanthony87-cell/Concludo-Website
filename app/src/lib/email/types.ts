@@ -86,7 +86,7 @@ export type EmailModulePath =
   | '/email/quick-wins'
   | '/email/clear-backlog'
   | '/email/all'
-  | '/email/drafts'
+  | '/email/outputs'
   | '/email/security-review'
   | '/email/settings';
 
