@@ -238,6 +238,18 @@ export const IntegrationIcon: React.FC<IntegrationIconProps> = ({
           </svg>
         );
 
+      // LINKEDIN
+      case 'linkedin':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+            <rect x="2" y="2" width="20" height="20" rx="4" fill="#0A66C2" />
+            <path
+              d="M7.05 9.8H4.6V18.2H7.05V9.8ZM5.82 5.8C5.03 5.8 4.4 6.44 4.4 7.22C4.4 8 5.03 8.64 5.82 8.64C6.61 8.64 7.24 8 7.24 7.22C7.24 6.44 6.61 5.8 5.82 5.8ZM19.4 13.8V18.2H16.95V14.16C16.95 13.1 16.57 12.38 15.62 12.38C14.89 12.38 14.45 12.87 14.26 13.34C14.19 13.51 14.17 13.76 14.17 14V18.2H11.72C11.72 18.2 11.75 10.74 11.72 9.8H14.17V10.99C14.49 10.5 15.05 9.8 16.32 9.8C17.92 9.8 19.4 10.84 19.4 13.8Z"
+              fill="#FFFFFF"
+            />
+          </svg>
+        );
+
       // GOOGLE ADS
       case 'googleads':
       case 'google_ads':

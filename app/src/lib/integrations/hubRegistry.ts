@@ -1402,6 +1402,37 @@ export const INTEGRATION_PROVIDERS_CATALOG: ProviderDefinition[] = [
   // MARKETING
   // ==========================================
   {
+    id: 'linkedin',
+    name: 'LinkedIn',
+    slug: 'linkedin',
+    category: 'Marketing',
+    description: 'Publish company updates, schedule personal posts, track organic reach, and automate marketing communications.',
+    iconSlug: 'linkedin',
+    authenticationType: 'oauth2',
+    isTier1: true,
+    enabled: true,
+    triggers: [
+      {
+        key: 'new_share_update',
+        name: 'New Post Published',
+        description: 'Triggers when a new post is published on the connected LinkedIn profile or organisation page.',
+        triggerType: 'webhook',
+        configSchema: {},
+        outputSchema: { shareUrn: 'string', text: 'string' },
+      },
+    ],
+    actions: [
+      {
+        key: 'create_text_post',
+        name: 'Create Post',
+        description: 'Publishes a text or article post to your personal LinkedIn profile or authorised organisation page.',
+        requiredScopes: ['w_member_social'],
+        inputSchema: { text: { type: 'string', required: true } },
+        outputSchema: { postUrn: 'string' },
+      },
+    ],
+  },
+  {
     id: 'mailchimp',
     name: 'Mailchimp',
     slug: 'mailchimp',

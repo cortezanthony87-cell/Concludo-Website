@@ -101,6 +101,10 @@ export const APP_PERMISSIONS_SUMMARY: Record<string, { willBeAbleTo: string; wil
     willBeAbleTo: 'save documents to folders you pick',
     willNot: 'open any file you have not picked or that Concludo did not create',
   },
+  linkedin: {
+    willBeAbleTo: 'publish posts and updates you review and approve in Concludo',
+    willNot: 'publish to your LinkedIn profile or modify your profile without your explicit approval',
+  },
   google_ads: {
     willBeAbleTo: 'view campaign performance and apply ad changes you approve in Concludo',
     willNot: 'change your campaigns or spend without your explicit human approval',
@@ -348,6 +352,13 @@ export interface CredentialFieldInfo {
 
 export function getCredentialFieldInfo(provider: { id: string; name: string }): CredentialFieldInfo {
   const id = (provider.id || '').toLowerCase();
+  if (id === 'linkedin') {
+    return {
+      label: 'LinkedIn Access Token or App Secret',
+      placeholder: 'Enter LinkedIn token or app secret',
+      help: 'Found in your LinkedIn Developer Portal under Auth > OAuth 2.0 tools.',
+    };
+  }
   if (id === 'stripe') {
     return {
       label: 'Stripe Secret Key or Restricted Key',
