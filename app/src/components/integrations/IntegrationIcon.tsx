@@ -226,6 +226,24 @@ export const IntegrationIcon: React.FC<IntegrationIconProps> = ({
           </svg>
         );
 
+      // GOOGLE ADS
+      case 'googleads':
+      case 'google_ads':
+      case 'adwords':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+            <path
+              d="M4.2 14.8L9.8 5.1C10.6 3.7 12.4 3.2 13.8 4L15.5 5C16.9 5.8 17.4 7.6 16.6 9L11 18.7C10.2 20.1 8.4 20.6 7 19.8L5.3 18.8C3.9 18 3.4 16.2 4.2 14.8Z"
+              fill="#FBBC04"
+            />
+            <path
+              d="M19.8 14.8C20.6 16.2 20.1 18 18.7 18.8C17.3 19.6 15.5 19.1 14.7 17.7L9.1 8C8.3 6.6 8.8 4.8 10.2 4C11.6 3.2 13.4 3.7 14.2 5.1L19.8 14.8Z"
+              fill="#4285F4"
+            />
+            <circle cx="5.8" cy="17" r="3" fill="#34A853" />
+          </svg>
+        );
+
       // XERO
       case 'xero':
         return (

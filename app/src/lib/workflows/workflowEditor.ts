@@ -71,6 +71,7 @@ const APP_ALIASES: Array<{ id: string; name: string; words: string[] }> = [
   { id: 'google_sheets', name: 'Google Sheets', words: ['google sheets', 'google sheet', 'spreadsheet'] },
   { id: 'google_drive', name: 'Google Drive', words: ['google drive', 'drive'] },
   { id: 'google_calendar', name: 'Google Calendar', words: ['google calendar'] },
+  { id: 'google_ads', name: 'Google Ads', words: ['google ads', 'adwords', 'google ad', 'ads'] },
   { id: 'sharepoint', name: 'SharePoint', words: ['sharepoint'] },
   { id: 'onedrive', name: 'OneDrive', words: ['onedrive', 'one drive'] },
   { id: 'asana', name: 'Asana', words: ['asana'] },

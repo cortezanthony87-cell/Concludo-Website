@@ -81,6 +81,10 @@ export const APP_PERMISSIONS_SUMMARY: Record<string, { willBeAbleTo: string; wil
     willBeAbleTo: 'save documents to folders you pick',
     willNot: 'open any file you have not picked or that Concludo did not create',
   },
+  google_ads: {
+    willBeAbleTo: 'view campaign performance and apply ad changes you approve in Concludo',
+    willNot: 'change your campaigns or spend without your explicit human approval',
+  },
 };
 
 export function normaliseAvailability(value: string | null | undefined): Availability {

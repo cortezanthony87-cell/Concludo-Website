@@ -62,6 +62,7 @@ const routes = [
   'integrations/connect/google_workspace',
   'integrations/connect/gmail',
   'integrations/connect/google_calendar',
+  'integrations/connect/google_ads',
   'integrations/connect/google_drive',
   'integrations/connect/google_sheets',
   'integrations/connect/google_docs',

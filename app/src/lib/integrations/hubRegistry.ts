@@ -698,6 +698,92 @@ export const INTEGRATION_PROVIDERS_CATALOG: ProviderDefinition[] = [
       },
     ],
   },
+  {
+    id: 'google_ads',
+    name: 'Google Ads',
+    slug: 'google_ads',
+    category: 'Marketing',
+    description: 'Automate ad group management, pause campaigns, track conversions, and apply approved keyword adjustments.',
+    iconSlug: 'google_ads',
+    authenticationType: 'oauth2',
+    isTier1: true,
+    enabled: true,
+    triggers: [
+      {
+        key: 'campaign_performance_alert',
+        name: 'Campaign Metric Alert',
+        description: 'Triggers when a campaign spend, CPA, or impression volume crosses a defined threshold.',
+        triggerType: 'webhook',
+        configSchema: {
+          metric: { type: 'string', default: 'spend' },
+          threshold: { type: 'number', default: 100 },
+        },
+        outputSchema: {
+          campaignId: 'string',
+          metric: 'string',
+          value: 'number',
+          timestamp: 'string',
+        },
+      },
+      {
+        key: 'lead_form_submitted',
+        name: 'Lead Form Submission',
+        description: 'Triggers when a new lead submission is captured from a Google Ads lead form extension.',
+        triggerType: 'webhook',
+        configSchema: {},
+        outputSchema: {
+          leadId: 'string',
+          campaignId: 'string',
+          formFields: 'object',
+          submittedAt: 'string',
+        },
+      },
+    ],
+    actions: [
+      {
+        key: 'pause_campaign',
+        name: 'Pause Campaign',
+        description: 'Pauses an active Google Ads campaign after explicit human approval in Concludo Approval Centre.',
+        requiredScopes: ['https://www.googleapis.com/auth/adwords'],
+        inputSchema: {
+          customerId: { type: 'string', required: true },
+          campaignId: { type: 'string', required: true },
+        },
+        outputSchema: {
+          campaignId: 'string',
+          status: 'string',
+        },
+      },
+      {
+        key: 'resume_campaign',
+        name: 'Resume Campaign',
+        description: 'Resumes or enables a paused Google Ads campaign after explicit human approval.',
+        requiredScopes: ['https://www.googleapis.com/auth/adwords'],
+        inputSchema: {
+          customerId: { type: 'string', required: true },
+          campaignId: { type: 'string', required: true },
+        },
+        outputSchema: {
+          campaignId: 'string',
+          status: 'string',
+        },
+      },
+      {
+        key: 'add_negative_keywords',
+        name: 'Add Negative Keywords',
+        description: 'Appends negative keywords to a campaign or ad group after review in Concludo.',
+        requiredScopes: ['https://www.googleapis.com/auth/adwords'],
+        inputSchema: {
+          customerId: { type: 'string', required: true },
+          campaignId: { type: 'string', required: true },
+          keywords: { type: 'array', required: true },
+        },
+        outputSchema: {
+          addedCount: 'number',
+        },
+      },
+    ],
+  },
 
   // ==========================================
   // AUSTRALIAN ACCOUNTING & FINANCE

@@ -250,7 +250,66 @@ Deno.serve(async (request) => {
     if (!sessionRes.ok) {
       const errText = await sessionRes.text();
       console.error('Nango session creation failed:', sessionRes.status, errText);
-      return jsonResponse({ error: 'Failed to create connection session' }, 502, request);
+
+      // Try alternate integration ID (e.g. concludo-google-ads <-> google-ads)
+      const currentIntId = provider.nango_integration_id;
+      const alternateId = currentIntId.startsWith('concludo-')
+        ? currentIntId.replace(/^concludo-/, '')
+        : `concludo-${currentIntId}`;
+
+      console.log(`Attempting fallback Nango integration ID: ${alternateId}`);
+      let retryRes: Response;
+      if (isReconnect && nangoConnId) {
+        retryRes = await fetch(`${nangoHost}/connect/sessions/reconnect`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${nangoSecret}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            connection_id: nangoConnId,
+            integration_id: alternateId,
+            end_user: endUser,
+            tags,
+            integrations_config_defaults: {
+              [alternateId]: {
+                authorization_params: authParams,
+              },
+            },
+          }),
+        });
+      } else {
+        retryRes = await fetch(`${nangoHost}/connect/sessions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${nangoSecret}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            end_user: endUser,
+            tags,
+            allowed_integrations: [alternateId],
+            integrations_config_defaults: {
+              [alternateId]: {
+                authorization_params: authParams,
+              },
+            },
+          }),
+        });
+      }
+
+      if (retryRes.ok) {
+        sessionRes = retryRes;
+        provider.nango_integration_id = alternateId;
+        await service
+          .from('integration_connections')
+          .update({ nango_integration_id: alternateId })
+          .eq('id', connectionRowId);
+      } else {
+        const retryErrText = await retryRes.text();
+        console.error('Nango session retry failed:', retryRes.status, retryErrText);
+        return jsonResponse({ error: 'Failed to create connection session' }, 502, request);
+      }
     }
 
     const sessionData = await sessionRes.json();

@@ -1506,6 +1506,32 @@ CONNECTOR_MANIFESTS['google_drive'] = {
   availabilityState: 'coming_soon',
 };
 
+CONNECTOR_MANIFESTS['google_ads'] = {
+  connectorKey: 'google_ads',
+  version: '1.0.0',
+  displayName: 'Google Ads',
+  description: 'Campaign management, performance alerts, and keyword adjustments for Google Ads.',
+  category: 'integrations',
+  iconReference: 'Target',
+  inputAndOutputSchemas: {},
+  pagination: { supported: true },
+  errorMapping: {},
+  revocationOperation: '',
+  deprecationState: 'active',
+  authenticationType: 'oauth2',
+  requiredScopes: ['https://www.googleapis.com/auth/adwords'],
+  triggers: ['google_ads.campaign_performance_alert', 'google_ads.lead_form_submitted'],
+  actions: ['google_ads.pause_campaign', 'google_ads.resume_campaign', 'google_ads.add_negative_keywords'],
+  webhookSupport: true,
+  rateLimits: { requestsPerSecond: 10, burstLimit: 30 },
+  paginationSupport: true,
+  retryGuidance: 'Exponential backoff with jitter on 429',
+  testConnectionOperation: 'GET https://www.googleapis.com/oauth2/v3/userinfo',
+  healthCheckOperation: 'GET https://www.googleapis.com/oauth2/v3/userinfo',
+  secretReferences: [],
+  availabilityState: 'available',
+};
+
 CONNECTOR_MANIFESTS['microsoft_outlook'] = {
   connectorKey: 'microsoft_outlook',
   version: '1.0.0',
