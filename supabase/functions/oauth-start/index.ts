@@ -262,8 +262,10 @@ Deno.serve(async (request) => {
     authUrl.searchParams.set('redirect_uri', targetRedirectUri);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('code_challenge', codeChallenge);
-    authUrl.searchParams.set('code_challenge_method', 'S256');
+    if (provider.provider_family !== 'linkedin') {
+      authUrl.searchParams.set('code_challenge', codeChallenge);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+    }
 
     // Scopes
     const scopes = Array.isArray(provider.connect_scopes) ? provider.connect_scopes : [];

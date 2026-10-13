@@ -83,7 +83,7 @@ Deno.serve(async (request) => {
       client_secret: clientSecret,
     });
 
-    if (oauthState.code_verifier) {
+    if (oauthState.code_verifier && provider.provider_family !== 'linkedin') {
       tokenParams.set('code_verifier', oauthState.code_verifier);
     }
 
