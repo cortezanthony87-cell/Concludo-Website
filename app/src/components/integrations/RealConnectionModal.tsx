@@ -196,8 +196,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
       );
 
       if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        setStep('idle');
-        setErrorMsg('Pop-up was blocked by browser. Please allow pop-ups for app.concludo.com.au.');
+        window.location.href = nativeSession.auth_url;
         return;
       }
 
