@@ -258,70 +258,6 @@ export const INTEGRATION_PROVIDERS_CATALOG: ProviderDefinition[] = [
     ],
   },
   {
-    id: 'onedrive',
-    name: 'OneDrive',
-    slug: 'onedrive',
-    category: 'File Storage',
-    description: 'Save documents, transcripts, and action exports to Microsoft OneDrive cloud storage.',
-    iconSlug: 'onedrive',
-    authenticationType: 'oauth2',
-    isTier1: true,
-    enabled: true,
-    triggers: [
-      {
-        key: 'new_file_created',
-        name: 'New File in Folder',
-        description: 'Triggers when a file is uploaded or created in a OneDrive folder.',
-        triggerType: 'polling',
-        pollingIntervalMinutes: 10,
-        configSchema: { folderPath: { type: 'string', default: '/' } },
-        outputSchema: { id: 'string', name: 'string', webUrl: 'string', size: 'number' },
-      },
-    ],
-    actions: [
-      {
-        key: 'upload_file',
-        name: 'Upload File',
-        description: 'Uploads a document or export to OneDrive.',
-        requiredScopes: ['Files.ReadWrite'],
-        inputSchema: { destinationFolder: { type: 'string', required: true }, fileName: { type: 'string', required: true }, content: { type: 'string', required: true } },
-        outputSchema: { fileId: 'string', webUrl: 'string' },
-      },
-    ],
-  },
-  {
-    id: 'sharepoint',
-    name: 'SharePoint',
-    slug: 'sharepoint',
-    category: 'File Storage',
-    description: 'Integrate team document libraries, corporate lists, and knowledge archives.',
-    iconSlug: 'sharepoint',
-    authenticationType: 'oauth2',
-    isTier1: true,
-    enabled: true,
-    triggers: [
-      {
-        key: 'list_item_created',
-        name: 'New List Item',
-        description: 'Triggers when an item is created in a SharePoint list.',
-        triggerType: 'polling',
-        pollingIntervalMinutes: 10,
-        configSchema: { siteUrl: { type: 'string', required: true }, listName: { type: 'string', required: true } },
-        outputSchema: { id: 'string', fields: 'object' },
-      },
-    ],
-    actions: [
-      {
-        key: 'create_customer_folder',
-        name: 'Create Customer Folder',
-        description: 'Creates a dedicated customer or project document folder on SharePoint.',
-        requiredScopes: ['Sites.Manage.All'],
-        inputSchema: { siteUrl: { type: 'string', required: true }, libraryName: { type: 'string', default: 'Documents' }, folderName: { type: 'string', required: true } },
-        outputSchema: { folderId: 'string', webUrl: 'string' },
-      },
-    ],
-  },
-  {
     id: 'microsoft_excel',
     name: 'Microsoft Excel',
     slug: 'microsoft_excel',
@@ -2278,15 +2214,16 @@ export class IntegrationsHubService {
 
     for (const catProvider of INTEGRATION_PROVIDERS_CATALOG) {
       const dbRow = dbMap.get(catProvider.id);
+      if (!dbRow || dbRow.enabled === false) continue;
       seen.add(catProvider.id);
       merged.push({
         ...catProvider,
-        availability: dbRow?.availability || 'coming_soon',
-        provider_family: dbRow?.provider_family || null,
-        nango_integration_id: dbRow?.nango_integration_id || null,
-        requires_admin_consent: dbRow?.requires_admin_consent ?? null,
-        sort_order: dbRow?.sort_order ?? 1000,
-        availability_note: dbRow?.availability_note || null,
+        availability: dbRow.availability || 'available',
+        provider_family: dbRow.provider_family || null,
+        nango_integration_id: dbRow.nango_integration_id || null,
+        requires_admin_consent: dbRow.requires_admin_consent ?? null,
+        sort_order: dbRow.sort_order ?? 1000,
+        availability_note: dbRow.availability_note || null,
       });
     }
 
