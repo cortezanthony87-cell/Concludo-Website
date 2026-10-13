@@ -11,6 +11,7 @@ import {
   independenceLine,
   normaliseAvailability,
   connectionResultText,
+  isNativeOAuthProvider,
   type CatalogueApp,
 } from '../../lib/integrations/appCatalogue';
 import { IntegrationIcon } from '../../components/integrations/IntegrationIcon';
@@ -29,6 +30,7 @@ export const ConnectProviderPage: React.FC = () => {
   const [prefetchedSession, setPrefetchedSession] = useState<{ token: string; nango_integration_id: string; connection_id?: string } | null>(null);
   const [isPrefetching, setIsPrefetching] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
+  const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -44,7 +46,8 @@ export const ConnectProviderPage: React.FC = () => {
           setIsRequested(true);
         }
 
-        if (found && normaliseAvailability(found.availability) === 'available') {
+        const isNative = found ? isNativeOAuthProvider(found) : false;
+        if (found && normaliseAvailability(found.availability) === 'available' && !isNative) {
           setIsPrefetching(true);
           integrationsHubService.startConnection(found.id)
             .then((session) => setPrefetchedSession(session))
@@ -106,6 +109,104 @@ export const ConnectProviderPage: React.FC = () => {
     setSuccessMsg(null);
 
     const emailHint = accountEmail.trim();
+    const isNative = isNativeOAuthProvider(provider);
+
+    // 1. Native Concludo OAuth ($0 fee per connection)
+    if (isNative) {
+      setStep('starting');
+      let nativeSession: { auth_url: string; state: string; connection_id: string; provider_id: string };
+      try {
+        nativeSession = await integrationsHubService.startNativeOAuth(provider.id, {
+          email_hint: emailHint || undefined,
+          connection_id: activeConnectionId || undefined,
+        });
+        setActiveConnectionId(nativeSession.connection_id);
+      } catch (err: any) {
+        setStep('idle');
+        setErrorMsg(err.message || connectionResultText('failed', provider.name));
+        return;
+      }
+
+      setStep('waiting_auth');
+      const width = 560;
+      const height = 680;
+      const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+      const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+      const popup = window.open(
+        nativeSession.auth_url,
+        'concludo_oauth_auth',
+        `width=${width},height=${height},left=${left},top=${top},status=no,menubar=no,toolbar=no`
+      );
+
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        setStep('idle');
+        setErrorMsg('Pop-up was blocked by browser. Please allow pop-ups for app.concludo.com.au.');
+        return;
+      }
+
+      let finished = false;
+
+      const finishSuccess = async (connectionData: any) => {
+        if (finished) return;
+        finished = true;
+        setStep('checking');
+        const connections = await integrationsHubService.getConnections();
+        const targetId = connectionData?.connection_id || nativeSession.connection_id;
+        const conn = targetId
+          ? connections.find((c) => c.id === targetId) || connections.find((c) => c.provider_id === provider.id && c.status === 'connected')
+          : connections.find((c) => c.provider_id === provider.id && c.status === 'connected');
+
+        setStep('completed');
+        const account = conn?.account_label || connectionData?.account_label || emailHint;
+        setSuccessMsg(connectionResultText('connected', provider.name, account));
+      };
+
+      const handleOAuthMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type === 'CONCLUDO_OAUTH_SUCCESS') {
+          window.removeEventListener('message', handleOAuthMessage);
+          if (timer) clearInterval(timer);
+          finishSuccess(event.data.data);
+        } else if (event.data?.type === 'CONCLUDO_OAUTH_ERROR') {
+          window.removeEventListener('message', handleOAuthMessage);
+          if (timer) clearInterval(timer);
+          setStep('idle');
+          setErrorMsg(event.data.error || connectionResultText('cancelled', provider.name));
+        }
+      };
+
+      window.addEventListener('message', handleOAuthMessage);
+
+      const timer = setInterval(async () => {
+        if (popup.closed) {
+          clearInterval(timer);
+          window.removeEventListener('message', handleOAuthMessage);
+
+          if (!finished) {
+            setStep('checking');
+            const connections = await integrationsHubService.getConnections();
+            const targetId = nativeSession.connection_id;
+            const conn = targetId
+              ? connections.find((c) => c.id === targetId) || connections.find((c) => c.provider_id === provider.id && c.status === 'connected')
+              : connections.find((c) => c.provider_id === provider.id && c.status === 'connected');
+
+            if (conn && conn.status === 'connected') {
+              finishSuccess(conn);
+            } else {
+              setStep('idle');
+              try {
+                await integrationsHubService.cancelConnection(targetId, provider.id);
+              } catch (_) {}
+              setErrorMsg(connectionResultText('cancelled', provider.name));
+            }
+          }
+        }
+      }, 1000);
+
+      return;
+    }
+
+    // 2. Fallback for non-native integrations
     let session = prefetchedSession;
     if (!session || emailHint) {
       setStep('starting');
@@ -238,7 +339,7 @@ export const ConnectProviderPage: React.FC = () => {
           onClick={async () => {
             if (provider && step !== 'completed') {
               try {
-                await integrationsHubService.cancelConnection(prefetchedSession?.connection_id, provider.id);
+                await integrationsHubService.cancelConnection(activeConnectionId || prefetchedSession?.connection_id, provider.id);
               } catch (e) {
                 // best effort
               }

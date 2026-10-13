@@ -102,6 +102,22 @@ export function familyLabel(family: string | null | undefined): string {
 }
 
 /**
+ * Returns true if the provider connects via Concludo Native OAuth ($0 third-party fees).
+ */
+export function isNativeOAuthProvider(app: { id?: string; provider_family?: string | null }): boolean {
+  const family = (app.provider_family || '').toLowerCase();
+  const id = (app.id || '').toLowerCase();
+  return (
+    family === 'google' ||
+    family === 'microsoft' ||
+    id.startsWith('google') ||
+    id.startsWith('microsoft') ||
+    id === 'onedrive' ||
+    id === 'sharepoint'
+  );
+}
+
+/**
  * What the card shows.
  * @param requested true when this user already asked to be told when the app is ready
  */

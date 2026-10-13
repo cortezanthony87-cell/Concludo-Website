@@ -36,7 +36,7 @@ export async function executeInboxCommandCentre(
   // 2. Query user connected mailboxes from integration_connections
   const { data: connections } = await client
     .from('integration_connections')
-    .select('id, provider_id, external_account_reference, account_label, status, created_at, nango_connection_id, nango_integration_id')
+    .select('id, provider_id, external_account_reference, account_label, status, created_at, nango_connection_id, nango_integration_id, auth_mode')
     .eq('user_id', params.userId)
     .in('provider_id', ['gmail', 'microsoft_outlook'])
     .eq('status', 'connected')
@@ -57,7 +57,7 @@ export async function executeInboxCommandCentre(
   }
 
   // If live connection exists, call the email-scan edge function
-  if (selectedConnection && selectedConnection.status === 'connected' && selectedConnection.nango_connection_id) {
+  if (selectedConnection && selectedConnection.status === 'connected') {
     const { data: scanResponse, error: scanErr } = await client.functions.invoke('email-scan', {
       body: {
         connection_id: selectedConnection.id,

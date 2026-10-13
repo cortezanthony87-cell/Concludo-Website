@@ -103,6 +103,8 @@ export interface IntegrationConnection {
   provider_id: string;
   connection_name: string;
   external_account_reference: string;
+  account_label?: string | null;
+  auth_mode?: 'native' | 'nango' | string;
   status: ConnectionHealthStatus;
   scopes: string[];
   credential_reference?: string | null;
@@ -2101,6 +2103,68 @@ export class IntegrationsHubService {
         email_hint: options?.email_hint,
         connection_id: options?.connection_id,
         is_new: options?.is_new,
+      },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  /**
+   * Starts a native OAuth connection session via oauth-start edge function.
+   * Zero third-party fees ($0 per connection).
+   */
+  async startNativeOAuth(
+    providerId: string,
+    options?: {
+      email_hint?: string;
+      connection_id?: string;
+      is_new?: boolean;
+      redirect_uri?: string;
+    }
+  ): Promise<{
+    auth_url: string;
+    state: string;
+    connection_id: string;
+    provider_id: string;
+  }> {
+    const redirectUri =
+      options?.redirect_uri ||
+      `${window.location.origin}/integrations/callback`;
+    const { data, error } = await this.supabase.functions.invoke('oauth-start', {
+      body: {
+        provider_id: providerId,
+        email_hint: options?.email_hint,
+        connection_id: options?.connection_id,
+        is_new: options?.is_new,
+        redirect_uri: redirectUri,
+      },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  /**
+   * Completes a native OAuth authorization code exchange via oauth-callback edge function.
+   */
+  async completeNativeOAuth(params: {
+    code: string;
+    state: string;
+    redirect_uri?: string;
+  }): Promise<{
+    ok: boolean;
+    status: string;
+    connection_id?: string;
+    provider_id?: string;
+    account_label?: string | null;
+    error?: string;
+  }> {
+    const { data, error } = await this.supabase.functions.invoke('oauth-callback', {
+      body: {
+        code: params.code,
+        state: params.state,
+        redirect_uri: params.redirect_uri,
       },
     });
     if (error) throw error;

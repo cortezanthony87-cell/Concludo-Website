@@ -109,6 +109,7 @@ const routes = [
   'integrations/connect/openai',
   'integrations/connect/anthropic_claude',
   'integrations/history',
+  'integrations/callback',
   'automation-export',
   'webhooks',
   'api',

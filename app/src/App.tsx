@@ -38,6 +38,7 @@ import { AdminPortalPage } from './pages/admin/AdminPortalPage';
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
 import { ConnectProviderPage } from './pages/integrations/ConnectProviderPage';
 import { IntegrationHistoryPage } from './pages/integrations/IntegrationHistoryPage';
+import { OAuthCallbackPage } from './pages/integrations/OAuthCallbackPage';
 import { AutomationExportPage } from './pages/automation/AutomationExportPage';
 import { WebhooksPage } from './pages/automation/WebhooksPage';
 import { ApiAccessPage } from './pages/api/ApiAccessPage';
@@ -162,6 +163,7 @@ export const App: React.FC = () => {
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/integrations/connect/:providerId" element={<ConnectProviderPage />} />
             <Route path="/integrations/history" element={<IntegrationHistoryPage />} />
+            <Route path="/integrations/callback" element={<OAuthCallbackPage />} />
             <Route path="/automation-export" element={<AutomationExportPage />} />
             <Route path="/webhooks" element={<WebhooksPage />} />
             <Route path="/api" element={<ApiAccessPage />} />
