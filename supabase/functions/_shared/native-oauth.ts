@@ -28,6 +28,9 @@ export function getProviderCredentials(provider: {
   } else if (family === 'microsoft') {
     clientId = Deno.env.get('MICROSOFT_CLIENT_ID') || '';
     clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET') || '';
+  } else if (family === 'linkedin') {
+    clientId = Deno.env.get('LINKEDIN_CLIENT_ID') || '';
+    clientSecret = Deno.env.get('LINKEDIN_CLIENT_SECRET') || '';
   }
 
   if (!clientId || !clientSecret) {

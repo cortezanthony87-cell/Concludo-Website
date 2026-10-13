@@ -306,6 +306,8 @@ export function isNativeOAuthProvider(app: { id?: string; provider_family?: stri
   return (
     family === 'google' ||
     family === 'microsoft' ||
+    family === 'linkedin' ||
+    id === 'linkedin' ||
     id.startsWith('google') ||
     id.startsWith('microsoft') ||
     id === 'onedrive' ||

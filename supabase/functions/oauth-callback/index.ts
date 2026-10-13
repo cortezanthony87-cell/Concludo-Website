@@ -69,6 +69,8 @@ Deno.serve(async (request) => {
     const tokenUrl = authConfig.token_url || (
       provider.provider_family === 'google'
         ? 'https://oauth2.googleapis.com/token'
+        : provider.provider_family === 'linkedin'
+        ? 'https://www.linkedin.com/oauth/v2/accessToken'
         : 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
     );
 
@@ -139,6 +141,8 @@ Deno.serve(async (request) => {
     const userinfoUrl = authConfig.userinfo_url || (
       provider.provider_family === 'google'
         ? 'https://www.googleapis.com/oauth2/v3/userinfo'
+        : provider.provider_family === 'linkedin'
+        ? 'https://api.linkedin.com/v2/userinfo'
         : 'https://graph.microsoft.com/v1.0/me'
     );
 

@@ -275,7 +275,7 @@ Deno.serve(async (request) => {
       authUrl.searchParams.set(k, String(v));
     }
 
-    if (emailHint) {
+    if (emailHint && provider.provider_family !== 'linkedin') {
       authUrl.searchParams.set('login_hint', emailHint);
     }
 
