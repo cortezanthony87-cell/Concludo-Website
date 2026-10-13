@@ -10,6 +10,7 @@ import {
   writeAuditEvent,
 } from './nango-common.ts';
 import { getOrRefreshAccessToken } from './native-oauth.ts';
+import { decryptToken } from './native-crypto.ts';
 
 interface TestRequest {
   connection_id?: string;
@@ -38,10 +39,24 @@ export async function runConnectionTest(
     return { success: false, status: 'failed', error: 'Provider test call configuration missing' };
   }
 
-  // Handle Native OAuth Test
-  if (connectionRow.auth_mode === 'native') {
+  // Handle Native OAuth and Direct API Key Test
+  if (connectionRow.auth_mode === 'native' || connectionRow.auth_mode === 'direct_api_key') {
     try {
-      const { accessToken } = await getOrRefreshAccessToken(service, connectionRow.id);
+      let accessToken = '';
+      if (connectionRow.auth_mode === 'direct_api_key') {
+        const { data: conn } = await service
+          .from('integration_connections')
+          .select('encrypted_access_token')
+          .eq('id', connectionRow.id)
+          .single();
+        if (!conn?.encrypted_access_token) {
+          throw new Error('No encrypted credential found for connection');
+        }
+        accessToken = await decryptToken(conn.encrypted_access_token);
+      } else {
+        const res = await getOrRefreshAccessToken(service, connectionRow.id);
+        accessToken = res.accessToken;
+      }
       const testCall = provider.test_call as {
         endpoint: string;
         method?: string;

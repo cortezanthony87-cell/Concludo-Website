@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, CheckCircle2, RefreshCw, ExternalLink } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2, RefreshCw, ExternalLink, Key, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import {
   ProviderDefinition,
   integrationsHubService,
@@ -10,6 +10,8 @@ import {
   normaliseAvailability,
   connectionResultText,
   isNativeOAuthProvider,
+  isDirectKeyProvider,
+  getCredentialFieldInfo,
   type CatalogueApp,
 } from '../../lib/integrations/appCatalogue';
 import { IntegrationIcon } from './IntegrationIcon';
@@ -44,6 +46,9 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
   const [isPrefetching, setIsPrefetching] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
   const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null);
+  const [credential, setCredential] = useState('');
+  const [secondaryValue, setSecondaryValue] = useState('');
+  const [showSecret, setShowSecret] = useState(false);
 
   React.useEffect(() => {
     if (isOpen && provider) {
@@ -54,11 +59,15 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
       setPrefetchedSession(null);
       setActiveConnectionId(existingConnection?.id || null);
       setAccountEmail(existingConnection?.account_label || '');
+      setCredential('');
+      setSecondaryValue('');
+      setShowSecret(false);
 
       const availability = normaliseAvailability(provider.availability);
       const isNative = isNativeOAuthProvider(provider);
-      // Only pre-fetch session for third-party Nango integrations; native OAuth needs no pre-fetch
-      if (availability === 'available' && !isNative) {
+      const isDirect = isDirectKeyProvider(provider);
+      // Only pre-fetch session for third-party Nango integrations where available
+      if (availability === 'available' && !isNative && !isDirect && provider.nango_integration_id) {
         setIsPrefetching(true);
         integrationsHubService.startConnection(provider.id, {
           connection_id: existingConnection?.id,
@@ -106,6 +115,57 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
 
     const emailHint = accountEmail.trim();
     const isNative = isNativeOAuthProvider(provider);
+    const isDirect = isDirectKeyProvider(provider);
+
+    // 1. Direct API Key / Secret / Personal Token / Webhook Connection ($0 fee per connection)
+    if (isDirect || credential.trim().length > 0) {
+      const cred = credential.trim();
+      if (!cred) {
+        setErrorMsg(`Please enter your ${provider.name} API key, secret, or access token to connect.`);
+        return;
+      }
+
+      const credInfo = getCredentialFieldInfo(provider);
+      if (credInfo.requiresSecondary && !secondaryValue.trim()) {
+        setErrorMsg(`Please enter your ${credInfo.secondaryLabel} to connect.`);
+        return;
+      }
+
+      setStep('starting');
+      try {
+        const settingsPayload: Record<string, any> = {};
+        if (credInfo.requiresSecondary && secondaryValue.trim()) {
+          settingsPayload[credInfo.secondaryKey || 'secondary_value'] = secondaryValue.trim();
+        }
+
+        const conn = await integrationsHubService.connectDirect({
+          provider_id: provider.id,
+          credential: cred,
+          account_label: emailHint || `${provider.name} Account`,
+          settings: settingsPayload,
+          connection_id: activeConnectionId || existingConnection?.id,
+        });
+
+        setActiveConnectionId(conn.id);
+        setStep('checking');
+
+        try {
+          await integrationsHubService.testConnection(conn.id);
+        } catch (testErr) {
+          console.warn('Post-connect test warning:', testErr);
+        }
+
+        setStep('completed');
+        const account = conn.account_label || emailHint || provider.name;
+        setSuccessMsg(connectionResultText('connected', provider.name, account));
+        if (onSuccess) onSuccess(conn);
+        return;
+      } catch (err: any) {
+        setStep('idle');
+        setErrorMsg(err.message || connectionResultText('failed', provider.name));
+        return;
+      }
+    }
 
     // 1. Native Concludo OAuth ($0 fee per connection)
     if (isNative) {
@@ -206,6 +266,12 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
 
     // 2. Fallback for non-native integrations
     let session = prefetchedSession;
+    if (!session && !provider.nango_integration_id) {
+      // Direct token connection prompt
+      setErrorMsg(`Please enter your ${provider.name} access token or API key above to connect your account.`);
+      return;
+    }
+
     // If user entered a specific email hint, re-fetch the session with it to configure login_hint and custom naming
     if (!session || emailHint) {
       setStep('starting');
@@ -428,6 +494,65 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
               <p className="text-[11px] text-slate-400 leading-normal">
                 People may have multiple accounts. Enter the email address of your choosing to direct your sign-in to that specific account, or leave blank to choose during provider sign-in.
               </p>
+            </div>
+          )}
+
+          {/* Credential input for Direct Key apps or token connections */}
+          {availability === 'available' && step === 'idle' && !isNativeOAuthProvider(provider) && (
+            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+              {(() => {
+                const credInfo = getCredentialFieldInfo(provider);
+                return (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Key className="w-3.5 h-3.5 text-[#E2B53C]" />
+                          {credInfo.label}
+                        </span>
+                        <span className="text-[10.5px] font-normal text-emerald-400 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" /> Encrypted
+                        </span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showSecret ? 'text' : 'password'}
+                          value={credential}
+                          onChange={(e) => setCredential(e.target.value)}
+                          placeholder={credInfo.placeholder}
+                          className="w-full px-3.5 py-2 pr-10 bg-slate-900 border border-slate-700/80 focus:border-[#E2B53C] focus:ring-1 focus:ring-[#E2B53C] rounded-lg text-xs text-white placeholder-slate-500 outline-none transition font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSecret(!showSecret)}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white transition"
+                          tabIndex={-1}
+                        >
+                          {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-normal">
+                        {credInfo.help}
+                      </p>
+                    </div>
+
+                    {credInfo.requiresSecondary && (
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
+                          <span>{credInfo.secondaryLabel}</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={secondaryValue}
+                          onChange={(e) => setSecondaryValue(e.target.value)}
+                          placeholder={credInfo.secondaryPlaceholder}
+                          className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700/80 focus:border-[#E2B53C] focus:ring-1 focus:ring-[#E2B53C] rounded-lg text-xs text-white placeholder-slate-500 outline-none transition"
+                        />
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 

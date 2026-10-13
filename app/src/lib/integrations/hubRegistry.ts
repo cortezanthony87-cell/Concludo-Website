@@ -2173,6 +2173,31 @@ export class IntegrationsHubService {
   }
 
   /**
+   * Connects a provider directly with an API Key, Personal Access Token, or Webhook.
+   * Zero third-party fees ($0 per connection).
+   */
+  async connectDirect(params: {
+    provider_id: string;
+    credential: string;
+    account_label?: string;
+    settings?: Record<string, any>;
+    connection_id?: string;
+  }): Promise<IntegrationConnection> {
+    const { data, error } = await this.supabase.functions.invoke('connection-save', {
+      body: {
+        provider_id: params.provider_id,
+        credential: params.credential,
+        account_label: params.account_label,
+        settings: params.settings,
+        connection_id: params.connection_id,
+      },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data.connection as IntegrationConnection;
+  }
+
+  /**
    * Tests a connection through Nango proxy via connection-test edge function.
    */
   async testConnection(connectionId: string): Promise<{

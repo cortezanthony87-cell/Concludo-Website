@@ -105,6 +105,178 @@ export const APP_PERMISSIONS_SUMMARY: Record<string, { willBeAbleTo: string; wil
     willBeAbleTo: 'view campaign performance and apply ad changes you approve in Concludo',
     willNot: 'change your campaigns or spend without your explicit human approval',
   },
+  google_docs: {
+    willBeAbleTo: 'save meeting summaries and documentation to Google Docs you pick',
+    willNot: 'open any document you have not selected or change files without approval',
+  },
+  google_tasks: {
+    willBeAbleTo: 'create tasks from approved meeting actions in Google Tasks',
+    willNot: 'delete or modify existing tasks you did not select',
+  },
+  stripe: {
+    willBeAbleTo: 'view customer transactions, subscription statuses, and invoice events you approve in Concludo',
+    willNot: 'transfer funds, modify payout bank accounts, or charge customers without approval',
+  },
+  xero: {
+    willBeAbleTo: 'view accounting invoices, contacts, and transactions you approve in Concludo',
+    willNot: 'submit tax lodgements, alter financial settings, or delete ledger records',
+  },
+  myob: {
+    willBeAbleTo: 'read and sync invoice and customer records you approve in Concludo',
+    willNot: 'modify bank accounts or delete existing accounting entries',
+  },
+  quickbooks: {
+    willBeAbleTo: 'view invoices, customers, and payment receipts you approve in Concludo',
+    willNot: 'delete transactions or alter bank account connections',
+  },
+  paypal: {
+    willBeAbleTo: 'view transaction summaries and payment dispute notices',
+    willNot: 'transfer funds or change payment recipient settings',
+  },
+  slack: {
+    willBeAbleTo: 'post meeting summaries, action cards, and notifications to channels you choose',
+    willNot: 'read private direct messages or post to channels you have not selected',
+  },
+  hubspot: {
+    willBeAbleTo: 'read and sync contacts, companies, and deals you approve in Concludo',
+    willNot: 'delete CRM records or send marketing campaigns without approval',
+  },
+  notion: {
+    willBeAbleTo: 'create pages, databases, and meeting action items in workspace areas you pick',
+    willNot: 'access pages or workspaces you have not granted access to',
+  },
+  asana: {
+    willBeAbleTo: 'create tasks, set due dates, and update project actions you approve',
+    willNot: 'delete projects or modify tasks you did not select',
+  },
+  monday: {
+    willBeAbleTo: 'create board items, status updates, and action tasks you approve in Concludo',
+    willNot: 'delete boards or change workspace permissions',
+  },
+  clickup: {
+    willBeAbleTo: 'create tasks, checklists, and assignees in spaces you choose',
+    willNot: 'delete spaces or change team permissions',
+  },
+  jira: {
+    willBeAbleTo: 'create issues, update action tickets, and sync meeting decisions',
+    willNot: 'modify project schemes or delete user access',
+  },
+  trello: {
+    willBeAbleTo: 'create cards and checklists on boards you select',
+    willNot: 'delete boards or modify team settings',
+  },
+  airtable: {
+    willBeAbleTo: 'add rows and sync action records to bases you pick',
+    willNot: 'delete bases or access tables you have not selected',
+  },
+  smartsheet: {
+    willBeAbleTo: 'add rows and sync action items to sheets you pick',
+    willNot: 'delete sheets or modify workspace access',
+  },
+  shopify: {
+    willBeAbleTo: 'view order summaries, customers, and product metrics you approve',
+    willNot: 'modify store payout details or delete product listings',
+  },
+  woocommerce: {
+    willBeAbleTo: 'view store orders and customer action summaries',
+    willNot: 'modify store settings or delete order records',
+  },
+  openai: {
+    willBeAbleTo: 'send structured prompts and receive AI completions using your API key',
+    willNot: 'access your OpenAI account billing or share your key with third parties',
+  },
+  anthropic_claude: {
+    willBeAbleTo: 'send structured prompts and receive Claude analysis using your API key',
+    willNot: 'access your Anthropic account billing or share your key with third parties',
+  },
+  twilio: {
+    willBeAbleTo: 'send SMS alerts and notifications you approve in Concludo',
+    willNot: 'modify phone number purchases or change account credentials',
+  },
+  webhooks: {
+    willBeAbleTo: 'dispatch real-time meeting and action events to your secure webhook URL',
+    willNot: 'send unverified payloads or execute external mutations without approval',
+  },
+  generic_http: {
+    willBeAbleTo: 'send authenticated HTTP requests to your configured API endpoints',
+    willNot: 'store plain-text bearer secrets or call unauthorised endpoints',
+  },
+  zoom: {
+    willBeAbleTo: 'view scheduled meetings and sync approved follow-up summaries',
+    willNot: 'start meetings automatically or delete recording archives',
+  },
+  discord: {
+    willBeAbleTo: 'post meeting summaries and action notifications to Discord channels you choose',
+    willNot: 'read direct messages or modify server roles',
+  },
+  dropbox: {
+    willBeAbleTo: 'save summaries and exported files to folders you pick',
+    willNot: 'open files you have not selected or delete existing content',
+  },
+  box: {
+    willBeAbleTo: 'save summaries and sync documentation to Box folders you pick',
+    willNot: 'access enterprise folders you have not selected',
+  },
+  typeform: {
+    willBeAbleTo: 'receive form responses and import survey feedback into Concludo',
+    willNot: 'delete form definitions or modify question structures',
+  },
+  jotform: {
+    willBeAbleTo: 'import form submissions and customer inquiries',
+    willNot: 'delete forms or access unlinked submissions',
+  },
+  mailchimp: {
+    willBeAbleTo: 'sync approved subscriber contacts and view campaign performance',
+    willNot: 'send email campaigns without your explicit human approval',
+  },
+  activecampaign: {
+    willBeAbleTo: 'sync approved contact records and automation trigger events',
+    willNot: 'send broadcast emails without your explicit approval',
+  },
+  klaviyo: {
+    willBeAbleTo: 'sync customer profiles and event metrics you approve',
+    willNot: 'modify SMS or email campaign templates without approval',
+  },
+  zendesk: {
+    willBeAbleTo: 'create and update support tickets from approved meeting actions',
+    willNot: 'delete tickets or alter helpdesk routing rules',
+  },
+  intercom: {
+    willBeAbleTo: 'create user notes and sync customer conversation action items',
+    willNot: 'send automated messages to users without approval',
+  },
+  freshdesk: {
+    willBeAbleTo: 'create and update support tickets you approve',
+    willNot: 'delete tickets or change portal settings',
+  },
+  salesforce: {
+    willBeAbleTo: 'view and update leads, contacts, and opportunities you approve',
+    willNot: 'delete CRM records or alter organizational security controls',
+  },
+  pipedrive: {
+    willBeAbleTo: 'sync deals, activities, and contact notes you approve',
+    willNot: 'delete pipelines or change company stages',
+  },
+  zoho_crm: {
+    willBeAbleTo: 'view leads, accounts, and contact activities you choose',
+    willNot: 'delete records or modify system setup',
+  },
+  microsoft_forms: {
+    willBeAbleTo: 'read responses from forms you choose and import survey data',
+    willNot: 'delete forms or change form access settings',
+  },
+  microsoft_entra_id: {
+    willBeAbleTo: 'read user profile and team directory details you approve',
+    willNot: 'modify directory passwords or administrative roles',
+  },
+  power_bi: {
+    willBeAbleTo: 'view workspace reports and export dashboard metrics you select',
+    willNot: 'delete reports or modify data source connections',
+  },
+  dynamics_365: {
+    willBeAbleTo: 'view and sync business contacts and accounts you approve',
+    willNot: 'delete entities or alter Dynamics administration settings',
+  },
 };
 
 export function normaliseAvailability(value: string | null | undefined): Availability {
@@ -135,6 +307,194 @@ export function isNativeOAuthProvider(app: { id?: string; provider_family?: stri
     id === 'onedrive' ||
     id === 'sharepoint'
   );
+}
+
+/**
+ * Returns true if the provider connects directly with API key, bearer token, or webhook ($0 third-party fees).
+ */
+export function isDirectKeyProvider(app: { id?: string; authentication_type?: string | null }): boolean {
+  const authType = (app.authentication_type || '').toLowerCase();
+  const id = (app.id || '').toLowerCase();
+  return (
+    authType === 'api_key' ||
+    authType === 'bearer' ||
+    authType === 'webhook_signature' ||
+    authType === 'none' ||
+    id === 'stripe' ||
+    id === 'openai' ||
+    id === 'anthropic_claude' ||
+    id === 'twilio' ||
+    id === 'webhooks' ||
+    id === 'generic_http' ||
+    id === 'sftp_universal' ||
+    id === 'email_universal' ||
+    id === 'activecampaign' ||
+    id === 'freshdesk' ||
+    id === 'jotform' ||
+    id === 'klaviyo' ||
+    id === 'woocommerce'
+  );
+}
+
+export interface CredentialFieldInfo {
+  label: string;
+  placeholder: string;
+  help: string;
+  requiresSecondary?: boolean;
+  secondaryLabel?: string;
+  secondaryPlaceholder?: string;
+  secondaryKey?: string;
+}
+
+export function getCredentialFieldInfo(provider: { id: string; name: string }): CredentialFieldInfo {
+  const id = (provider.id || '').toLowerCase();
+  if (id === 'stripe') {
+    return {
+      label: 'Stripe Secret Key or Restricted Key',
+      placeholder: 'rk_live_... or sk_live_...',
+      help: 'Found in your Stripe Dashboard under Developers > API keys.',
+    };
+  }
+  if (id === 'openai') {
+    return {
+      label: 'OpenAI API Key',
+      placeholder: 'sk-...',
+      help: 'Found in your OpenAI Platform under Settings > API Keys.',
+    };
+  }
+  if (id === 'anthropic_claude') {
+    return {
+      label: 'Anthropic Claude API Key',
+      placeholder: 'sk-ant-...',
+      help: 'Found in your Anthropic Console under API Keys.',
+    };
+  }
+  if (id === 'slack') {
+    return {
+      label: 'Slack Bot Token or User Token',
+      placeholder: 'xoxb-... or xoxp-...',
+      help: 'Found in your Slack App under OAuth & Permissions > Bot User OAuth Token.',
+    };
+  }
+  if (id === 'hubspot') {
+    return {
+      label: 'HubSpot Private App Access Token',
+      placeholder: 'pat-na1-... or pat-eu1-...',
+      help: 'Found in HubSpot Settings > Integrations > Private Apps.',
+    };
+  }
+  if (id === 'notion') {
+    return {
+      label: 'Notion Internal Integration Secret',
+      placeholder: 'secret_...',
+      help: 'Found at notion.so/profile/integrations under Internal Integration Token.',
+    };
+  }
+  if (id === 'shopify') {
+    return {
+      label: 'Admin API Access Token',
+      placeholder: 'shpat_...',
+      help: 'Found in your Shopify Admin under Settings > Apps > Develop apps.',
+      requiresSecondary: true,
+      secondaryLabel: 'Store Domain',
+      secondaryPlaceholder: 'your-store.myshopify.com',
+      secondaryKey: 'store_domain',
+    };
+  }
+  if (id === 'webhooks') {
+    return {
+      label: 'Target Webhook URL',
+      placeholder: 'https://your-domain.com/api/webhook',
+      help: 'The HTTPS URL where Concludo will send real-time action events.',
+      requiresSecondary: true,
+      secondaryLabel: 'Signing Secret (optional)',
+      secondaryPlaceholder: 'whsec_...',
+      secondaryKey: 'signing_secret',
+    };
+  }
+  if (id === 'generic_http') {
+    return {
+      label: 'Bearer Token or API Secret',
+      placeholder: 'Enter token or secret',
+      help: 'The authorization bearer token passed in request headers.',
+      requiresSecondary: true,
+      secondaryLabel: 'Base API URL',
+      secondaryPlaceholder: 'https://api.your-service.com/v1',
+      secondaryKey: 'base_url',
+    };
+  }
+  if (id === 'twilio') {
+    return {
+      label: 'Auth Token',
+      placeholder: 'Enter Twilio Auth Token',
+      help: 'Found in your Twilio Console dashboard.',
+      requiresSecondary: true,
+      secondaryLabel: 'Account SID',
+      secondaryPlaceholder: 'AC...',
+      secondaryKey: 'account_sid',
+    };
+  }
+  if (id === 'asana') {
+    return {
+      label: 'Asana Personal Access Token',
+      placeholder: '1/120...',
+      help: 'Generate in Asana under My Profile Settings > Apps > Manage Developer Apps.',
+    };
+  }
+  if (id === 'monday') {
+    return {
+      label: 'Monday.com API Token',
+      placeholder: 'Enter your v2 API token',
+      help: 'Found in Monday.com under Avatar > Developers > API.',
+    };
+  }
+  if (id === 'clickup') {
+    return {
+      label: 'ClickUp Personal API Key',
+      placeholder: 'pk_...',
+      help: 'Found in ClickUp under Settings > Apps > API Token.',
+    };
+  }
+  if (id === 'airtable') {
+    return {
+      label: 'Airtable Personal Access Token',
+      placeholder: 'pat...',
+      help: 'Generate in Airtable Builder Hub under Personal Access Tokens.',
+    };
+  }
+  if (id === 'jira' || id === 'trello') {
+    return {
+      label: 'Atlassian API Token',
+      placeholder: 'Enter Atlassian API Token',
+      help: 'Generate in id.atlassian.com/manage-profile/security/api-tokens.',
+    };
+  }
+  if (id === 'xero') {
+    return {
+      label: 'Xero API Token or Client Credentials',
+      placeholder: 'Enter token or API credentials',
+      help: 'Found in your Xero Developer Portal under App Credentials.',
+    };
+  }
+  if (id === 'myob') {
+    return {
+      label: 'MYOB Developer API Key',
+      placeholder: 'Enter API Key',
+      help: 'Found in your MYOB Developer Account under My Apps.',
+    };
+  }
+  if (id === 'quickbooks') {
+    return {
+      label: 'QuickBooks API Token',
+      placeholder: 'Enter API Token',
+      help: 'Found in your Intuit Developer Portal under App Keys.',
+    };
+  }
+  return {
+    label: `${provider.name} API Key or Access Token`,
+    placeholder: 'Enter API key or access token',
+    help: `Enter the API key or personal access token from your ${provider.name} account.`,
+  };
 }
 
 /**
@@ -184,7 +544,13 @@ export function connectPanelCopy(app: CatalogueApp): {
 } {
   const owner = signInPageOwner(app);
   const availability = normaliseAvailability(app.availability);
-  const how = `You will connect ${app.name} by signing in on ${owner} own page. You will see exactly what Concludo is asking for and approve it there. Concludo never sees your password.`;
+  const isDirect = isDirectKeyProvider(app as any);
+  const isNative = isNativeOAuthProvider(app as any);
+  const how = isDirect
+    ? `You will connect ${app.name} securely by providing your API key, secret, or webhook configuration. Your credentials are encrypted on Concludo's secure server and never exposed.`
+    : isNative
+    ? `You will connect ${app.name} by signing in on ${owner} own page. You will see exactly what Concludo is asking for and approve it there. Concludo never sees your password.`
+    : `You will connect ${app.name} by authenticating your account or providing your workspace token. You will see exactly what Concludo is asking for and approve it there. Concludo never sees your account password.`;
 
   if (availability === 'available') {
     const body = [how];
@@ -192,7 +558,7 @@ export function connectPanelCopy(app: CatalogueApp): {
     return {
       title: `Connect ${app.name}`,
       body,
-      primary: `Continue to ${owner.replace(/'s$/, '')} sign-in`,
+      primary: isDirect ? 'Connect Account' : (isNativeOAuthProvider(app) ? `Continue to ${owner.replace(/'s$/, '')} sign-in` : 'Connect Account'),
       permissions: APP_PERMISSIONS_SUMMARY[app.id],
     };
   }
