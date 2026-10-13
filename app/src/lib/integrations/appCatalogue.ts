@@ -65,6 +65,26 @@ export const APP_PERMISSIONS_SUMMARY: Record<string, { willBeAbleTo: string; wil
     willBeAbleTo: 'see your task lists and add tasks you approve',
     willNot: 'change tasks you did not approve in Concludo',
   },
+  microsoft_excel: {
+    willBeAbleTo: 'read and update spreadsheets you choose after you approve each change in Concludo',
+    willNot: 'open spreadsheets you have not picked or change files without approval',
+  },
+  microsoft_onedrive: {
+    willBeAbleTo: 'save documents and access folders you pick',
+    willNot: 'open any file you have not picked or delete files without approval',
+  },
+  microsoft_onenote: {
+    willBeAbleTo: 'create notes and sections in notebooks you pick after you approve each one',
+    willNot: 'delete or modify existing notebook sections without approval',
+  },
+  microsoft_planner: {
+    willBeAbleTo: 'view plans and create tasks you approve in Concludo',
+    willNot: 'change or delete existing tasks without approval',
+  },
+  microsoft_sharepoint: {
+    willBeAbleTo: 'save documents and sync files to SharePoint sites you choose',
+    willNot: 'access sites you have not picked or change site settings',
+  },
   gmail: {
     willBeAbleTo: 'send emails from your account after you approve each one in Concludo',
     willNot: 'read your email',

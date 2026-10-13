@@ -103,6 +103,18 @@ export const IntegrationIcon: React.FC<IntegrationIconProps> = ({
           </svg>
         );
 
+      // ONENOTE
+      case 'microsoftonenote':
+      case 'onenote':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+            <rect x="10" y="5" width="12" height="14" rx="1" fill="#7719AA" />
+            <path d="M13 8H19M13 12H19M13 16H17" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+            <rect x="2" y="4" width="11" height="16" rx="1.5" fill="#5C1387" />
+            <path d="M5 16V8L9.5 16V8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        );
+
       // FORMS
       case 'microsoftforms':
       case 'forms':
