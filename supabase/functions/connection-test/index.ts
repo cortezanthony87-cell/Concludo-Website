@@ -9,6 +9,7 @@ import {
   requireUser,
   writeAuditEvent,
 } from './nango-common.ts';
+import { getOrRefreshAccessToken } from './native-oauth.ts';
 
 interface TestRequest {
   connection_id?: string;
@@ -23,24 +24,114 @@ export async function runConnectionTest(
     provider_id: string;
     nango_connection_id: string | null;
     nango_integration_id: string | null;
+    auth_mode?: string | null;
   }
 ): Promise<{ success: boolean; status: string; error?: string }> {
-  const nangoHost = getNangoHost();
-  const nangoSecret = getNangoSecretKey();
-
-  if (!connectionRow.nango_connection_id || !connectionRow.nango_integration_id) {
-    return { success: false, status: 'failed', error: 'Missing Nango connection details' };
-  }
-
   // 1. Fetch provider test_call spec
   const { data: provider, error: providerErr } = await service
     .from('integration_providers')
-    .select('id, test_call, connect_scopes')
+    .select('id, test_call, connect_scopes, provider_family, auth_config')
     .eq('id', connectionRow.provider_id)
     .single();
 
   if (providerErr || !provider || !provider.test_call) {
     return { success: false, status: 'failed', error: 'Provider test call configuration missing' };
+  }
+
+  // Handle Native OAuth Test
+  if (connectionRow.auth_mode === 'native') {
+    try {
+      const { accessToken } = await getOrRefreshAccessToken(service, connectionRow.id);
+      const testCall = provider.test_call as {
+        endpoint: string;
+        method?: string;
+        base?: string;
+        account_endpoint?: string;
+        account_field?: string;
+        fallback_field?: string;
+      };
+
+      const baseUrl = testCall.base || (
+        provider.provider_family === 'google' ? 'https://www.googleapis.com' : 'https://graph.microsoft.com'
+      );
+      const testUrl = `${baseUrl}${testCall.endpoint}`;
+      const method = (testCall.method || 'GET').toUpperCase();
+
+      const testRes = await fetch(testUrl, {
+        method,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const now = new Date().toISOString();
+      if (testRes.ok) {
+        let accountLabel: string | null = null;
+        const json = await testRes.json().catch(() => ({}));
+        const accField = testCall.account_field || 'email';
+        const fallbackField = testCall.fallback_field || 'mail';
+        accountLabel = json[accField] || json[fallbackField] || json.userPrincipalName || json.email || null;
+
+        await service
+          .from('integration_connections')
+          .update({
+            status: 'connected',
+            verified_at: now,
+            last_test_at: now,
+            last_test_result: 'success',
+            last_error_code: null,
+            status_reason: null,
+            ...(accountLabel ? { account_label: accountLabel, external_account_reference: accountLabel } : {}),
+            updated_at: now,
+          })
+          .eq('id', connectionRow.id);
+
+        await writeAuditEvent(service, {
+          connection_id: connectionRow.id,
+          user_id: connectionRow.user_id,
+          organization_id: connectionRow.organization_id,
+          provider_id: connectionRow.provider_id,
+          event_type: 'test_passed',
+          metadata: { auth_mode: 'native', endpoint: testUrl, status: testRes.status },
+        });
+
+        return { success: true, status: 'connected' };
+      } else {
+        const lastErrorCode = `http_${testRes.status}`;
+        const newStatus = testRes.status === 401 ? 'reauth_required' : (testRes.status === 403 ? 'permission_required' : 'failed');
+        await service
+          .from('integration_connections')
+          .update({
+            status: newStatus,
+            last_test_at: now,
+            last_test_result: 'failed',
+            last_error_code: lastErrorCode,
+            updated_at: now,
+          })
+          .eq('id', connectionRow.id);
+
+        await writeAuditEvent(service, {
+          connection_id: connectionRow.id,
+          user_id: connectionRow.user_id,
+          organization_id: connectionRow.organization_id,
+          provider_id: connectionRow.provider_id,
+          event_type: 'test_failed',
+          metadata: { auth_mode: 'native', endpoint: testUrl, status: testRes.status },
+        });
+
+        return { success: false, status: newStatus, error: lastErrorCode };
+      }
+    } catch (err: any) {
+      console.error('Native test failed:', err);
+      return { success: false, status: 'failed', error: err.message || 'native_test_failed' };
+    }
+  }
+
+  const nangoHost = getNangoHost();
+  const nangoSecret = getNangoSecretKey();
+
+  if (!connectionRow.nango_connection_id || !connectionRow.nango_integration_id) {
+    return { success: false, status: 'failed', error: 'Missing Nango connection details' };
   }
 
   const testCall = provider.test_call as {
@@ -232,7 +323,7 @@ Deno.serve(async (request) => {
     // Permission check: caller must be able to select the row with caller RLS
     const { data: callerRow, error: callerErr } = await callerClient
       .from('integration_connections')
-      .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id')
+      .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id, auth_mode')
       .eq('id', connectionId)
       .is('deleted_at', null)
       .maybeSingle();

@@ -9,6 +9,7 @@ import {
   requireUser,
   writeAuditEvent,
 } from './nango-common.ts';
+import { getOrRefreshAccessToken } from './native-oauth.ts';
 
 interface ScanRequest {
   connection_id: string;
@@ -49,7 +50,7 @@ Deno.serve(async (request) => {
     // 1. Verify connection ownership and status
     const { data: connection, error: connErr } = await service
       .from('integration_connections')
-      .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id, status, account_label, external_account_reference')
+      .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id, auth_mode, status, account_label, external_account_reference')
       .eq('id', connectionId)
       .eq('user_id', user.id)
       .is('deleted_at', null)
@@ -59,9 +60,21 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'Connection not found or unauthorized' }, 404, request);
     }
 
-    if (connection.status !== 'connected' || !connection.nango_connection_id || !connection.nango_integration_id) {
+    if (connection.status !== 'connected') {
       return jsonResponse({
         error: 'Mailbox is not connected or verified. Please reconnect in Settings > Integrations.',
+        status: connection.status,
+      }, 400, request);
+    }
+
+    const isNative = connection.auth_mode === 'native';
+    let nativeToken = '';
+    if (isNative) {
+      const tokenResult = await getOrRefreshAccessToken(service, connection.id);
+      nativeToken = tokenResult.accessToken;
+    } else if (!connection.nango_connection_id || !connection.nango_integration_id) {
+      return jsonResponse({
+        error: 'Mailbox is missing connection credentials. Please reconnect in Settings > Integrations.',
         status: connection.status,
       }, 400, request);
     }
@@ -79,10 +92,15 @@ Deno.serve(async (request) => {
 
     // 2. Ingest via Nango Proxy based on provider
     if (providerId === 'gmail') {
-      // Step 2a: List message IDs from Gmail API
-      proxyHeaders['Base-Url-Override'] = 'https://gmail.googleapis.com';
-      const listUrl = `${nangoHost}/proxy/gmail/v1/users/me/messages?maxResults=${maxMessages}`;
-      const listRes = await fetch(listUrl, { headers: proxyHeaders });
+      // Step 2a: List message IDs from Gmail API (native or via Nango proxy)
+      const listUrl = isNative
+        ? `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxMessages}`
+        : `${nangoHost}/proxy/gmail/v1/users/me/messages?maxResults=${maxMessages}`;
+      const listHeaders = isNative
+        ? { Authorization: `Bearer ${nativeToken}` }
+        : { ...proxyHeaders, 'Base-Url-Override': 'https://gmail.googleapis.com' };
+
+      const listRes = await fetch(listUrl, { headers: listHeaders });
       
       if (!listRes.ok) {
         const errText = await listRes.text().catch(() => '');
@@ -105,8 +123,10 @@ Deno.serve(async (request) => {
       const batch = messageRefs.slice(0, 15);
       for (const msgRef of batch) {
         try {
-          const getUrl = `${nangoHost}/proxy/gmail/v1/users/me/messages/${msgRef.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`;
-          const getRes = await fetch(getUrl, { headers: proxyHeaders });
+          const getUrl = isNative
+            ? `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`
+            : `${nangoHost}/proxy/gmail/v1/users/me/messages/${msgRef.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`;
+          const getRes = await fetch(getUrl, { headers: listHeaders });
           if (!getRes.ok) continue;
           const msg = await getRes.json();
           const headers = (msg.payload?.headers || []) as Array<{ name: string; value: string }>;
@@ -128,9 +148,15 @@ Deno.serve(async (request) => {
         }
       }
     } else if (providerId === 'microsoft_outlook') {
-      // Step 2c: Query Microsoft Graph API via Nango Proxy
-      const graphUrl = `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`;
-      const graphRes = await fetch(graphUrl, { headers: proxyHeaders });
+      // Step 2c: Query Microsoft Graph API (native or via Nango proxy)
+      const graphUrl = isNative
+        ? `https://graph.microsoft.com/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`
+        : `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`;
+      const graphHeaders = isNative
+        ? { Authorization: `Bearer ${nativeToken}` }
+        : proxyHeaders;
+
+      const graphRes = await fetch(graphUrl, { headers: graphHeaders });
 
       if (!graphRes.ok) {
         const errText = await graphRes.text().catch(() => '');
