@@ -26,7 +26,7 @@ import {
 } from '../../lib/email/draftReview';
 import { useDraftSession, seedFromReplyDraft, fingerprintInputOf } from '../../lib/email/draftSession';
 import { AccountBadge, ConfidenceChip, Field } from './viewPrimitives';
-import { sendDraftEmail } from '../../lib/email/sendClient';
+import { sendDraftEmail, DraftAttachment } from '../../lib/email/sendClient';
 
 function Icon({ name, size = 14 }: { name: string; size?: number }) {
   const Component = (Icons as unknown as Record<string, React.FC<{ size?: number }>>)[name];
@@ -51,6 +51,27 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
   const [clarificationNote, setClarificationNote] = useState('');
   const [askingClarification, setAskingClarification] = useState(false);
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [fileAttachments, setFileAttachments] = useState<DraftAttachment[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      reader.onload = () => {
+        const res = reader.result as string;
+        const base64 = res.includes(",") ? res.split(",")[1] : res;
+        setFileAttachments((prev) => [
+          ...prev,
+          { name: file.name, type: file.type || "application/octet-stream", size: file.size, contentBytes: base64 },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = "";
+  };
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<{
     success: boolean;
@@ -176,6 +197,7 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
         approvalConfirmed: true,
         threadId: threadId,
         fingerprint: fp,
+        attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
       });
 
       setSendResult({
@@ -613,6 +635,24 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
           );
         })}
 
+        <input
+          type="file"
+          ref={fileInputRef}
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+        <span className="ecc-action-wrap">
+          <button
+            type="button"
+            className="btn-secondary ecc-draft-action"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach files to this draft"
+          >
+            <Icons.Paperclip size={14} />
+            Attach files{fileAttachments.length > 0 ? ` (${fileAttachments.length})` : ""}
+          </button>
+        </span>
         {/* Outbound Send Action */}
         <span className="ecc-action-wrap">
           <button

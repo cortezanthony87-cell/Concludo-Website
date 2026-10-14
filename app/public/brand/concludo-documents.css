@@ -135,8 +135,8 @@ body {
 }
 
 .stamp {
-  background: var(--paper);
-  padding: 11px 18px;
+  background: transparent;
+  padding: 0;
   display: block;
   flex: none;
 }

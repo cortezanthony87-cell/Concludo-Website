@@ -1,5 +1,12 @@
 import { getSupabaseBrowserClient } from '../supabase/client';
 
+export interface DraftAttachment {
+  name: string;
+  type: string;
+  size: number;
+  contentBytes: string;
+}
+
 export interface SendDraftEmailParams {
   connectionId: string;
   to: string;
@@ -10,6 +17,7 @@ export interface SendDraftEmailParams {
   approvalConfirmed: boolean;
   threadId?: string;
   fingerprint?: string;
+  attachments?: DraftAttachment[];
 }
 
 export interface SendDraftEmailResult {
@@ -50,6 +58,7 @@ export async function sendDraftEmail(params: SendDraftEmailParams): Promise<Send
         subject: params.subject,
         thread_id: params.threadId || null,
         fingerprint: params.fingerprint || null,
+        attachments_count: params.attachments?.length || 0,
       },
       notes: 'Authorised in Concludo Approval Centre',
       approved_at: new Date().toISOString(),
@@ -72,6 +81,7 @@ export async function sendDraftEmail(params: SendDraftEmailParams): Promise<Send
       body: params.body,
       approval_confirmed: params.approvalConfirmed,
       thread_id: params.threadId,
+      attachments: params.attachments,
     },
   });
 

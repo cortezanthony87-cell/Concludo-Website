@@ -27,7 +27,7 @@ import { formatFullDate } from './outputFormat';
 
 /** Where the document stylesheet and the lockup live in the application. */
 export const DOCUMENT_STYLESHEET = '/brand/concludo-documents.css';
-export const DOCUMENT_LOCKUP = '/brand/Concludo_lockup_horizontal_760w.png';
+export const DOCUMENT_LOCKUP = '/brand/Concludo_logo_horizontal_reversed_for_dark.png';
 const FONTS =
   'https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap';
 
@@ -259,6 +259,7 @@ export function renderOutputDocument(
 <meta name="subject" content="${escapeHtml(payload.document.subject)}">
 <link rel="stylesheet" href="${FONTS}">
 <link rel="stylesheet" href="${escapeHtml(stylesheet)}">
+<style>.stamp { background: transparent !important; padding: 0 !important; } .stamp img { width: 160px !important; height: auto !important; }</style>
 </head>
 <body>
 <div class="desk">

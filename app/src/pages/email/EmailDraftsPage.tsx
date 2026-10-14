@@ -16,6 +16,7 @@ import { EmailModuleContext } from '../../components/email/EmailModuleLayout';
 import { ViewScaffold } from '../../components/email/ViewScaffold';
 import { FilterChips } from '../../components/email/FilterChips';
 import { ItemActions } from '../../components/email/ItemActions';
+import { DraftCardItem } from '../../components/email/DraftCardItem';
 import {
   AccountBadge,
   DraftChip,
@@ -71,8 +72,7 @@ export const EmailDraftsPage: React.FC = () => {
       notice={
         <p className="ecc-safety-note" role="note">
           <ShieldCheck size={14} aria-hidden="true" />
-          A draft is text on this screen. Writing one into a mailbox would need your approval of that
-          exact wording, and that is not built. Sending is not built at all.
+          Concludo proposes; a person disposes. Review, edit, attach documents, and send through your connected mailbox using the Approval Centre gate.
         </p>
       }
       controls={
@@ -112,92 +112,18 @@ export const EmailDraftsPage: React.FC = () => {
       }
     >
       <ul className="ecc-card-list">
-        {items.map(({ record, draft, bodyForStyle }) => {
-          const headingId = `ecc-draft-${record.thread.id}`;
-          return (
-            <li key={draft.id} className="content-card ecc-card" aria-labelledby={headingId}>
-              <div className="ecc-card-top">
-                <div className="ecc-card-identity">
-                  <p className="ecc-card-sender">{record.counterpartyName}</p>
-                  <h3 id={headingId} className="ecc-card-subject">
-                    {record.thread.subject}
-                  </h3>
-                </div>
-                <div className="ecc-card-badges">
-                  <AccountBadge accountType={accountType} label={accountLabel} />
-                  <DraftChip status={draft.status} />
-                </div>
-              </div>
-
-              {bodyForStyle ? (
-                <>
-                  {draft.recipients.length > 0 ? (
-                    <Field label="Would go to">
-                      {draft.recipients.map((p) => `${p.displayName} (${p.address})`).join(', ')}
-                    </Field>
-                  ) : null}
-                  <p className="ecc-draft-style-note">{DRAFT_STYLE_LABEL[style]} version</p>
-                  <pre
-                    className="ecc-draft-body"
-                    tabIndex={0}
-                    aria-label={`Proposed reply to ${record.thread.subject}`}
-                  >
-                    {bodyForStyle}
-                  </pre>
-                  {draft.commitmentsInDraft.length > 0 ? (
-                    <Field label="What this commits you to">
-                      <ul className="ecc-reason-list ecc-commitments">
-                        {draft.commitmentsInDraft.map((c) => (
-                          <li key={c}>{c}</li>
-                        ))}
-                      </ul>
-                    </Field>
-                  ) : null}
-                </>
-              ) : (
-                <p className="ecc-draft-withheld">{draft.statusReason}</p>
-              )}
-
-              {draft.missingInformation.length > 0 ? (
-                <Field label="Needed before this can be written">
-                  <ul className="ecc-reason-list">
-                    {draft.missingInformation.map((m) => (
-                      <li key={m}>{m}</li>
-                    ))}
-                  </ul>
-                </Field>
-              ) : null}
-
-              {draft.factsToVerify.length > 0 ? (
-                <Field label="Check before using">
-                  <ul className="ecc-reason-list">
-                    {draft.factsToVerify.map((f) => (
-                      <li key={f.id}>
-                        <strong>{f.claim}</strong> {f.howToVerify}
-                      </li>
-                    ))}
-                  </ul>
-                </Field>
-              ) : null}
-
-              <div className="ecc-card-meta">
-                <ConfidenceChip confidence={record.analysis.confidence} what="this draft" />
-                <span className="ecc-attach-chip">Prepared {formatDayTime(draft.createdAt)}</span>
-                <span className="ecc-attach-chip">
-                  {draft.approval === null ? 'Not approved, and nothing can approve it' : 'Approved'}
-                </span>
-              </div>
-
-              <ItemActions
-                threadId={record.thread.id}
-                subject={record.thread.subject}
-                linkTo={linkTo}
-                recommendedNextStep={record.analysis.recommendedNextStep}
-                draftAvailable={draft.status === 'available'}
-              />
-            </li>
-          );
-        })}
+        {items.map(({ record, draft, bodyForStyle }) => (
+          <DraftCardItem
+            key={draft.id}
+            record={record}
+            draft={draft}
+            bodyForStyle={bodyForStyle}
+            accountLabel={accountLabel}
+            accountType={accountType}
+            linkTo={linkTo}
+            style={style}
+          />
+        ))}
       </ul>
     </ViewScaffold>
   );

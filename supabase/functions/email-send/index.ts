@@ -10,6 +10,13 @@ import {
 } from './nango-common.ts';
 import { getOrRefreshAccessToken } from './native-oauth.ts';
 
+interface DraftAttachment {
+  name: string;
+  type: string;
+  size: number;
+  contentBytes: string;
+}
+
 interface SendDraftRequest {
   connection_id: string;
   thread_id?: string;
@@ -20,6 +27,7 @@ interface SendDraftRequest {
   body: string;
   approval_id: string;
   approval_confirmed: boolean;
+  attachments?: DraftAttachment[];
 }
 
 Deno.serve(async (request) => {
@@ -36,6 +44,7 @@ Deno.serve(async (request) => {
     const content = typeof body.body === 'string' ? body.body.trim() : '';
     const approvalId = typeof body.approval_id === 'string' ? body.approval_id.trim() : '';
     const approvalConfirmed = Boolean(body.approval_confirmed);
+    const attachments = Array.isArray(body.attachments) ? body.attachments : [];
 
     if (!connectionId) {
       return jsonResponse({ error: 'connection_id is required' }, 400, request);
@@ -99,21 +108,42 @@ Deno.serve(async (request) => {
     }
 
     // 2. Verify connection ownership, tenant isolation, and status
-    const { data: connection, error: connErr } = await service
+    // Support fallback to active connected mailbox if a synthetic account id was passed
+    let effectiveConnId = connectionId;
+    let { data: connection, error: connErr } = await service
       .from('integration_connections')
       .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id, auth_mode, status, account_label, external_account_reference, granted_scopes')
-      .eq('id', connectionId)
+      .eq('id', effectiveConnId)
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .maybeSingle();
 
-    if (connErr || !connection) {
-      return jsonResponse({ error: 'Connection not found or unauthorized' }, 404, request);
+    if (!connection) {
+      // Check if user has an active connected mailbox to use
+      const { data: fallbackConn } = await service
+        .from('integration_connections')
+        .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id, auth_mode, status, account_label, external_account_reference, granted_scopes')
+        .in('provider_id', ['gmail', 'microsoft_outlook'])
+        .eq('user_id', user.id)
+        .eq('status', 'connected')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackConn) {
+        connection = fallbackConn;
+        effectiveConnId = fallbackConn.id;
+      }
+    }
+
+    if (!connection) {
+      return jsonResponse({ error: 'No connected mailbox found for this account. Please connect Gmail or Outlook in Settings > Integrations.' }, 404, request);
     }
 
     if (connection.status !== 'connected') {
       return jsonResponse({
-        error: 'Mailbox is not connected. Please reconnect in Settings > Integrations.',
+        error: `Mailbox is ${connection.status}. Please reconnect in Settings > Integrations.`,
         status: connection.status,
       }, 400, request);
     }
@@ -159,27 +189,62 @@ Deno.serve(async (request) => {
     const providerId = connection.provider_id;
     let providerMessageId = '';
 
-    // 2. Dispatch Send Request
+    // 4. Dispatch Send Request
     if (providerId === 'gmail') {
-      // Build RFC 2822 email message
-      const emailLines: string[] = [
-        `To: ${to}`,
-      ];
-      if (body.cc) emailLines.push(`Cc: ${body.cc}`);
-      if (body.bcc) emailLines.push(`Bcc: ${body.bcc}`);
-      emailLines.push(`Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`);
-      emailLines.push('MIME-Version: 1.0');
-      emailLines.push('Content-Type: text/plain; charset=UTF-8');
-      emailLines.push('Content-Transfer-Encoding: 7bit');
-      emailLines.push('');
-      emailLines.push(content);
+      let rawBase64 = '';
+      if (attachments.length > 0) {
+        const boundary = `===============_Concludo_${Date.now()}==`;
+        const emailLines: string[] = [
+          `To: ${to}`,
+        ];
+        if (body.cc) emailLines.push(`Cc: ${body.cc}`);
+        if (body.bcc) emailLines.push(`Bcc: ${body.bcc}`);
+        emailLines.push(`Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`);
+        emailLines.push('MIME-Version: 1.0');
+        emailLines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+        emailLines.push('');
+        emailLines.push(`--${boundary}`);
+        emailLines.push('Content-Type: text/plain; charset=UTF-8');
+        emailLines.push('Content-Transfer-Encoding: 7bit');
+        emailLines.push('');
+        emailLines.push(content);
 
-      const rawEmail = emailLines.join('\r\n');
-      // URL-safe base64 encoding without padding
-      const rawBase64 = btoa(unescape(encodeURIComponent(rawEmail)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+        for (const att of attachments) {
+          emailLines.push('');
+          emailLines.push(`--${boundary}`);
+          emailLines.push(`Content-Type: ${att.type || 'application/octet-stream'}; name="${att.name}"`);
+          emailLines.push('Content-Transfer-Encoding: base64');
+          emailLines.push(`Content-Disposition: attachment; filename="${att.name}"`);
+          emailLines.push('');
+          emailLines.push(att.contentBytes);
+        }
+        emailLines.push('');
+        emailLines.push(`--${boundary}--`);
+
+        const rawEmail = emailLines.join('\r\n');
+        rawBase64 = btoa(unescape(encodeURIComponent(rawEmail)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+      } else {
+        const emailLines: string[] = [
+          `To: ${to}`,
+        ];
+        if (body.cc) emailLines.push(`Cc: ${body.cc}`);
+        if (body.bcc) emailLines.push(`Bcc: ${body.bcc}`);
+        emailLines.push(`Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`);
+        emailLines.push('MIME-Version: 1.0');
+        emailLines.push('Content-Type: text/plain; charset=UTF-8');
+        emailLines.push('Content-Transfer-Encoding: 7bit');
+        emailLines.push('');
+        emailLines.push(content);
+
+        const rawEmail = emailLines.join('\r\n');
+        rawBase64 = btoa(unescape(encodeURIComponent(rawEmail)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+      }
 
       const sendUrl = isNative
         ? 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
@@ -213,7 +278,6 @@ Deno.serve(async (request) => {
       const sendData = await sendRes.json();
       providerMessageId = sendData.id || '';
     } else if (providerId === 'microsoft_outlook') {
-      // Build Microsoft Graph sendMail payload
       const recipientList = to.split(',').map((addr) => ({
         emailAddress: { address: addr.trim() },
       })).filter(r => Boolean(r.emailAddress.address));
@@ -226,6 +290,13 @@ Deno.serve(async (request) => {
         emailAddress: { address: addr.trim() },
       })).filter(r => Boolean(r.emailAddress.address));
 
+      const graphAttachments = attachments.map((att) => ({
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: att.name,
+        contentType: att.type || 'application/octet-stream',
+        contentBytes: att.contentBytes,
+      }));
+
       const graphPayload = {
         message: {
           subject,
@@ -236,6 +307,7 @@ Deno.serve(async (request) => {
           toRecipients: recipientList,
           ccRecipients: ccList,
           bccRecipients: bccList,
+          ...(graphAttachments.length > 0 ? { attachments: graphAttachments } : {}),
         },
         saveToSentItems: true,
       };
@@ -275,10 +347,9 @@ Deno.serve(async (request) => {
       }, 400, request);
     }
 
-    // 3. Write Audit Event
+    // 5. Mark approval record as consumed (single-use)
     const senderAddress = connection.account_label || connection.external_account_reference || user.email;
 
-    // Mark approval record as consumed (single-use)
     await service
       .from('workflow_approvals')
       .update({
@@ -299,6 +370,7 @@ Deno.serve(async (request) => {
         recipient: to,
         sender: senderAddress,
         subject,
+        attachmentsCount: attachments.length,
         messageId: providerMessageId,
       },
     });
