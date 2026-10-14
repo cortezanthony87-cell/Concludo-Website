@@ -464,15 +464,15 @@ export const DraftCardItem: React.FC<Props> = ({
 
           <button
             type="button"
-            className="btn-primary"
+            className={`btn-primary ${sendResult?.success ? '' : 'ecc-btn-glowing-gold'}`}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
               fontSize: '13px',
-              padding: '7px 16px',
+              padding: '7px 18px',
               borderRadius: '8px',
-              backgroundColor: sendResult?.success ? '#166534' : '#e2b53c',
+              backgroundColor: sendResult?.success ? '#166534' : undefined,
               color: sendResult?.success ? '#ffffff' : '#090d16',
               fontWeight: 700,
               cursor: isSending || sendResult?.success ? 'default' : 'pointer',
@@ -618,14 +618,13 @@ export const DraftCardItem: React.FC<Props> = ({
               </button>
               <button
                 type="button"
-                className="btn-primary"
+                className="btn-primary ecc-btn-glowing-gold"
                 onClick={handleSendConfirm}
                 disabled={isSending}
                 style={{
-                  padding: '8px 20px',
+                  padding: '8px 22px',
                   borderRadius: '8px',
                   fontSize: '13px',
-                  backgroundColor: '#e2b53c',
                   color: '#090d16',
                   fontWeight: 700,
                   display: 'inline-flex',

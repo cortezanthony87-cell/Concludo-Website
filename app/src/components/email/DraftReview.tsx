@@ -657,9 +657,9 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
         <span className="ecc-action-wrap">
           <button
             type="button"
-            className="btn-primary ecc-draft-action"
+            className={`btn-primary ecc-draft-action ${sendResult?.success ? '' : 'ecc-btn-glowing-gold'}`}
             style={{
-              backgroundColor: sendResult?.success ? '#166534' : '#e2b53c',
+              backgroundColor: sendResult?.success ? '#166534' : undefined,
               color: sendResult?.success ? '#ffffff' : '#090d16',
               fontWeight: 700,
               display: 'inline-flex',
@@ -802,14 +802,15 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
               </button>
               <button
                 type="button"
-                className="btn-primary"
+                className="btn-primary ecc-btn-glowing-gold"
                 style={{
-                  backgroundColor: '#e2b53c',
                   color: '#090d16',
                   fontWeight: 700,
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
+                  padding: '8px 22px',
+                  borderRadius: '8px',
                 }}
                 disabled={isSending}
                 onClick={handleSendConfirm}

@@ -4254,3 +4254,27 @@
   padding-top: 16px;
   border-top: 1px solid var(--border-subtle);
 }
+
+/* Glowing gold send action button */
+.ecc-btn-glowing-gold {
+  background: linear-gradient(135deg, #E2B53C 0%, #BC8A1C 100%) !important;
+  color: #090D16 !important;
+  font-weight: 700 !important;
+  border: 1px solid #F5D77F !important;
+  box-shadow: 0 0 16px rgba(226, 181, 60, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  transition: all 0.2s ease-in-out !important;
+  cursor: pointer;
+}
+
+.ecc-btn-glowing-gold:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ECC252 0%, #C99622 100%) !important;
+  box-shadow: 0 0 24px rgba(226, 181, 60, 0.85), 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+.ecc-btn-glowing-gold:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none !important;
+  transform: none !important;
+}

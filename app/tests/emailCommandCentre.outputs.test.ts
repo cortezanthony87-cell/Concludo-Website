@@ -25,7 +25,7 @@ import {
   outputDefinition,
   recipientsFor,
 } from '../src/lib/email/outputs';
-import { renderOutputDocument, documentFileName, DOCUMENT_STYLESHEET } from '../src/lib/email/outputDocument';
+import { renderOutputDocument, documentFileName, DOCUMENT_STYLESHEET, DOCUMENT_LOCKUP } from '../src/lib/email/outputDocument';
 import { composeOverview } from '../src/lib/email/overview';
 import { recordsFor, ThreadRecord } from '../src/lib/email/filters';
 import { getDataset } from '../src/lib/email/data';
@@ -513,7 +513,7 @@ group('The document is drawn with the Workspace document stylesheet');
   );
   assert(html.includes('class="sheet"'), 'It uses the sheet class that stylesheet defines.');
   assert(html.includes('class="desk"'), 'And the desk the sheet sits on.');
-  assert(html.includes('Concludo_lockup_horizontal_760w.png'), 'It uses the supplied lockup file.');
+  assert(html.includes(DOCUMENT_LOCKUP), 'It uses the supplied lockup file.');
   assert(
     !/<svg|<path/i.test(html),
     'And never redraws the mark, which the brand rules forbid.'
