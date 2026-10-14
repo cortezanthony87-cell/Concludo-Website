@@ -51,6 +51,7 @@
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  position: relative;
 }
 
 /* Mobile View Switcher (Desktop-like experience on phones) */
@@ -114,7 +115,9 @@
 .wb-head {
   min-height: 56px;
   flex: 0 0 auto;
-  background: var(--navy);
+  background: rgba(22, 38, 63, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--navy2);
   display: flex;
   align-items: center;
@@ -157,6 +160,8 @@
   align-items: center;
   justify-content: flex-start !important;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .wb-empty-stage-inner {
@@ -166,6 +171,8 @@
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 640px) {
@@ -900,11 +907,15 @@ svg.wb-edges {
 
 .wb-modal {
   max-width: 1180px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   background: var(--navy);
   border: 1px solid var(--navy2);
   border-radius: var(--r-panel);
   padding: var(--s3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  position: relative;
 }
 
 .wb-modal h2 {
@@ -932,9 +943,10 @@ svg.wb-edges {
 
 .wb-filters {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 18px 0 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 6px;
+  padding: 16px 0 16px;
   border-bottom: 1px solid #24344F;
 }
 
@@ -942,9 +954,22 @@ svg.wb-edges {
   height: 0;
 }
 
+.wb-filters .wb-pill {
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.wb-filters .wb-pill.ghost:hover {
+  border-color: var(--gold);
+  color: var(--light);
+  background: rgba(226, 181, 60, 0.08);
+}
+
 .wb-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--s3);
   padding-top: var(--s3);
 }
@@ -1249,6 +1274,125 @@ svg.wb-edges {
 @media (prefers-reduced-motion: reduce) {
   .wb-app * {
     transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---------- Starry Sky Visual Effect ---------- */
+.wb-starry-sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  background: radial-gradient(ellipse 120% 90% at 50% -10%, #16243D 0%, #0D1629 35%, #080D1A 70%, #050812 100%);
+}
+
+.wb-nebula-glow {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform, opacity;
+}
+
+.wb-nebula-1 {
+  top: 8%;
+  left: 18%;
+  width: 550px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(33, 57, 92, 0.28) 0%, rgba(22, 38, 63, 0.06) 60%, transparent 80%);
+}
+
+.wb-nebula-2 {
+  top: 42%;
+  right: 12%;
+  width: 480px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(226, 181, 60, 0.07) 0%, rgba(188, 138, 28, 0.02) 50%, transparent 80%);
+}
+
+.wb-stars-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.wb-star-twinkle-1 {
+  animation: wbStarTwinkle1 infinite ease-in-out;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.wb-star-twinkle-2 {
+  animation: wbStarTwinkle2 infinite ease-in-out;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.wb-star-twinkle-3 {
+  animation: wbStarTwinkle3 infinite ease-in-out;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.wb-star-pulse {
+  animation: wbStarPulse infinite ease-in-out;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes wbStarTwinkle1 {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes wbStarTwinkle2 {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scale(1.1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes wbStarTwinkle3 {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes wbStarPulse {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-star-twinkle-1,
+  .wb-star-twinkle-2,
+  .wb-star-twinkle-3,
+  .wb-star-pulse {
     animation: none !important;
   }
 }

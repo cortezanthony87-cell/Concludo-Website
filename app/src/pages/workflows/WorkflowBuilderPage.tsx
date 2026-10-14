@@ -40,6 +40,7 @@ import { WorkflowStepsOutline } from '../../components/workflows/WorkflowStepsOu
 import { WorkflowEmptyState } from '../../components/workflows/WorkflowEmptyState';
 import { BuildProgressList } from '../../components/workflows/BuildProgressList';
 import { ReviewCard, WhatChangedItem } from '../../components/workflows/ReviewCard';
+import { StarrySky } from '../../components/workflows/StarrySky';
 import {
   integrationsHubService,
   IntegrationConnection,
@@ -568,6 +569,7 @@ export const WorkflowBuilderPage: React.FC = () => {
 
   return (
     <div className="wb-app">
+      <StarrySky />
       {/* 3.1 Header: Back link, name, lifecycle pill, Undo, Primary Button, More */}
       <header className="wb-hdr wb-head" role="banner">
         <div className="wb-hdr-l wb-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

@@ -62,6 +62,7 @@ export const TemplatePickerModal: React.FC<TemplatePickerModalProps> = ({
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
+              type="button"
               className={`wb-pill ${cat === activeCategory ? 'gold' : 'ghost'}`}
               role="tab"
               aria-selected={cat === activeCategory}
