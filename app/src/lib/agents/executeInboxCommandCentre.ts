@@ -44,11 +44,8 @@ export async function executeInboxCommandCentre(
     .eq('status', 'connected')
     .is('deleted_at', null);
 
-  if (targetAccountId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetAccountId)) {
-    query = query.or(`id.eq.${targetAccountId},user_id.eq.${params.userId}`);
-  } else {
-    query = query.eq('user_id', params.userId);
-  }
+  // Strictly enforce user_id isolation (tenant security principle)
+  query = query.eq('user_id', params.userId);
 
   const { data: connections } = await query;
   const connectedList = connections || [];
@@ -63,116 +60,4 @@ export async function executeInboxCommandCentre(
 
   // If live connection exists, call the email-scan edge function
   if (selectedConnection && selectedConnection.status === 'connected') {
-    const { data: scanResponse, error: scanErr } = await client.functions.invoke('email-scan', {
-      body: {
-        connection_id: selectedConnection.id,
-        account_email: targetAccountEmail || selectedConnection.account_label || selectedConnection.external_account_reference,
-        limit: 20,
-      },
-    });
-
-    if (scanErr || !scanResponse?.success) {
-      const errDetail = scanResponse?.error || scanErr?.message || 'Edge function email-scan failed';
-      throw new Error(`Email scan failed: ${errDetail}`);
-    }
-
-    const scanData = scanResponse.data;
-    const rawAddress = targetAccountEmail || selectedConnection.account_label || selectedConnection.external_account_reference || 'Connected mailbox';
-    const isPers = rawAddress.endsWith('@gmail.com') || rawAddress.endsWith('@live.com') || rawAddress.endsWith('@outlook.com');
-    const acctType = isPers ? 'personal' : 'work';
-
-    // Register dynamic dataset for this live connection
-    registerScanDataset(
-      {
-        id: selectedConnection.id,
-        label: selectedConnection.provider_id === 'gmail' ? 'Google Workspace' : 'Microsoft 365',
-        address: rawAddress,
-        accountType: acctType,
-        lastSynchronisedAt: scanData.scannedAt,
-        connected: true,
-      },
-      scanData
-    );
-
-    await setAgentMemory({
-      agentType: 'inbox_command_centre',
-      memoryKey: `inbox_briefing_${acctType}_${rawAddress.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      memoryValue: scanData,
-      ownerId: params.userId,
-      teamId: params.teamId,
-      organizationId: params.organizationId,
-      admin: params.admin,
-    });
-
-    return {
-      agentType: 'inbox_command_centre',
-      status: 'completed',
-      summary: scanResponse.summary,
-      data: scanData,
-      requiresApproval: false,
-      executionDurationMs: 0,
-    };
-  }
-
-  // Fallback for demo/synthetic mode
-  const emailAddress = selectedConnection?.account_label || selectedConnection?.external_account_reference || 'you@your-practice.example';
-  const isPersonal = emailAddress.endsWith('@gmail.com') || emailAddress.endsWith('@live.com') || emailAddress.endsWith('@outlook.com');
-  const accountType = isPersonal ? 'personal' : 'work';
-
-  // Pick dataset for analysis
-  const datasetId = accountType === 'personal' ? PERSONAL_ACCOUNT.id : WORK_ACCOUNT.id;
-  const dataset = getDataset(datasetId)!;
-  const dashboard = buildDashboard(dataset, DEMO_NOW);
-
-  const needsAttentionCount = dashboard.metrics.find((m) => m.key === 'needs_attention')?.count ?? 0;
-  const repliesDueCount = dashboard.metrics.find((m) => m.key === 'replies_due')?.count ?? 0;
-  const deadlinesCount = dashboard.metrics.find((m) => m.key === 'deadlines')?.count ?? 0;
-  const waitingCount = dashboard.metrics.find((m) => m.key === 'waiting_on_others')?.count ?? 0;
-
-  const summary = `Inbox Command Centre Agent audited ${emailAddress} (${accountType}): ${needsAttentionCount} threads need attention, ${repliesDueCount} replies recommended, ${deadlinesCount} upcoming deadlines identified, and ${waitingCount} items waiting on others. No emails were sent, filed or altered.`;
-
-  const payload = {
-    accountEmail: emailAddress,
-    accountType,
-    provider: selectedConnection?.provider_id || 'demonstration_dataset',
-    auditedAt: new Date().toISOString(),
-    governance: 'Concludo proposes; a person disposes. Read-only audit; zero external mutations.',
-    metrics: {
-      needsAttention: needsAttentionCount,
-      repliesDue: repliesDueCount,
-      deadlines: deadlinesCount,
-      waitingOnOthers: waitingCount,
-      securityAdvisories: dashboard.metrics.find((m) => m.key === 'security_review')?.count ?? 0,
-    },
-    topActions: dashboard.queues.find((q) => q.key === 'handle_first')?.records.slice(0, 3).map((r) => ({
-      subject: r.thread.subject,
-      counterparty: r.counterpartyName,
-      summary: r.analysis.oneLineSummary,
-      priorityScore: r.analysis.priorityScore,
-    })) || [],
-    replyQueue: dashboard.queues.find((q) => q.key === 'reply_queue')?.records.slice(0, 3).map((r) => ({
-      subject: r.thread.subject,
-      sender: r.counterpartyName,
-      suggestedAction: r.analysis.oneLineSummary,
-    })) || [],
-  };
-
-  await setAgentMemory({
-    agentType: 'inbox_command_centre',
-    memoryKey: `inbox_briefing_${accountType}_${emailAddress.replace(/[^a-zA-Z0-9]/g, '_')}`,
-    memoryValue: payload,
-    ownerId: params.userId,
-    teamId: params.teamId,
-    organizationId: params.organizationId,
-    admin: params.admin,
-  });
-
-  return {
-    agentType: 'inbox_command_centre',
-    status: 'completed',
-    summary,
-    data: payload,
-    requiresApproval: false,
-    executionDurationMs: 0,
-  };
-}
+    const { data: scanResponse, error: scanErr } = await client.functions.invoke('email-scan', {\n      body: {\n        connection_id: selectedConnection.id,\n        account_email: targetAccountEmail || selectedConnection.account_label || selectedConnection.external_account_reference,\n        limit: 20,\n      },\n    });\n\n    if (scanErr || !scanResponse?.success) {\n      const errDetail = scanResponse?.error || scanErr?.message || 'Edge function email-scan failed';\n      throw new Error(`Email scan failed: ${errDetail}`);\n    }\n\n    const scanData = scanResponse.data;\n    const rawAddress = targetAccountEmail || selectedConnection.account_label || selectedConnection.external_account_reference || 'Connected mailbox';\n    const isPers = rawAddress.endsWith('@gmail.com') || rawAddress.endsWith('@live.com') || rawAddress.endsWith('@outlook.com');\n    const acctType = isPers ? 'personal' : 'work';\n\n    // Register dynamic dataset for this live connection\n    registerScanDataset(\n      {\n        id: selectedConnection.id,\n        label: selectedConnection.provider_id === 'gmail' ? 'Google Workspace' : 'Microsoft 365',\n        address: rawAddress,\n        accountType: acctType,\n        lastSynchronisedAt: scanData.scannedAt,\n        connected: true,\n      },\n      scanData\n    );\n\n    await setAgentMemory({\n      agentType: 'inbox_command_centre',\n      memoryKey: `inbox_briefing_${acctType}_${rawAddress.replace(/[^a-zA-Z0-9]/g, '_')}`,\n      memoryValue: scanData,\n      ownerId: params.userId,\n      teamId: params.teamId,\n      organizationId: params.organizationId,\n      admin: params.admin,\n    });\n\n    return {\n      agentType: 'inbox_command_centre',\n      status: 'completed',\n      summary: scanResponse.summary,\n      data: scanData,\n      requiresApproval: false,\n      executionDurationMs: 0,\n    };\n  }\n\n  // Fallback for demo/synthetic mode\n  const emailAddress = selectedConnection?.account_label || selectedConnection?.external_account_reference || 'you@your-practice.example';\n  const isPersonal = emailAddress.endsWith('@gmail.com') || emailAddress.endsWith('@live.com') || emailAddress.endsWith('@outlook.com');\n  const accountType = isPersonal ? 'personal' : 'work';\n\n  // Pick dataset for analysis\n  const datasetId = accountType === 'personal' ? PERSONAL_ACCOUNT.id : WORK_ACCOUNT.id;\n  const dataset = getDataset(datasetId)!;\n  const dashboard = buildDashboard(dataset, DEMO_NOW);\n\n  const needsAttentionCount = dashboard.metrics.find((m) => m.key === 'needs_attention')?.count ?? 0;\n  const repliesDueCount = dashboard.metrics.find((m) => m.key === 'replies_due')?.count ?? 0;\n  const deadlinesCount = dashboard.metrics.find((m) => m.key === 'deadlines')?.count ?? 0;\n  const waitingCount = dashboard.metrics.find((m) => m.key === 'waiting_on_others')?.count ?? 0;\n\n  const summary = `Inbox Command Centre Agent audited ${emailAddress} (${accountType}): ${needsAttentionCount} threads need attention, ${repliesDueCount} replies recommended, ${deadlinesCount} upcoming deadlines identified, and ${waitingCount} items waiting on others. No emails were sent, filed or altered.`;\n\n  const payload = {\n    accountEmail: emailAddress,\n    accountType,\n    provider: selectedConnection?.provider_id || 'demonstration_dataset',\n    auditedAt: new Date().toISOString(),\n    governance: 'Concludo proposes; a person disposes. Read-only audit; zero external mutations.',\n    metrics: {\n      needsAttention: needsAttentionCount,\n      repliesDue: repliesDueCount,\n      deadlines: deadlinesCount,\n      waitingOnOthers: waitingCount,\n      securityAdvisories: dashboard.metrics.find((m) => m.key === 'security_review')?.count ?? 0,\n    },\n    topActions: dashboard.queues.find((q) => q.key === 'handle_first')?.records.slice(0, 3).map((r) => ({\n      subject: r.thread.subject,\n      counterparty: r.counterpartyName,\n      summary: r.analysis.oneLineSummary,\n      priorityScore: r.analysis.priorityScore,\n    })) || [],\n    replyQueue: dashboard.queues.find((q) => q.key === 'reply_queue')?.records.slice(0, 3).map((r) => ({\n      subject: r.thread.subject,\n      sender: r.counterpartyName,\n      suggestedAction: r.analysis.oneLineSummary,\n    })) || [],\n  };\n\n  await setAgentMemory({\n    agentType: 'inbox_command_centre',\n    memoryKey: `inbox_briefing_${accountType}_${emailAddress.replace(/[^a-zA-Z0-9]/g, '_')}`,\n    memoryValue: payload,\n    ownerId: params.userId,\n    teamId: params.teamId,\n    organizationId: params.organizationId,\n    admin: params.admin,\n  });\n\n  return {\n    agentType: 'inbox_command_centre',\n    status: 'completed',\n    summary,\n    data: payload,\n    requiresApproval: false,\n    executionDurationMs: 0,\n  };\n}
