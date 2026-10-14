@@ -433,6 +433,126 @@ export async function executeWorkflowArchitect(
     plainLanguageExplanation.push('4. Re-checks payment status before drafting customer correspondence.');
     plainLanguageExplanation.push('5. Requires human sign-off before sending any external payment reminder.');
   }
+  // Scenario 4: LinkedIn Messages to Microsoft To Do / Tasks
+  else if (promptLower.includes('linkedin') && (promptLower.includes('to do') || promptLower.includes('todo') || promptLower.includes('task') || promptLower.includes('message') || promptLower.includes('tick box'))) {
+    connectionsRequired.push('linkedin');
+    if (promptLower.includes('to do') || promptLower.includes('todo')) {
+      connectionsRequired.push('microsoft_todo');
+    }
+    recordEmit('trigger.selected', { trigger: 'linkedin.new_message_received', event: 'unread_messages_polled' });
+
+    const steps: WorkflowStep[] = [
+      {
+        key: 'trigger_linkedin_messages',
+        displayName: 'LinkedIn Unread Messages Poller',
+        stepType: 'trigger',
+        purpose: 'Monitors connected LinkedIn profile or organisation inbox for unread messages and incoming inquiries.',
+        application: 'linkedin',
+        inputMapping: {},
+        outputSchema: { messages: 'array', unreadCount: 'number' },
+        configuration: { filter: 'unread', pollingIntervalMinutes: 15 },
+        userFacingExplanation: 'Fires when new unread messages are detected on your connected LinkedIn account.',
+      },
+      {
+        key: 'parse_and_extract_actions',
+        displayName: 'AI Action Extraction & Triage',
+        stepType: 'ai_agent',
+        purpose: 'Extracts sender identity, message intent, urgency, and specific reply commitments from each message.',
+        application: 'concludo_ai_agents',
+        inputMapping: { messages: '$trigger_linkedin_messages.messages' },
+        outputSchema: { tasks: 'array', followUpItems: 'array' },
+        configuration: { model: 'claude_3_5_sonnet', extractFollowUps: true },
+        retryPolicy: { maxAttempts: 3, initialIntervalMs: 1000, backoffFactor: 2 },
+        userFacingExplanation: 'Analyses LinkedIn message text to draft actionable follow-up checklist items.',
+      },
+      {
+        key: 'approval_gate_follow_ups',
+        displayName: 'Review Follow-up Action Items',
+        stepType: 'approval',
+        purpose: 'Allows human review and selection of follow-up tasks before sending them to Microsoft To Do.',
+        application: 'concludo_approval_centre',
+        inputMapping: { followUpItems: '$parse_and_extract_actions.followUpItems' },
+        outputSchema: { approved: 'boolean', approvedTasks: 'array' },
+        configuration: { approverRole: 'project_owner' },
+        approvalRequirement: { required: true, approverRole: 'project_owner' },
+        userFacingExplanation: 'Governing gate: you review and approve which messages become active to-do tasks.',
+      },
+      {
+        key: 'create_todo_tasks',
+        displayName: 'Create Microsoft To Do Tasks',
+        stepType: 'action',
+        purpose: 'Inserts approved follow-up items as checklist tasks with tick boxes into Microsoft To Do.',
+        application: 'microsoft_todo',
+        inputMapping: { tasks: '$approval_gate_follow_ups.approvedTasks', listName: 'LinkedIn Follow-ups' },
+        outputSchema: { createdTaskIds: 'array', count: 'number' },
+        configuration: { createChecklistTickBox: true },
+        idempotencyPolicy: { enabled: true, keyTemplate: 'linkedin_msg_${trigger.timestamp}_todo' },
+        retryPolicy: { maxAttempts: 3, initialIntervalMs: 1000, backoffFactor: 2 },
+        userFacingExplanation: 'Creates a task with a completion tick box in Microsoft To Do for each approved follow-up.',
+      },
+      {
+        key: 'notify_workspace_summary',
+        displayName: 'Notify Workspace of Synced Tasks',
+        stepType: 'action',
+        purpose: 'Sends an internal notification confirming that LinkedIn tasks have been synchronised.',
+        application: 'concludo_notifications',
+        inputMapping: { count: '$create_todo_tasks.count' },
+        outputSchema: { sent: 'boolean' },
+        configuration: { channel: 'workspace' },
+        userFacingExplanation: 'Sends an internal confirmation alert once all tasks are registered.',
+      },
+    ];
+
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', sourceStepKey: 'trigger_linkedin_messages', destinationStepKey: 'parse_and_extract_actions', edgeType: 'success' },
+      { id: 'e2', sourceStepKey: 'parse_and_extract_actions', destinationStepKey: 'approval_gate_follow_ups', edgeType: 'success' },
+      { id: 'e3', sourceStepKey: 'approval_gate_follow_ups', destinationStepKey: 'create_todo_tasks', edgeType: 'approval_approved' },
+      { id: 'e4', sourceStepKey: 'create_todo_tasks', destinationStepKey: 'notify_workspace_summary', edgeType: 'success' },
+    ];
+
+    wf = {
+      schemaVersion: 1,
+      workflowKey: 'linkedin-messages-to-microsoft-todo',
+      name: 'LinkedIn Messages to Microsoft To Do Follow-ups',
+      description: 'Collects unread messages from LinkedIn, triages reply requirements, and creates checklist tasks in Microsoft To Do with completion tick boxes.',
+      version: 1,
+      status: 'draft',
+      organisationScope: { type: 'current_organisation', organizationId },
+      owner: { type: 'role', value: 'project_owner' },
+      timezone: 'Australia/Melbourne',
+      riskLevel: 'medium',
+      trigger: {
+        triggerKey: 'linkedin.new_message_received',
+        displayName: 'LinkedIn Unread Messages Poller',
+        sourceService: 'linkedin',
+        configuration: { filter: 'unread' },
+      },
+      inputs: [],
+      variables: [],
+      steps,
+      edges,
+      errorHandling: { maxConsecutiveFailures: 3, notifyOwnerOnFailure: true },
+      audit: { recordExecutionHistory: true, auditClassification: 'standard' },
+      monitoring: {},
+      rollback: { canRollback: false },
+      layout: {
+        nodes: {
+          trigger_linkedin_messages: { key: 'trigger_linkedin_messages', x: 80, y: 150 },
+          parse_and_extract_actions: { key: 'parse_and_extract_actions', x: 340, y: 150 },
+          approval_gate_follow_ups: { key: 'approval_gate_follow_ups', x: 600, y: 150 },
+          create_todo_tasks: { key: 'create_todo_tasks', x: 860, y: 150 },
+          notify_workspace_summary: { key: 'notify_workspace_summary', x: 1120, y: 150 },
+        },
+      },
+    };
+
+    approvalsRequired.push('approval_gate_follow_ups');
+    plainLanguageExplanation.push('1. Collects unread messages from your connected LinkedIn account.');
+    plainLanguageExplanation.push('2. Analyses message contents to extract follow-up requirements and sender context.');
+    plainLanguageExplanation.push('3. Routes follow-up tasks to Concludo Approval Centre for review.');
+    plainLanguageExplanation.push('4. Creates checklist tasks in Microsoft To Do with completion tick boxes.');
+    plainLanguageExplanation.push('5. Confirms task synchronisation inside the Concludo workspace.');
+  }
   // Scenario 3: Google Sheet to Project Task
   else if (promptLower.includes('google sheet') || promptLower.includes('spreadsheet')) {
     connectionsRequired.push('google_sheets');

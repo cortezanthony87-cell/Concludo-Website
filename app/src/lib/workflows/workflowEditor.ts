@@ -79,6 +79,9 @@ const APP_ALIASES: Array<{ id: string; name: string; words: string[] }> = [
   { id: 'concludo_calendar', name: 'Concludo Calendar', words: ['concludo calendar', 'calendar'] },
   { id: 'concludo_projects', name: 'Concludo Projects', words: ['concludo projects', 'projects'] },
   { id: 'concludo_notifications', name: 'Concludo notifications', words: ['workspace notification', 'concludo notification'] },
+  { id: 'linkedin', name: 'LinkedIn', words: ['linkedin', 'linked in'] },
+  { id: 'microsoft_todo', name: 'Microsoft To Do', words: ['microsoft to do', 'to do', 'todo', 'to-do', 'tick box', 'checklist'] },
+  { id: 'microsoft_planner', name: 'Microsoft Planner', words: ['microsoft planner', 'planner'] },
 ];
 
 /** Apps whose actions send something out of Concludo to people. */

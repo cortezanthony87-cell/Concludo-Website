@@ -457,7 +457,23 @@ export class WorkflowExecutionEngine {
       let stepOutput: any = { executed: true, timestamp: new Date().toISOString(), evaluatedInputs };
       
       // Dynamic simulated outputs for all Tier 1 & Tier 2 connected apps
-      if (step.application === "microsoft_outlook" || step.application === "outlook") {
+      if (step.application === "microsoft_todo" || step.application === "todo") {
+        stepOutput = {
+          taskId: isDryRun ? "dry_run_todo_001" : `todo_${Date.now()}`,
+          title: evaluatedInputs.title || evaluatedInputs.subject || "Follow up with LinkedIn Contact",
+          isCompleted: false,
+          hasTickBox: true,
+          listName: evaluatedInputs.listName || "Tasks",
+          createdDateTime: new Date().toISOString(),
+        };
+      } else if (step.application === "linkedin") {
+        stepOutput = {
+          messages: isDryRun
+            ? [{ messageId: "dry_msg_001", sender: "Alex Mercer", preview: "Following up on the proposal", read: false }]
+            : [{ messageId: `msg_${Date.now()}`, sender: evaluatedInputs.sender || "LinkedIn Connection", preview: "Hi Anthony, let's connect regarding Concludo", read: false }],
+          unreadCount: 1,
+        };
+      } else if (step.application === "microsoft_outlook" || step.application === "outlook") {
         stepOutput = {
           messageId: isDryRun ? "dry_run_msg_001" : `msg_${Date.now()}`,
           sentTo: evaluatedInputs.to || evaluatedInputs.recipient || "client@example.com",
