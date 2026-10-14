@@ -34,19 +34,24 @@ export async function executeInboxCommandCentre(
   }
 
   // 2. Query user connected mailboxes from integration_connections
-  const { data: connections } = await client
+  const targetAccountId = params.parameters?.accountId;
+  const targetAccountEmail = params.parameters?.accountEmail;
+
+  let query = client
     .from('integration_connections')
-    .select('id, provider_id, external_account_reference, account_label, status, created_at, nango_connection_id, nango_integration_id, auth_mode')
-    .eq('user_id', params.userId)
+    .select('id, provider_id, external_account_reference, account_label, status, created_at, nango_connection_id, nango_integration_id, auth_mode, user_id')
     .in('provider_id', ['gmail', 'microsoft_outlook'])
     .eq('status', 'connected')
     .is('deleted_at', null);
 
-  const connectedList = connections || [];
+  if (targetAccountId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetAccountId)) {
+    query = query.or(`id.eq.${targetAccountId},user_id.eq.${params.userId}`);
+  } else {
+    query = query.eq('user_id', params.userId);
+  }
 
-  // Determine target account selected by user or defaulted
-  const targetAccountId = params.parameters?.accountId;
-  const targetAccountEmail = params.parameters?.accountEmail;
+  const { data: connections } = await query;
+  const connectedList = connections || [];
 
   let selectedConnection = connectedList.find(
     (c) => c.id === targetAccountId || (targetAccountEmail && (c.account_label === targetAccountEmail || c.external_account_reference === targetAccountEmail))

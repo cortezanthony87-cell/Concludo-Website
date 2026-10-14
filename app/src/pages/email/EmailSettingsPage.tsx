@@ -10,28 +10,61 @@
  * claim an action is off while the code has it on. If somebody turns one on,
  * this table changes by itself.
  */
-import React from 'react';
-import { ShieldCheck, Lock, Briefcase, House } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ShieldCheck, Lock, Briefcase, House, CheckCircle2, MailPlus } from 'lucide-react';
 import { SYNTHETIC_ACCOUNTS } from '../../lib/email/shellAdapter';
+import { loadUserEmailAccounts } from '../../lib/email/connectedMailboxes';
+import { EmailAccountSummary } from '../../lib/email/types';
+import { EmailConnectModal } from '../../components/email/EmailConnectModal';
+import { useAuth } from '../../lib/auth/AuthContext';
 import {
   APPROVAL_GUARANTEE,
   DESTRUCTIVE_BULK_ACTIONS,
   EXTERNAL_ACTIONS,
 } from '../../lib/email/approvals';
 
-export const EmailSettingsPage: React.FC = () => (
+export const EmailSettingsPage: React.FC = () => {
+  const { user } = useAuth();
+  const [accounts, setAccounts] = useState<readonly EmailAccountSummary[]>(SYNTHETIC_ACCOUNTS);
+  const [hasLive, setHasLive] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await loadUserEmailAccounts();
+      setAccounts(res.accounts);
+      setHasLive(res.hasLiveAccounts);
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return (
   <section className="ecc-page" aria-labelledby="ecc-settings-heading">
     <h2 id="ecc-settings-heading" className="ecc-page-title">
       Email Settings
     </h2>
     <p className="ecc-page-description">
-      Accounts, exclusions and preferences. Nothing here connects a mailbox yet.
+      Accounts, exclusions and preferences for your connected mailboxes.
     </p>
 
     <div className="content-card ecc-settings-card">
-      <h3 className="ecc-settings-title">Accounts</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <h3 className="ecc-settings-title" style={{ margin: 0 }}>Connected Accounts</h3>
+        <button
+          type="button"
+          className="ecc-connect-email-btn"
+          onClick={() => setShowConnectModal(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <MailPlus size={14} /> Connect Mailbox (OAuth)
+        </button>
+      </div>
+
       <ul className="ecc-account-list">
-        {SYNTHETIC_ACCOUNTS.map((account) => (
+        {accounts.map((account) => (
           <li key={account.id} className="ecc-account-item">
             <span
               className={`ecc-account-badge ${
@@ -48,17 +81,22 @@ export const EmailSettingsPage: React.FC = () => (
             <span className="ecc-account-name">
               {account.label}, {account.address}
             </span>
-            <span className="ecc-account-state">
-              <Lock size={12} aria-hidden="true" />
-              Not connected
-            </span>
+            {account.connected ? (
+              <span className="ecc-account-state" style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle2 size={13} aria-hidden="true" />
+                Connected (OAuth)
+              </span>
+            ) : (
+              <span className="ecc-account-state">
+                <Lock size={12} aria-hidden="true" />
+                Demonstration preview
+              </span>
+            )}
           </li>
         ))}
       </ul>
       <p className="ecc-settings-note">
-        These are demonstration accounts. Connecting a real mailbox needs the token store, the
-        permission scopes and the revocation path, none of which exist yet. That work is a separate
-        stage with its own security design.
+        Concludo connects to Microsoft 365 and Google Workspace mailboxes using native OAuth. Access and refresh tokens are encrypted using AES-256-GCM. Concludo never sees your password and only requests read-only permissions.
       </p>
     </div>
 
@@ -148,5 +186,16 @@ export const EmailSettingsPage: React.FC = () => (
         drafts may be written to the mailbox. How long analysis is kept.
       </p>
     </div>
+
+    <EmailConnectModal
+      isOpen={showConnectModal}
+      onClose={() => setShowConnectModal(false)}
+      onSuccess={async () => {
+        await refresh();
+        setShowConnectModal(false);
+      }}
+      defaultEmail={user?.email || 'el_cortez87@live.com'}
+    />
   </section>
-);
+  );
+};

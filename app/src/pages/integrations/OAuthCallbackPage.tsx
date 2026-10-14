@@ -79,7 +79,9 @@ export const OAuthCallbackPage: React.FC = () => {
           }, 1200);
         } else {
           setTimeout(() => {
-            navigate(`/integrations?connected=${res.provider_id || ''}`);
+            const returnPath = sessionStorage.getItem('oauth_return_path') || '/integrations';
+            sessionStorage.removeItem('oauth_return_path');
+            navigate(`${returnPath}?connected=${res.provider_id || ''}`);
           }, 2000);
         }
       })

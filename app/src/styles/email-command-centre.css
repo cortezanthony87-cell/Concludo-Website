@@ -294,40 +294,62 @@
 .ecc-tabs {
   margin: 0;
   border-bottom: 1px solid var(--border-subtle);
+  width: 100%;
 }
 
 .ecc-tab-list {
   display: flex;
-  gap: 2px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
   margin: 0;
-  padding: 0;
+  padding: 6px 0;
   list-style: none;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.ecc-tab-list::-webkit-scrollbar {
-  display: none;
 }
 
 .ecc-tab {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 13px 14px;
+  gap: 6px;
+  padding: 8px 12px;
   white-space: nowrap;
   color: var(--text-secondary);
-  font-size: 0.83rem;
+  font-size: 0.82rem;
   text-decoration: none;
+  border-radius: 6px;
   border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
 }
 .ecc-tab:hover {
   color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
 }
 .ecc-tab-active {
   color: var(--gold-400);
   border-bottom-color: var(--gold-500);
+  background: rgba(226, 181, 60, 0.08);
   font-weight: 600;
+}
+
+/* Connect Email button in header */
+.ecc-connect-email-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(226, 181, 60, 0.12);
+  color: var(--gold-400);
+  border: 1px solid rgba(226, 181, 60, 0.35);
+  padding: 6px 12px;
+  border-radius: var(--ecc-radius-control);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ecc-connect-email-btn:hover {
+  background-color: rgba(226, 181, 60, 0.22);
+  border-color: var(--gold-400);
+  color: #ffffff;
 }
 
 /* --------------------------------------------------------------------- main */

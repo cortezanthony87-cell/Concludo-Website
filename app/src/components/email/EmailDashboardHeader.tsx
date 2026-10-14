@@ -6,7 +6,7 @@
  * and carries a word as well as a colour.
  */
 import React from 'react';
-import { RefreshCw, Search, SlidersHorizontal, Settings2, Briefcase, House, Sparkles } from 'lucide-react';
+import { RefreshCw, Search, SlidersHorizontal, Settings2, Briefcase, House, Sparkles, MailPlus } from 'lucide-react';
 import {
   EmailAccountSummary,
   EmailViewState,
@@ -29,11 +29,13 @@ interface Props {
   accountSubstituted: boolean;
   onScanEmails?: () => void;
   isScanning?: boolean;
+  onOpenConnectModal?: () => void;
 }
 
 function syncText(status: EmailSyncStatus): string {
   if (status.state === 'synchronising') return 'Synchronising now';
   if (status.state === 'error') return 'Last synchronisation failed';
+  if (status.message) return status.message;
   if (status.state === 'never' || !status.lastSynchronisedAt) return status.message;
   const when = new Date(status.lastSynchronisedAt);
   return `Last synchronised ${when.toLocaleString('en-AU', {
@@ -56,6 +58,7 @@ export const EmailDashboardHeader: React.FC<Props> = ({
   accountSubstituted,
   onScanEmails,
   isScanning = false,
+  onOpenConnectModal,
 }) => {
   const isWork = account?.accountType === 'work';
 
@@ -88,13 +91,20 @@ export const EmailDashboardHeader: React.FC<Props> = ({
               id="ecc-account"
               className="ecc-select"
               value={viewState.accountId}
-              onChange={(event) => setViewState({ accountId: event.target.value })}
+              onChange={(event) => {
+                if (event.target.value === '__connect_new__') {
+                  if (onOpenConnectModal) onOpenConnectModal();
+                } else {
+                  setViewState({ accountId: event.target.value });
+                }
+              }}
             >
               {accounts.map((option) => (
                 <option key={option.id} value={option.id}>
-                  {option.label}, {option.address}
+                  {option.label}, {option.address} {option.connected ? '(Connected)' : ''}
                 </option>
               ))}
+              <option value="__connect_new__">+ Connect email account (OAuth)...</option>
             </select>
             <span
               className={`ecc-account-badge ${isWork ? 'ecc-account-work' : 'ecc-account-personal'}`}
@@ -189,6 +199,19 @@ export const EmailDashboardHeader: React.FC<Props> = ({
         </div>
 
         <div className="ecc-control ecc-control-buttons">
+          {onOpenConnectModal && (
+            <button
+              type="button"
+              className="ecc-connect-email-btn"
+              onClick={onOpenConnectModal}
+              aria-label="Connect mailbox via OAuth"
+              title="Connect your Microsoft Outlook or Gmail account"
+            >
+              <MailPlus size={14} aria-hidden="true" />
+              <span>Connect Mailbox</span>
+            </button>
+          )}
+
           {onScanEmails && (
             <button
               type="button"

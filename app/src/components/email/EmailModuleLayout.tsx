@@ -13,6 +13,7 @@ import { useEmailViewState, useEmailScrollMemory } from '../../lib/email/useEmai
 import { resolveAccount } from '../../lib/email/viewState';
 import { SYNTHETIC_ACCOUNTS, syntheticSyncStatus } from '../../lib/email/shellAdapter';
 import { EmailDashboardHeader } from './EmailDashboardHeader';
+import { EmailConnectModal } from './EmailConnectModal';
 import { LocalActionProvider } from '../../lib/email/localActions';
 import { loadUserEmailAccounts } from '../../lib/email/connectedMailboxes';
 import { EmailAccountSummary } from '../../lib/email/types';
@@ -47,6 +48,7 @@ export const EmailModuleLayout: React.FC = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   // Scan emails state
   const [isScanning, setIsScanning] = useState(false);
@@ -55,34 +57,65 @@ export const EmailModuleLayout: React.FC = () => {
   const [showScanModal, setShowScanModal] = useState(false);
 
   // Load connected mailboxes from integration_connections if user is authenticated
-  useEffect(() => {
-    let active = true;
-    const fetchAccounts = async () => {
-      try {
-        const result = await loadUserEmailAccounts();
-        if (active) {
-          setAvailableAccounts(result.accounts);
-          setHasLiveAccounts(result.hasLiveAccounts);
+  const fetchAccounts = useCallback(async () => {
+    try {
+      const result = await loadUserEmailAccounts();
+      setAvailableAccounts(result.accounts);
+      setHasLiveAccounts(result.hasLiveAccounts);
+      if (result.hasLiveAccounts && result.accounts.length > 0) {
+        // If no explicit account was chosen, default to the first live account
+        const currentParams = new URLSearchParams(window.location.search);
+        if (!currentParams.has('account')) {
+          setViewState({ accountId: result.accounts[0].id });
         }
-      } catch (err) {
-        console.warn('Failed to load email accounts:', err);
       }
-    };
+    } catch (err) {
+      console.warn('Failed to load email accounts:', err);
+    }
+  }, [setViewState]);
+
+  useEffect(() => {
     fetchAccounts();
-    return () => {
-      active = false;
-    };
-  }, [user]);
+  }, [user, fetchAccounts]);
+
+  const hasAccountInUrl = useMemo(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.has('account') && Boolean(params.get('account'));
+    } catch {
+      return false;
+    }
+  }, []);
 
   const { account, substituted } = useMemo(() => {
     const resolved = resolveAccount(availableAccounts, viewState.accountId);
-    return { account: resolved.account, substituted: resolved.substituted };
-  }, [availableAccounts, viewState.accountId]);
+    return {
+      account: resolved.account,
+      substituted: hasAccountInUrl ? resolved.substituted : false,
+    };
+  }, [availableAccounts, viewState.accountId, hasAccountInUrl]);
 
-  const syncStatus = useMemo(
-    () => syntheticSyncStatus(account?.id ?? viewState.accountId),
-    [account, viewState.accountId]
-  );
+  const syncStatus = useMemo(() => {
+    if (account?.connected && hasLiveAccounts) {
+      return {
+        state: (account.lastSynchronisedAt ? 'synchronised' : 'never') as any,
+        lastSynchronisedAt: account.lastSynchronisedAt || null,
+        message: account.lastSynchronisedAt
+          ? `Connected • Last synchronised ${new Date(account.lastSynchronisedAt).toLocaleString('en-AU', {
+              day: 'numeric',
+              month: 'short',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}`
+          : 'Connected • Ready to scan emails',
+      };
+    }
+    return {
+      state: 'never' as any,
+      lastSynchronisedAt: null,
+      message: 'Demonstration data. Connect your mailbox above to scan live emails.',
+    };
+  }, [account, hasLiveAccounts]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -98,13 +131,23 @@ export const EmailModuleLayout: React.FC = () => {
 
   const handleScanEmails = useCallback(async () => {
     if (isScanning) return;
+
+    const activeAccount = account || availableAccounts[0];
+
+    // If no live mailbox is connected, guide the user to connect via OAuth
+    if (!hasLiveAccounts || !activeAccount?.connected) {
+      setShowScanModal(true);
+      setScanResult(null);
+      setScanError('No mailbox is connected yet. Please connect your Microsoft Outlook or Google Workspace account via OAuth to scan and prioritize live emails.');
+      return;
+    }
+
     setIsScanning(true);
     setScanResult(null);
     setScanError(null);
     setShowScanModal(true);
 
     try {
-      const activeAccount = account || availableAccounts[0];
       if (!activeAccount) {
         throw new Error('No mailbox account is selected.');
       }
@@ -146,6 +189,14 @@ export const EmailModuleLayout: React.FC = () => {
     setScanError(null);
   }, []);
 
+  const handleConnectSuccess = useCallback(async (conn?: any) => {
+    await fetchAccounts();
+    if (conn?.id) {
+      setViewState({ accountId: conn.id });
+    }
+    setShowConnectModal(false);
+  }, [fetchAccounts, setViewState]);
+
   const context: EmailModuleContext = {
     accountId: account?.id ?? viewState.accountId,
     refreshToken,
@@ -171,6 +222,7 @@ export const EmailModuleLayout: React.FC = () => {
         accountSubstituted={substituted}
         onScanEmails={handleScanEmails}
         isScanning={isScanning}
+        onOpenConnectModal={() => setShowConnectModal(true)}
       />
 
       <nav className="ecc-tabs" aria-label="Email Command Centre sections">
@@ -324,18 +376,41 @@ export const EmailModuleLayout: React.FC = () => {
                 </>
               )}
               {(!scanResult || scanError) && (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleCloseModal}
-                >
-                  Close
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleCloseModal}
+                  >
+                    Close
+                  </button>
+                  {(!hasLiveAccounts || !account?.connected) && (
+                    <button
+                      type="button"
+                      className="btn-gold"
+                      onClick={() => {
+                        handleCloseModal();
+                        setShowConnectModal(true);
+                      }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Sparkles size={14} /> Connect Mailbox Now
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Email Native OAuth Connect Modal */}
+      <EmailConnectModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        onSuccess={handleConnectSuccess}
+        defaultEmail={user?.email || 'el_cortez87@live.com'}
+      />
     </div>
     </LocalActionProvider>
   );
