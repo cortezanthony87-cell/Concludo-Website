@@ -30,6 +30,9 @@ interface SendDraftRequest {
   attachments?: DraftAttachment[];
 }
 
+const MAX_ATTACHMENTS_COUNT = 10;
+const MAX_TOTAL_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25 MB provider limit
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return optionsResponse(request);
   if (request.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405, request);
@@ -40,6 +43,8 @@ Deno.serve(async (request) => {
 
     const connectionId = typeof body.connection_id === 'string' ? body.connection_id.trim() : '';
     const to = typeof body.to === 'string' ? body.to.trim() : '';
+    const cc = typeof body.cc === 'string' ? body.cc.trim() : '';
+    const bcc = typeof body.bcc === 'string' ? body.bcc.trim() : '';
     const subject = typeof body.subject === 'string' ? body.subject.trim() : '';
     const content = typeof body.body === 'string' ? body.body.trim() : '';
     const approvalId = typeof body.approval_id === 'string' ? body.approval_id.trim() : '';
@@ -47,7 +52,7 @@ Deno.serve(async (request) => {
     const attachments = Array.isArray(body.attachments) ? body.attachments : [];
 
     if (!connectionId) {
-      return jsonResponse({ error: 'connection_id is required' }, 400, request);
+      return jsonResponse({ error: 'Explicit connection_id is required. Sender mailbox must be chosen directly.' }, 400, request);
     }
 
     if (!to) {
@@ -68,6 +73,29 @@ Deno.serve(async (request) => {
       return jsonResponse({
         error: 'Explicit human approval is required to send this email. Concludo proposes; a person disposes.',
       }, 403, request);
+    }
+
+    if (attachments.length > MAX_ATTACHMENTS_COUNT) {
+      return jsonResponse({
+        error: `Maximum ${MAX_ATTACHMENTS_COUNT} attachments permitted per email.`,
+      }, 400, request);
+    }
+
+    let totalAttachmentBytes = 0;
+    for (const att of attachments) {
+      if (!att.name || typeof att.name !== 'string') {
+        return jsonResponse({ error: 'All attachments must have a valid name.' }, 400, request);
+      }
+      if (typeof att.contentBytes !== 'string') {
+        return jsonResponse({ error: `Attachment ${att.name} has invalid content bytes.` }, 400, request);
+      }
+      totalAttachmentBytes += att.size || att.contentBytes.length;
+    }
+
+    if (totalAttachmentBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
+      return jsonResponse({
+        error: `Total attachment size exceeds 25 MB limit (${Math.round(totalAttachmentBytes / (1024 * 1024))} MB provided).`,
+      }, 400, request);
     }
 
     const service = createServiceClient();
@@ -101,44 +129,31 @@ Deno.serve(async (request) => {
     }
 
     const payload = (approvalRecord.action_payload || {}) as Record<string, any>;
-    if (payload.connection_id !== connectionId || payload.to !== to || payload.subject !== subject) {
+    if (
+      payload.connection_id !== connectionId ||
+      payload.to !== to ||
+      payload.subject !== subject ||
+      (payload.cc || '') !== cc ||
+      (payload.bcc || '') !== bcc
+    ) {
       return jsonResponse({
         error: 'Approval payload mismatch. The email parameters do not match what was approved.',
       }, 403, request);
     }
 
-    // 2. Verify connection ownership, tenant isolation, and status
-    // Support fallback to active connected mailbox if a synthetic account id was passed
-    let effectiveConnId = connectionId;
-    let { data: connection, error: connErr } = await service
+    // 2. Strict mailbox resolution: Require explicit connection ownership, no fallback
+    const { data: connection, error: connErr } = await service
       .from('integration_connections')
       .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id, auth_mode, status, account_label, external_account_reference, granted_scopes')
-      .eq('id', effectiveConnId)
+      .eq('id', connectionId)
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .maybeSingle();
 
-    if (!connection) {
-      // Check if user has an active connected mailbox to use
-      const { data: fallbackConn } = await service
-        .from('integration_connections')
-        .select('id, user_id, organization_id, provider_id, nango_connection_id, nango_integration_id, auth_mode, status, account_label, external_account_reference, granted_scopes')
-        .in('provider_id', ['gmail', 'microsoft_outlook'])
-        .eq('user_id', user.id)
-        .eq('status', 'connected')
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (fallbackConn) {
-        connection = fallbackConn;
-        effectiveConnId = fallbackConn.id;
-      }
-    }
-
-    if (!connection) {
-      return jsonResponse({ error: 'No connected mailbox found for this account. Please connect Gmail or Outlook in Settings > Integrations.' }, 404, request);
+    if (connErr || !connection) {
+      return jsonResponse({
+        error: 'Connected mailbox connection not found for this account. Silent mailbox fallback is strictly forbidden.',
+      }, 404, request);
     }
 
     if (connection.status !== 'connected') {
@@ -164,6 +179,10 @@ Deno.serve(async (request) => {
           error: 'Connected Outlook mailbox lacks "Mail.Send" permission. Please re-authenticate your mailbox in Settings > Integrations to grant send permissions.',
         }, 403, request);
       }
+    } else {
+      return jsonResponse({
+        error: `Provider ${connection.provider_id} does not support sending emails.`,
+      }, 400, request);
     }
 
     const isNative = connection.auth_mode === 'native';
@@ -197,8 +216,8 @@ Deno.serve(async (request) => {
         const emailLines: string[] = [
           `To: ${to}`,
         ];
-        if (body.cc) emailLines.push(`Cc: ${body.cc}`);
-        if (body.bcc) emailLines.push(`Bcc: ${body.bcc}`);
+        if (cc) emailLines.push(`Cc: ${cc}`);
+        if (bcc) emailLines.push(`Bcc: ${bcc}`);
         emailLines.push(`Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`);
         emailLines.push('MIME-Version: 1.0');
         emailLines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
@@ -230,8 +249,8 @@ Deno.serve(async (request) => {
         const emailLines: string[] = [
           `To: ${to}`,
         ];
-        if (body.cc) emailLines.push(`Cc: ${body.cc}`);
-        if (body.bcc) emailLines.push(`Bcc: ${body.bcc}`);
+        if (cc) emailLines.push(`Cc: ${cc}`);
+        if (bcc) emailLines.push(`Bcc: ${bcc}`);
         emailLines.push(`Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`);
         emailLines.push('MIME-Version: 1.0');
         emailLines.push('Content-Type: text/plain; charset=UTF-8');
@@ -282,11 +301,11 @@ Deno.serve(async (request) => {
         emailAddress: { address: addr.trim() },
       })).filter(r => Boolean(r.emailAddress.address));
 
-      const ccList = (body.cc ? body.cc.split(',') : []).map((addr) => ({
+      const ccList = (cc ? cc.split(',') : []).map((addr) => ({
         emailAddress: { address: addr.trim() },
       })).filter(r => Boolean(r.emailAddress.address));
 
-      const bccList = (body.bcc ? body.bcc.split(',') : []).map((addr) => ({
+      const bccList = (bcc ? bcc.split(',') : []).map((addr) => ({
         emailAddress: { address: addr.trim() },
       })).filter(r => Boolean(r.emailAddress.address));
 
@@ -341,13 +360,9 @@ Deno.serve(async (request) => {
       }
 
       providerMessageId = `graph-${Date.now()}`;
-    } else {
-      return jsonResponse({
-        error: `Provider ${providerId} does not support sending emails.`,
-      }, 400, request);
     }
 
-    // 5. Mark approval record as consumed (single-use)
+    // 5. Consume approval record atomically (single-use)
     const senderAddress = connection.account_label || connection.external_account_reference || user.email;
 
     await service
@@ -359,19 +374,25 @@ Deno.serve(async (request) => {
       })
       .eq('id', approvalId);
 
-    await writeAuditEvent(service, {
-      connection_id: connection.id,
-      provider_id: providerId,
+    // 6. Write secure audit log
+    await writeAuditEvent({
+      event_type: 'email_draft_sent',
       user_id: user.id,
-      organization_id: connection.organization_id,
-      event_type: 'action_succeeded',
+      organization_id: connection.organization_id || undefined,
+      actor_id: user.id,
+      actor_email: user.email,
+      provider_id: providerId,
+      connection_id: connection.id,
       metadata: {
-        action: 'send_email',
-        recipient: to,
-        sender: senderAddress,
+        approval_id: approvalId,
+        provider_message_id: providerMessageId,
+        sender_address: senderAddress,
+        recipient_to: to,
+        has_cc: Boolean(cc),
+        has_bcc: Boolean(bcc),
         subject,
-        attachmentsCount: attachments.length,
-        messageId: providerMessageId,
+        attachments_count: attachments.length,
+        total_attachment_bytes: totalAttachmentBytes,
       },
     });
 
@@ -379,12 +400,12 @@ Deno.serve(async (request) => {
       success: true,
       messageId: providerMessageId,
       sentAt: new Date().toISOString(),
-      summary: `Email sent to ${to} via connected mailbox (${senderAddress}).`,
+      summary: `Email successfully sent to ${to} via ${senderAddress}.`,
     }, 200, request);
   } catch (err: any) {
-    console.error('Email send error:', err);
+    console.error('email-send error:', err);
     return jsonResponse({
-      error: err.message || 'Internal server error during email dispatch',
+      error: err.message || 'Internal server error processing email dispatch',
     }, 500, request);
   }
 });
