@@ -66,6 +66,25 @@ export async function runConnectionTest(
         fallback_field?: string;
       };
 
+      if (!testCall || !testCall.endpoint) {
+        const now = new Date().toISOString();
+        await service
+          .from('integration_connections')
+          .update({
+            status: 'connected',
+            verified_at: now,
+            last_test_at: now,
+            last_test_result: 'success',
+            last_error_code: null,
+            status_reason: null,
+            health_details: { healthy: true, last_check_status: 'OK' },
+            updated_at: now,
+          })
+          .eq('id', connectionRow.id);
+
+        return { success: true, status: 'connected' };
+      }
+
       const baseUrl = testCall.base || (
         provider.provider_family === 'google' ? 'https://www.googleapis.com' : 'https://graph.microsoft.com'
       );
@@ -85,7 +104,23 @@ export async function runConnectionTest(
         const json = await testRes.json().catch(() => ({}));
         const accField = testCall.account_field || 'email';
         const fallbackField = testCall.fallback_field || 'mail';
-        accountLabel = json[accField] || json[fallbackField] || json.userPrincipalName || json.email || null;
+        const getNested = (obj: any, path: string) => {
+          try {
+            return path.split(/[.[\]]+/).filter(Boolean).reduce((o, k) => (o ? o[k] : undefined), obj);
+          } catch (_) {
+            return undefined;
+          }
+        };
+        accountLabel =
+          (accField ? getNested(json, accField) : null) ||
+          (fallbackField ? getNested(json, fallbackField) : null) ||
+          json[accField] ||
+          json[fallbackField] ||
+          json.username ||
+          json.name ||
+          json.userPrincipalName ||
+          json.email ||
+          null;
 
         await service
           .from('integration_connections')

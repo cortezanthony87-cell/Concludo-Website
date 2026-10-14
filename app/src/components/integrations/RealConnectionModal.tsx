@@ -118,7 +118,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
     const isDirect = isDirectKeyProvider(provider);
 
     // 1. Direct API Key / Secret / Personal Token / Webhook Connection ($0 fee per connection)
-    if (isDirect || credential.trim().length > 0) {
+    if ((isDirect && !isNative) || credential.trim().length > 0) {
       const cred = credential.trim();
       if (!cred) {
         setErrorMsg(`Please enter your ${provider.name} API key, secret, or access token to connect.`);
@@ -497,7 +497,7 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
           )}
 
           {/* Credential input for Direct Key apps or token connections */}
-          {availability === 'available' && step === 'idle' && !isNativeOAuthProvider(provider) && (
+          {availability === 'available' && step === 'idle' && (!isNativeOAuthProvider(provider) || isDirectKeyProvider(provider)) && (
             <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
               {(() => {
                 const credInfo = getCredentialFieldInfo(provider);

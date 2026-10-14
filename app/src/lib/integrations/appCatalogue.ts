@@ -105,6 +105,50 @@ export const APP_PERMISSIONS_SUMMARY: Record<string, { willBeAbleTo: string; wil
     willBeAbleTo: 'publish posts and updates you review and approve in Concludo',
     willNot: 'publish to your LinkedIn profile or modify your profile without your explicit approval',
   },
+  youtube: {
+    willBeAbleTo: 'publish videos, schedule community posts, and sync channel metrics you review and approve in Concludo',
+    willNot: 'delete your videos, change channel ownership, or publish content without your explicit approval',
+  },
+  facebook: {
+    willBeAbleTo: 'publish page posts, schedule updates, and monitor audience insights you approve in Concludo',
+    willNot: 'access your private personal profile, send direct messages without approval, or delete existing posts',
+  },
+  instagram: {
+    willBeAbleTo: 'publish photos, reels, and stories you review and approve in Concludo',
+    willNot: 'post to your personal feed without approval, delete media, or message followers autonomously',
+  },
+  twitter: {
+    willBeAbleTo: 'publish posts, threads, and monitor brand mentions you review and approve in Concludo',
+    willNot: 'follow accounts, delete your past tweets, or send direct messages without your explicit approval',
+  },
+  tiktok: {
+    willBeAbleTo: 'publish video drafts and sync performance metrics you review and approve in Concludo',
+    willNot: 'delete your published videos, modify your creator profile, or publish without approval',
+  },
+  threads: {
+    willBeAbleTo: 'publish posts and replies you review and approve in Concludo',
+    willNot: 'publish to your Threads feed without approval or alter your profile settings',
+  },
+  pinterest: {
+    willBeAbleTo: 'create pins and manage boards you review and approve in Concludo',
+    willNot: 'delete existing boards or alter your Pinterest account settings without approval',
+  },
+  reddit: {
+    willBeAbleTo: 'submit community posts and replies you review and approve in Concludo',
+    willNot: 'vote, subscribe to communities, or delete posts without your explicit human approval',
+  },
+  buffer: {
+    willBeAbleTo: 'queue and schedule multi-channel updates you review and approve in Concludo',
+    willNot: 'disconnect social channels or delete queued campaigns without approval',
+  },
+  snapchat: {
+    willBeAbleTo: 'view ad campaign metrics and create approved campaign updates in Concludo',
+    willNot: 'spend ad budget or alter billing profiles without your direct authorization',
+  },
+  whatsapp: {
+    willBeAbleTo: 'send approved notification templates and customer responses you approve in Concludo',
+    willNot: 'send unsolicited broadcast messages or alter WhatsApp Business phone registration',
+  },
   google_ads: {
     willBeAbleTo: 'view campaign performance and apply ad changes you approve in Concludo',
     willNot: 'change your campaigns or spend without your explicit human approval',
@@ -304,11 +348,11 @@ export function isNativeOAuthProvider(app: { id?: string; provider_family?: stri
   const family = (app.provider_family || '').toLowerCase();
   const id = (app.id || '').toLowerCase();
   return (
-    family === 'google' ||
+    (family === 'google' && id !== 'youtube') ||
     family === 'microsoft' ||
     family === 'linkedin' ||
     id === 'linkedin' ||
-    id.startsWith('google') ||
+    (id.startsWith('google') && id !== 'youtube') ||
     id.startsWith('microsoft') ||
     id === 'onedrive' ||
     id === 'sharepoint'
@@ -326,6 +370,17 @@ export function isDirectKeyProvider(app: { id?: string; authentication_type?: st
     authType === 'bearer' ||
     authType === 'webhook_signature' ||
     authType === 'none' ||
+    id === 'youtube' ||
+    id === 'facebook' ||
+    id === 'instagram' ||
+    id === 'twitter' ||
+    id === 'tiktok' ||
+    id === 'threads' ||
+    id === 'pinterest' ||
+    id === 'reddit' ||
+    id === 'buffer' ||
+    id === 'snapchat' ||
+    id === 'whatsapp' ||
     id === 'stripe' ||
     id === 'openai' ||
     id === 'anthropic_claude' ||
@@ -501,6 +556,99 @@ export function getCredentialFieldInfo(provider: { id: string; name: string }): 
       label: 'QuickBooks API Token',
       placeholder: 'Enter API Token',
       help: 'Found in your Intuit Developer Portal under App Keys.',
+    };
+  }
+  if (id === 'youtube') {
+    return {
+      label: 'YouTube API Key or OAuth Access Token',
+      placeholder: 'AIzaSy... or ya29....',
+      help: 'Found in Google Cloud Console under Credentials > API Keys or OAuth 2.0 Client IDs.',
+    };
+  }
+  if (id === 'facebook') {
+    return {
+      label: 'Facebook Page Access Token or System User Token',
+      placeholder: 'EAA...',
+      help: 'Found in Meta for Developers under Tools > Graph API Explorer or Business Manager > System Users.',
+      requiresSecondary: true,
+      secondaryLabel: 'Facebook Page ID or Name',
+      secondaryPlaceholder: '10001234567890',
+      secondaryKey: 'page_id',
+    };
+  }
+  if (id === 'instagram') {
+    return {
+      label: 'Instagram Graph API Access Token',
+      placeholder: 'IGQ... or EAA...',
+      help: 'Found in Meta for Developers or Instagram Professional Account settings.',
+      requiresSecondary: true,
+      secondaryLabel: 'Instagram Account ID or Handle',
+      secondaryPlaceholder: '@yourbrand',
+      secondaryKey: 'account_id',
+    };
+  }
+  if (id === 'twitter') {
+    return {
+      label: 'X (Twitter) Bearer Token or API Key',
+      placeholder: 'AAAAAAAAAAAAAAAAAAAAA...',
+      help: 'Found in the X Developer Portal under Projects & Apps > Keys and Tokens.',
+    };
+  }
+  if (id === 'tiktok') {
+    return {
+      label: 'TikTok Commercial Access Token or Client Key',
+      placeholder: 'act.example.token...',
+      help: 'Found in TikTok for Developers portal under My Apps > App Details > Access Tokens.',
+    };
+  }
+  if (id === 'threads') {
+    return {
+      label: 'Threads Access Token',
+      placeholder: 'THQ...',
+      help: 'Found in Meta for Developers under Threads API settings.',
+    };
+  }
+  if (id === 'pinterest') {
+    return {
+      label: 'Pinterest Access Token',
+      placeholder: 'pina_...',
+      help: 'Found in the Pinterest Developer Portal under Apps > Access Tokens.',
+    };
+  }
+  if (id === 'reddit') {
+    return {
+      label: 'Reddit Personal Script Token or Secret',
+      placeholder: 'Enter Reddit API secret or token',
+      help: 'Found in reddit.com/prefs/apps under Installed / Script apps.',
+      requiresSecondary: true,
+      secondaryLabel: 'Subreddit or Username',
+      secondaryPlaceholder: 'r/yourbrand',
+      secondaryKey: 'target',
+    };
+  }
+  if (id === 'buffer') {
+    return {
+      label: 'Buffer Access Token',
+      placeholder: '1/...',
+      help: 'Found in your Buffer Developer Account under Apps > My Apps > Access Token.',
+    };
+  }
+  if (id === 'snapchat') {
+    return {
+      label: 'Snapchat Marketing API Token',
+      placeholder: 'Enter Snapchat Access Token',
+      help: 'Found in Snapchat Business Manager under Developer Settings > API Keys.',
+    };
+  }
+  if (id === 'whatsapp') {
+    return {
+      label: 'WhatsApp Cloud API Access Token',
+      placeholder: 'EAA...',
+      help: 'Found in Meta for Developers under WhatsApp > API Setup > Temporary or Permanent Access Token.',
+      requiresSecondary: true,
+      secondaryLabel: 'Phone Number ID',
+      secondaryPlaceholder: '105123456789012',
+      secondaryKey: 'phone_number_id',
     };
   }
   return {
