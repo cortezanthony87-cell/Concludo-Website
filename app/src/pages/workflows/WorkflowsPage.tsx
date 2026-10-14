@@ -1,4 +1,4 @@
-import { Plus, Boxes } from 'lucide-react';
+import { Plus, Boxes, Edit3, Play, Trash2, Sparkles, FolderKanban } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { integrationsHubService, IntegrationConnection } from '../../lib/integrations/hubRegistry';
@@ -130,7 +130,7 @@ export const WorkflowsPage: React.FC = () => {
   };
 
   const handleDeleteWorkflow = async (id: string) => {
-    if (!user || !confirm('Are you sure you want to delete this workflow?')) return;
+    if (!user || !confirm('Are you sure you want to delete this workflow? It can be recovered within 30 days.')) return;
     try {
       await deleteWorkflow(id, user.id);
       await loadData();
@@ -170,15 +170,15 @@ export const WorkflowsPage: React.FC = () => {
           <div>
             <div className="flex items-center space-x-3">
               <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-[#E2B53C]/20 text-[#E2B53C] border border-[#E2B53C]/40">
-                ENTERPRISE WORKFLOW ORCHESTRATION
+                SAVED WORKFLOWS & ORCHESTRATION
               </span>
               <span className="text-xs text-gray-400">Triggers & Execution Pipelines</span>
             </div>
             <h1 className="text-3xl font-bold font-heading text-white mt-1">
-              Workflow Builder & Orchestrator
+              Saved Workflows & Pipelines
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Connect triggers, conditions, and operational actions with Human-in-the-Loop governance.
+              Manage your saved workflows file. Review, pursue on demand, edit in the visual builder, or pause and delete workflows.
             </p>
           </div>
 
@@ -240,7 +240,7 @@ export const WorkflowsPage: React.FC = () => {
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
-            Configured Workflows ({workflows.length})
+            Saved Workflows ({workflows.length})
           </button>
           <button
             onClick={() => setActiveTab('history')}
@@ -298,6 +298,13 @@ export const WorkflowsPage: React.FC = () => {
                       </div>
 
                       <h3 className="text-lg font-bold font-heading text-white mt-3">{wf.name}</h3>
+                      {wf.definition_json?.steps && Array.isArray((wf.definition_json as any).steps) && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#E2B53C] bg-[#E2B53C]/10 border border-[#E2B53C]/25 px-2 py-0.5 rounded w-fit">
+                          <Sparkles className="w-3 h-3 text-[#E2B53C]" />
+                          <span>Visual Workflow • {(wf.definition_json as any).steps.length} Steps</span>
+                        </div>
+                      )}
+
                       {(() => {
                         const usableSlugs = new Set(
                           connections.filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })).map((c) => c.provider_id)
@@ -337,26 +344,39 @@ export const WorkflowsPage: React.FC = () => {
                     </div>
 
                     <div className="mt-6 pt-4 border-t border-[#21395C] flex items-center justify-between text-xs">
-                      <button
-                        onClick={() => handleToggleActive(wf)}
-                        className="text-gray-400 hover:text-white"
-                      >
-                        {wf.is_active ? 'Pause' : 'Activate'}
-                      </button>
-
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/workflows/builder?id=${wf.id}`}
+                          className="px-3 py-1.5 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] font-bold rounded text-xs flex items-center gap-1.5 shadow transition"
+                          title="Open and edit in visual workflow builder"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Open in Builder</span>
+                        </Link>
                         <button
                           onClick={() => handleTriggerWorkflow(wf.id)}
-                          disabled={triggeringId === wf.id || !wf.is_active}
-                          className="px-3 py-1 bg-[#21395C] hover:bg-[#E2B53C] hover:text-[#0E1726] text-white rounded font-medium disabled:opacity-50"
+                          disabled={triggeringId === wf.id}
+                          className="px-3 py-1.5 bg-[#21395C] hover:bg-[#16263F] text-white border border-[#21395C] hover:border-[#E2B53C]/40 rounded text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+                          title="Pursue / execute this workflow now"
                         >
-                          {triggeringId === wf.id ? 'Running...' : 'Test Run'}
+                          <Play className="w-3 h-3" fill="currentColor" />
+                          <span>{triggeringId === wf.id ? 'Running...' : 'Pursue / Run'}</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleActive(wf)}
+                          className="text-xs text-gray-400 hover:text-white px-2 py-1.5 border border-transparent hover:border-[#21395C] rounded transition"
+                        >
+                          {wf.is_active ? 'Pause' : 'Activate'}
                         </button>
                         <button
                           onClick={() => handleDeleteWorkflow(wf.id)}
-                          className="text-red-400 hover:text-red-300 px-2 py-1"
+                          className="text-xs text-red-400 hover:text-red-300 px-2 py-1.5 border border-transparent hover:border-red-900/50 rounded transition"
+                          title="Delete this workflow"
                         >
-                          Delete
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>

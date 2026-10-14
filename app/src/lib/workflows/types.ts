@@ -81,6 +81,7 @@ export interface WorkflowRecord {
   execution_type: WorkflowExecutionType;
   is_active: boolean;
   status?: WorkflowStatus;
+  workflow_key?: string;
   risk_level?: WorkflowRiskLevel;
   risk_reasons?: string[];
   risk_override_by?: string | null;

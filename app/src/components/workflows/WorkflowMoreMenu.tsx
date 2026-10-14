@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, Layers, PlayCircle, ShieldCheck, CheckSquare, History, RotateCcw, Code } from 'lucide-react';
+import { MoreHorizontal, Layers, PlayCircle, ShieldCheck, CheckSquare, History, RotateCcw, Code, FolderKanban } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export interface WorkflowMoreMenuProps {
@@ -88,6 +88,16 @@ export const WorkflowMoreMenu: React.FC<WorkflowMoreMenuProps> = ({
             <Layers size={14} color="var(--gold)" />
             <span>Templates (20 available)</span>
           </button>
+
+          <Link
+            to="/workflows"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            style={{ ...menuItemStyle, textDecoration: 'none' }}
+          >
+            <FolderKanban size={14} color="var(--gold)" />
+            <span>Saved Workflows File</span>
+          </Link>
 
           <Link
             to="/workflows/runs"

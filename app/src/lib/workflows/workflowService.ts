@@ -46,6 +46,22 @@ export async function fetchWorkflows(params: {
   return (data || []) as WorkflowRecord[];
 }
 
+export async function fetchWorkflowById(
+  id: string,
+  admin: boolean = false
+): Promise<WorkflowRecord | null> {
+  const client = getClient(admin);
+  const { data, error } = await client
+    .from('workflows')
+    .select('*')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch workflow: ${error.message}`);
+  return data as WorkflowRecord | null;
+}
+
 export async function createWorkflow(
   workflow: {
     owner_id: string;
@@ -59,26 +75,41 @@ export async function createWorkflow(
     actions?: any[];
     execution_type?: 'automatic' | 'approval_required' | 'manual_only';
     is_active?: boolean;
+    status?: any;
+    workflow_key?: string;
+    current_version?: number;
+    definition_json?: Record<string, any>;
+    graph_data?: Record<string, any>;
+    risk_level?: any;
   },
   admin: boolean = false
 ): Promise<WorkflowRecord> {
   const client = getClient(admin);
 
+  const insertPayload: any = {
+    owner_id: workflow.owner_id,
+    team_id: workflow.team_id || null,
+    organization_id: workflow.organization_id || null,
+    name: workflow.name,
+    description: workflow.description || '',
+    trigger_type: workflow.trigger_type,
+    trigger_config: workflow.trigger_config || {},
+    conditions: workflow.conditions || [],
+    actions: workflow.actions || [],
+    execution_type: workflow.execution_type || 'approval_required',
+    is_active: workflow.is_active !== undefined ? workflow.is_active : true,
+  };
+
+  if (workflow.workflow_key) insertPayload.workflow_key = workflow.workflow_key;
+  if (workflow.status) insertPayload.status = workflow.status;
+  if (workflow.current_version) insertPayload.current_version = workflow.current_version;
+  if (workflow.definition_json) insertPayload.definition_json = workflow.definition_json;
+  if (workflow.graph_data) insertPayload.graph_data = workflow.graph_data;
+  if (workflow.risk_level) insertPayload.risk_level = workflow.risk_level;
+
   const { data, error } = await client
     .from('workflows')
-    .insert({
-      owner_id: workflow.owner_id,
-      team_id: workflow.team_id || null,
-      organization_id: workflow.organization_id || null,
-      name: workflow.name,
-      description: workflow.description || '',
-      trigger_type: workflow.trigger_type,
-      trigger_config: workflow.trigger_config || {},
-      conditions: workflow.conditions || [],
-      actions: workflow.actions || [],
-      execution_type: workflow.execution_type || 'approval_required',
-      is_active: workflow.is_active !== undefined ? workflow.is_active : true,
-    })
+    .insert(insertPayload)
     .select('*')
     .single();
 
@@ -95,6 +126,76 @@ export async function createWorkflow(
   });
 
   return data as WorkflowRecord;
+}
+
+export async function saveWorkflowDefinition(params: {
+  definition: any;
+  userId: string;
+  workflowId?: string | null;
+  status?: any;
+  isActive?: boolean;
+  admin?: boolean;
+}): Promise<WorkflowRecord> {
+  const { definition, userId, workflowId, status, isActive, admin = false } = params;
+  const client = getClient(admin);
+
+  const triggerStep = definition.steps?.find((s: any) => s.stepType === 'trigger');
+  const triggerType: WorkflowTriggerType = triggerStep?.application
+    ? (triggerStep.application === 'linkedin' ? 'webhook_event' : `${triggerStep.application}_event` as any)
+    : 'webhook_event';
+
+  const actionSteps = (definition.steps || []).filter((s: any) => s.stepType !== 'trigger');
+  const actions = actionSteps.map((s: any) => ({
+    type: s.application ? `action_${s.application}` : s.stepType,
+    name: s.displayName,
+    service: s.service || s.application,
+    config: s.configuration || {},
+  }));
+
+  const hasApproval = definition.steps?.some(
+    (s: any) => s.stepType === 'approval' || s.approvalRequirement?.required
+  );
+  const executionType = hasApproval ? 'approval_required' : 'automatic';
+  const effectiveStatus = status || definition.status || 'draft';
+  const effectiveIsActive = isActive !== undefined ? isActive : (effectiveStatus === 'published');
+
+  const payload: any = {
+    name: definition.name || 'Untitled Workflow',
+    description: definition.description || '',
+    trigger_type: triggerType,
+    trigger_config: triggerStep?.configuration || {},
+    actions,
+    conditions: definition.edges || [],
+    execution_type: executionType,
+    is_active: effectiveIsActive,
+    status: effectiveStatus,
+    workflow_key: definition.workflowKey || `wf_${Date.now()}`,
+    current_version: definition.version || 1,
+    definition_json: { ...definition, status: effectiveStatus },
+    graph_data: { nodes: definition.layout?.nodes || {}, edges: definition.edges || [] },
+    risk_level: definition.riskLevel || 'medium',
+  };
+
+  if (workflowId) {
+    return await updateWorkflow(workflowId, payload, userId, admin);
+  }
+
+  const { data: existing } = await client
+    .from('workflows')
+    .select('id')
+    .eq('owner_id', userId)
+    .eq('workflow_key', payload.workflow_key)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (existing?.id) {
+    return await updateWorkflow(existing.id, payload, userId, admin);
+  }
+
+  return await createWorkflow({
+    owner_id: userId,
+    ...payload,
+  }, admin);
 }
 
 export async function updateWorkflow(
@@ -227,6 +328,14 @@ export async function triggerWorkflow(params: {
 
   // 3. If approval is required, create approval request in workflow_approvals
   if (executionType === 'approval_required') {
+    const approvalStep = workflow.definition_json?.steps?.find((s: any) => s.stepType === 'approval');
+    const approvalActionType = approvalStep?.displayName || workflow.actions?.[0]?.type || 'workflow_execution';
+    const stagedItems = Array.isArray(triggerData?.items)
+      ? triggerData.items
+      : Array.isArray(triggerData?.stagedItems)
+      ? triggerData.stagedItems
+      : undefined;
+
     const { data: approval, error: appError } = await client
       .from('workflow_approvals')
       .insert({
@@ -234,13 +343,14 @@ export async function triggerWorkflow(params: {
         execution_id: execution.id,
         requester_id: params.userId,
         status: 'pending',
-        action_type: workflow.actions?.[0]?.type || 'workflow_execution',
+        action_type: approvalActionType,
         action_payload: {
           workflowName: workflow.name,
           actions: workflow.actions,
           triggerData,
+          stagedItems,
         },
-        notes: `Automated approval request created for workflow "${workflow.name}".`,
+        notes: `Automated approval request created for workflow "${workflow.name}". A person must review and authorise before actions are dispatched.`,
       })
       .select('*')
       .single();

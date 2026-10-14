@@ -170,6 +170,14 @@ export function applyWorkflowEdit(
     ctx,
   };
 
+  const promptTrimmed = prompt.trim().toLowerCase();
+  if (/^(i approve|approve|approved|authorise|authorised|confirm sign[- ]?off|confirm approval|proceed with approval|sign off|pursue|run|run workflow)\b/i.test(promptTrimmed)) {
+    state.answer.push(
+      "Under Concludo's governance principles ('Concludo proposes; a person disposes'), this workflow includes a human review gate before external tasks or messages are created. You can click 'Pursue Workflow' in the top bar to run this pipeline, or open the Approval Centre to authorise pending action items."
+    );
+    return finishUnchanged(state, original, 'explained');
+  }
+
   const clauses = splitClauses(prompt);
   let explainedOnly = true;
 

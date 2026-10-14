@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
   WorkflowDefinition,
   WorkflowStep,
   WorkflowEdge,
   WorkflowBuildEvent,
+  WorkflowStatus,
 } from '../../lib/workflows/schemas';
+import {
+  fetchWorkflowById,
+  saveWorkflowDefinition,
+  triggerWorkflow,
+} from '../../lib/workflows/workflowService';
 import {
   executeWorkflowArchitect,
   buildMeetingFollowthroughVerticalSlice,
@@ -26,6 +32,10 @@ import {
   FileSearch,
   X,
   Code,
+  Save,
+  FolderKanban,
+  Play,
+  CheckCircle2,
 } from 'lucide-react';
 
 import { TemplatePickerModal } from '../../components/workflows/TemplatePickerModal';
@@ -93,6 +103,13 @@ export function createEmptyWorkflowDefinition(userId?: string): WorkflowDefiniti
 export const WorkflowBuilderPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlWorkflowId = searchParams.get('id');
+  const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(urlWorkflowId);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [isPursuing, setIsPursuing] = useState<boolean>(false);
+  const [pursueNotice, setPursueNotice] = useState<{ message: string; approvalId?: string } | null>(null);
 
   // Definition State (Starts empty for Stage A)
   const [definition, setDefinition] = useState<WorkflowDefinition>(() =>
@@ -129,6 +146,71 @@ export const WorkflowBuilderPage: React.FC = () => {
   }, []);
 
   // Conversation & Agent Architect State
+  // Load saved workflow if ?id= is present in URL
+  useEffect(() => {
+    if (!urlWorkflowId || !user) return;
+    let isMounted = true;
+    const loadExistingWf = async () => {
+      try {
+        const wf = await fetchWorkflowById(urlWorkflowId);
+        if (wf && wf.definition_json && Array.isArray((wf.definition_json as any).steps) && isMounted) {
+          const loadedDef = wf.definition_json as WorkflowDefinition;
+          setDefinition(loadedDef);
+          setHistoryStack([loadedDef]);
+          setHistoryIndex(0);
+          setStage('C');
+          setCurrentWorkflowId(wf.id);
+          setPlainLanguageExplanation([
+            wf.description || `Loaded saved workflow: ${wf.name}`,
+            `Status: ${wf.is_active ? 'Active' : 'Paused'} (${wf.status || 'published'})`,
+          ]);
+        } else if (wf && isMounted) {
+          const loadedDef: WorkflowDefinition = {
+            ...createEmptyWorkflowDefinition(user.id),
+            name: wf.name,
+            description: wf.description || '',
+            workflowKey: wf.workflow_key || `wf_${wf.id}`,
+            status: (wf.status as any) || (wf.is_active ? 'published' : 'draft'),
+            trigger: {
+              triggerKey: wf.trigger_type,
+              displayName: wf.trigger_type.replace(/_/g, ' '),
+              sourceService: 'system',
+              configuration: wf.trigger_config || {},
+            },
+            steps: (wf.actions || []).map((a: any, idx: number) => ({
+              key: `step_${idx + 1}`,
+                stepType: 'action' as const,
+              displayName: a.name || a.type,
+                purpose: `Execute ${a.name || a.type}`,
+              service: a.service || 'system',
+              application: a.service || 'concludo',
+              configuration: a.config || {},
+                inputMapping: {},
+                outputSchema: {},
+                userFacingExplanation: a.name || a.type,
+            })),
+            edges: [],
+          };
+          setDefinition(loadedDef);
+          setHistoryStack([loadedDef]);
+          setHistoryIndex(0);
+          setStage('C');
+          setCurrentWorkflowId(wf.id);
+          setPlainLanguageExplanation([
+            wf.description || `Loaded saved workflow: ${wf.name}`,
+            `Status: ${wf.is_active ? 'Active' : 'Paused'} (${wf.status || 'published'})`,
+          ]);
+        }
+      } catch (err) {
+        console.warn('Could not load saved workflow:', err);
+      }
+    };
+    loadExistingWf();
+    return () => {
+      isMounted = false;
+    };
+  }, [urlWorkflowId, user]);
+
   const [messages, setMessages] = useState<
     Array<{ id: string; role: 'user' | 'architect'; content: string; timestamp?: string }>
   >([]);
@@ -460,6 +542,68 @@ export const WorkflowBuilderPage: React.FC = () => {
   };
 
   // Primary action button handler
+  const handleSaveWorkflow = async (overrideStatus?: WorkflowStatus, overrideActive?: boolean) => {
+    if (!user) return null;
+    setIsSaving(true);
+    setSaveNotice(null);
+    try {
+      const statusToSave = overrideStatus || definition.status || 'published';
+      const activeToSave = overrideActive !== undefined ? overrideActive : (statusToSave === 'published');
+      const updatedDef = { ...definition, status: statusToSave };
+      const saved = await saveWorkflowDefinition({
+        definition: updatedDef,
+        userId: user.id,
+        workflowId: currentWorkflowId,
+        status: statusToSave,
+        isActive: activeToSave,
+      });
+      setCurrentWorkflowId(saved.id);
+      if (!urlWorkflowId || urlWorkflowId !== saved.id) {
+        setSearchParams({ id: saved.id }, { replace: true });
+      }
+      setSaveNotice('Saved to your workflows');
+      setTimeout(() => setSaveNotice(null), 3000);
+      return saved;
+    } catch (err: any) {
+      setSaveNotice(`Save failed: ${err.message}`);
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePursueWorkflow = async () => {
+    if (!user) return;
+    setIsPursuing(true);
+    setPursueNotice(null);
+    try {
+      const saved = await handleSaveWorkflow('published', true);
+      const targetId = saved?.id || currentWorkflowId;
+      if (!targetId) throw new Error('Could not identify workflow ID to execute.');
+
+      const res = await triggerWorkflow({
+        workflowId: targetId,
+        userId: user.id,
+        triggerData: { initiatedFrom: 'workflow_builder', timestamp: new Date().toISOString() },
+      });
+
+      if (res.approval) {
+        setPursueNotice({
+          message: 'Workflow pursued! Action item routed to Approval Centre for your sign-off.',
+          approvalId: res.approval.id,
+        });
+      } else {
+        setPursueNotice({
+          message: 'Workflow pursued and completed successfully.',
+        });
+      }
+    } catch (err: any) {
+      setPursueNotice({ message: `Pursue failed: ${err.message}` });
+    } finally {
+      setIsPursuing(false);
+    }
+  };
+
   const handlePrimaryAction = (actionType: string) => {
     switch (actionType) {
       case 'build':
@@ -470,17 +614,20 @@ export const WorkflowBuilderPage: React.FC = () => {
         handleRunTest();
         break;
       case 'activate':
-        if (isHighOrRestricted) {
-          setDefinition((prev) => ({ ...prev, status: 'submitted_for_review' }));
-        } else {
-          setDefinition((prev) => ({ ...prev, status: 'published', version: prev.version + 1 }));
-        }
+        const nextStatus = isHighOrRestricted ? 'submitted_for_review' : 'published';
+        const nextActiveDef: WorkflowDefinition = { ...definition, status: nextStatus, version: definition.version + 1 };
+        setDefinition(nextActiveDef);
+        handleSaveWorkflow(nextStatus, nextStatus === 'published');
         break;
       case 'pause':
-        setDefinition((prev) => ({ ...prev, status: 'paused' }));
+        const nextPausedDef: WorkflowDefinition = { ...definition, status: 'paused' as WorkflowStatus };
+        setDefinition(nextPausedDef);
+        handleSaveWorkflow('paused', false);
         break;
       case 'resume':
-        setDefinition((prev) => ({ ...prev, status: 'published' }));
+        const nextResumedDef: WorkflowDefinition = { ...definition, status: 'published' as WorkflowStatus };
+        setDefinition(nextResumedDef);
+        handleSaveWorkflow('published', true);
         break;
       case 'keep_changes':
         handleKeepChanges();
@@ -576,10 +723,11 @@ export const WorkflowBuilderPage: React.FC = () => {
           <Link
             to="/workflows"
             className="wb-back"
-            aria-label="Back to Workflows"
-            style={{ color: 'var(--sub)', textDecoration: 'none', display: 'flex', alignItems: 'center' }}
+            aria-label="Back to Saved Workflows"
+            style={{ color: 'var(--sub)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            &larr; <span style={{ marginLeft: '4px', fontSize: '13px' }}>Workflows</span>
+            &larr; <FolderKanban size={15} color="var(--gold)" />
+            <span style={{ fontSize: '13px' }}>Saved Workflows</span>
           </Link>
           <span style={{ color: 'var(--navy2)', fontSize: '16px' }}>/</span>
           <span
@@ -596,6 +744,60 @@ export const WorkflowBuilderPage: React.FC = () => {
         </div>
 
         <div className="wb-hdr-r wb-right-acts" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {stage !== 'A' && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSaveWorkflow()}
+                disabled={isSaving}
+                className="wb-icon-btn"
+                style={{
+                  background: 'var(--navy2)',
+                  border: '1px solid var(--gold)',
+                  color: 'var(--gold)',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                }}
+                title="Save workflow to your file"
+              >
+                <Save size={14} />
+                <span>{isSaving ? 'Saving...' : saveNotice || 'Save Workflow'}</span>
+              </button>
+
+              {(definition.status === 'published' || derivedUiState === 'active') && (
+                <button
+                  type="button"
+                  onClick={handlePursueWorkflow}
+                  disabled={isPursuing}
+                  style={{
+                    background: 'linear-gradient(135deg, #E2B53C, #BC8A1C)',
+                    color: '#0E1726',
+                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 10px rgba(226,181,60,0.3)',
+                  }}
+                  title="Pursue / execute this active workflow"
+                >
+                  <Play size={13} fill="#0E1726" />
+                  <span>{isPursuing ? 'Pursuing...' : 'Pursue Workflow'}</span>
+                </button>
+              )}
+            </>
+          )}
+
           {stage !== 'A' && (
             <button
               type="button"
@@ -641,6 +843,53 @@ export const WorkflowBuilderPage: React.FC = () => {
           />
         </div>
       </header>
+
+      {/* Pursue Banner / Notification */}
+      {pursueNotice && (
+        <div
+          style={{
+            background: 'var(--navy1)',
+            borderBottom: '1px solid var(--gold)',
+            color: 'var(--gold)',
+            padding: '10px 20px',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle2 size={16} />
+            <span>{pursueNotice.message}</span>
+            {pursueNotice.approvalId && (
+              <Link
+                to="/approvals"
+                style={{
+                  color: '#fff',
+                  textDecoration: 'underline',
+                  fontWeight: 600,
+                  marginLeft: '8px',
+                }}
+              >
+                Open Approval Centre &rarr;
+              </Link>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setPursueNotice(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--sub)',
+              cursor: 'pointer',
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Stage A: Single Centred Column Empty State */}
       {stage === 'A' && (
