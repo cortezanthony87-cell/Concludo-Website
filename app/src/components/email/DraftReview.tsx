@@ -22,9 +22,11 @@ import {
   DRAFT_STYLES,
   SAFETY_STATEMENTS,
   figuresInDraft,
+  fingerprintOf,
 } from '../../lib/email/draftReview';
 import { useDraftSession, seedFromReplyDraft, fingerprintInputOf } from '../../lib/email/draftSession';
 import { AccountBadge, ConfidenceChip, Field } from './viewPrimitives';
+import { sendDraftEmail } from '../../lib/email/sendClient';
 
 function Icon({ name, size = 14 }: { name: string; size?: number }) {
   const Component = (Icons as unknown as Record<string, React.FC<{ size?: number }>>)[name];
@@ -48,6 +50,14 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
   const [editing, setEditing] = useState(false);
   const [clarificationNote, setClarificationNote] = useState('');
   const [askingClarification, setAskingClarification] = useState(false);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{
+    success: boolean;
+    message: string;
+    messageId?: string;
+    sentAt?: string;
+  } | null>(null);
 
   const canDraft = draft?.status === 'available' && draft.variants !== null;
 
@@ -148,6 +158,43 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
   const to = working.recipients.filter((r) => r.field === 'to');
   const cc = working.recipients.filter((r) => r.field === 'cc');
   const bcc = working.recipients.filter((r) => r.field === 'bcc');
+
+  const handleSendConfirm = async () => {
+    if (!working) return;
+    setIsSending(true);
+    setSendResult(null);
+    try {
+      const input = fingerprintInputOf(working);
+      const fp = fingerprintOf(input);
+      const res = await sendDraftEmail({
+        connectionId: detail.record.thread.accountId,
+        to: to.map((r) => r.address).join(', '),
+        cc: cc.length > 0 ? cc.map((r) => r.address).join(', ') : undefined,
+        bcc: bcc.length > 0 ? bcc.map((r) => r.address).join(', ') : undefined,
+        subject: working.subject,
+        body: working.body,
+        approvalConfirmed: true,
+        threadId: threadId,
+        fingerprint: fp,
+      });
+
+      setSendResult({
+        success: true,
+        message: res.summary || `Dispatched to ${to.map((r) => r.address).join(', ')} via connected mailbox.`,
+        messageId: res.messageId,
+        sentAt: res.sentAt,
+      });
+      session.approve(threadId);
+      setSendModalOpen(false);
+    } catch (err: any) {
+      setSendResult({
+        success: false,
+        message: err.message || 'Failed to dispatch email.',
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   const run = (kind: string) => {
     switch (kind) {
@@ -520,6 +567,27 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
         </div>
       ) : null}
 
+      {sendResult ? (
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: '10px',
+            margin: '12px 0',
+            fontSize: '12.5px',
+            backgroundColor: sendResult.success ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${sendResult.success ? '#22c55e' : '#ef4444'}`,
+            color: sendResult.success ? '#4ade80' : '#fca5a5',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+          role={sendResult.success ? 'status' : 'alert'}
+        >
+          {sendResult.success ? <Icons.CheckCircle2 size={16} /> : <Icons.AlertCircle size={16} />}
+          <span>{sendResult.message}</span>
+        </div>
+      ) : null}
+
       <div className="ecc-draft-actions" role="group" aria-label="Draft actions">
         {DRAFT_ACTIONS.map((action) => {
           const descriptionId = `ecc-dact-${action.kind}`;
@@ -544,12 +612,182 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
             </span>
           );
         })}
+
+        {/* Outbound Send Action */}
+        <span className="ecc-action-wrap">
+          <button
+            type="button"
+            className="btn-primary ecc-draft-action"
+            style={{
+              backgroundColor: sendResult?.success ? '#166534' : '#e2b53c',
+              color: sendResult?.success ? '#ffffff' : '#090d16',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            disabled={isSending || Boolean(sendResult?.success)}
+            onClick={() => setSendModalOpen(true)}
+            aria-label="Send email via connected mailbox"
+          >
+            {sendResult?.success ? (
+              <>
+                <Icons.Check size={14} aria-hidden="true" /> Sent
+              </>
+            ) : (
+              <>
+                <Icons.Send size={14} aria-hidden="true" /> Send email
+              </>
+            )}
+          </button>
+        </span>
       </div>
 
       <p className="ecc-draft-footnote ecc-draft-final">
-        Nothing on this screen sends an email. There is no send control in this module, and no code
-        that could send one.
+        {sendResult?.success
+          ? `Dispatched via connected mailbox (${detail.accountLabel}) at ${sendResult.sentAt ? new Date(sendResult.sentAt).toLocaleTimeString() : 'recently'}.`
+          : 'Concludo proposes; a person disposes. Outbound email dispatch occurs only upon your explicit confirmation in the Approval Centre.'}
       </p>
+
+      {sendModalOpen && (
+        <div
+          className="ecc-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ecc-send-modal-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+        >
+          <div
+            className="ecc-modal-dialog"
+            style={{
+              backgroundColor: '#0b1120',
+              border: '1px solid #1e293b',
+              borderRadius: '16px',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              color: '#f1f5f9',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#e2b53c', fontWeight: 700 }}>
+                  Approval Centre Gate
+                </span>
+                <h3 id="ecc-send-modal-title" style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 700, color: '#ffffff' }}>
+                  Confirm Outbound Email Dispatch
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSendModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                aria-label="Close"
+              >
+                <Icons.X size={18} />
+              </button>
+            </div>
+
+            <div style={{ backgroundColor: '#090d16', border: '1px solid #1e293b', borderRadius: '10px', padding: '12px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Sending mailbox:</span>
+                <span style={{ fontWeight: 600, color: '#ffffff' }}>{detail.accountLabel} ({fromAddress})</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>To:</span>
+                <span style={{ fontWeight: 600, color: '#ffffff' }}>{to.map(r => r.address).join(', ') || 'No recipient'}</span>
+              </div>
+              {cc.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#94a3b8' }}>Cc:</span>
+                  <span style={{ color: '#cbd5e1' }}>{cc.map(r => r.address).join(', ')}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Subject:</span>
+                <span style={{ fontWeight: 600, color: '#ffffff' }}>{working.subject}</span>
+              </div>
+            </div>
+
+            <div style={{ maxHeight: '160px', overflowY: 'auto', backgroundColor: '#090d16', border: '1px solid #1e293b', borderRadius: '10px', padding: '12px' }}>
+              <pre style={{ margin: 0, fontSize: '12px', whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: '#e2e8f0' }}>
+                {working.body}
+              </pre>
+            </div>
+
+            <div style={{ backgroundColor: 'rgba(226, 181, 60, 0.08)', border: '1px solid rgba(226, 181, 60, 0.25)', borderRadius: '10px', padding: '12px', fontSize: '12px', color: '#fef08a', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <Icons.AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#e2b53c' }} />
+              <span>
+                <strong>Concludo proposes; a person disposes.</strong> Confirming will send this real email immediately through your connected {detail.accountLabel} account. Once dispatched, this action cannot be undone.
+              </span>
+            </div>
+
+            {sendResult && !sendResult.success && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #ef4444',
+                  color: '#fca5a5',
+                }}
+              >
+                {sendResult.message}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setSendModalOpen(false)}
+                disabled={isSending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{
+                  backgroundColor: '#e2b53c',
+                  color: '#090d16',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+                disabled={isSending}
+                onClick={handleSendConfirm}
+              >
+                {isSending ? (
+                  <>
+                    <Icons.Loader2 size={14} className="animate-spin" /> Dispatching...
+                  </>
+                ) : (
+                  <>
+                    <Icons.Send size={14} /> Confirm and Send Now
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

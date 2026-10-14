@@ -23,7 +23,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import * as Icons from 'lucide-react';
-import { Check, Copy, Download, ShieldCheck } from 'lucide-react';
+import { Check, Copy, Download, ShieldCheck, Printer, Save } from 'lucide-react';
 import { EmailModuleContext } from '../../components/email/EmailModuleLayout';
 import { ViewScaffold } from '../../components/email/ViewScaffold';
 import { FilterChips } from '../../components/email/FilterChips';
@@ -182,6 +182,8 @@ export const EmailOutputsPage: React.FC = () => {
    * suite correctly flagged as a target under the 24 pixel minimum. Creating
    * the anchor at the moment of the click leaves nothing in the page to focus.
    */
+  const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
+
   const download = useCallback(() => {
     if (!documentHtml || !payload) return;
     const blob = new Blob([documentHtml], { type: 'text/html;charset=utf-8' });
@@ -194,7 +196,104 @@ export const EmailOutputsPage: React.FC = () => {
     anchor.click();
     document.body.removeChild(anchor);
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setDownloadSuccess('Downloaded document.');
+    window.setTimeout(() => setDownloadSuccess(null), 3000);
   }, [documentHtml, payload, now]);
+
+  const saveToFile = useCallback(async () => {
+    if (!documentHtml || !payload) return;
+    const fileName = documentFileName(payload, now);
+    const blob = new Blob([documentHtml], { type: 'text/html;charset=utf-8' });
+
+    if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [
+            {
+              description: 'HTML Document',
+              accept: { 'text/html': ['.html'] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        setDownloadSuccess('Saved to your device.');
+        window.setTimeout(() => setDownloadSuccess(null), 3000);
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    download();
+  }, [documentHtml, payload, now, download]);
+
+  const printDocument = useCallback(() => {
+    if (!documentHtml) return;
+    const frame = document.querySelector<HTMLIFrameElement>('iframe.ecc-document-frame');
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } else {
+      const printWin = window.open('', '_blank');
+      if (printWin) {
+        printWin.document.write(documentHtml);
+        printWin.document.close();
+        printWin.focus();
+        printWin.print();
+      }
+    }
+  }, [documentHtml]);
+
+  const downloadFollowUpEmail = useCallback(() => {
+    if (!email || !record) return;
+    const content = `To: ${email.to.join(', ')}\nSubject: ${email.subject}\n\n${email.body}`;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `follow-up-${record.thread.subject.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.txt`;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setDownloadSuccess('Downloaded follow-up email.');
+    window.setTimeout(() => setDownloadSuccess(null), 3000);
+  }, [email, record]);
+
+  const saveFollowUpEmailToFile = useCallback(async () => {
+    if (!email || !record) return;
+    const content = `To: ${email.to.join(', ')}\nSubject: ${email.subject}\n\n${email.body}`;
+    const fileName = `follow-up-${record.thread.subject.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.txt`;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+
+    if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [
+            {
+              description: 'Text Document',
+              accept: { 'text/plain': ['.txt'] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        setDownloadSuccess('Saved to your device.');
+        window.setTimeout(() => setDownloadSuccess(null), 3000);
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    downloadFollowUpEmail();
+  }, [email, record, downloadFollowUpEmail]);
 
   /* --------------------------------------------------------------- drafts */
 
@@ -495,11 +594,32 @@ export const EmailOutputsPage: React.FC = () => {
                 <button
                   type="button"
                   className="btn-primary ecc-bl-button"
+                  onClick={saveFollowUpEmailToFile}
+                  title="Save into files on your device"
+                >
+                  <Save size={14} aria-hidden="true" /> Save to file / device
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary ecc-bl-button"
+                  onClick={downloadFollowUpEmail}
+                  title="Download email text file"
+                >
+                  <Download size={14} aria-hidden="true" /> Download email
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary ecc-bl-button"
                   onClick={() => copy(`${email.subject}\n\n${email.body}`, 'email')}
                 >
                   {copied === 'email' ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-                  {copied === 'email' ? ' Copied' : ' Copy for your mail client'}
+                  {copied === 'email' ? ' Copied' : ' Copy for mail client'}
                 </button>
+                {downloadSuccess ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4ade80', fontSize: '0.8rem', marginLeft: '6px' }}>
+                    <Check size={14} /> {downloadSuccess}
+                  </span>
+                ) : null}
               </div>
 
               <p className="ecc-safety-note" role="note">
@@ -532,8 +652,14 @@ export const EmailOutputsPage: React.FC = () => {
           ) : documentHtml && payload ? (
             <>
               <div className="ecc-output-actions" role="group" aria-label="Document actions">
-                <button type="button" className="btn-primary ecc-bl-button" onClick={download}>
-                  <Download size={14} aria-hidden="true" /> Download the document
+                <button type="button" className="btn-primary ecc-bl-button" onClick={saveToFile} title="Save into files on your device">
+                  <Save size={14} aria-hidden="true" /> Save to file / device
+                </button>
+                <button type="button" className="btn-secondary ecc-bl-button" onClick={download} title="Download HTML document file">
+                  <Download size={14} aria-hidden="true" /> Download document
+                </button>
+                <button type="button" className="btn-secondary ecc-bl-button" onClick={printDocument} title="Print or Save as PDF">
+                  <Printer size={14} aria-hidden="true" /> Print / Save as PDF
                 </button>
                 <button
                   type="button"
@@ -541,8 +667,13 @@ export const EmailOutputsPage: React.FC = () => {
                   onClick={() => copy(JSON.stringify(payload, null, 2), 'payload')}
                 >
                   {copied === 'payload' ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-                  {copied === 'payload' ? ' Copied' : ' Copy the payload'}
+                  {copied === 'payload' ? ' Copied' : ' Copy payload'}
                 </button>
+                {downloadSuccess ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4ade80', fontSize: '0.8rem', marginLeft: '6px' }}>
+                    <Check size={14} /> {downloadSuccess}
+                  </span>
+                ) : null}
               </div>
 
               <p className="ecc-output-note">
