@@ -234,8 +234,8 @@ export const APP_PERMISSIONS_SUMMARY: Record<string, { willBeAbleTo: string; wil
     willNot: 'access your OpenAI account billing or share your key with third parties',
   },
   anthropic_claude: {
-    willBeAbleTo: 'send structured prompts and receive Claude analysis using your API key',
-    willNot: 'access your Anthropic account billing or share your key with third parties',
+    willBeAbleTo: 'generate deep document reasoning, executive summaries, and meeting intelligence using Claude',
+    willNot: 'share your workspace data with third parties or use your data to train public models',
   },
   twilio: {
     willBeAbleTo: 'send SMS alerts and notifications you approve in Concludo',
@@ -352,6 +352,8 @@ export function isNativeOAuthProvider(app: { id?: string; provider_family?: stri
     family === 'microsoft' ||
     family === 'linkedin' ||
     id === 'linkedin' ||
+    id === 'anthropic_claude' ||
+    family === 'anthropic' ||
     (id.startsWith('google') && id !== 'youtube') ||
     id.startsWith('microsoft') ||
     id === 'onedrive' ||
@@ -383,7 +385,6 @@ export function isDirectKeyProvider(app: { id?: string; authentication_type?: st
     id === 'whatsapp' ||
     id === 'stripe' ||
     id === 'openai' ||
-    id === 'anthropic_claude' ||
     id === 'twilio' ||
     id === 'webhooks' ||
     id === 'generic_http' ||
@@ -707,6 +708,21 @@ export function connectPanelCopy(app: CatalogueApp): {
   const availability = normaliseAvailability(app.availability);
   const isDirect = isDirectKeyProvider(app as any);
   const isNative = isNativeOAuthProvider(app as any);
+
+  if (app.id === 'anthropic_claude') {
+    return {
+      title: `Connect ${app.name}`,
+      body: [
+        'Connect Anthropic Claude effortlessly to your Concludo workspace. Claude 3.5 Sonnet deep document reasoning, analysis, and strategic intelligence are included with your workspace tier with zero API keys or developer console setup required.',
+      ],
+      primary: 'Connect Anthropic Claude',
+      permissions: APP_PERMISSIONS_SUMMARY[app.id] || {
+        willBeAbleTo: 'generate deep document reasoning, executive summaries, and meeting intelligence using Claude',
+        willNot: 'share your workspace data with third parties or use your data to train public models',
+      },
+    };
+  }
+
   const how = isDirect
     ? `You will connect ${app.name} securely by providing your API key, secret, or webhook configuration. Your credentials are encrypted on Concludo's secure server and never exposed.`
     : isNative

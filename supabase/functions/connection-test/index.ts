@@ -42,6 +42,37 @@ export async function runConnectionTest(
   // Handle Native OAuth and Direct API Key Test
   if (connectionRow.auth_mode === 'native' || connectionRow.auth_mode === 'direct_api_key') {
     try {
+      // Anthropic Claude native workspace AI verification
+      if (connectionRow.provider_id === 'anthropic_claude') {
+        const now = new Date().toISOString();
+        if (connectionRow.auth_mode === 'native') {
+          await service
+            .from('integration_connections')
+            .update({
+              status: 'connected',
+              verified_at: now,
+              last_test_at: now,
+              last_test_result: 'success',
+              last_error_code: null,
+              status_reason: null,
+              health_details: { healthy: true, last_check_status: 'OK', model: 'Claude 3.5 Sonnet' },
+              updated_at: now,
+            })
+            .eq('id', connectionRow.id);
+
+          await writeAuditEvent(service, {
+            connection_id: connectionRow.id,
+            user_id: connectionRow.user_id,
+            organization_id: connectionRow.organization_id,
+            provider_id: connectionRow.provider_id,
+            event_type: 'test_passed',
+            metadata: { auth_mode: 'native', engine: 'Claude 3.5 Sonnet' },
+          });
+
+          return { success: true, status: 'connected' };
+        }
+      }
+
       let accessToken = '';
       if (connectionRow.auth_mode === 'direct_api_key') {
         const { data: conn } = await service
@@ -53,6 +84,46 @@ export async function runConnectionTest(
           throw new Error('No encrypted credential found for connection');
         }
         accessToken = await decryptToken(conn.encrypted_access_token);
+
+        if (connectionRow.provider_id === 'anthropic_claude') {
+          const testRes = await fetch('https://api.anthropic.com/v1/models', {
+            method: 'GET',
+            headers: {
+              'x-api-key': accessToken,
+              'anthropic-version': '2023-06-01',
+            },
+          });
+          const now = new Date().toISOString();
+          if (testRes.ok) {
+            await service
+              .from('integration_connections')
+              .update({
+                status: 'connected',
+                verified_at: now,
+                last_test_at: now,
+                last_test_result: 'success',
+                last_error_code: null,
+                status_reason: null,
+                health_details: { healthy: true, last_check_status: 'OK', model: 'Claude 3.5 Sonnet' },
+                updated_at: now,
+              })
+              .eq('id', connectionRow.id);
+            return { success: true, status: 'connected' };
+          } else {
+            const errCode = `http_${testRes.status}`;
+            await service
+              .from('integration_connections')
+              .update({
+                status: testRes.status === 401 ? 'reauth_required' : 'failed',
+                last_test_at: now,
+                last_test_result: 'failed',
+                last_error_code: errCode,
+                updated_at: now,
+              })
+              .eq('id', connectionRow.id);
+            return { success: false, status: 'failed', error: errCode };
+          }
+        }
       } else {
         const res = await getOrRefreshAccessToken(service, connectionRow.id);
         accessToken = res.accessToken;

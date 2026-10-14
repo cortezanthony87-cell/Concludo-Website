@@ -32,7 +32,8 @@ Deno.serve(async (request) => {
     if (!providerId) {
       return jsonResponse({ error: 'provider_id is required' }, 400, request);
     }
-    if (!credential) {
+    const isManagedClaude = providerId === 'anthropic_claude' && (!credential || credential === 'native_workspace_ai');
+    if (!credential && !isManagedClaude) {
       return jsonResponse({ error: 'API key or credential is required' }, 400, request);
     }
 
@@ -74,10 +75,12 @@ Deno.serve(async (request) => {
       }
     }
 
-    // 3. Encrypt the credential
-    const encryptedAccess = await encryptToken(credential);
+    // 3. Encrypt the credential if custom key provided, or set native mode
+    const encryptedAccess = (credential && credential !== 'native_workspace_ai') ? await encryptToken(credential) : null;
+    const authMode = (credential && credential !== 'native_workspace_ai') ? 'direct_api_key' : 'native';
     const now = new Date().toISOString();
-    const finalAccountLabel = accountLabel || `${provider.name} Account`;
+    const finalAccountLabel = accountLabel || (isManagedClaude ? (user.email || 'Concludo Workspace AI') : `${provider.name} Account`);
+    const connName = `${provider.name} (${finalAccountLabel})`;
 
     let connectionId = explicitConnectionId;
 
@@ -86,13 +89,13 @@ Deno.serve(async (request) => {
       const { data: updated, error: updateErr } = await service
         .from('integration_connections')
         .update({
-          connection_name: provider.name,
+          connection_name: connName,
           account_label: finalAccountLabel,
           external_account_reference: finalAccountLabel,
-          auth_mode: 'direct_api_key',
+          auth_mode: authMode,
           encrypted_access_token: encryptedAccess,
           status: 'connected',
-          settings: settings,
+          settings: isManagedClaude ? { managed: true, model: 'Claude 3.5 Sonnet', ...settings } : settings,
           scopes: provider.connect_scopes || [],
           connected_at: now,
           verified_at: now,
@@ -100,7 +103,7 @@ Deno.serve(async (request) => {
           last_test_result: 'success',
           last_error_code: null,
           status_reason: null,
-          health_details: { healthy: true, last_check_status: 'OK' },
+          health_details: { healthy: true, last_check_status: 'OK', model: 'Claude 3.5 Sonnet' },
           updated_at: now,
         })
         .eq('id', connectionId)
@@ -131,22 +134,22 @@ Deno.serve(async (request) => {
         user_id: user.id,
         organization_id: organizationId,
         provider_id: providerId,
-        connection_name: provider.name,
+        connection_name: connName,
         account_label: finalAccountLabel,
         external_account_reference: finalAccountLabel,
-        auth_mode: 'direct_api_key',
+        auth_mode: authMode,
         encrypted_access_token: encryptedAccess,
         status: 'connected',
-        settings: settings,
+        settings: isManagedClaude ? { managed: true, model: 'Claude 3.5 Sonnet', ...settings } : settings,
         scopes: provider.connect_scopes || [],
-        credential_reference: `direct_key_${Date.now()}`,
+        credential_reference: isManagedClaude ? 'concludo_workspace_ai' : `direct_key_${Date.now()}`,
         connected_at: now,
         verified_at: now,
         last_test_at: now,
         last_test_result: 'success',
         last_error_code: null,
         status_reason: null,
-        health_details: { healthy: true, last_check_status: 'OK' },
+        health_details: { healthy: true, last_check_status: 'OK', model: 'Claude 3.5 Sonnet' },
         created_at: now,
         updated_at: now,
       })
