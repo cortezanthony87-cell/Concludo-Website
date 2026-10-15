@@ -1435,11 +1435,23 @@ export const WorkflowBuilderPage: React.FC = () => {
 
 // Helper lookup for integration provider definition
 function INTEGRATION_PROVIDERS_CATALOG_LOOKUP(appName: string): ProviderDefinition | null {
-  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, '');
+  if (!appName) return null;
+  const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_\-]+/g, '');
   const target = norm(appName);
   return (
     INTEGRATION_PROVIDERS_CATALOG.find(
-      (p) => norm(p.id) === target || norm(p.name) === target || target.includes(norm(p.name))
-    ) || null
+      (p) =>
+        norm(p.id) === target ||
+        norm(p.slug) === target ||
+        norm(p.name) === target
+    ) ||
+    INTEGRATION_PROVIDERS_CATALOG.find(
+      (p) =>
+        target.includes(norm(p.name)) ||
+        norm(p.name).includes(target) ||
+        target.includes(norm(p.id)) ||
+        norm(p.id).includes(target)
+    ) ||
+    null
   );
 }

@@ -92,6 +92,17 @@ export const IntegrationIcon: React.FC<IntegrationIconProps> = ({
           </svg>
         );
 
+      // MICROSOFT TO DO
+      case 'microsofttodo':
+      case 'todo':
+      case 'microsoft_todo':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+            <rect x="3" y="3" width="18" height="18" rx="3" fill="#2564CF" />
+            <path d="M7 12.5L10.5 16L17 8.5" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        );
+
       // PLANNER
       case 'microsoftplanner':
       case 'planner':
