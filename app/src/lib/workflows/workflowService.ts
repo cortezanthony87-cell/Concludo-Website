@@ -503,7 +503,25 @@ export async function respondToApproval(params: {
     throw new Error(`Failed to update approval: ${updateErr.message}`);
   }
 
-  // 3. Update associated execution if linked
+  // 3. If approved, dispatch approved actions via workflow-execute edge function
+  if (params.decision === 'approve') {
+    try {
+      const browserClient = getSupabaseBrowserClient();
+      const { data: dispatchRes, error: dispatchErr } = await browserClient.functions.invoke('workflow-execute', {
+        body: {
+          workflow_id: currentApproval.workflow_id,
+          approval_id: params.approvalId,
+        },
+      });
+      if (dispatchErr || dispatchRes?.ok === false) {
+        console.warn('External dispatch completed with warning:', dispatchErr || dispatchRes?.error);
+      }
+    } catch (e: any) {
+      console.warn('Failed to invoke workflow-execute on approval:', e.message);
+    }
+  }
+
+  // 4. Update associated execution if linked
   if (currentApproval.execution_id) {
     const execStatus = params.decision === 'approve' ? 'completed' : 'rejected';
     await client

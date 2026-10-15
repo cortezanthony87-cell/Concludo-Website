@@ -282,15 +282,20 @@ export const WorkflowsPage: React.FC = () => {
                   >
                     <div>
                       <div className="flex items-center justify-between">
-                        <span
-                          className={`px-2 py-0.5 text-[10px] font-semibold uppercase rounded ${
-                            wf.is_active
-                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                              : 'bg-gray-800 text-gray-400 border border-gray-700'
-                          }`}
-                        >
-                          {wf.is_active ? 'Active' : 'Paused'}
-                        </span>
+                        {(() => {
+                          const isDraft = wf.status === "draft" || (wf.definition_json as any)?.status === "draft";
+                          const statusLabel = !wf.is_active ? "Paused" : isDraft ? "Draft" : "Active";
+                          const statusStyle = !wf.is_active
+                            ? "bg-gray-800 text-gray-400 border border-gray-700"
+                            : isDraft
+                            ? "bg-slate-800 text-slate-300 border border-slate-600"
+                            : "bg-emerald-950 text-emerald-400 border border-emerald-800";
+                          return (
+                            <span className={`px-2 py-0.5 text-[10px] font-semibold uppercase rounded ${statusStyle}`}>
+                              {statusLabel}
+                            </span>
+                          );
+                        })()}
 
                         <span className="text-[11px] text-[#E2B53C] bg-[#E2B53C]/10 border border-[#E2B53C]/30 px-2 py-0.5 rounded">
                           {wf.execution_type === 'approval_required' ? 'Approval Required' : wf.execution_type}
@@ -309,17 +314,20 @@ export const WorkflowsPage: React.FC = () => {
                         const usableSlugs = new Set(
                           connections.filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })).map((c) => c.provider_id)
                         );
-                        // Check if any action or trigger targets third-party provider not in usableSlugs
-                        const triggersAndActions = [wf.trigger_type, ...(wf.actions?.map((a: any) => a.type || a.service || a.application) || [])];
-                        const usesExternalApp = triggersAndActions.some((t: string) => {
-                          if (!t) return false;
-                          const s = String(t).toLowerCase();
-                          return s.includes('outlook') || s.includes('teams') || s.includes('planner') || s.includes('todo') || s.includes('hubspot') || s.includes('xero') || s.includes('slack');
+                        const steps = (wf.definition_json as any)?.steps || [];
+                        const unverifiedApps: string[] = [];
+                        steps.forEach((s: any) => {
+                          const app = s.application || "";
+                          const isInternal = !app || app.startsWith("concludo_") || app === "logic" || app === "system" || app === "ai_agent";
+                          if (!isInternal && !usableSlugs.has(app)) {
+                            const name = app.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+                            if (!unverifiedApps.includes(name)) unverifiedApps.push(name);
+                          }
                         });
-                        if (usesExternalApp) {
+                        if (unverifiedApps.length > 0) {
                           return (
-                            <div className="mt-1 text-xs text-amber-400 font-medium flex items-center gap-1.5">
-                              Uses an app that is not verified
+                            <div className="mt-1.5 text-xs text-amber-400 font-medium flex items-center gap-1.5">
+                              <span>Re-connect required: {unverifiedApps.join(", ")}</span>
                             </div>
                           );
                         }

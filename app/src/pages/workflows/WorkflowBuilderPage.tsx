@@ -310,10 +310,10 @@ export const WorkflowBuilderPage: React.FC = () => {
     if (isRunningTest) return 'testing';
     if (definition.steps.length === 0) return 'empty';
     if (definition.status === 'paused') return 'paused';
+    if (validation.errors.length > 0 || missingConnections.length > 0) return 'needs_attention';
     if (definition.status === 'published') return 'active';
     if (definition.status === 'submitted_for_review') return 'waiting_sign_off';
     if (recentChanges && recentChanges.length > 0) return 'review_changes';
-    if (validation.errors.length > 0 || missingConnections.length > 0) return 'needs_attention';
     if (isTestResultValidForCurrentDef && testResult) {
       return testResult.status === 'completed' ? 'ready_to_activate' : 'test_failed';
     }
