@@ -62,35 +62,9 @@ export const ConversationPane: React.FC<Props> = ({
   return (
     <div className="ecc-conversation" ref={paneRef}>
       <div className="ecc-conversation-head">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <h3 className="ecc-column-title" id="ecc-conversation-heading" style={{ margin: 0 }}>
-            Original conversation
-          </h3>
-          {onToggleFullView && (
-            <button
-              type="button"
-              onClick={onToggleFullView}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : 'rgba(33, 57, 92, 0.7)',
-                border: '1px solid #E2B53C',
-                color: isFullView ? '#0E1726' : '#E2B53C',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-              title={isFullView ? 'Return to 3-column standard view' : 'Expand email to full view while keeping intelligence box in view'}
-            >
-              {isFullView ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-              <span>{isFullView ? 'Standard view' : 'Full view email'}</span>
-            </button>
-          )}
-        </div>
+        <h3 className="ecc-column-title" id="ecc-conversation-heading" style={{ margin: 0, marginBottom: '4px' }}>
+          Original conversation
+        </h3>
         <p className="ecc-column-note">
           {messages.length} message{messages.length === 1 ? '' : 's'}, oldest first. This is the
           email as it arrived, not a summary of it.

@@ -122,6 +122,21 @@ export const EmailThreadPage: React.FC = () => {
     );
   }
 
+  if (threadId && ignored.includes(threadId)) {
+    return (
+      <section className="ecc-page">
+        <h2 className="ecc-page-title">Email Ignored</h2>
+        <EmptyBlock
+          message="This email was ignored and marked as done."
+          note="It has been removed from the overview and inbox, and will not appear in the Email Command Centre."
+        />
+        <Link className="btn-secondary" to={linkTo('/email/all')}>
+          Back to All Email
+        </Link>
+      </section>
+    );
+  }
+
   if (!detail) {
     return (
       <section className="ecc-page">
@@ -148,39 +163,6 @@ export const EmailThreadPage: React.FC = () => {
               <ArrowLeft size={14} aria-hidden="true" />
               Back to All Email
             </Link>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={handleIgnoreCurrentEmail}
-                className="ecc-btn-ignore-email"
-                title="Ignore email: removes from overview and inbox, marks as done, and excludes from Email Command Centre"
-              >
-                <CheckCircle2 size={13} color="#FCA5A5" />
-                <span>Ignore email</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsFullView((v) => !v)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '5px 12px',
-                  background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : 'rgba(33, 57, 92, 0.8)',
-                  border: '1px solid #E2B53C',
-                  color: isFullView ? '#0E1726' : '#E2B53C',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-                title={isFullView ? 'Return to 3-column standard view' : 'Expand email to full view while keeping intelligence box in view'}
-              >
-                {isFullView ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                <span>{isFullView ? 'Standard view' : 'Full view email'}</span>
-              </button>
-            </div>
           </div>
           <h2 id="ecc-thread-heading" className="ecc-page-title">
             {detail.record.thread.subject}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { WORKFLOW_TEMPLATES, WorkflowTemplateMeta } from '../../lib/workflows/templates';
 import { useAuth } from '../../lib/auth/AuthContext';
-import { isAnthonyOrAuthorizedTeam, fetchPermanentTemplates } from '../../lib/workflows/permanentTemplates';
+import { isAnthonyOrAuthorizedTeam, verifyUserIsAuthorized, fetchPermanentTemplates } from '../../lib/workflows/permanentTemplates';
 
 interface TemplatePickerModalProps {
   isOpen: boolean;
@@ -31,9 +31,21 @@ export const TemplatePickerModal: React.FC<TemplatePickerModalProps> = ({
   onSelectTemplate,
 }) => {
   const { user, profile } = useAuth();
-  const isAuthorized = isAnthonyOrAuthorizedTeam(user, profile);
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(() => isAnthonyOrAuthorizedTeam(user, profile));
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [permanentTemplates, setPermanentTemplates] = useState<WorkflowTemplateMeta[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user) {
+      verifyUserIsAuthorized(user).then((auth) => {
+        if (isMounted) setIsAuthorized(auth);
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (isOpen && isAuthorized) {

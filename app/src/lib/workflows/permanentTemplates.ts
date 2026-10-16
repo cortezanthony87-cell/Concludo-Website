@@ -11,14 +11,15 @@ import { WorkflowRecord } from './types';
 export const ANTHONY_EMAILS = [
   'anthony@concludo.au',
   'hello@concludo.au',
+  'cortez.anthony87@gmail.com',
+  'el_cortez87@live.com',
   'anthony.test@concludo.au',
   'anthonycortez@cortezmowinggardenmaintenan.onmicrosoft.com',
-  'el_cortez87@live.com',
-  'cortez.anthony87@gmail.com',
 ];
 
+export const ANTHONY_PRIMARY_USER_ID = '91c086e8-d2d0-4060-9a7c-650e13d2245e';
 export const ANTHONY_USER_IDS = [
-  '91c086e8-d2d0-4060-9a7c-650e13d2245e',
+  ANTHONY_PRIMARY_USER_ID,
   '055812e5-2257-42c5-ad8e-d345e667612f',
   '7c3728b3-29ce-4cfe-b022-67f1cd45bf18',
 ];
@@ -42,7 +43,7 @@ export async function verifyUserIsAuthorized(user: any): Promise<boolean> {
 
     if (!error && Array.isArray(data)) {
       const isMemberOfAnthonyTeam = data.some((row: any) =>
-        ANTHONY_USER_IDS.includes(row.teams?.owner_id)
+        row.teams?.owner_id === ANTHONY_PRIMARY_USER_ID
       );
       if (isMemberOfAnthonyTeam) return true;
     }
@@ -51,6 +52,15 @@ export async function verifyUserIsAuthorized(user: any): Promise<boolean> {
   }
 
   return false;
+}
+
+/**
+ * Checks whether the user is Anthony Cortez himself (permitted to save permanent templates).
+ */
+export function isAnthonyOwner(user: any): boolean {
+  if (!user) return false;
+  const email = (user.email || '').toLowerCase().trim();
+  return ANTHONY_EMAILS.includes(email) || ANTHONY_USER_IDS.includes(user.id);
 }
 
 export function isAnthonyOrAuthorizedTeam(user: any, profile?: any): boolean {
@@ -101,31 +111,44 @@ export async function savePermanentTemplate(
     return { success: false, error: 'User session required.' };
   }
 
-  const isAuth = await verifyUserIsAuthorized(user);
-  if (!isAuth) {
-    return { success: false, error: 'Unauthorized: Permanent workflow templates are strictly restricted to Anthony Cortez and authorized teams.' };
+  // Exclusive save rule: Anthony alone can save workflows into permanent templates
+  if (!isAnthonyOwner(user)) {
+    return {
+      success: false,
+      error: 'Unauthorized: Saving permanent workflow templates is exclusively restricted to Anthony Cortez.',
+    };
   }
 
-  // Verification rule: The workflow must have been built and tested
+  // Verification rule: The workflow must have been built and tested with a completed execution
   const workflowId = (workflow as any).id;
-  if (workflowId) {
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { data: executions, error: execErr } = await supabase
-        .from('workflow_executions')
-        .select('id, status')
-        .eq('workflow_id', workflowId)
-        .limit(1);
+  if (!workflowId) {
+    return {
+      success: false,
+      error: 'Rule: The workflow must be saved and tested before adding to Permanent Templates.',
+    };
+  }
 
-      if (execErr || !executions || executions.length === 0) {
-        return {
-          success: false,
-          error: 'Rule: Workflows must be tested before saving into Permanent Templates. Run a test run first.',
-        };
-      }
-    } catch (e) {
-      console.warn('Could not verify workflow executions:', e);
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const { data: executions, error: execErr } = await supabase
+      .from('workflow_executions')
+      .select('id, status')
+      .eq('workflow_id', workflowId)
+      .eq('status', 'completed')
+      .limit(1);
+
+    if (execErr || !executions || executions.length === 0) {
+      return {
+        success: false,
+        error: 'Rule: Workflows must be tested and have at least one completed test run before saving into Permanent Templates.',
+      };
     }
+  } catch (e: any) {
+    console.warn('Could not verify workflow executions:', e);
+    return {
+      success: false,
+      error: 'Could not verify test run execution. Ensure the workflow has been tested first.',
+    };
   }
 
   const templateKey = `perm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;

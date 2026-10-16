@@ -13,7 +13,8 @@
  * SUGGESTIONS throughout: they produce a line of text for the person to use,
  * not a task in a system.
  */
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
+import { getSupabaseBrowserClient } from '../supabase/client';
 import { UserDate } from './views';
 
 export type ItemActionKind =
@@ -183,6 +184,34 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }));
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
 
+  // Sync ignored email records from Supabase on session start
+  useEffect(() => {
+    let isMounted = true;
+    async function syncIgnoredFromDatabase() {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from('user_email_actions')
+          .select('thread_id')
+          .eq('user_id', user.id)
+          .eq('action', 'ignore');
+        if (!error && Array.isArray(data) && isMounted) {
+          const dbIds = data.map((r: any) => r.thread_id);
+          setState((prev) => {
+            const merged = Array.from(new Set([...prev.ignored, ...dbIds]));
+            return { ...prev, ignored: merged };
+          });
+        }
+      } catch (err) {
+        console.warn('Could not sync user_email_actions from database:', err);
+      }
+    }
+    syncIgnoredFromDatabase();
+    return () => { isMounted = false; };
+  }, []);
+
   // Every action announces what it did, because several of them change a list
   // the person may not be looking at. A deferral that silently removes a row is
   // indistinguishable from a bug.
@@ -224,6 +253,22 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           console.warn('Could not persist ignored email to localStorage:', e);
         }
         announce('Email ignored and marked as done. Excluded from Email Command Centre.');
+        // Persist to Supabase user_email_actions asynchronously
+        (async () => {
+          try {
+            const supabase = getSupabaseBrowserClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase.from('user_email_actions').upsert({
+                user_id: user.id,
+                thread_id: threadId,
+                action: 'ignore',
+              }, { onConflict: 'user_id,thread_id,action' });
+            }
+          } catch (e) {
+            console.warn('Could not persist email action to database:', e);
+          }
+        })();
         return { ...s, ignored: next };
       });
     },
@@ -242,6 +287,21 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           console.warn('Could not persist unignored email to localStorage:', e);
         }
         announce('Email un-ignored.');
+        // Remove from Supabase user_email_actions asynchronously
+        (async () => {
+          try {
+            const supabase = getSupabaseBrowserClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase.from('user_email_actions').delete()
+                .eq('user_id', user.id)
+                .eq('thread_id', threadId)
+                .eq('action', 'ignore');
+            }
+          } catch (e) {
+            console.warn('Could not remove email action from database:', e);
+          }
+        })();
         return { ...s, ignored: next };
       });
     },
