@@ -238,6 +238,13 @@ Deno.serve(async (request) => {
             snippet: decodeHtmlEntities(msg.snippet || ''),
             body: decodeHtmlEntities(fullBody || msg.snippet || ''),
             date: getHeader('Date') || new Date().toISOString(),
+            attachments: atts.map(a => ({
+              id: a.id,
+              fileName: a.filename,
+              mimeType: a.mimeType,
+              size: a.size,
+              isImage: a.mimeType.startsWith('image/') || /.(png|jpe?g|gif|webp|svg|bmp)$/i.test(a.filename),
+            })),
             hasAttachments: atts.length > 0,
             isImportant: Boolean(msg.labelIds?.includes('IMPORTANT')),
           });
@@ -248,8 +255,8 @@ Deno.serve(async (request) => {
     } else if (providerId === 'microsoft_outlook') {
       // Step 2c: Query Microsoft Graph API (native or via Nango proxy)
       const graphUrl = isNative
-        ? `https://graph.microsoft.com/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`
-        : `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`;
+        ? `https://graph.microsoft.com/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance&$expand=attachments($select=id,name,contentType,size,isInline)`
+        : `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance&$expand=attachments($select=id,name,contentType,size,isInline)`;
       const graphHeaders = isNative
         ? { Authorization: `Bearer ${nativeToken}` }
         : proxyHeaders;
@@ -283,6 +290,13 @@ Deno.serve(async (request) => {
           bodyPreview: decodeHtmlEntities(msg.bodyPreview || ''),
           body: decodeHtmlEntities(msg.body?.content || msg.bodyPreview || ''),
           date: msg.receivedDateTime || new Date().toISOString(),
+          attachments: (msg.attachments || []).map((a: any) => ({
+            id: a.id || Math.random().toString(36).slice(2, 8),
+            fileName: decodeHtmlEntities(a.name || 'Attachment'),
+            mimeType: a.contentType || 'application/octet-stream',
+            size: a.size || 0,
+            isImage: (a.contentType || '').startsWith('image/') || /.(png|jpe?g|gif|webp|svg|bmp)$/i.test(a.name || ''),
+          })),
           hasAttachments: Boolean(msg.hasAttachments),
           isImportant: msg.importance === 'high',
         });
@@ -320,7 +334,7 @@ Deno.serve(async (request) => {
       totalScanned: emails.length,
       governance: 'Concludo proposes; a person disposes. Read-only live audit; zero external mutations.',
       metrics: {
-        needsAttention: attentionItems.length,
+        needsAttention: attentionItems.filter(i => i.priorityScore >= 75).length,
         repliesDue: repliesDue.length,
         deadlines: attentionItems.filter(i => /due|deadline|by\s+[a-z]+/i.test(i.summary)).length,
         waitingOnOthers: Math.max(0, attentionItems.length - repliesDue.length),

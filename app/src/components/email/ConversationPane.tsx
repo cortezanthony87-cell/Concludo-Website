@@ -123,7 +123,7 @@ const MessageBlock: React.FC<{
   const sender = message.participants.find((p) => p.role === 'from');
   const to = message.participants.filter((p) => p.role === 'to');
   const cc = message.participants.filter((p) => p.role === 'cc');
-  const own = attachments.filter((a) => message.attachmentIds.includes(a.id));
+  const own = attachments.filter((a) => message.attachmentIds.includes(a.id) || a.source?.some((s) => s.threadId === message.threadId || s.messageId === message.id));
   const quoteNotFound = marks.some((m) => m.quoteNotFound);
   const isHtmlBody = /<(?:p|div|br|span|table|tr|td|ul|ol|li|b|strong|i|em|h[1-6]|a|html|body)\b/i.test(message.body);
 
@@ -340,33 +340,109 @@ const MessageBlock: React.FC<{
 
 export function decodeHtmlEntities(text: string): string {
   if (!text) return '';
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+  let prev = text;
+  for (let i = 0; i < 3; i++) {
+    const next = prev
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/&apos;/gi, "'")
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&#(\d+);/g, (_, code) => {
+        try {
+          return String.fromCodePoint(Number(code));
+        } catch {
+          return String.fromCharCode(Number(code));
+        }
+      })
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => {
+        try {
+          return String.fromCodePoint(parseInt(code, 16));
+        } catch {
+          return String.fromCharCode(parseInt(code, 16));
+        }
+      });
+    if (next === prev) break;
+    prev = next;
+  }
+  return prev;
 }
 
 /**
- * Splits a body around the highlighted ranges.
- *
- * Ranges are sorted and merged first, because two extractions can cite
- * overlapping words and nested `<mark>` elements are announced oddly.
+ * Robust DOMParser-based HTML sanitiser for inbox email rendering.
+ * Strips active scripts, frames, objects, forms, and on* handlers while
+ * preserving formatting, images, tables, lists, and links safely.
  */
 function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/\son\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
-    .replace(/javascript:/gi, 'blocked:');
+  if (!html) return '';
+  const decoded = decodeHtmlEntities(html);
+  if (typeof window === 'undefined') {
+    return decoded
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/\son\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
+      .replace(/javascript:/gi, 'blocked:');
+  }
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(decoded, 'text/html');
+
+    const forbidden = [
+      'script', 'style', 'iframe', 'frame', 'object', 'embed', 'applet',
+      'base', 'meta', 'link', 'form', 'input', 'button', 'select', 'textarea',
+      'svg', 'math'
+    ];
+    for (const tag of forbidden) {
+      doc.querySelectorAll(tag).forEach((el) => el.remove());
+    }
+
+    const all = doc.querySelectorAll('*');
+    for (const el of all) {
+      const attrs = Array.from(el.attributes);
+      for (const attr of attrs) {
+        const name = attr.name.toLowerCase();
+        const val = attr.value.trim().toLowerCase();
+        if (
+          name.startsWith('on') ||
+          val.startsWith('javascript:') ||
+          val.startsWith('vbscript:') ||
+          val.startsWith('data:text/html') ||
+          name === 'formaction' ||
+          name === 'action'
+        ) {
+          el.removeAttribute(attr.name);
+        }
+      }
+
+      if (el.tagName.toLowerCase() === 'a') {
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+        const href = (el.getAttribute('href') || '').trim().toLowerCase();
+        if (href.startsWith('javascript:') || href.startsWith('vbscript:')) {
+          el.removeAttribute('href');
+        }
+      }
+
+      if (el.tagName.toLowerCase() === 'img') {
+        el.setAttribute('loading', 'lazy');
+        const existing = el.getAttribute('style') || '';
+        el.setAttribute(
+          'style',
+          existing + '; max-width: 100% !important; height: auto !important; border-radius: 6px; display: inline-block; margin: 8px 0;'
+        );
+      }
+    }
+
+    return doc.body.innerHTML;
+  } catch (err) {
+    console.warn('DOMParser sanitize error, falling back to regex:', err);
+    return decoded
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/\son\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '');
+  }
 }
 
 function renderWithMarks(body: string, marks: readonly SourceLocation[]): React.ReactNode {

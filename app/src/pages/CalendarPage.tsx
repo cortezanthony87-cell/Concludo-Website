@@ -608,13 +608,14 @@ export const CalendarPage: React.FC = () => {
       {/* Top Bar */}
       <div className="calendar-topbar">
         <div className="calendar-topbar-left">
-          <div className="calendar-title-group" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="calendar-title-group" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+            {/* Transparent Concludo Logo in Front (Larger) */}
             <img
               src="/brand/Concludo_logo_horizontal_reversed_for_dark.png"
               alt="Concludo"
-              style={{ height: '42px', width: 'auto', objectFit: 'contain', display: 'block' }}
+              style={{ height: '52px', width: 'auto', objectFit: 'contain', display: 'block', flexShrink: 0 }}
             />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <CalendarIcon size={24} color="#E2B53C" />
               <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#FFFFFF', margin: 0, fontFamily: 'Poppins, sans-serif' }}>
                 Calendar

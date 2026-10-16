@@ -108,9 +108,20 @@ function extractExplicitDeadlines(threadId: string, messageId: string, subject: 
           targetDate.setDate(now.getDate() + diff);
         }
       } else {
-        const parsed = new Date(rawPhrase);
-        if (!isNaN(parsed.getTime())) {
-          targetDate = parsed;
+        // Australian DD/MM/YYYY date format check
+        const ddmmyyyy = rawPhrase.match(/\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})\b/);
+        if (ddmmyyyy) {
+          const day = parseInt(ddmmyyyy[1], 10);
+          const month = parseInt(ddmmyyyy[2], 10) - 1;
+          let yr = parseInt(ddmmyyyy[3], 10);
+          if (yr < 100) yr += 2000;
+          const parsedAus = new Date(yr, month, day, 17, 0, 0);
+          if (!isNaN(parsedAus.getTime())) targetDate = parsedAus;
+        } else {
+          const parsed = new Date(rawPhrase);
+          if (!isNaN(parsed.getTime())) {
+            targetDate = parsed;
+          }
         }
       }
 
@@ -229,6 +240,25 @@ export function registerScanDataset(
       const isFromSelf = fromParsed.address.toLowerCase() === accountSummary.address.toLowerCase();
       if (fromParsed.address) participantAddresses.add(fromParsed.address);
 
+      const msgAttachmentIds: string[] = [];
+      if (Array.isArray(m.attachments)) {
+        for (let aIdx = 0; aIdx < m.attachments.length; aIdx++) {
+          const a = m.attachments[aIdx];
+          const attId = a.id || `att-${threadId}-${aIdx + 1}`;
+          msgAttachmentIds.push(attId);
+          attachments.push({
+            id: attId,
+            source: [{ messageId: msgId, threadId }],
+            basis: 'stated',
+            confidence: 'high',
+            fileName: decodeHtmlEntities(a.filename || a.fileName || a.name || 'Attachment'),
+            mimeType: a.mimeType || 'application/octet-stream',
+            sizeBytes: typeof a.size === 'number' ? a.size : (typeof a.sizeBytes === 'number' ? a.sizeBytes : null),
+            disposition: 'received',
+          });
+        }
+      }
+
       messages.push({
         id: msgId,
         threadId,
@@ -254,7 +284,7 @@ export function registerScanDataset(
         isFromSelf,
         folder: 'inbox',
         labels: m.isImportant ? ['important'] : [],
-        attachmentIds: [],
+        attachmentIds: msgAttachmentIds,
       });
     }
 
@@ -347,7 +377,7 @@ export function registerScanDataset(
       commitments: [],
       openQuestions: [],
       conflicts: [],
-      attachments: [],
+      attachments: attachments.filter((a) => a.source?.some((s) => s.threadId === threadId)),
       risks: [],
       recommendedNextStep: replyRequired
         ? `Open thread and draft response to ${lastFromParsed.displayName}.`

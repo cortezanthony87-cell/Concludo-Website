@@ -33,6 +33,7 @@ import {
   formatDayTime,
 } from './viewPrimitives';
 import { DraftReview } from './DraftReview';
+import { decodeHtmlEntities } from './ConversationPane';
 
 function Icon({ name, size = 14 }: { name: string; size?: number }) {
   const Component = (Icons as unknown as Record<string, React.FC<{ size?: number }>>)[name];
@@ -248,9 +249,9 @@ const OverviewTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId })
 
   return (
     <div className="ecc-overview-tab">
-      <p className="ecc-overview-summary">{a.oneLineSummary}</p>
+      <p className="ecc-overview-summary">{decodeHtmlEntities(a.oneLineSummary)}</p>
 
-      <Field label="Why it matters">{a.whyItMatters}</Field>
+      <Field label="Why it matters">{decodeHtmlEntities(a.whyItMatters)}</Field>
 
       <div className="ecc-card-meta">
         <StatusBadge status={a.currentStatus as ThreadStatus} />
@@ -261,17 +262,17 @@ const OverviewTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId })
       <Field label="Why it is ranked here">
         <ul className="ecc-reason-list">
           {a.priorityReasons.map((r) => (
-            <li key={r}>{r}</li>
+            <li key={r}>{decodeHtmlEntities(r)}</li>
           ))}
         </ul>
       </Field>
 
       <Field label="What the sender is asking for">
-        {a.senderRequest ?? 'Nothing is being asked of you in this thread.'}
+        {a.senderRequest ? decodeHtmlEntities(a.senderRequest) : 'Nothing is being asked of you in this thread.'}
       </Field>
 
       <Field label="Recommended next step">
-        {a.recommendedNextStep}
+        {decodeHtmlEntities(a.recommendedNextStep)}
         <span className="ecc-recommended-caveat">{SAFETY_STATEMENTS.recommendedNotDone}</span>
       </Field>
 
@@ -290,7 +291,7 @@ const OverviewTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId })
             {e.facts.map((f) => (
               <li key={f.id}>
                 <SourceButton id={f.id} label={f.text} selectedId={selectedId} onSelect={onSelectSource}>
-                  {f.text}
+                  {decodeHtmlEntities(f.text)}
                 </SourceButton>
               </li>
             ))}
@@ -309,7 +310,7 @@ const OverviewTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId })
             {e.inferences.map((f) => (
               <li key={f.id}>
                 <SourceButton id={f.id} label={f.text} selectedId={selectedId} onSelect={onSelectSource}>
-                  {f.text}
+                  {decodeHtmlEntities(f.text)}
                 </SourceButton>
                 <span className="ecc-inference-tag">Inferred, confirm before relying on it</span>
               </li>
@@ -328,8 +329,8 @@ const OverviewTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId })
           <ul className="ecc-evidence-list">
             {e.unknowns.map((u) => (
               <li key={u.id}>
-                <span className="ecc-unknown-text">{u.text}</span>
-                <span className="ecc-unknown-why">{u.why}</span>
+                <span className="ecc-unknown-text">{decodeHtmlEntities(u.text)}</span>
+                <span className="ecc-unknown-why">{decodeHtmlEntities(u.why)}</span>
               </li>
             ))}
           </ul>
@@ -345,7 +346,7 @@ const OverviewTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId })
             {e.conflicts.map((c) => (
               <li key={c.id}>
                 <SourceButton id={c.id} label={c.description} selectedId={selectedId} onSelect={onSelectSource}>
-                  {c.description}
+                  {decodeHtmlEntities(c.description)}
                 </SourceButton>
                 <ul className="ecc-conflict-positions">
                   {c.positions.map((p) => (
@@ -380,7 +381,7 @@ const ActionsTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }) 
             {actions.map((a) => (
               <li key={a.id}>
                 <SourceButton id={a.id} label={a.description} selectedId={selectedId} onSelect={onSelectSource}>
-                  {a.description}
+                  {decodeHtmlEntities(a.description)}
                 </SourceButton>
                 <span className="ecc-item-meta">
                   {a.ownerIsSelf ? 'Yours' : `Owed by ${a.owner}`}
@@ -405,7 +406,7 @@ const ActionsTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }) 
             {commitments.map((c) => (
               <li key={c.id}>
                 <SourceButton id={c.id} label={c.description} selectedId={selectedId} onSelect={onSelectSource}>
-                  {c.description}
+                  {decodeHtmlEntities(c.description)}
                 </SourceButton>
                 <span className="ecc-item-meta">
                   {c.promisedByIsSelf ? 'You promised this' : `${c.promisedBy} promised this`}
@@ -438,8 +439,8 @@ const DecisionsTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
           <ul className="ecc-evidence-list">
             {required.map((d) => (
               <li key={d.id}>
-                <SourceButton id={d.id} label={d.description} selectedId={selectedId} onSelect={onSelectSource}>
-                  {d.description}
+                <SourceButton id={d.id} label={decodeHtmlEntities(d.description)} selectedId={selectedId} onSelect={onSelectSource}>
+                  {decodeHtmlEntities(d.description)}
                 </SourceButton>
                 {d.options && d.options.length > 0 ? (
                   <ul className="ecc-conflict-positions">
@@ -466,8 +467,8 @@ const DecisionsTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
           <ul className="ecc-evidence-list">
             {made.map((d) => (
               <li key={d.id}>
-                <SourceButton id={d.id} label={d.description} selectedId={selectedId} onSelect={onSelectSource}>
-                  {d.description}
+                <SourceButton id={d.id} label={decodeHtmlEntities(d.description)} selectedId={selectedId} onSelect={onSelectSource}>
+                  {decodeHtmlEntities(d.description)}
                 </SourceButton>
                 <span className="ecc-item-meta">
                   {d.decidedBy ? `Decided by ${d.decidedBy}` : 'Decided'}
@@ -504,9 +505,20 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
   const [customTitle, setCustomTitle] = React.useState(() => `Review email: ${detail.record.thread.subject}`);
   const [customDesc, setCustomDesc] = React.useState(() => `Follow up on email from ${detail.record.counterpartyName}: "${detail.record.thread.subject}"`);
   const [customDate, setCustomDate] = React.useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
+    try {
+      const target = new Date();
+      target.setDate(target.getDate() + 1);
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Melbourne',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(target);
+    } catch {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    }
   });
   const [customTime, setCustomTime] = React.useState('09:00');
   const [customType, setCustomType] = React.useState<'review' | 'task'>('review');
@@ -674,8 +686,8 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
           <ul className="ecc-evidence-list">
             {stated.map((d) => (
               <li key={d.id} style={{ marginBottom: '14px', background: 'rgba(22, 38, 63, 0.7)', border: '1px solid #21395C', borderRadius: '8px', padding: '12px' }}>
-                <SourceButton id={d.id} label={d.description} selectedId={selectedId} onSelect={onSelectSource}>
-                  {d.description}
+                <SourceButton id={d.id} label={decodeHtmlEntities(d.description)} selectedId={selectedId} onSelect={onSelectSource}>
+                  {decodeHtmlEntities(d.description)}
                 </SourceButton>
                 <div style={{ marginTop: '4px', marginBottom: '8px' }}>
                   <DateChip dueAt={d.dueAt} origin="explicit_email" withTime />
@@ -808,8 +820,8 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
           <ul className="ecc-evidence-list">
             {suggested.map((d) => (
               <li key={d.id}>
-                <SourceButton id={d.id} label={d.description} selectedId={selectedId} onSelect={onSelectSource}>
-                  {d.description}
+                <SourceButton id={d.id} label={decodeHtmlEntities(d.description)} selectedId={selectedId} onSelect={onSelectSource}>
+                  {decodeHtmlEntities(d.description)}
                 </SourceButton>
                 <DateChip dueAt={d.dueAt} origin="suggested" withTime />
                 <span className="ecc-item-meta">{d.consequence}</span>
@@ -921,8 +933,8 @@ const QuestionsTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
     <ul className="ecc-evidence-list">
       {questions.map((q) => (
         <li key={q.id}>
-          <SourceButton id={q.id} label={q.question} selectedId={selectedId} onSelect={onSelectSource}>
-            {q.question}
+          <SourceButton id={q.id} label={decodeHtmlEntities(q.question)} selectedId={selectedId} onSelect={onSelectSource}>
+            {decodeHtmlEntities(q.question)}
           </SourceButton>
           <span className="ecc-item-meta">
             Asked by {q.askedByIsSelf ? 'you' : q.askedBy} on {formatDayTime(q.askedAt)}

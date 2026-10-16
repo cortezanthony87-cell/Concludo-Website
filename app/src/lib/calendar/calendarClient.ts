@@ -178,7 +178,7 @@ export async function createCalendarItem(
 
     const { data, error } = await supabase
       .from('calendar_items')
-      .insert([newItem])
+      .upsert([newItem], { onConflict: 'idempotency_key' })
       .select()
       .single();
 

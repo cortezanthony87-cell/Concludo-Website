@@ -308,8 +308,7 @@ export const WorkflowsPage: React.FC = () => {
                 {workflows.map((wf) => (
                   <div
                     key={wf.id}
-                    className="bg-gradient-to-b from-[#16263F] to-[#0E1726] border-2 border-[#21395C] hover:border-[#E2B53C] rounded-2xl p-6 flex flex-col justify-between shadow-2xl transition-all duration-200"
-                    style={{ minHeight: '480px' }}
+                    className="bg-gradient-to-b from-[#16263F] to-[#0E1726] border border-[#21395C] hover:border-[#E2B53C] rounded-xl p-5 flex flex-col justify-between shadow-xl transition-all duration-200 overflow-hidden"
                   >
                     <div>
                       <div className="flex items-center justify-between">
@@ -382,8 +381,8 @@ export const WorkflowsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* All Action Controls Contained Inside Template Box */}
-                    <div className="mt-5 pt-4 border-t border-[#21395C] bg-[#0E1726]/60 rounded-xl p-3.5 space-y-2.5">
+                    {/* Template Controls Box - All Options Neatly Contained Inside */}
+                    <div className="mt-5 pt-3.5 border-t border-[#21395C] bg-[#0B1320] border border-[#21395C] rounded-xl p-3 space-y-2.5">
                       {/* Top Action Row: Primary Builder & Execution */}
                       <div className="grid grid-cols-2 gap-2">
                         <Link

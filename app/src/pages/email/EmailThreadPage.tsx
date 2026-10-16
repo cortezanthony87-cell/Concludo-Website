@@ -58,6 +58,16 @@ export const EmailThreadPage: React.FC = () => {
   const [isFullView, setIsFullView] = useState<boolean>(false);
   const navigate = useNavigate();
   const { ignoreEmail, ignored } = useLocalActions();
+  // Reset scroll cleanly to top whenever viewing a new thread
+  React.useEffect(() => {
+    try {
+      const pane = document.querySelector('.ecc-col-conversation') || document.querySelector('.ecc-conversation');
+      if (pane) pane.scrollTop = 0;
+      const main = document.querySelector('.main-content-area');
+      if (main) main.scrollTop = 0;
+    } catch (_) {}
+  }, [threadId]);
+
 
   const detail = useMemo(
     () => (threadId ? threadDetail(dataset, threadId) : null),
@@ -97,7 +107,7 @@ export const EmailThreadPage: React.FC = () => {
       if (remaining.length > 0) nextTargetId = remaining[0].thread.id;
     }
 
-    ignoreEmail(currentId);
+    ignoreEmail(currentId, dataset?.account?.address);
 
     if (nextTargetId) {
       navigate(linkTo(`/email/thread/${nextTargetId}`), { replace: true });

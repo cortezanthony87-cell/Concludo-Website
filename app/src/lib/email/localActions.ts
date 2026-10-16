@@ -135,8 +135,8 @@ export interface LocalActionApi extends LocalActionState {
   toggleReviewed: (threadId: string) => void;
   toggleDeferred: (threadId: string) => void;
   toggleWaiting: (threadId: string) => void;
-  ignoreEmail: (threadId: string) => void;
-  unignoreEmail: (threadId: string) => void;
+  ignoreEmail: (threadId: string, accountEmail?: string) => void;
+  unignoreEmail: (threadId: string, accountEmail?: string) => void;
   addSuggestion: (s: Omit<Suggestion, 'id' | 'createdAt'>) => void;
   removeSuggestion: (id: string) => void;
   clearAll: () => void;
@@ -155,8 +155,8 @@ const EMPTY: LocalActionApi = {
   toggleReviewed: () => undefined,
   toggleDeferred: () => undefined,
   toggleWaiting: () => undefined,
-  ignoreEmail: () => undefined,
-  unignoreEmail: () => undefined,
+  ignoreEmail: (_t?: string, _a?: string) => undefined,
+  unignoreEmail: (_t?: string, _a?: string) => undefined,
   addSuggestion: () => undefined,
   removeSuggestion: () => undefined,
   clearAll: () => undefined,
@@ -242,12 +242,15 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   );
 
   const ignoreEmail = useCallback(
-    (threadId: string) => {
+    (threadId: string, accountEmail?: string) => {
       setState((s) => {
         const next = Array.from(new Set([...s.ignored, threadId]));
         try {
           if (typeof window !== 'undefined') {
             localStorage.setItem(IGNORED_STORAGE_KEY, JSON.stringify(next));
+            if (accountEmail) {
+              localStorage.setItem(`concludo_ignored_email_threads_${accountEmail}`, JSON.stringify(next));
+            }
           }
         } catch (e) {
           console.warn('Could not persist ignored email to localStorage:', e);
@@ -263,6 +266,7 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 user_id: user.id,
                 thread_id: threadId,
                 action: 'ignore',
+                account_email: accountEmail || null,
               }, { onConflict: 'user_id,thread_id,action' });
             }
           } catch (e) {
@@ -276,12 +280,15 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   );
 
   const unignoreEmail = useCallback(
-    (threadId: string) => {
+    (threadId: string, accountEmail?: string) => {
       setState((s) => {
         const next = s.ignored.filter((id) => id !== threadId);
         try {
           if (typeof window !== 'undefined') {
             localStorage.setItem(IGNORED_STORAGE_KEY, JSON.stringify(next));
+            if (accountEmail) {
+              localStorage.setItem(`concludo_ignored_email_threads_${accountEmail}`, JSON.stringify(next));
+            }
           }
         } catch (e) {
           console.warn('Could not persist unignored email to localStorage:', e);
