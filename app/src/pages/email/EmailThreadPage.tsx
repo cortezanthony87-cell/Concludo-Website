@@ -10,8 +10,9 @@
  * reachable when a person stops trusting the interpretation.
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import { useOutletContext, useParams, useLocation, Link } from 'react-router-dom';
-import { ArrowLeft, Search, Mail, Brain, List } from 'lucide-react';
+import { useOutletContext, useParams, useLocation, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Search, Mail, Brain, List, Maximize2, Minimize2, CheckCircle2 } from 'lucide-react';
+import { useLocalActions } from '../../lib/email/localActions';
 import { EmailModuleContext } from '../../components/email/EmailModuleLayout';
 import { ConversationPane } from '../../components/email/ConversationPane';
 import { IntelligencePane } from '../../components/email/IntelligencePane';
@@ -54,6 +55,15 @@ export const EmailThreadPage: React.FC = () => {
   const [pane, setPane] = useState<PaneKey>('intelligence');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<{ id: string; label: string } | null>(null);
+  const [isFullView, setIsFullView] = useState<boolean>(false);
+  const navigate = useNavigate();
+  const { ignoreEmail } = useLocalActions();
+
+  const handleIgnoreCurrentEmail = () => {
+    if (!detail) return;
+    ignoreEmail(detail.record.thread.id);
+    navigate(linkTo('/email/all'));
+  };
 
   const detail = useMemo(
     () => (threadId ? threadDetail(dataset, threadId) : null),
@@ -130,10 +140,45 @@ export const EmailThreadPage: React.FC = () => {
     <DraftSessionProvider now={now}>
       <section className="ecc-page ecc-workspace-page" aria-labelledby="ecc-thread-heading">
         <header className="ecc-thread-head">
-          <Link className="ecc-text-button ecc-back-link" to={linkTo('/email/all')}>
-            <ArrowLeft size={14} aria-hidden="true" />
-            Back to All Email
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
+            <Link className="ecc-text-button ecc-back-link" to={linkTo('/email/all')}>
+              <ArrowLeft size={14} aria-hidden="true" />
+              Back to All Email
+            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleIgnoreCurrentEmail}
+                className="ecc-btn-ignore-email"
+                title="Ignore email: removes from overview and inbox, marks as done, and excludes from Email Command Centre"
+              >
+                <CheckCircle2 size={13} color="#FCA5A5" />
+                <span>Ignore email</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFullView((v) => !v)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 12px',
+                  background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : 'rgba(33, 57, 92, 0.8)',
+                  border: '1px solid #E2B53C',
+                  color: isFullView ? '#0E1726' : '#E2B53C',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title={isFullView ? 'Return to 3-column standard view' : 'Expand email to full view while keeping intelligence box in view'}
+              >
+                {isFullView ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                <span>{isFullView ? 'Standard view' : 'Full view email'}</span>
+              </button>
+            </div>
+          </div>
           <h2 id="ecc-thread-heading" className="ecc-page-title">
             {detail.record.thread.subject}
           </h2>
@@ -176,7 +221,7 @@ export const EmailThreadPage: React.FC = () => {
           ))}
         </div>
 
-        <div className={`ecc-workspace ecc-pane-${pane}`}>
+        <div className={`ecc-workspace ecc-pane-${pane} ${isFullView ? "ecc-workspace-full-view" : ""}`}>
           {/* ------------------------------------------- left: thread list */}
           <div
             className="ecc-col ecc-col-list"
@@ -242,6 +287,8 @@ export const EmailThreadPage: React.FC = () => {
               highlights={highlights}
               selectionLabel={selected?.label ?? null}
               onClearSelection={() => setSelected(null)}
+              isFullView={isFullView}
+              onToggleFullView={() => setIsFullView((v) => !v)}
             />
           </div>
 
@@ -260,6 +307,9 @@ export const EmailThreadPage: React.FC = () => {
               onTabChange={setTab}
               onSelectSource={onSelectSource}
               selectedId={selected?.id ?? null}
+              isFullView={isFullView}
+              onToggleFullView={() => setIsFullView((v) => !v)}
+              onIgnoreEmail={handleIgnoreCurrentEmail}
             />
           </div>
         </div>

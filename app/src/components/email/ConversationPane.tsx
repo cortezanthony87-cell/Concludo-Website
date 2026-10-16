@@ -16,7 +16,7 @@
  * and looking broken.
  */
 import React, { useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight, Paperclip, ShieldAlert, Reply } from 'lucide-react';
+import { ChevronDown, ChevronRight, Paperclip, ShieldAlert, Reply, Maximize2, Minimize2, Eye } from 'lucide-react';
 import { EmailMessage, Attachment } from '../../lib/email/model';
 import { SourceLocation } from '../../lib/email/threadIntelligence';
 import { AccountBadge, formatDayTime } from './viewPrimitives';
@@ -32,6 +32,8 @@ interface Props {
   /** What was selected, for the heading above the conversation. */
   selectionLabel: string | null;
   onClearSelection: () => void;
+  isFullView?: boolean;
+  onToggleFullView?: () => void;
 }
 
 export const ConversationPane: React.FC<Props> = ({
@@ -42,6 +44,8 @@ export const ConversationPane: React.FC<Props> = ({
   highlights,
   selectionLabel,
   onClearSelection,
+  isFullView,
+  onToggleFullView,
 }) => {
   const paneRef = useRef<HTMLDivElement>(null);
   const firstHighlighted = highlights[0]?.messageId ?? null;
@@ -58,9 +62,35 @@ export const ConversationPane: React.FC<Props> = ({
   return (
     <div className="ecc-conversation" ref={paneRef}>
       <div className="ecc-conversation-head">
-        <h3 className="ecc-column-title" id="ecc-conversation-heading">
-          Original conversation
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <h3 className="ecc-column-title" id="ecc-conversation-heading" style={{ margin: 0 }}>
+            Original conversation
+          </h3>
+          {onToggleFullView && (
+            <button
+              type="button"
+              onClick={onToggleFullView}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 10px',
+                background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : 'rgba(33, 57, 92, 0.7)',
+                border: '1px solid #E2B53C',
+                color: isFullView ? '#0E1726' : '#E2B53C',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title={isFullView ? 'Return to 3-column standard view' : 'Expand email to full view while keeping intelligence box in view'}
+            >
+              {isFullView ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+              <span>{isFullView ? 'Standard view' : 'Full view email'}</span>
+            </button>
+          )}
+        </div>
         <p className="ecc-column-note">
           {messages.length} message{messages.length === 1 ? '' : 's'}, oldest first. This is the
           email as it arrived, not a summary of it.
@@ -203,19 +233,73 @@ const MessageBlock: React.FC<{
       ) : null}
 
       {own.length > 0 ? (
-        <ul className="ecc-message-attachments" aria-label="Attachments on this message">
-          {own.map((a) => (
-            <li key={a.id}>
-              <Paperclip size={12} aria-hidden="true" />
-              <span className="ecc-attachment-name">{a.fileName}</span>
-              <span className="ecc-attachment-size">
-                {a.sizeBytes ? `${Math.round(a.sizeBytes / 1024)} KB` : 'size unknown'}
-              </span>
-              {/* Never imply a file was read. Concludo sees that it exists. */}
-              <span className="ecc-attachment-caveat">{SAFETY_STATEMENTS.attachmentNotReviewed}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="ecc-attachments-section" style={{ marginTop: '16px' }}>
+          {/* Images in Clear View */}
+          {(() => {
+            const imageAttachments = own.filter(
+              (a) => a.mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(a.fileName)
+            );
+            if (imageAttachments.length === 0) return null;
+            return (
+              <div className="ecc-image-clear-view-group" style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <Eye size={13} color="#E2B53C" />
+                  <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#E2B53C', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Attached Images ({imageAttachments.length}) · Clear View
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: imageAttachments.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                  {imageAttachments.map((img) => (
+                    <div
+                      key={img.id}
+                      className="ecc-image-clear-view-card"
+                      style={{
+                        borderRadius: '8px',
+                        border: '1px solid rgba(226, 181, 60, 0.4)',
+                        background: '#0B1320',
+                        padding: '10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                      }}
+                    >
+                      <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', background: '#0E1726', borderRadius: '6px', overflow: 'hidden' }}>
+                        <img
+                          src={(img as any).url || (img as any).dataUrl || '/brand/Concludo_logo_horizontal_reversed_for_dark.png'}
+                          alt={img.fileName}
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '420px',
+                            objectFit: 'contain',
+                            borderRadius: '4px',
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#CBD5E1' }}>
+                        <span style={{ fontWeight: 600 }}>{img.fileName}</span>
+                        <span style={{ color: '#94A3B8' }}>{img.sizeBytes ? `${Math.round(img.sizeBytes / 1024)} KB` : 'Image'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Standard file attachments list */}
+          <ul className="ecc-message-attachments" aria-label="Attachments on this message">
+            {own.map((a) => (
+              <li key={a.id}>
+                <Paperclip size={12} aria-hidden="true" />
+                <span className="ecc-attachment-name">{a.fileName}</span>
+                <span className="ecc-attachment-size">
+                  {a.sizeBytes ? `${Math.round(a.sizeBytes / 1024)} KB` : 'size unknown'}
+                </span>
+                <span className="ecc-attachment-caveat">{SAFETY_STATEMENTS.attachmentNotReviewed}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </li>
   );

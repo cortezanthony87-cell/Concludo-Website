@@ -107,10 +107,26 @@ export interface Suggestion {
   createdAt: string;
 }
 
+const IGNORED_STORAGE_KEY = 'concludo_ignored_email_threads';
+
+function loadStoredIgnored(): string[] {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(IGNORED_STORAGE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.warn('Could not load ignored emails:', e);
+  }
+  return [];
+}
+
 export interface LocalActionState {
   reviewed: readonly string[];
   deferred: readonly string[];
   markedWaiting: readonly string[];
+  ignored: readonly string[];
   suggestions: readonly Suggestion[];
 }
 
@@ -118,6 +134,8 @@ export interface LocalActionApi extends LocalActionState {
   toggleReviewed: (threadId: string) => void;
   toggleDeferred: (threadId: string) => void;
   toggleWaiting: (threadId: string) => void;
+  ignoreEmail: (threadId: string) => void;
+  unignoreEmail: (threadId: string) => void;
   addSuggestion: (s: Omit<Suggestion, 'id' | 'createdAt'>) => void;
   removeSuggestion: (id: string) => void;
   clearAll: () => void;
@@ -131,10 +149,13 @@ const EMPTY: LocalActionApi = {
   reviewed: [],
   deferred: [],
   markedWaiting: [],
+  ignored: [],
   suggestions: [],
   toggleReviewed: () => undefined,
   toggleDeferred: () => undefined,
   toggleWaiting: () => undefined,
+  ignoreEmail: () => undefined,
+  unignoreEmail: () => undefined,
   addSuggestion: () => undefined,
   removeSuggestion: () => undefined,
   clearAll: () => undefined,
@@ -153,12 +174,13 @@ function toggle(list: readonly string[], id: string): string[] {
 }
 
 export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<LocalActionState>({
+  const [state, setState] = useState<LocalActionState>(() => ({
     reviewed: [],
     deferred: [],
     markedWaiting: [],
+    ignored: loadStoredIgnored(),
     suggestions: [],
-  });
+  }));
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
 
   // Every action announces what it did, because several of them change a list
@@ -187,6 +209,42 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         );
         return { ...s, deferred: now };
       }),
+    [announce]
+  );
+
+  const ignoreEmail = useCallback(
+    (threadId: string) => {
+      setState((s) => {
+        const next = Array.from(new Set([...s.ignored, threadId]));
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(IGNORED_STORAGE_KEY, JSON.stringify(next));
+          }
+        } catch (e) {
+          console.warn('Could not persist ignored email to localStorage:', e);
+        }
+        announce('Email ignored and marked as done. Excluded from Email Command Centre.');
+        return { ...s, ignored: next };
+      });
+    },
+    [announce]
+  );
+
+  const unignoreEmail = useCallback(
+    (threadId: string) => {
+      setState((s) => {
+        const next = s.ignored.filter((id) => id !== threadId);
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(IGNORED_STORAGE_KEY, JSON.stringify(next));
+          }
+        } catch (e) {
+          console.warn('Could not persist unignored email to localStorage:', e);
+        }
+        announce('Email un-ignored.');
+        return { ...s, ignored: next };
+      });
+    },
     [announce]
   );
 
@@ -234,7 +292,7 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   );
 
   const clearAll = useCallback(() => {
-    setState({ reviewed: [], deferred: [], markedWaiting: [], suggestions: [] });
+    setState({ reviewed: [], deferred: [], markedWaiting: [], ignored: [], suggestions: [] });
     announce('Every change made in this visit has been cleared.');
   }, [announce]);
 
@@ -256,6 +314,8 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     toggleReviewed,
     toggleDeferred,
     toggleWaiting,
+    ignoreEmail,
+    unignoreEmail,
     addSuggestion,
     removeSuggestion,
     clearAll,

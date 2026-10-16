@@ -10,6 +10,7 @@ export interface WorkflowTemplateMeta {
   name: string;
   description: string;
   category:
+    | 'Permanent Templates'
     | 'Meetings'
     | 'Sales'
     | 'Customer onboarding'

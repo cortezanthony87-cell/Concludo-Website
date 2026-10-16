@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WORKFLOW_TEMPLATES, WorkflowTemplateMeta } from '../../lib/workflows/templates';
+import { useAuth } from '../../lib/auth/AuthContext';
+import { isAnthonyOrAuthorizedTeam, fetchPermanentTemplates } from '../../lib/workflows/permanentTemplates';
 
 interface TemplatePickerModalProps {
   isOpen: boolean;
@@ -7,7 +9,7 @@ interface TemplatePickerModalProps {
   onSelectTemplate: (template: WorkflowTemplateMeta) => void;
 }
 
-const CATEGORIES = [
+const BASE_CATEGORIES = [
   'All',
   'Meetings',
   'Sales',
@@ -28,11 +30,30 @@ export const TemplatePickerModal: React.FC<TemplatePickerModalProps> = ({
   onClose,
   onSelectTemplate,
 }) => {
+  const { user, profile } = useAuth();
+  const isAuthorized = isAnthonyOrAuthorizedTeam(user, profile);
   const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [permanentTemplates, setPermanentTemplates] = useState<WorkflowTemplateMeta[]>([]);
+
+  useEffect(() => {
+    if (isOpen && isAuthorized) {
+      fetchPermanentTemplates(user).then((tpls) => {
+        setPermanentTemplates(tpls);
+      });
+    }
+  }, [isOpen, isAuthorized, user]);
 
   if (!isOpen) return null;
 
-  const filteredTemplates = WORKFLOW_TEMPLATES.filter(
+  const allTemplates = isAuthorized
+    ? [...permanentTemplates, ...WORKFLOW_TEMPLATES]
+    : WORKFLOW_TEMPLATES;
+
+  const categories = isAuthorized
+    ? ['All', 'Permanent Templates', ...BASE_CATEGORIES.slice(1)]
+    : [...BASE_CATEGORIES];
+
+  const filteredTemplates = allTemplates.filter(
     (t) => activeCategory === 'All' || t.category === activeCategory
   );
 
@@ -49,8 +70,9 @@ export const TemplatePickerModal: React.FC<TemplatePickerModalProps> = ({
           <div>
             <h2>Start from a template</h2>
             <p className="wb-lede">
-              Twenty workflows that already follow the rules. Every one of them waits for a person
-              before anything leaves Concludo.
+              {isAuthorized
+                ? 'Standard templates and executive permanent templates saved for your account and team.'
+                : 'Twenty workflows that already follow the rules. Every one of them waits for a person before anything leaves Concludo.'}
             </p>
           </div>
           <button className="wb-btn" onClick={onClose} aria-label="Close template picker">
@@ -59,7 +81,7 @@ export const TemplatePickerModal: React.FC<TemplatePickerModalProps> = ({
         </div>
 
         <div className="wb-filters" role="tablist" aria-label="Template categories">
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               type="button"
@@ -68,22 +90,29 @@ export const TemplatePickerModal: React.FC<TemplatePickerModalProps> = ({
               aria-selected={cat === activeCategory}
               onClick={() => setActiveCategory(cat)}
             >
-              {cat}
+              {cat === 'Permanent Templates' ? '★ ' + cat : cat}
             </button>
           ))}
         </div>
 
         <div className="wb-grid">
           {filteredTemplates.map((t) => {
+            const isPerm = t.category === 'Permanent Templates';
             const usesText = [
-              ...t.applicationsRequired,
-              ...t.concludoServicesRequired.map((s) => s.toLowerCase().replace(/[^a-z0-9]/g, '')),
+              ...(t.applicationsRequired || []),
+              ...((t.concludoServicesRequired || []).map((s) => s.toLowerCase().replace(/[^a-z0-9]/g, ''))),
             ].join(' ');
 
             return (
-              <article key={t.templateKey} className="wb-tcard">
+              <article
+                key={t.templateKey}
+                className="wb-tcard"
+                style={isPerm ? { borderColor: 'rgba(226, 181, 60, 0.6)', background: 'rgba(22, 38, 63, 0.95)' } : undefined}
+              >
                 <div className="wb-top">
-                  <span className="wb-pill gold">{t.category}</span>
+                  <span className={`wb-pill ${isPerm ? 'gold' : 'gold'}`}>
+                    {isPerm ? '★ Permanent Template' : t.category}
+                  </span>
                   <span className="wb-mins">{t.setupTimeCategory}</span>
                 </div>
                 <h3>{t.name}</h3>
@@ -92,7 +121,7 @@ export const TemplatePickerModal: React.FC<TemplatePickerModalProps> = ({
                 </span>
                 <div className="wb-row">
                   <span className="wb-rk">Uses</span>
-                  <span className="wb-rv mono">{usesText}</span>
+                  <span className="wb-rv mono">{usesText || 'Concludo Workflows'}</span>
                 </div>
                 <div className="wb-row">
                   <span className="wb-rk">When</span>

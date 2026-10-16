@@ -34,12 +34,16 @@ export interface ViewData {
 
 export function useViewData(accountId: string): ViewData {
   const location = useLocation();
-  const { deferred } = useLocalActions();
+  const { deferred, ignored } = useLocalActions();
 
   const forced = new URLSearchParams(location.search).get('demo');
   const dataset = useMemo(() => getDataset(accountId), [accountId]);
 
-  const allRecords = useMemo(() => (dataset ? recordsFor(dataset) : []), [dataset]);
+  const allRecords = useMemo(() => {
+    if (!dataset) return [];
+    const base = recordsFor(dataset);
+    return base.filter((r) => !ignored.includes(r.thread.id));
+  }, [dataset, ignored]);
   const records = useMemo(() => withoutDeferred(allRecords, deferred), [allRecords, deferred]);
 
   // An unknown account is an error, never an empty list. Silence and zero must

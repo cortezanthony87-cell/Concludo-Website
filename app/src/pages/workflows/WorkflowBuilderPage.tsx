@@ -36,7 +36,9 @@ import {
   FolderKanban,
   Play,
   CheckCircle2,
+  Bookmark,
 } from 'lucide-react';
+import { isAnthonyOrAuthorizedTeam, savePermanentTemplate } from '../../lib/workflows/permanentTemplates';
 
 import { TemplatePickerModal } from '../../components/workflows/TemplatePickerModal';
 import { AddStepModal } from '../../components/workflows/AddStepModal';
@@ -110,6 +112,10 @@ export const WorkflowBuilderPage: React.FC = () => {
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isPursuing, setIsPursuing] = useState<boolean>(false);
   const [pursueNotice, setPursueNotice] = useState<{ message: string; approvalId?: string } | null>(null);
+  const { profile } = useAuth();
+  const isAuthorizedAdmin = isAnthonyOrAuthorizedTeam(user, profile);
+  const [isSavingPerm, setIsSavingPerm] = useState<boolean>(false);
+  const [permNotice, setPermNotice] = useState<string | null>(null);
 
   // Definition State (Starts empty for Stage A)
   const [definition, setDefinition] = useState<WorkflowDefinition>(() =>
@@ -572,6 +578,33 @@ export const WorkflowBuilderPage: React.FC = () => {
     }
   };
 
+  const handleSavePermanentTemplate = async () => {
+    if (!user) return;
+    setIsSavingPerm(true);
+    setPermNotice(null);
+    try {
+      const savedWf = await handleSaveWorkflow();
+      const targetWf = savedWf || {
+        name: definition.name,
+        description: definition.description,
+        definition_json: definition,
+        trigger_type: definition.trigger?.triggerKey,
+        actions: definition.steps.map(s => ({ type: s.key, application: s.application })),
+      };
+      const res = await savePermanentTemplate(targetWf as any, user);
+      if (res.success) {
+        setPermNotice('Saved to Permanent Templates!');
+        setTimeout(() => setPermNotice(null), 4000);
+      } else {
+        setPermNotice(res.error || 'Failed to save');
+      }
+    } catch (err: any) {
+      setPermNotice(`Error: ${err.message}`);
+    } finally {
+      setIsSavingPerm(false);
+    }
+  };
+
   const handlePursueWorkflow = async () => {
     if (!user) return;
     setIsPursuing(true);
@@ -769,6 +802,32 @@ export const WorkflowBuilderPage: React.FC = () => {
                 <Save size={14} />
                 <span>{isSaving ? 'Saving...' : saveNotice || 'Save Workflow'}</span>
               </button>
+
+              {isAuthorizedAdmin && (
+                <button
+                  type="button"
+                  onClick={handleSavePermanentTemplate}
+                  disabled={isSavingPerm}
+                  className="wb-icon-btn"
+                  style={{
+                    background: 'rgba(226, 181, 60, 0.15)',
+                    border: '1px solid var(--gold)',
+                    color: 'var(--gold)',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                  }}
+                  title="Save this workflow into permanent templates library (exclusive to your account and team)"
+                >
+                  <Bookmark size={14} />
+                  <span>{isSavingPerm ? 'Saving...' : permNotice || 'Save as Permanent Template'}</span>
+                </button>
+              )}
 
               {(definition.status === 'published' || derivedUiState === 'active') && (
                 <button

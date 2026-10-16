@@ -43,6 +43,9 @@ interface Props {
   onTabChange: (key: IntelligenceTabKey) => void;
   onSelectSource: (id: string, label: string) => void;
   selectedId: string | null;
+  isFullView?: boolean;
+  onToggleFullView?: () => void;
+  onIgnoreEmail?: () => void;
 }
 
 export const IntelligencePane: React.FC<Props> = ({
@@ -53,6 +56,9 @@ export const IntelligencePane: React.FC<Props> = ({
   onTabChange,
   onSelectSource,
   selectedId,
+  isFullView,
+  onToggleFullView,
+  onIgnoreEmail,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +94,59 @@ export const IntelligencePane: React.FC<Props> = ({
         Everything below was read out of the conversation on the left. Select any item to see where
         it came from.
       </p>
+
+      {/* Intelligent Box Controls: Ignore email and Full view email */}
+      <div
+        className="ecc-intelligent-actions"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+          margin: '10px 0 14px',
+          padding: '8px 10px',
+          background: 'rgba(22, 38, 63, 0.7)',
+          border: '1px solid rgba(226, 181, 60, 0.25)',
+          borderRadius: '8px',
+        }}
+      >
+        {onIgnoreEmail && (
+          <button
+            type="button"
+            onClick={onIgnoreEmail}
+            className="ecc-btn-ignore-email"
+            title="Ignore email: removes from overview and inbox, marks as done, and excludes from Email Command Centre"
+          >
+            <Icons.CheckCircle2 size={13} color="#FCA5A5" />
+            <span>Ignore email</span>
+          </button>
+        )}
+
+        {onToggleFullView && (
+          <button
+            type="button"
+            onClick={onToggleFullView}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : 'rgba(33, 57, 92, 0.8)',
+              border: '1px solid #E2B53C',
+              color: isFullView ? '#0E1726' : '#E2B53C',
+              borderRadius: '6px',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title={isFullView ? 'Return to standard 3-column view' : 'Expand email to full view while keeping intelligence box in view'}
+          >
+            {isFullView ? <Icons.Minimize2 size={13} /> : <Icons.Maximize2 size={13} />}
+            <span>{isFullView ? 'Standard view' : 'Full view email'}</span>
+          </button>
+        )}
+      </div>
 
       <div
         className="ecc-itab-list"

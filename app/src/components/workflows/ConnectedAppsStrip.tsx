@@ -13,8 +13,20 @@ export const ConnectedAppsStrip: React.FC<ConnectedAppsStripProps> = ({
   connections,
   onConnectAnotherApp,
 }) => {
-  // Filter active connections
-  const activeConnections = connections.filter((c) => c.status !== 'disconnected');
+  // Filter active and fully verified/usable connections only.
+  // Rule: Only allow apps that are actually connected to your Concludo account.
+  // If it has a red dot next to it, it should not show with the rest of what app is connected;
+  // only confirmed, tested apps that have been approved can appear in the sections of apps to connect to the workflow.
+  const activeConnections = connections.filter((c) => {
+    const ev: ConnectionEvidence = {
+      status: c.status,
+      verified_at: (c as any).verified_at,
+      last_test_at: (c as any).last_test_at,
+      last_test_result: (c as any).last_test_result,
+    };
+    const meta = describeStatus(ev);
+    return isUsable(ev) && meta.tone === 'ok';
+  });
 
   return (
     <div className="wb-connected-apps-strip" style={{ width: '100%' }}>

@@ -608,11 +608,16 @@ export const CalendarPage: React.FC = () => {
       {/* Top Bar */}
       <div className="calendar-topbar">
         <div className="calendar-topbar-left">
-          <div className="calendar-title-group">
+          <div className="calendar-title-group" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <CalendarIcon size={22} color="#E2B53C" />
             <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', margin: 0, fontFamily: 'Poppins, sans-serif' }}>
               Calendar
             </h1>
+            <img
+              src="/brand/Concludo_logo_horizontal_reversed_for_dark.png"
+              alt="Concludo"
+              style={{ height: '22px', width: 'auto', objectFit: 'contain', marginLeft: '6px', opacity: 0.95 }}
+            />
           </div>
 
           {/* Subview Nav Tabs */}
