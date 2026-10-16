@@ -1,5 +1,6 @@
 import { Plus, Boxes, Edit3, Play, Trash2, Sparkles, FolderKanban, Pause, Bookmark } from 'lucide-react';
-import { isAnthonyOrAuthorizedTeam, savePermanentTemplate } from '../../lib/workflows/permanentTemplates';
+import { isAnthonyOrAuthorizedTeam, savePermanentTemplate, fetchPermanentTemplates } from '../../lib/workflows/permanentTemplates';
+import { WorkflowTemplateMeta } from '../../lib/workflows/templates';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { integrationsHubService, IntegrationConnection } from '../../lib/integrations/hubRegistry';
@@ -52,7 +53,7 @@ export const WorkflowsPage: React.FC = () => {
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
   const [executions, setExecutions] = useState<WorkflowExecutionRecord[]>([]);
   const [connections, setConnections] = useState<IntegrationConnection[]>([]);
-  const [activeTab, setActiveTab] = useState<'workflows' | 'history'>('workflows');
+  const [activeTab, setActiveTab] = useState<'workflows' | 'permanent' | 'history'>('workflows');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +71,7 @@ export const WorkflowsPage: React.FC = () => {
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
   const { profile } = useAuth();
   const isAuthorizedAdmin = isAnthonyOrAuthorizedTeam(user, profile);
+  const [permanentTemplates, setPermanentTemplates] = useState<WorkflowTemplateMeta[]>([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [savingTemplateId, setSavingTemplateId] = useState<string | null>(null);
   const [triggerMessage, setTriggerMessage] = useState<string | null>(null);
@@ -97,6 +99,14 @@ export const WorkflowsPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [user]);
+
+  useEffect(() => {
+    if (user && isAuthorizedAdmin) {
+      fetchPermanentTemplates(user).then((tpls) => {
+        setPermanentTemplates(tpls);
+      });
+    }
+  }, [user, isAuthorizedAdmin]);
 
   const handleCreateWorkflow = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,6 +282,18 @@ export const WorkflowsPage: React.FC = () => {
           >
             Saved Workflows ({workflows.length})
           </button>
+          {isAuthorizedAdmin && (
+            <button
+              onClick={() => setActiveTab('permanent')}
+              className={`pb-3 border-b-2 transition ${
+                activeTab === 'permanent'
+                  ? 'border-[#E2B53C] text-[#E2B53C]'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Permanent Templates ({permanentTemplates.length})
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('history')}
             className={`pb-3 border-b-2 transition ${
@@ -308,7 +330,8 @@ export const WorkflowsPage: React.FC = () => {
                 {workflows.map((wf) => (
                   <div
                     key={wf.id}
-                    className="bg-gradient-to-b from-[#16263F] to-[#0E1726] border border-[#21395C] hover:border-[#E2B53C] rounded-xl p-5 flex flex-col justify-between shadow-xl transition-all duration-200 overflow-hidden"
+                    className="bg-[#16263F] border border-[#21395C] hover:border-[#E2B53C]/70 rounded-2xl p-6 flex flex-col justify-between shadow-xl transition-all duration-200 relative"
+                    style={{ boxSizing: 'border-box' }}
                   >
                     <div>
                       <div className="flex items-center justify-between">
@@ -381,10 +404,10 @@ export const WorkflowsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Template Controls Box - All Options Neatly Contained Inside */}
-                    <div className="mt-5 pt-3.5 border-t border-[#21395C] bg-[#0B1320] border border-[#21395C] rounded-xl p-3 space-y-2.5">
+                    {/* Template Controls - All Options Strictly Contained Inside Template Box */}
+                    <div className="mt-5 pt-4 border-t border-[#21395C] space-y-2.5 w-full">
                       {/* Top Action Row: Primary Builder & Execution */}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2.5 w-full">
                         <Link
                           to={`/workflows/builder?id=${wf.id}`}
                           className="w-full py-2.5 px-3 bg-gradient-to-r from-[#E2B53C] to-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-md transition border border-[#E2B53C] hover:brightness-110"
@@ -405,30 +428,30 @@ export const WorkflowsPage: React.FC = () => {
                       </div>
 
                       {/* Secondary Action Row: Pause/Activate & Delete (Separated Gold Boxes) */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#21395C]/60">
-                        {/* Option: Pause / Activate in Gold Box */}
+                      <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-[#21395C]/60 w-full">
+                        {/* Option: Pause / Activate in Dedicated Gold Box */}
                         <button
                           onClick={() => handleToggleActive(wf)}
-                          className="w-full py-2 px-2.5 bg-[#16263F] hover:bg-[#21395C] text-white hover:text-[#E2B53C] border border-[#E2B53C] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
+                          className="w-full py-2 px-2.5 bg-[#0E1726] hover:bg-[#21395C] text-white hover:text-[#E2B53C] border border-[#E2B53C] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition"
                           title={wf.is_active ? 'Pause this workflow' : 'Activate this workflow'}
                         >
                             {wf.is_active ? (
                               <>
                                 <Pause className="w-3 h-3 text-[#E2B53C]" />
-                                <span>Pause</span>
+                                <span>Pause Workflow</span>
                               </>
                             ) : (
                               <>
                                 <Play className="w-3 h-3 text-[#E2B53C]" />
-                                <span>Activate</span>
+                                <span>Activate Workflow</span>
                               </>
                             )}
                           </button>
 
-                        {/* Option: Delete in Separated Box with Two-Step Confirmation */}
+                        {/* Option: Delete in Dedicated Gold Box with Two-Step Confirmation */}
                         <div className="w-full">
                           {confirmDeleteId === wf.id ? (
-                            <div className="flex items-center justify-between w-full bg-[#16263F] border border-[#E2B53C] rounded-lg p-1 shadow-lg">
+                            <div className="flex items-center justify-between w-full bg-[#0E1726] border border-[#E2B53C] rounded-xl p-1 shadow">
                               <span className="text-[10px] text-[#E2B53C] px-1 font-semibold">Delete?</span>
                               <div className="flex items-center gap-1">
                               <button
@@ -456,11 +479,11 @@ export const WorkflowsPage: React.FC = () => {
                           ) : (
                             <button
                               onClick={() => setConfirmDeleteId(wf.id)}
-                              className="w-full py-2 px-2.5 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] hover:text-rose-300 border border-[#E2B53C] hover:border-rose-400 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
+                              className="w-full py-2 px-2.5 bg-[#0E1726] hover:bg-rose-950/30 text-[#E2B53C] hover:text-rose-300 border border-[#E2B53C] hover:border-rose-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition"
                               title="Delete this workflow"
                             >
                               <Trash2 className="w-3 h-3 text-[#E2B53C]" />
-                              <span>Delete</span>
+                              <span>Delete Workflow</span>
                             </button>
                           )}
                         </div>
@@ -468,11 +491,11 @@ export const WorkflowsPage: React.FC = () => {
 
                       {/* Executive Only: Save as Permanent Template in Full-Width Gold Box */}
                       {isAuthorizedAdmin && (
-                        <div className="pt-1 border-t border-[#21395C]/60">
+                        <div className="pt-1 border-t border-[#21395C]/60 w-full">
                           <button
                             onClick={() => handleSavePermanentTemplate(wf)}
                             disabled={savingTemplateId === wf.id}
-                            className="w-full py-2 px-3 bg-[#E2B53C]/10 hover:bg-[#E2B53C]/20 text-[#E2B53C] border border-[#E2B53C] rounded-lg text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition"
+                            className="w-full py-2 px-3 bg-[#E2B53C]/10 hover:bg-[#E2B53C]/20 text-[#E2B53C] border border-[#E2B53C] rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow transition"
                             title="Save this workflow into permanent templates library (exclusive to your account and team)"
                           >
                             <Bookmark className="w-3.5 h-3.5 text-[#E2B53C]" />
@@ -480,6 +503,52 @@ export const WorkflowsPage: React.FC = () => {
                           </button>
                         </div>
                       )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Permanent Templates (Executive & Team Only) */}
+        {activeTab === 'permanent' && isAuthorizedAdmin && (
+          <div>
+            {permanentTemplates.length === 0 ? (
+              <div className="py-12 text-center border border-dashed border-[#21395C] rounded-xl p-8 space-y-4">
+                <p className="text-gray-300 font-medium">No permanent templates saved yet.</p>
+                <p className="text-xs text-gray-400 max-w-md mx-auto">
+                  You can save tested workflows from your Saved Workflows list directly into your permanent template library.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {permanentTemplates.map((tpl) => (
+                  <div
+                    key={tpl.templateKey}
+                    className="bg-[#16263F] border border-[#E2B53C]/60 rounded-2xl p-6 flex flex-col justify-between shadow-xl transition-all duration-200 relative"
+                    style={{ boxSizing: 'border-box' }}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-1 text-[10px] font-bold uppercase rounded-md bg-[#E2B53C]/10 text-[#E2B53C] border border-[#E2B53C]/40">
+                          Permanent Template
+                        </span>
+                        <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-1 rounded-md">
+                          Verified & Tested
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold font-heading text-white mt-4 leading-snug">{tpl.name}</h3>
+                      <p className="text-xs text-slate-300 mt-2.5 line-clamp-3 leading-relaxed">{tpl.description}</p>
+                    </div>
+                    <div className="mt-5 pt-4 border-t border-[#21395C] w-full">
+                      <Link
+                        to={`/workflows/builder?template=${tpl.templateKey}`}
+                        className="w-full py-2.5 px-3 bg-gradient-to-r from-[#E2B53C] to-[#BC8A1C] text-[#0E1726] font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow border border-[#E2B53C] hover:brightness-110 transition"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Use Template in Builder</span>
+                      </Link>
                     </div>
                   </div>
                 ))}

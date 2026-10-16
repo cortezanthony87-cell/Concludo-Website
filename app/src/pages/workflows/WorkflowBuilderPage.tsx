@@ -363,7 +363,9 @@ export const WorkflowBuilderPage: React.FC = () => {
     try {
       const result = await executeWorkflowArchitect({
         naturalLanguagePrompt: brief,
-        connectedApplications: connections.map((c) => c.provider_id),
+        connectedApplications: connections
+          .filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result }))
+          .map((c) => c.provider_id),
         mode: 'build',
       });
 
@@ -423,7 +425,9 @@ export const WorkflowBuilderPage: React.FC = () => {
       const result = await executeWorkflowArchitect({
         naturalLanguagePrompt: promptText,
         existingDefinition: definition,
-        connectedApplications: connections.map((c) => c.provider_id),
+        connectedApplications: connections
+          .filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result }))
+          .map((c) => c.provider_id),
       });
 
       if (result.mode === 'explain') {

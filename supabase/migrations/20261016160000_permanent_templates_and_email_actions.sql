@@ -32,10 +32,10 @@ CREATE POLICY "Allow owner write permanent templates"
   FOR ALL
   TO authenticated
   USING (
-    auth.uid() = '91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid
+    auth.uid() = ANY (ARRAY['91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid, '055812e5-2257-42c5-ad8e-d345e667612f'::uuid, '7c3728b3-29ce-4cfe-b022-67f1cd45bf18'::uuid])
   )
   WITH CHECK (
-    auth.uid() = '91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid
+    auth.uid() = ANY (ARRAY['91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid, '055812e5-2257-42c5-ad8e-d345e667612f'::uuid, '7c3728b3-29ce-4cfe-b022-67f1cd45bf18'::uuid])
   );
 
 -- Reads: Anthony's account AND members of teams owned by Anthony
@@ -44,12 +44,12 @@ CREATE POLICY "Allow read permanent templates for owner and team"
   FOR SELECT
   TO authenticated
   USING (
-    auth.uid() = '91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid
+    (auth.uid() = ANY (ARRAY['91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid, '055812e5-2257-42c5-ad8e-d345e667612f'::uuid, '7c3728b3-29ce-4cfe-b022-67f1cd45bf18'::uuid]))
     OR EXISTS (
       SELECT 1 FROM public.team_members tm
       JOIN public.teams t ON t.id = tm.team_id
       WHERE tm.user_id = auth.uid()
-        AND t.owner_id = '91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid
+        AND t.owner_id = ANY (ARRAY['91c086e8-d2d0-4060-9a7c-650e13d2245e'::uuid, '055812e5-2257-42c5-ad8e-d345e667612f'::uuid, '7c3728b3-29ce-4cfe-b022-67f1cd45bf18'::uuid])
     )
   );
 
@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS public.user_email_actions (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   thread_id text NOT NULL,
   action text NOT NULL,
+  account_email text,
   created_at timestamptz DEFAULT now(),
   CONSTRAINT user_email_actions_user_thread_action_unique UNIQUE(user_id, thread_id, action)
 );

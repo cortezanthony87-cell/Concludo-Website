@@ -83,40 +83,48 @@ function decodeBase64UrlUtf8(base64url: string): string {
 
 function extractGmailBody(payload: any): string {
   if (!payload) return '';
-  if (payload.body?.data) {
-    const decoded = decodeBase64UrlUtf8(payload.body.data);
-    if (decoded) return decoded;
-  }
   let htmlBody = '';
   let plainBody = '';
-  if (Array.isArray(payload.parts)) {
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/plain' && part.body?.data) {
-        plainBody = decodeBase64UrlUtf8(part.body.data);
+
+  function walk(p: any) {
+    if (!p) return;
+    if (p.body?.data) {
+      if (p.mimeType === 'text/html') {
+        htmlBody = decodeBase64UrlUtf8(p.body.data);
+      } else if (p.mimeType === 'text/plain' && !plainBody) {
+        plainBody = decodeBase64UrlUtf8(p.body.data);
       }
-      if (part.mimeType === 'text/html' && part.body?.data) {
-        htmlBody = decodeBase64UrlUtf8(part.body.data);
-      }
-      if (part.parts) {
-        const nested = extractGmailBody(part);
-        if (nested) return nested;
+    }
+    if (Array.isArray(p.parts)) {
+      for (const part of p.parts) {
+        walk(part);
       }
     }
   }
+
+  walk(payload);
   return htmlBody || plainBody || '';
 }
 
-function extractGmailAttachments(payload: any): Array<{ id: string; filename: string; mimeType: string; size: number }> {
-  const attachments: Array<{ id: string; filename: string; mimeType: string; size: number }> = [];
+function extractGmailAttachments(payload: any): Array<{ id: string; filename: string; mimeType: string; size: number; isImage: boolean; dataUrl?: string }> {
+  const attachments: Array<{ id: string; filename: string; mimeType: string; size: number; isImage: boolean; dataUrl?: string }> = [];
   function walk(parts: any[]) {
     if (!Array.isArray(parts)) return;
     for (const part of parts) {
       if (part.filename && part.filename.length > 0) {
+        const isImage = (part.mimeType || '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(part.filename);
+        let dataUrl: string | undefined = undefined;
+        if (isImage && part.body?.data) {
+          const b64 = part.body.data.replace(/-/g, '+').replace(/_/g, '/');
+          dataUrl = `data:${part.mimeType || 'image/png'};base64,${b64}`;
+        }
         attachments.push({
           id: part.body?.attachmentId || part.partId || Math.random().toString(36).slice(2, 8),
           filename: decodeHtmlEntities(part.filename),
           mimeType: part.mimeType || 'application/octet-stream',
           size: part.body?.size || 0,
+          isImage,
+          dataUrl,
         });
       }
       if (part.parts) walk(part.parts);
@@ -243,7 +251,8 @@ Deno.serve(async (request) => {
               fileName: a.filename,
               mimeType: a.mimeType,
               size: a.size,
-              isImage: a.mimeType.startsWith('image/') || /.(png|jpe?g|gif|webp|svg|bmp)$/i.test(a.filename),
+              isImage: a.isImage,
+              dataUrl: a.dataUrl || null,
             })),
             hasAttachments: atts.length > 0,
             isImportant: Boolean(msg.labelIds?.includes('IMPORTANT')),
@@ -255,8 +264,8 @@ Deno.serve(async (request) => {
     } else if (providerId === 'microsoft_outlook') {
       // Step 2c: Query Microsoft Graph API (native or via Nango proxy)
       const graphUrl = isNative
-        ? `https://graph.microsoft.com/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance&$expand=attachments($select=id,name,contentType,size,isInline)`
-        : `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance&$expand=attachments($select=id,name,contentType,size,isInline)`;
+        ? `https://graph.microsoft.com/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance&$expand=attachments($select=id,name,contentType,size,isInline,contentBytes)`
+        : `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance&$expand=attachments($select=id,name,contentType,size,isInline,contentBytes)`;
       const graphHeaders = isNative
         ? { Authorization: `Bearer ${nativeToken}` }
         : proxyHeaders;
@@ -296,6 +305,9 @@ Deno.serve(async (request) => {
             mimeType: a.contentType || 'application/octet-stream',
             size: a.size || 0,
             isImage: (a.contentType || '').startsWith('image/') || /.(png|jpe?g|gif|webp|svg|bmp)$/i.test(a.name || ''),
+            isInline: Boolean(a.isInline),
+            contentBytes: a.contentBytes || null,
+            dataUrl: a.contentBytes ? `data:${a.contentType || 'image/png'};base64,${a.contentBytes}` : null,
           })),
           hasAttachments: Boolean(msg.hasAttachments),
           isImportant: msg.importance === 'high',

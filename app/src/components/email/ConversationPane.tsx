@@ -224,7 +224,7 @@ const MessageBlock: React.FC<{
           <div
             className="ecc-inbox-html-content"
             style={{ color: '#F1F5F9', lineHeight: '1.75' }}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(decodeHtmlEntities(message.body)) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(decodeHtmlEntities(message.body), own) }}
           />
         ) : (
           renderWithMarks(message.body, marks)
@@ -376,7 +376,7 @@ export function decodeHtmlEntities(text: string): string {
  * Strips active scripts, frames, objects, forms, and on* handlers while
  * preserving formatting, images, tables, lists, and links safely.
  */
-function sanitizeHtml(html: string): string {
+function sanitizeHtml(html: string, attachments?: readonly Attachment[]): string {
   if (!html) return '';
   const decoded = decodeHtmlEntities(html);
   if (typeof window === 'undefined') {
@@ -428,6 +428,22 @@ function sanitizeHtml(html: string): string {
 
       if (el.tagName.toLowerCase() === 'img') {
         el.setAttribute('loading', 'lazy');
+        const src = (el.getAttribute('src') || '').trim();
+        if (src.toLowerCase().startsWith('cid:')) {
+          const cid = src.slice(4).replace(/[<>]/g, '').trim();
+          const match = attachments?.find(
+            (a) =>
+              (a as any).dataUrl &&
+              (a.id === cid ||
+                a.fileName === cid ||
+                (a as any).contentId === cid ||
+                a.id.includes(cid) ||
+                cid.includes(a.id))
+          );
+          if (match && (match as any).dataUrl) {
+            el.setAttribute('src', (match as any).dataUrl);
+          }
+        }
         const existing = el.getAttribute('style') || '';
         el.setAttribute(
           'style',

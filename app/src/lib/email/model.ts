@@ -116,6 +116,12 @@ export interface Attachment extends Traceable {
   disposition: AttachmentDisposition;
   /** Plain-language note, for example "Signed copy, not yet returned". */
   note?: string;
+  /** Inline Content-ID (e.g. for cid: references). */
+  contentId?: string;
+  /** Direct image preview URL (base64 data URI or hosted link). */
+  dataUrl?: string;
+  /** Raw base64 content bytes from mail provider. */
+  contentBytes?: string;
 }
 
 /* --------------------------------------------------------- 4. message */

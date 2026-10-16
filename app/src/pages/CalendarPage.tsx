@@ -613,7 +613,7 @@ export const CalendarPage: React.FC = () => {
             <img
               src="/brand/Concludo_logo_horizontal_reversed_for_dark.png"
               alt="Concludo"
-              style={{ height: '52px', width: 'auto', objectFit: 'contain', display: 'block', flexShrink: 0 }}
+              style={{ height: '58px', width: 'auto', objectFit: 'contain', display: 'block', flexShrink: 0 }}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <CalendarIcon size={24} color="#E2B53C" />

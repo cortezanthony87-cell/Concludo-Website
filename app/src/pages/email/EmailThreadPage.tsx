@@ -9,7 +9,7 @@
  * the only thing on the screen that is not an interpretation, so it has to stay
  * reachable when a person stops trusting the interpretation.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useOutletContext, useParams, useLocation, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Mail, Brain, List, Maximize2, Minimize2, CheckCircle2 } from 'lucide-react';
 import { useLocalActions } from '../../lib/email/localActions';
@@ -111,16 +111,29 @@ export const EmailThreadPage: React.FC = () => {
 
     if (nextTargetId) {
       navigate(linkTo(`/email/thread/${nextTargetId}`), { replace: true });
-      // Reset scroll smoothly to top of email conversation
-      try {
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        const pane = document.querySelector('.ecc-col-conversation') || document.querySelector('.ecc-conversation') || document.querySelector('.ecc-workspace') || document.querySelector('.main-content-area');
-        if (pane) pane.scrollTop = 0;
-      } catch (_) {}
     } else {
       navigate(linkTo('/email/all'), { replace: true });
     }
   };
+
+  // When transitioning to a new email thread, focus the conversation view directly
+  useEffect(() => {
+    if (!threadId) return;
+    const timer = setTimeout(() => {
+      try {
+        const pane = document.querySelector('.ecc-col-conversation');
+        if (pane) pane.scrollTop = 0;
+        if (typeof window !== 'undefined' && window.innerWidth <= 1100) {
+          setPane('conversation');
+        }
+        const target = document.getElementById('ecc-conversation-heading') || document.querySelector('.ecc-conversation-head') || document.querySelector('.ecc-col-conversation');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } catch (_) {}
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [threadId]);
 
   const onSelectSource = useCallback(
     (id: string, label: string) => {

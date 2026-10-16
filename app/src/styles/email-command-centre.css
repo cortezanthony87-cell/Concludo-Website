@@ -4291,8 +4291,9 @@
 }
 
 .ecc-workspace.ecc-workspace-full-view .ecc-col-conversation {
-  max-height: calc(100vh - 12rem);
-  padding: 20px 24px;
+  max-height: calc(100vh - 9rem);
+  padding: 24px 28px;
+  overflow-y: auto;
 }
 
 .ecc-workspace.ecc-workspace-full-view .ecc-message-body {

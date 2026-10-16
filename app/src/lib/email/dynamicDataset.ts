@@ -116,7 +116,9 @@ function extractExplicitDeadlines(threadId: string, messageId: string, subject: 
           let yr = parseInt(ddmmyyyy[3], 10);
           if (yr < 100) yr += 2000;
           const parsedAus = new Date(yr, month, day, 17, 0, 0);
-          if (!isNaN(parsedAus.getTime())) targetDate = parsedAus;
+          if (!isNaN(parsedAus.getTime()) && parsedAus.getDate() === day && parsedAus.getMonth() === month) {
+            targetDate = parsedAus;
+          }
         } else {
           const parsed = new Date(rawPhrase);
           if (!isNaN(parsed.getTime())) {
@@ -255,6 +257,8 @@ export function registerScanDataset(
             mimeType: a.mimeType || 'application/octet-stream',
             sizeBytes: typeof a.size === 'number' ? a.size : (typeof a.sizeBytes === 'number' ? a.sizeBytes : null),
             disposition: 'received',
+            contentId: a.contentId || a.id || undefined,
+            dataUrl: a.dataUrl || (a.contentBytes ? `data:${a.mimeType || 'image/png'};base64,${a.contentBytes}` : undefined),
           });
         }
       }
