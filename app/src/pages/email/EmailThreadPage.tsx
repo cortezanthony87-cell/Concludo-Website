@@ -59,12 +59,6 @@ export const EmailThreadPage: React.FC = () => {
   const navigate = useNavigate();
   const { ignoreEmail, ignored } = useLocalActions();
 
-  const handleIgnoreCurrentEmail = () => {
-    if (!detail) return;
-    ignoreEmail(detail.record.thread.id);
-    navigate(linkTo('/email/all'));
-  };
-
   const detail = useMemo(
     () => (threadId ? threadDetail(dataset, threadId) : null),
     [dataset, threadId]
@@ -84,6 +78,33 @@ export const EmailThreadPage: React.FC = () => {
         r.analysis.oneLineSummary.toLowerCase().includes(needle)
     );
   }, [threads, search]);
+
+  const handleIgnoreCurrentEmail = () => {
+    if (!detail) return;
+    const currentId = detail.record.thread.id;
+    // Find next non-ignored thread in current active list
+    const candidateList = filteredThreads.length > 0 ? filteredThreads : threads;
+    const currentIndex = candidateList.findIndex((r) => r.thread.id === currentId);
+    let nextTargetId: string | null = null;
+    if (currentIndex !== -1) {
+      if (currentIndex + 1 < candidateList.length) {
+        nextTargetId = candidateList[currentIndex + 1].thread.id;
+      } else if (currentIndex > 0) {
+        nextTargetId = candidateList[currentIndex - 1].thread.id;
+      }
+    } else if (candidateList.length > 0) {
+      const remaining = candidateList.filter((r) => r.thread.id !== currentId);
+      if (remaining.length > 0) nextTargetId = remaining[0].thread.id;
+    }
+
+    ignoreEmail(currentId);
+
+    if (nextTargetId) {
+      navigate(linkTo(`/email/thread/${nextTargetId}`));
+    } else {
+      navigate(linkTo('/email/all'));
+    }
+  };
 
   const onSelectSource = useCallback(
     (id: string, label: string) => {

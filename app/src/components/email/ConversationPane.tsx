@@ -69,6 +69,13 @@ export const ConversationPane: React.FC<Props> = ({
           {messages.length} message{messages.length === 1 ? '' : 's'}, oldest first. This is the
           email as it arrived, not a summary of it.
         </p>
+        {messages[0]?.subject && (
+          <div style={{ marginTop: '8px', marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#FFFFFF', margin: 0, fontFamily: 'Poppins, sans-serif' }}>
+              {decodeHtmlEntities(messages[0].subject)}
+            </h2>
+          </div>
+        )}
         {selectionLabel ? (
           <div className="ecc-selection-banner" role="status">
             <p className="ecc-selection-text">
@@ -94,6 +101,7 @@ export const ConversationPane: React.FC<Props> = ({
               accountLabel={accountLabel}
               marks={marks}
               isSource={isSource}
+              isFullView={isFullView}
             />
           );
         })}
@@ -109,7 +117,8 @@ const MessageBlock: React.FC<{
   accountLabel: string;
   marks: readonly SourceLocation[];
   isSource: boolean;
-}> = ({ message, attachments, accountType, accountLabel, marks, isSource }) => {
+  isFullView?: boolean;
+}> = ({ message, attachments, accountType, accountLabel, marks, isSource, isFullView }) => {
   const [showQuoted, setShowQuoted] = React.useState(false);
   const sender = message.participants.find((p) => p.role === 'from');
   const to = message.participants.filter((p) => p.role === 'to');
@@ -133,19 +142,40 @@ const MessageBlock: React.FC<{
       ) : null}
 
       <div className="ecc-message-head">
-        <div>
-          <p className="ecc-message-sender">
-            {message.isFromSelf ? 'You' : (sender?.displayName ?? 'Unknown sender')}
-            <span className="ecc-message-address">
-              {message.isFromSelf ? '' : ` ${sender?.address ?? ''}`}
-            </span>
-          </p>
-          <p className="ecc-message-to">
-            To {to.map((p) => (p.isSelf ? 'you' : p.displayName)).join(', ') || 'nobody listed'}
-            {cc.length > 0
-              ? `, copy to ${cc.map((p) => (p.isSelf ? 'you' : p.displayName)).join(', ')}`
-              : ''}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #21395C, #16263F)',
+              border: '1.5px solid #E2B53C',
+              color: '#E2B53C',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '13px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              flexShrink: 0,
+            }}
+          >
+            {message.isFromSelf ? 'ME' : (sender?.displayName || sender?.address || 'U').slice(0, 2)}
+          </div>
+          <div>
+            <p className="ecc-message-sender" style={{ fontSize: '15px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
+              {message.isFromSelf ? 'You' : (sender?.displayName ?? 'Unknown sender')}
+              <span className="ecc-message-address" style={{ color: '#94A3B8', fontSize: '12.5px', marginLeft: '6px' }}>
+                {message.isFromSelf ? '' : `<${sender?.address ?? ''}>`}
+              </span>
+            </p>
+            <p className="ecc-message-to" style={{ margin: '3px 0 0', color: '#94A3B8', fontSize: '12px' }}>
+              To: {to.map((p) => (p.isSelf ? 'you' : p.displayName)).join(', ') || 'you'}
+              {cc.length > 0
+                ? `, copy to: ${cc.map((p) => (p.isSelf ? 'you' : p.displayName)).join(', ')}`
+                : ''}
+            </p>
+          </div>
         </div>
         <div className="ecc-message-meta">
           <AccountBadge accountType={accountType} label={accountLabel} />
@@ -177,7 +207,20 @@ const MessageBlock: React.FC<{
         </div>
       ) : null}
 
-      <div className="ecc-message-body">{renderWithMarks(message.body, marks)}</div>
+      <div
+        className="ecc-message-body"
+        style={{
+          fontSize: isFullView ? '15.5px' : '14px',
+          lineHeight: '1.75',
+          color: '#F1F5F9',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          marginTop: '14px',
+        }}
+      >
+        {renderWithMarks(message.body, marks)}
+      </div>
 
       {message.quotedHistory ? (
         <div className="ecc-quoted">
@@ -286,6 +329,21 @@ const MessageBlock: React.FC<{
   );
 };
 
+export function decodeHtmlEntities(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
+
 /**
  * Splits a body around the highlighted ranges.
  *
@@ -293,12 +351,18 @@ const MessageBlock: React.FC<{
  * overlapping words and nested `<mark>` elements are announced oddly.
  */
 function renderWithMarks(body: string, marks: readonly SourceLocation[]): React.ReactNode {
+  const decodedBody = decodeHtmlEntities(body);
   const ranges = marks
     .filter((m): m is SourceLocation & { index: number; quote: string } => m.index !== null && m.quote !== null)
-    .map((m) => ({ start: m.index, end: m.index + m.quote.length }))
+    .map((m) => {
+      const decodedQuote = decodeHtmlEntities(m.quote);
+      const foundIdx = decodedBody.indexOf(decodedQuote);
+      const start = foundIdx !== -1 ? foundIdx : m.index;
+      return { start, end: start + decodedQuote.length };
+    })
     .sort((a, b) => a.start - b.start);
 
-  if (ranges.length === 0) return body;
+  if (ranges.length === 0) return decodedBody;
 
   const merged: { start: number; end: number }[] = [];
   for (const range of ranges) {
@@ -310,7 +374,7 @@ function renderWithMarks(body: string, marks: readonly SourceLocation[]): React.
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   merged.forEach((range, i) => {
-    if (range.start > cursor) parts.push(body.slice(cursor, range.start));
+    if (range.start > cursor) parts.push(decodedBody.slice(cursor, range.start));
     parts.push(
       <mark key={`m-${i}`} className="ecc-source-mark">
         {body.slice(range.start, range.end)}
@@ -318,7 +382,7 @@ function renderWithMarks(body: string, marks: readonly SourceLocation[]): React.
     );
     cursor = range.end;
   });
-  if (cursor < body.length) parts.push(body.slice(cursor));
+  if (cursor < decodedBody.length) parts.push(decodedBody.slice(cursor));
 
   return parts;
 }

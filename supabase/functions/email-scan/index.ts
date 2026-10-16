@@ -25,10 +25,54 @@ interface IngestedEmail {
   to: string;
   subject: string;
   snippet: string;
+  body?: string;
   bodyPreview?: string;
   date: string;
   hasAttachments: boolean;
   isImportant: boolean;
+}
+
+function decodeHtmlEntities(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
+
+function extractGmailBody(payload: any): string {
+  if (!payload) return '';
+  if (payload.body?.data) {
+    try {
+      return atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+    } catch (_) {}
+  }
+  if (Array.isArray(payload.parts)) {
+    for (const part of payload.parts) {
+      if (part.mimeType === 'text/plain' && part.body?.data) {
+        try {
+          return atob(part.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+        } catch (_) {}
+      }
+      if (part.mimeType === 'text/html' && part.body?.data) {
+        try {
+          return atob(part.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+        } catch (_) {}
+      }
+      if (part.parts) {
+        const nested = extractGmailBody(part);
+        if (nested) return nested;
+      }
+    }
+  }
+  return '';
 }
 
 Deno.serve(async (request) => {
@@ -124,21 +168,23 @@ Deno.serve(async (request) => {
       for (const msgRef of batch) {
         try {
           const getUrl = isNative
-            ? `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`
-            : `${nangoHost}/proxy/gmail/v1/users/me/messages/${msgRef.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`;
+            ? `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}?format=full`
+            : `${nangoHost}/proxy/gmail/v1/users/me/messages/${msgRef.id}?format=full`;
           const getRes = await fetch(getUrl, { headers: listHeaders });
           if (!getRes.ok) continue;
           const msg = await getRes.json();
           const headers = (msg.payload?.headers || []) as Array<{ name: string; value: string }>;
           const getHeader = (name: string) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+          const fullBody = extractGmailBody(msg.payload);
 
           emails.push({
             id: msg.id,
             threadId: msg.threadId || msg.id,
-            from: getHeader('From'),
-            to: getHeader('To'),
-            subject: getHeader('Subject') || '(No subject)',
-            snippet: msg.snippet || '',
+            from: decodeHtmlEntities(getHeader('From')),
+            to: decodeHtmlEntities(getHeader('To')),
+            subject: decodeHtmlEntities(getHeader('Subject') || '(No subject)'),
+            snippet: decodeHtmlEntities(msg.snippet || ''),
+            body: decodeHtmlEntities(fullBody || msg.snippet || ''),
             date: getHeader('Date') || new Date().toISOString(),
             hasAttachments: false,
             isImportant: Boolean(msg.labelIds?.includes('IMPORTANT')),
@@ -150,8 +196,8 @@ Deno.serve(async (request) => {
     } else if (providerId === 'microsoft_outlook') {
       // Step 2c: Query Microsoft Graph API (native or via Nango proxy)
       const graphUrl = isNative
-        ? `https://graph.microsoft.com/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`
-        : `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`;
+        ? `https://graph.microsoft.com/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`
+        : `${nangoHost}/proxy/v1.0/me/messages?$top=${maxMessages}&$select=id,conversationId,subject,body,bodyPreview,from,toRecipients,receivedDateTime,hasAttachments,importance`;
       const graphHeaders = isNative
         ? { Authorization: `Bearer ${nativeToken}` }
         : proxyHeaders;
@@ -178,11 +224,12 @@ Deno.serve(async (request) => {
         emails.push({
           id: msg.id,
           threadId: msg.conversationId || msg.id,
-          from: msg.from?.emailAddress ? `${msg.from.emailAddress.name || ''} <${msg.from.emailAddress.address}>`.trim() : '',
+          from: decodeHtmlEntities(msg.from?.emailAddress ? `${msg.from.emailAddress.name || ''} <${msg.from.emailAddress.address}>`.trim() : ''),
           to: Array.isArray(msg.toRecipients) ? msg.toRecipients.map((r: any) => r.emailAddress?.address).filter(Boolean).join(', ') : '',
-          subject: msg.subject || '(No subject)',
-          snippet: msg.bodyPreview || '',
-          bodyPreview: msg.bodyPreview || '',
+          subject: decodeHtmlEntities(msg.subject || '(No subject)'),
+          snippet: decodeHtmlEntities(msg.bodyPreview || ''),
+          bodyPreview: decodeHtmlEntities(msg.bodyPreview || ''),
+          body: decodeHtmlEntities(msg.body?.content || msg.bodyPreview || ''),
           date: msg.receivedDateTime || new Date().toISOString(),
           hasAttachments: Boolean(msg.hasAttachments),
           isImportant: msg.importance === 'high',

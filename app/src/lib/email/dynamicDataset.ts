@@ -11,6 +11,7 @@ import {
   AnalysisVersion,
   UserCorrection,
   Attachment,
+  Deadline,
   Priority,
   PriorityBand,
   ThreadStatus,
@@ -21,6 +22,22 @@ import { buildPriority, factors } from './priority';
 
 /** In-memory registry of dynamic datasets produced by live scans */
 const DYNAMIC_DATASETS = new Map<string, AccountDataset>();
+
+/** Decodes HTML character entities into readable text */
+export function decodeHtmlEntities(str?: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
 
 /** Extracts display name and email address from raw "Name <email@domain>" format */
 function parseSender(raw: string): { displayName: string; address: string } {
@@ -36,6 +53,62 @@ function parseSender(raw: string): { displayName: string; address: string } {
     displayName: displayName || address || 'Unknown',
     address: address || displayName || '',
   };
+}
+
+/** Extracts stated deadlines from email text */
+function extractExplicitDeadlines(threadId: string, messageId: string, subject: string, bodyText: string): Deadline[] {
+  const text = `${subject} ${bodyText}`;
+  const deadlines: Deadline[] = [];
+
+  const dueRegex = /(?:due(?: date)?(?:\s+(?:by|on|at|is|for))?|deadline(?:\s+(?:is|by|on))?|by|before)\s+([A-Za-z0-9,:\s\-\/]{3,30})/gi;
+  const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december', 'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+  let match;
+  while ((match = dueRegex.exec(text)) !== null) {
+    const rawPhrase = match[1].trim().replace(/[.,;!?]+$/, '');
+    const lower = rawPhrase.toLowerCase();
+    const hasDay = daysOfWeek.some(d => lower.startsWith(d));
+    const hasMonth = months.some(m => lower.includes(m));
+    const hasRelative = lower.startsWith('tomorrow') || lower.startsWith('today') || lower.startsWith('next week') || lower.startsWith('end of week');
+    const hasNumericDate = /\d{1,2}[\/\-\.]\d{1,2}/.test(rawPhrase) || /\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(rawPhrase);
+
+    if (hasDay || hasMonth || hasRelative || hasNumericDate) {
+      const targetDate = new Date();
+      if (hasRelative) {
+        if (lower.startsWith('tomorrow')) targetDate.setDate(targetDate.getDate() + 1);
+        else if (lower.startsWith('next week') || lower.startsWith('end of week')) targetDate.setDate(targetDate.getDate() + 5);
+      } else if (hasDay) {
+        const targetDayIdx = daysOfWeek.findIndex(d => lower.startsWith(d));
+        if (targetDayIdx !== -1) {
+          const currentDayIdx = targetDate.getDay();
+          let diff = targetDayIdx - currentDayIdx;
+          if (diff <= 0) diff += 7;
+          targetDate.setDate(targetDate.getDate() + diff);
+        }
+      } else {
+        const parsed = new Date(rawPhrase);
+        if (!isNaN(parsed.getTime())) {
+          targetDate.setTime(parsed.getTime());
+        } else {
+          targetDate.setDate(targetDate.getDate() + 2);
+        }
+      }
+
+      deadlines.push({
+        id: `dl-${threadId}-${deadlines.length + 1}`,
+        description: decodeHtmlEntities(match[0].slice(0, 50).trim()),
+        dueAt: targetDate.toISOString(),
+        basis: 'stated',
+        confidence: 'high',
+        consequence: 'Stated deadline extracted from correspondence',
+        ownerIsSelf: true,
+        source: [{ threadId, messageId, quote: decodeHtmlEntities(match[0].trim()) }],
+      });
+      break;
+    }
+  }
+  return deadlines;
 }
 
 /** Formats ISO offset date string */
@@ -154,8 +227,8 @@ export function registerScanDataset(
             isSelf: true,
           },
         ],
-        subject: m.subject || '(No subject)',
-        body: m.snippet || m.bodyPreview || 'Message content ingested from connected mailbox.',
+        subject: decodeHtmlEntities(m.subject || '(No subject)'),
+        body: decodeHtmlEntities(m.body || m.content || m.text || m.bodyPreview || m.snippet || 'Message content ingested from connected mailbox.'),
         isRead: !m.isImportant,
         isFromSelf,
         folder: 'inbox',
@@ -173,7 +246,7 @@ export function registerScanDataset(
     const priorityScore = isImportant ? 92 : hasDeadlineWord ? 85 : Math.max(82 - index * 3, 50);
     const priorityBand: PriorityBand = priorityScore >= 90 ? 'immediate' : priorityScore >= 75 ? 'today' : priorityScore >= 50 ? 'soon' : 'batch';
 
-    const cleanSubject = (latestMsg.subject || '(No subject)').replace(/^(re|fwd):\s*/i, '').trim();
+    const cleanSubject = decodeHtmlEntities((latestMsg.subject || '(No subject)').replace(/^(re|fwd):\s*/i, '').trim());
 
     // Construct Thread
     const threadObj: EmailThread = {
@@ -217,7 +290,7 @@ export function registerScanDataset(
       accountId,
       accountType: accountSummary.accountType,
       subject: cleanSubject,
-      oneLineSummary: `${lastFromParsed.displayName}: ${(latestMsg.snippet || cleanSubject).slice(0, 110)}`,
+      oneLineSummary: `${lastFromParsed.displayName}: ${decodeHtmlEntities((latestMsg.body || latestMsg.snippet || cleanSubject).slice(0, 110))}`,
       whyItMatters: replyRequired
         ? `Direct live email awaiting your response or decision from ${lastFromParsed.displayName}.`
         : `Live correspondence from ${lastFromParsed.displayName}.`,
@@ -230,7 +303,7 @@ export function registerScanDataset(
       replyReason: replyRequired
         ? `Direct message from ${lastFromParsed.displayName} in your live inbox requiring follow-up.`
         : 'Informational message or most recent reply was sent by you.',
-      explicitDeadlines: [],
+      explicitDeadlines: extractExplicitDeadlines(threadId, messageIds[0], cleanSubject, latestMsg.body || latestMsg.snippet || ''),
       suggestedDates: [],
       actions: replyRequired
         ? [
