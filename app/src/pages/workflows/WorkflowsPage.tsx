@@ -151,7 +151,7 @@ export const WorkflowsPage: React.FC = () => {
       });
       setTriggerMessage(
         result.approval
-          ? 'Workflow triggered! Generated human approval request staged in Approval Centre.'
+          ? 'Workflow pursued! Action item routed to Approval Centre for your sign-off. This step needs your approval if you want this workflow to activate.'
           : 'Workflow completed successfully.'
       );
       await loadData();
@@ -214,7 +214,15 @@ export const WorkflowsPage: React.FC = () => {
         {/* Feedback Messages */}
         {triggerMessage && (
           <div className="bg-[#16263F] border border-[#E2B53C]/40 text-[#E2B53C] p-4 rounded-xl text-sm flex items-center justify-between">
-            <span>{triggerMessage}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>{triggerMessage}</span>
+              <Link
+                to="/approvals"
+                className="text-white underline font-semibold ml-2 hover:text-[#E2B53C] transition"
+              >
+                Open Approval Centre &rarr;
+              </Link>
+            </div>
             <button onClick={() => setTriggerMessage(null)} className="text-xs text-gray-400 hover:text-white">
               Dismiss
             </button>

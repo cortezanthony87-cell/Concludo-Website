@@ -233,21 +233,21 @@ export const ApprovalsPage: React.FC = () => {
                           <div className="flex justify-end space-x-2">
                             <button
                               onClick={() => setRespondingId(null)}
-                              className="px-3 py-1.5 bg-[#21395C] hover:bg-gray-700 text-white rounded text-xs font-medium"
+                              className="px-3.5 py-1.5 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C] rounded text-xs font-bold transition shadow-sm"
                             >
                               Cancel
                             </button>
                             <button
                               onClick={() => handleDecision(req.id, 'reject')}
                               disabled={submitting}
-                              className="px-3 py-1.5 bg-red-900/60 hover:bg-red-800 text-red-200 border border-red-700 rounded text-xs font-semibold"
+                              className="px-3.5 py-1.5 bg-[#BC8A1C] hover:bg-[#9E7314] text-[#0E1726] border border-[#E2B53C] font-bold rounded text-xs transition disabled:opacity-50 shadow-md"
                             >
                               Confirm Reject
                             </button>
                             <button
                               onClick={() => handleDecision(req.id, 'approve')}
                               disabled={submitting}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold shadow"
+                              className="px-4 py-1.5 bg-gradient-to-r from-[#E2B53C] to-[#BC8A1C] hover:from-[#BC8A1C] hover:to-[#E2B53C] text-[#0E1726] font-bold rounded text-xs shadow-[0_0_15px_rgba(226,181,60,0.4)] transition disabled:opacity-50"
                             >
                               Confirm Authorise & Execute
                             </button>
@@ -260,7 +260,7 @@ export const ApprovalsPage: React.FC = () => {
                               setRespondingId(req.id);
                               setResponseNotes('');
                             }}
-                            className="px-4 py-2 bg-[#21395C] hover:bg-[#E2B53C] hover:text-[#0E1726] text-white rounded-lg text-xs font-semibold transition"
+                            className="px-4 py-2 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-xs shadow-[0_0_12px_rgba(226,181,60,0.3)] transition"
                           >
                             Review & Sign-Off
                           </button>

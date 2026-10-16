@@ -589,7 +589,7 @@ export const WorkflowBuilderPage: React.FC = () => {
 
       if (res.approval) {
         setPursueNotice({
-          message: 'Workflow pursued! Action item routed to Approval Centre for your sign-off.',
+          message: 'Workflow pursued! Action item routed to Approval Centre for your sign-off. This step needs your approval if you want this workflow to activate.',
           approvalId: res.approval.id,
         });
       } else {
