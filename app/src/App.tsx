@@ -80,6 +80,10 @@ import { ExecutiveBriefingCenterPage } from './pages/strategic/ExecutiveBriefing
 import { EmailModuleLayout } from './components/email/EmailModuleLayout';
 import { EMAIL_ROUTES, EMAIL_DETAIL_ROUTES } from './pages/email/emailRouteTable';
 
+// Concludo CRM
+import { CrmModuleLayout } from './components/crm/CrmModuleLayout';
+import { CRM_ROUTES, CRM_DETAIL_ROUTES } from './pages/crm/crmRouteTable';
+
 // Billing & Checkout Pages
 import { CheckoutPage } from './pages/CheckoutPage';
 import { CheckoutSuccessPage } from './pages/billing/CheckoutSuccessPage';
@@ -213,6 +217,20 @@ export const App: React.FC = () => {
                 )
               )}
               {EMAIL_DETAIL_ROUTES.map(({ segment, Component }) => (
+                <Route key={segment} path={segment} element={<Component />} />
+              ))}
+            </Route>
+
+            {/* Concludo CRM Module */}
+            <Route path="/crm" element={<CrmModuleLayout />}>
+              {CRM_ROUTES.map(({ path, segment, isIndex, Component }) =>
+                isIndex ? (
+                  <Route key={path} index element={<Component />} />
+                ) : (
+                  <Route key={path} path={segment} element={<Component />} />
+                )
+              )}
+              {CRM_DETAIL_ROUTES.map(({ segment, Component }) => (
                 <Route key={segment} path={segment} element={<Component />} />
               ))}
             </Route>

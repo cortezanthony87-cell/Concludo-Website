@@ -25,6 +25,7 @@ import {
   BarChart3,
   FileBarChart,
   Users,
+  Contact,
   FileSpreadsheet,
   Scale,
   KeyRound,
@@ -396,6 +397,17 @@ export const WorkspaceLayout: React.FC = () => {
             >
               <Mail size={18} />
               <span>Email</span>
+            </NavLink>
+
+            {/* Concludo CRM */}
+            <NavLink
+              to="/crm"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <Contact size={18} />
+              <span>CRM</span>
             </NavLink>
 
             {(profile?.plan === 'team' || profile?.plan === 'admin' || profile?.role === 'admin') && (
