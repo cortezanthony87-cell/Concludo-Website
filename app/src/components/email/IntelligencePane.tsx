@@ -522,7 +522,12 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
       const rawDue = d.dueAt || '';
       const dueDate = rawDue.includes('T') ? rawDue.split('T')[0] : (rawDue || new Date().toISOString().split('T')[0]);
       const dueTime = rawDue.includes('T') ? rawDue.split('T')[1].slice(0, 5) : '17:00';
-      const userId = user?.id || '91c086e8-d2d0-4060-9a7c-650e13d2245e';
+      if (!user?.id) {
+        setActionError('You must be signed in to add items to your calendar.');
+        setLoadingMap((m) => ({ ...m, [d.id]: false }));
+        return;
+      }
+      const userId = user.id;
 
       const res = await createCalendarItem(supabase, {
         creator_id: userId,
@@ -570,7 +575,12 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
     setActionError(null);
     try {
       const supabase = getSupabaseBrowserClient();
-      const userId = user?.id || '91c086e8-d2d0-4060-9a7c-650e13d2245e';
+      if (!user?.id) {
+        setActionError('You must be signed in to add items to your calendar.');
+        setLoadingMap((m) => ({ ...m, [d.id]: false }));
+        return;
+      }
+      const userId = user.id;
 
       const res = await createCalendarItem(supabase, {
         creator_id: userId,
@@ -584,7 +594,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
         source_title: detail.record.thread.subject,
         source_reference: detail.record.thread.id,
         visibility: 'private',
-        idempotency_key: `email_dl_edit_${detail.record.thread.id}_${d.id}_${Date.now()}`,
+        idempotency_key: `email_dl_edit_${detail.record.thread.id}_${d.id}_${editDate}_${(editTime || '1700').replace(':', '')}`,
       });
 
       if (res.error) {
@@ -606,7 +616,12 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
     setActionError(null);
     try {
       const supabase = getSupabaseBrowserClient();
-      const userId = user?.id || '91c086e8-d2d0-4060-9a7c-650e13d2245e';
+      if (!user?.id) {
+        setActionError('You must be signed in to add items to your calendar.');
+        setIsSavingCustom(false);
+        return;
+      }
+      const userId = user.id;
 
       const res = await createCalendarItem(supabase, {
         creator_id: userId,
@@ -620,7 +635,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
         source_title: detail.record.thread.subject,
         source_reference: detail.record.thread.id,
         visibility: 'private',
-        idempotency_key: `email_reminder_${detail.record.thread.id}_${Date.now()}`,
+        idempotency_key: `email_reminder_${detail.record.thread.id}_${customDate}_${(customTime || '0900').replace(':', '')}`,
       });
 
       if (res.error) {

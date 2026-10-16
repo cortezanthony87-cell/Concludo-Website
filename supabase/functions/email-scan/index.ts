@@ -34,37 +34,68 @@ interface IngestedEmail {
 
 function decodeHtmlEntities(str: string): string {
   if (!str) return '';
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+  let prev = str;
+  for (let i = 0; i < 3; i++) {
+    const next = prev
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/&apos;/gi, "'")
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&#(\d+);/g, (_, code) => {
+        try {
+          return String.fromCodePoint(Number(code));
+        } catch {
+          return String.fromCharCode(Number(code));
+        }
+      })
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => {
+        try {
+          return String.fromCodePoint(parseInt(code, 16));
+        } catch {
+          return String.fromCharCode(parseInt(code, 16));
+        }
+      });
+    if (next === prev) break;
+    prev = next;
+  }
+  return prev;
+}
+
+function decodeBase64UrlUtf8(base64url: string): string {
+  if (!base64url) return '';
+  try {
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const binStr = atob(base64);
+    const bytes = Uint8Array.from(binStr, (m) => m.codePointAt(0) || 0);
+    return new TextDecoder().decode(bytes);
+  } catch (_) {
+    try {
+      return atob(base64url.replace(/-/g, '+').replace(/_/g, '/'));
+    } catch {
+      return '';
+    }
+  }
 }
 
 function extractGmailBody(payload: any): string {
   if (!payload) return '';
   if (payload.body?.data) {
-    try {
-      return atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-    } catch (_) {}
+    const decoded = decodeBase64UrlUtf8(payload.body.data);
+    if (decoded) return decoded;
   }
+  let htmlBody = '';
+  let plainBody = '';
   if (Array.isArray(payload.parts)) {
     for (const part of payload.parts) {
       if (part.mimeType === 'text/plain' && part.body?.data) {
-        try {
-          return atob(part.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-        } catch (_) {}
+        plainBody = decodeBase64UrlUtf8(part.body.data);
       }
       if (part.mimeType === 'text/html' && part.body?.data) {
-        try {
-          return atob(part.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-        } catch (_) {}
+        htmlBody = decodeBase64UrlUtf8(part.body.data);
       }
       if (part.parts) {
         const nested = extractGmailBody(part);
@@ -72,7 +103,27 @@ function extractGmailBody(payload: any): string {
       }
     }
   }
-  return '';
+  return htmlBody || plainBody || '';
+}
+
+function extractGmailAttachments(payload: any): Array<{ id: string; filename: string; mimeType: string; size: number }> {
+  const attachments: Array<{ id: string; filename: string; mimeType: string; size: number }> = [];
+  function walk(parts: any[]) {
+    if (!Array.isArray(parts)) return;
+    for (const part of parts) {
+      if (part.filename && part.filename.length > 0) {
+        attachments.push({
+          id: part.body?.attachmentId || part.partId || Math.random().toString(36).slice(2, 8),
+          filename: decodeHtmlEntities(part.filename),
+          mimeType: part.mimeType || 'application/octet-stream',
+          size: part.body?.size || 0,
+        });
+      }
+      if (part.parts) walk(part.parts);
+    }
+  }
+  if (payload?.parts) walk(payload.parts);
+  return attachments;
 }
 
 Deno.serve(async (request) => {
@@ -176,6 +227,7 @@ Deno.serve(async (request) => {
           const headers = (msg.payload?.headers || []) as Array<{ name: string; value: string }>;
           const getHeader = (name: string) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
           const fullBody = extractGmailBody(msg.payload);
+          const atts = extractGmailAttachments(msg.payload);
 
           emails.push({
             id: msg.id,
@@ -186,7 +238,7 @@ Deno.serve(async (request) => {
             snippet: decodeHtmlEntities(msg.snippet || ''),
             body: decodeHtmlEntities(fullBody || msg.snippet || ''),
             date: getHeader('Date') || new Date().toISOString(),
-            hasAttachments: false,
+            hasAttachments: atts.length > 0,
             isImportant: Boolean(msg.labelIds?.includes('IMPORTANT')),
           });
         } catch (e) {

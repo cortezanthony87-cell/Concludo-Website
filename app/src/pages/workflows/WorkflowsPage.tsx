@@ -308,7 +308,8 @@ export const WorkflowsPage: React.FC = () => {
                 {workflows.map((wf) => (
                   <div
                     key={wf.id}
-                    className="bg-gradient-to-b from-[#16263F]/90 to-[#0E1726]/95 border border-[#21395C] hover:border-[#E2B53C]/60 rounded-xl p-5 flex flex-col justify-between shadow-xl transition-all duration-200 overflow-hidden"
+                    className="bg-gradient-to-b from-[#16263F] to-[#0E1726] border-2 border-[#21395C] hover:border-[#E2B53C] rounded-2xl p-6 flex flex-col justify-between shadow-2xl transition-all duration-200"
+                    style={{ minHeight: '480px' }}
                   >
                     <div>
                       <div className="flex items-center justify-between">
@@ -321,20 +322,20 @@ export const WorkflowsPage: React.FC = () => {
                             ? "bg-slate-800 text-slate-300 border border-slate-600"
                             : "bg-emerald-950 text-emerald-400 border border-emerald-800";
                           return (
-                            <span className={`px-2 py-0.5 text-[10px] font-semibold uppercase rounded ${statusStyle}`}>
+                            <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-md ${statusStyle}`}>
                               {statusLabel}
                             </span>
                           );
                         })()}
 
-                        <span className="text-[11px] text-[#E2B53C] bg-[#E2B53C]/10 border border-[#E2B53C]/30 px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-semibold text-[#E2B53C] bg-[#E2B53C]/10 border border-[#E2B53C]/30 px-2.5 py-0.5 rounded-md">
                           {wf.execution_type === 'approval_required' ? 'Approval Required' : wf.execution_type}
                         </span>
                       </div>
 
-                      <h3 className="text-lg font-bold font-heading text-white mt-3">{wf.name}</h3>
+                      <h3 className="text-lg font-bold font-heading text-white mt-3.5 leading-snug">{wf.name}</h3>
                       {wf.definition_json?.steps && Array.isArray((wf.definition_json as any).steps) && (
-                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#E2B53C] bg-[#E2B53C]/10 border border-[#E2B53C]/25 px-2 py-0.5 rounded w-fit">
+                        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[#E2B53C] bg-[#E2B53C]/10 border border-[#E2B53C]/25 px-2.5 py-1 rounded-md w-fit">
                           <Sparkles className="w-3 h-3 text-[#E2B53C]" />
                           <span>Visual Workflow • {(wf.definition_json as any).steps.length} Steps</span>
                         </div>
@@ -356,7 +357,7 @@ export const WorkflowsPage: React.FC = () => {
                         });
                         if (unverifiedApps.length > 0) {
                           return (
-                            <div className="mt-1.5 text-xs text-amber-400 font-medium flex items-center gap-1.5">
+                            <div className="mt-2 text-xs text-amber-400 font-medium flex items-center gap-1.5">
                               <span>Re-connect required: {unverifiedApps.join(", ")}</span>
                             </div>
                           );
@@ -364,13 +365,13 @@ export const WorkflowsPage: React.FC = () => {
                         return null;
                       })()}
                       {wf.description && (
-                        <p className="text-xs text-gray-300 mt-1 line-clamp-2">{wf.description}</p>
+                        <p className="text-xs text-gray-300 mt-2 line-clamp-3 leading-relaxed">{wf.description}</p>
                       )}
 
-                      <div className="mt-4 pt-4 border-t border-[#21395C] space-y-2 text-xs">
+                      <div className="mt-4 pt-3.5 border-t border-[#21395C] space-y-2 text-xs">
                         <div>
                           <span className="text-gray-400">Trigger:</span>{' '}
-                          <span className="text-white font-mono">{wf.trigger_type}</span>
+                          <span className="text-white font-mono bg-[#0E1726] px-1.5 py-0.5 rounded border border-[#21395C]">{wf.trigger_type}</span>
                         </div>
                         <div>
                           <span className="text-gray-400">Actions:</span>{' '}
@@ -381,13 +382,13 @@ export const WorkflowsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Action Controls - All Options Neatly Contained Inside Template Box */}
-                    <div className="mt-5 pt-4 border-t border-[#21395C] space-y-2.5">
+                    {/* All Action Controls Contained Inside Template Box */}
+                    <div className="mt-5 pt-4 border-t border-[#21395C] bg-[#0E1726]/60 rounded-xl p-3.5 space-y-2.5">
                       {/* Top Action Row: Primary Builder & Execution */}
                       <div className="grid grid-cols-2 gap-2">
                         <Link
                           to={`/workflows/builder?id=${wf.id}`}
-                          className="w-full py-2 px-3 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition border border-[#E2B53C]"
+                          className="w-full py-2.5 px-3 bg-gradient-to-r from-[#E2B53C] to-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-md transition border border-[#E2B53C] hover:brightness-110"
                           title="Open and edit in visual workflow builder"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -396,7 +397,7 @@ export const WorkflowsPage: React.FC = () => {
                         <button
                           onClick={() => handleTriggerWorkflow(wf.id)}
                           disabled={triggeringId === wf.id}
-                          className="w-full py-2 px-3 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                          className="w-full py-2.5 px-3 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
                           title="Pursue / execute this workflow now"
                         >
                           <Play className="w-3 h-3" fill="currentColor" />
@@ -468,7 +469,7 @@ export const WorkflowsPage: React.FC = () => {
 
                       {/* Executive Only: Save as Permanent Template in Full-Width Gold Box */}
                       {isAuthorizedAdmin && (
-                        <div className="pt-1">
+                        <div className="pt-1 border-t border-[#21395C]/60">
                           <button
                             onClick={() => handleSavePermanentTemplate(wf)}
                             disabled={savingTemplateId === wf.id}

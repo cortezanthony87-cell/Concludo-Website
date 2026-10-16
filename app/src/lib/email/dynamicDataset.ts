@@ -26,17 +26,35 @@ const DYNAMIC_DATASETS = new Map<string, AccountDataset>();
 /** Decodes HTML character entities into readable text */
 export function decodeHtmlEntities(str?: string): string {
   if (!str) return '';
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+  let prev = str;
+  for (let i = 0; i < 3; i++) {
+    const next = prev
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/&apos;/gi, "'")
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&#(\d+);/g, (_, code) => {
+        try {
+          return String.fromCodePoint(Number(code));
+        } catch {
+          return String.fromCharCode(Number(code));
+        }
+      })
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => {
+        try {
+          return String.fromCodePoint(parseInt(code, 16));
+        } catch {
+          return String.fromCharCode(parseInt(code, 16));
+        }
+      });
+    if (next === prev) break;
+    prev = next;
+  }
+  return prev;
 }
 
 /** Extracts display name and email address from raw "Name <email@domain>" format */
@@ -74,38 +92,41 @@ function extractExplicitDeadlines(threadId: string, messageId: string, subject: 
     const hasNumericDate = /\d{1,2}[\/\-\.]\d{1,2}/.test(rawPhrase) || /\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(rawPhrase);
 
     if (hasDay || hasMonth || hasRelative || hasNumericDate) {
-      const targetDate = new Date();
+      let targetDate: Date | null = null;
+      const now = new Date();
       if (hasRelative) {
-        if (lower.startsWith('tomorrow')) targetDate.setDate(targetDate.getDate() + 1);
-        else if (lower.startsWith('next week') || lower.startsWith('end of week')) targetDate.setDate(targetDate.getDate() + 5);
+        targetDate = new Date();
+        if (lower.startsWith('tomorrow')) targetDate.setDate(now.getDate() + 1);
+        else if (lower.startsWith('next week') || lower.startsWith('end of week')) targetDate.setDate(now.getDate() + 5);
       } else if (hasDay) {
         const targetDayIdx = daysOfWeek.findIndex(d => lower.startsWith(d));
         if (targetDayIdx !== -1) {
-          const currentDayIdx = targetDate.getDay();
+          targetDate = new Date();
+          const currentDayIdx = now.getDay();
           let diff = targetDayIdx - currentDayIdx;
           if (diff <= 0) diff += 7;
-          targetDate.setDate(targetDate.getDate() + diff);
+          targetDate.setDate(now.getDate() + diff);
         }
       } else {
         const parsed = new Date(rawPhrase);
         if (!isNaN(parsed.getTime())) {
-          targetDate.setTime(parsed.getTime());
-        } else {
-          targetDate.setDate(targetDate.getDate() + 2);
+          targetDate = parsed;
         }
       }
 
-      deadlines.push({
-        id: `dl-${threadId}-${deadlines.length + 1}`,
-        description: decodeHtmlEntities(match[0].slice(0, 50).trim()),
-        dueAt: targetDate.toISOString(),
-        basis: 'stated',
-        confidence: 'high',
-        consequence: 'Stated deadline extracted from correspondence',
-        ownerIsSelf: true,
-        source: [{ threadId, messageId, quote: decodeHtmlEntities(match[0].trim()) }],
-      });
-      break;
+      if (targetDate && !isNaN(targetDate.getTime())) {
+        deadlines.push({
+          id: `dl-${threadId}-${deadlines.length + 1}`,
+          description: decodeHtmlEntities(match[0].slice(0, 50).trim()),
+          dueAt: targetDate.toISOString(),
+          basis: 'stated',
+          confidence: 'high',
+          consequence: 'Stated deadline extracted from correspondence',
+          ownerIsSelf: true,
+          source: [{ threadId, messageId, quote: decodeHtmlEntities(match[0].trim()) }],
+        });
+        break;
+      }
     }
   }
   return deadlines;
@@ -295,8 +316,8 @@ export function registerScanDataset(
         ? `Direct live email awaiting your response or decision from ${lastFromParsed.displayName}.`
         : `Live correspondence from ${lastFromParsed.displayName}.`,
       currentStatus: threadStatus,
-      priorityScore: priObj.score,
-      priorityBand: priObj.band,
+      priorityScore: priorityScore,
+      priorityBand: priorityBand,
       priorityReasons: priObj.reasons,
       confidence: 'high',
       replyRequired,
@@ -343,7 +364,13 @@ export function registerScanDataset(
         basis: 'stated',
         confidence: 'high',
       },
-      priority: priObj,
+      priority: {
+        score: priorityScore,
+        band: priorityBand,
+        factors: priObj.factors,
+        reasons: isImportant ? ['Marked important in your live mailbox.'] : hasDeadlineWord ? ['Explicit deadline mentioned in correspondence.'] : priObj.reasons,
+        confidence: 'high',
+      },
       securityAlert: null,
       analysed: true,
       analysisVersionId: `ver-${threadId}-1`,

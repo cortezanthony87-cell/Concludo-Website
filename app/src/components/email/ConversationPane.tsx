@@ -125,6 +125,7 @@ const MessageBlock: React.FC<{
   const cc = message.participants.filter((p) => p.role === 'cc');
   const own = attachments.filter((a) => message.attachmentIds.includes(a.id));
   const quoteNotFound = marks.some((m) => m.quoteNotFound);
+  const isHtmlBody = /<(?:p|div|br|span|table|tr|td|ul|ol|li|b|strong|i|em|h[1-6]|a|html|body)\b/i.test(message.body);
 
   return (
     <li
@@ -213,13 +214,21 @@ const MessageBlock: React.FC<{
           fontSize: isFullView ? '15.5px' : '14px',
           lineHeight: '1.75',
           color: '#F1F5F9',
-          whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           fontFamily: 'Inter, system-ui, sans-serif',
           marginTop: '14px',
+          whiteSpace: isHtmlBody ? 'normal' : 'pre-wrap',
         }}
       >
-        {renderWithMarks(message.body, marks)}
+        {isHtmlBody ? (
+          <div
+            className="ecc-inbox-html-content"
+            style={{ color: '#F1F5F9', lineHeight: '1.75' }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(decodeHtmlEntities(message.body)) }}
+          />
+        ) : (
+          renderWithMarks(message.body, marks)
+        )}
       </div>
 
       {message.quotedHistory ? (
@@ -350,6 +359,16 @@ export function decodeHtmlEntities(text: string): string {
  * Ranges are sorted and merged first, because two extractions can cite
  * overlapping words and nested `<mark>` elements are announced oddly.
  */
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/\son\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, 'blocked:');
+}
+
 function renderWithMarks(body: string, marks: readonly SourceLocation[]): React.ReactNode {
   const decodedBody = decodeHtmlEntities(body);
   const ranges = marks
@@ -377,7 +396,7 @@ function renderWithMarks(body: string, marks: readonly SourceLocation[]): React.
     if (range.start > cursor) parts.push(decodedBody.slice(cursor, range.start));
     parts.push(
       <mark key={`m-${i}`} className="ecc-source-mark">
-        {body.slice(range.start, range.end)}
+        {decodedBody.slice(range.start, range.end)}
       </mark>
     );
     cursor = range.end;

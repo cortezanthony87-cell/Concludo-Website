@@ -100,9 +100,15 @@ export const EmailThreadPage: React.FC = () => {
     ignoreEmail(currentId);
 
     if (nextTargetId) {
-      navigate(linkTo(`/email/thread/${nextTargetId}`));
+      navigate(linkTo(`/email/thread/${nextTargetId}`), { replace: true });
+      // Reset scroll smoothly to top of email conversation
+      try {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        const pane = document.querySelector('.ecc-col-conversation') || document.querySelector('.ecc-conversation') || document.querySelector('.ecc-workspace') || document.querySelector('.main-content-area');
+        if (pane) pane.scrollTop = 0;
+      } catch (_) {}
     } else {
-      navigate(linkTo('/email/all'));
+      navigate(linkTo('/email/all'), { replace: true });
     }
   };
 
