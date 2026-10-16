@@ -263,17 +263,24 @@ const MessageBlock: React.FC<{
                         gap: '8px',
                       }}
                     >
-                      <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', background: '#0E1726', borderRadius: '6px', overflow: 'hidden' }}>
-                        <img
-                          src={(img as any).url || (img as any).dataUrl || '/brand/Concludo_logo_horizontal_reversed_for_dark.png'}
-                          alt={img.fileName}
-                          style={{
-                            maxWidth: '100%',
-                            maxHeight: '420px',
-                            objectFit: 'contain',
-                            borderRadius: '4px',
-                          }}
-                        />
+                      <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', background: '#0E1726', borderRadius: '6px', overflow: 'hidden', minHeight: '120px', alignItems: 'center' }}>
+                        {(img as any).url || (img as any).dataUrl ? (
+                          <img
+                            src={(img as any).url || (img as any).dataUrl}
+                            alt={img.fileName}
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: '420px',
+                              objectFit: 'contain',
+                              borderRadius: '4px',
+                            }}
+                          />
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '24px 12px', color: '#94A3B8' }}>
+                            <Paperclip size={20} color="#E2B53C" />
+                            <span style={{ fontSize: '11px', fontFamily: 'var(--font-m)' }}>{img.fileName} (preview pending provider retrieval)</span>
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#CBD5E1' }}>
                         <span style={{ fontWeight: 600 }}>{img.fileName}</span>

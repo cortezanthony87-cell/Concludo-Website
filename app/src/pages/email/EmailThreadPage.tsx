@@ -57,7 +57,7 @@ export const EmailThreadPage: React.FC = () => {
   const [selected, setSelected] = useState<{ id: string; label: string } | null>(null);
   const [isFullView, setIsFullView] = useState<boolean>(false);
   const navigate = useNavigate();
-  const { ignoreEmail } = useLocalActions();
+  const { ignoreEmail, ignored } = useLocalActions();
 
   const handleIgnoreCurrentEmail = () => {
     if (!detail) return;
@@ -69,7 +69,10 @@ export const EmailThreadPage: React.FC = () => {
     () => (threadId ? threadDetail(dataset, threadId) : null),
     [dataset, threadId]
   );
-  const threads = useMemo(() => threadListFor(dataset), [dataset]);
+  const threads = useMemo(() => {
+    const list = threadListFor(dataset);
+    return list.filter((r) => !ignored.includes(r.thread.id));
+  }, [dataset, ignored]);
 
   const filteredThreads = useMemo(() => {
     const needle = search.trim().toLowerCase();

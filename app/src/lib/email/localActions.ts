@@ -292,6 +292,13 @@ export const LocalActionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   );
 
   const clearAll = useCallback(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(IGNORED_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.warn('Could not clear ignored emails from localStorage:', e);
+    }
     setState({ reviewed: [], deferred: [], markedWaiting: [], ignored: [], suggestions: [] });
     announce('Every change made in this visit has been cleared.');
   }, [announce]);

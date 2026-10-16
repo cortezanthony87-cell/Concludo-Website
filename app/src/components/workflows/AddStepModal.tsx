@@ -51,17 +51,27 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
 
   const catalog = useMemo(() => INTEGRATION_PROVIDERS_CATALOG, []);
 
+  // Rule: Only allow apps that are actually connected to your Concludo account.
+  // If it has a red dot next to it, it should not show with the rest of what app is connected;
+  // only confirmed, tested apps that have been approved can appear in the sections of apps to connect to the workflow.
+  const usableProviderIds = useMemo(() => {
+    return new Set(
+      connections
+        .filter((c) => isUsable({
+          status: c.status,
+          verified_at: (c as any).verified_at,
+          last_test_at: (c as any).last_test_at,
+          last_test_result: (c as any).last_test_result,
+        }))
+        .map((c) => c.provider_id)
+    );
+  }, [connections]);
+
   const filteredProviders = useMemo(() => {
-    let list = catalog;
-    if (selectedCategory !== 'All Apps') {
-      if (selectedCategory === 'Connected') {
-        const connectedProviderIds = new Set(
-          connections.filter((c) => isUsable({ status: c.status, verified_at: (c as any).verified_at, last_test_at: (c as any).last_test_at, last_test_result: (c as any).last_test_result })).map((c) => c.provider_id)
-        );
-        list = list.filter((p) => connectedProviderIds.has(p.id));
-      } else {
-        list = list.filter((p) => p.category === selectedCategory);
-      }
+    // Only allow confirmed, tested and connected apps
+    let list = catalog.filter((p) => usableProviderIds.has(p.id));
+    if (selectedCategory !== 'All Apps' && selectedCategory !== 'Connected') {
+      list = list.filter((p) => p.category === selectedCategory);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -73,7 +83,7 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
       );
     }
     return list;
-  }, [catalog, selectedCategory, searchQuery, connections]);
+  }, [catalog, selectedCategory, searchQuery, usableProviderIds]);
 
   // Available connections for selected provider
   const providerConnections = useMemo(() => {
@@ -703,17 +713,17 @@ export const AddStepModal: React.FC<AddStepModalProps> = ({
               Cancel
             </button>
             <button
-              disabled={!selectedProvider || !selectedItemKey}
+              disabled={!selectedProvider || !selectedItemKey || providerConnections.length === 0}
               onClick={handleConfirmAdd}
               style={{
-                background: selectedProvider && selectedItemKey ? 'var(--gold)' : 'var(--navy2)',
-                color: selectedProvider && selectedItemKey ? 'var(--navy)' : 'var(--sub)',
+                background: selectedProvider && selectedItemKey && providerConnections.length > 0 ? 'var(--gold)' : 'var(--navy2)',
+                color: selectedProvider && selectedItemKey && providerConnections.length > 0 ? 'var(--navy)' : 'var(--sub)',
                 border: 'none',
                 borderRadius: '6px',
                 padding: '6px 18px',
                 fontSize: '11px',
                 fontWeight: 700,
-                cursor: selectedProvider && selectedItemKey ? 'pointer' : 'not-allowed',
+                cursor: selectedProvider && selectedItemKey && providerConnections.length > 0 ? 'pointer' : 'not-allowed',
                 fontFamily: 'var(--font-m)',
               }}
             >

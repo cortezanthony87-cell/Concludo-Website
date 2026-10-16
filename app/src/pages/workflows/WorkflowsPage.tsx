@@ -443,21 +443,25 @@ export const WorkflowsPage: React.FC = () => {
                         {/* Option: Delete in Separated Box with Two-Step Confirmation */}
                         <div className="relative">
                           {confirmDeleteId === wf.id ? (
-                            <div className="flex items-center gap-1.5 bg-red-950/80 border border-red-500 rounded-lg p-1 shadow-lg">
-                              <span className="text-[11px] text-red-200 px-1 font-medium">Confirm?</span>
+                            <div className="flex items-center gap-1.5 bg-[#16263F] border border-[#E2B53C] rounded-lg p-1 shadow-lg">
+                              <span className="text-[11px] text-[#E2B53C] px-1 font-medium">Confirm?</span>
                               <button
                                 onClick={async () => {
                                   setConfirmDeleteId(null);
-                                  await deleteWorkflow(wf.id, user?.id || '');
-                                  await loadData();
+                                  try {
+                                    await deleteWorkflow(wf.id, user?.id || "");
+                                    await loadData();
+                                  } catch (err: any) {
+                                    alert("Failed to delete workflow: " + err.message);
+                                  }
                                 }}
-                                className="px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-bold"
+                                className="px-2 py-0.5 bg-[#E2B53C] hover:bg-[#BC8A1C] text-[#0E1726] rounded text-[11px] font-bold transition"
                               >
                                 Delete
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[11px]"
+                                className="px-1.5 py-0.5 bg-[#21395C] hover:bg-[#16263F] text-gray-300 rounded text-[11px] transition"
                               >
                                 Cancel
                               </button>
@@ -465,10 +469,10 @@ export const WorkflowsPage: React.FC = () => {
                           ) : (
                             <button
                               onClick={() => setConfirmDeleteId(wf.id)}
-                              className="py-1.5 px-2.5 bg-red-950/30 hover:bg-red-900/50 text-red-300 hover:text-white border border-red-500/50 hover:border-red-400 rounded-lg text-xs font-medium flex items-center gap-1 shadow-sm transition"
+                              className="py-1.5 px-3 bg-[#16263F] hover:bg-[#21395C] text-[#E2B53C] border border-[#E2B53C] rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
                               title="Delete this workflow"
                             >
-                              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                              <Trash2 className="w-3.5 h-3.5 text-[#E2B53C]" />
                               <span>Delete</span>
                             </button>
                           )}

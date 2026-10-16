@@ -23,31 +23,55 @@ export const ANTHONY_USER_IDS = [
   '7c3728b3-29ce-4cfe-b022-67f1cd45bf18',
 ];
 
+/**
+ * Checks whether the user is Anthony Cortez directly OR a member of a team created by Anthony Cortez.
+ */
+export async function verifyUserIsAuthorized(user: any): Promise<boolean> {
+  if (!user) return false;
+  const email = (user.email || '').toLowerCase().trim();
+  if (ANTHONY_EMAILS.includes(email)) return true;
+  if (ANTHONY_USER_IDS.includes(user.id)) return true;
+
+  // Check database team membership in teams owned by Anthony
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('team_id, teams!inner(owner_id)')
+      .eq('user_id', user.id);
+
+    if (!error && Array.isArray(data)) {
+      const isMemberOfAnthonyTeam = data.some((row: any) =>
+        ANTHONY_USER_IDS.includes(row.teams?.owner_id)
+      );
+      if (isMemberOfAnthonyTeam) return true;
+    }
+  } catch (err) {
+    console.warn('Could not verify team membership for permanent templates:', err);
+  }
+
+  return false;
+}
+
 export function isAnthonyOrAuthorizedTeam(user: any, profile?: any): boolean {
   if (!user) return false;
   const email = (user.email || profile?.email || '').toLowerCase().trim();
   if (ANTHONY_EMAILS.includes(email)) return true;
   if (ANTHONY_USER_IDS.includes(user.id)) return true;
-  const fullName = (user.user_metadata?.full_name || profile?.full_name || '').toLowerCase();
-  if (fullName.includes('anthony cortez')) return true;
   return false;
 }
 
-const LOCAL_STORAGE_KEY = 'concludo_permanent_workflow_templates';
-
 export async function fetchPermanentTemplates(user: any): Promise<WorkflowTemplateMeta[]> {
-  if (!isAnthonyOrAuthorizedTeam(user)) {
-    return [];
-  }
+  if (!user) return [];
 
-  // 1. Try fetching from Supabase
+  // RLS will enforce whether this user can read rows
   try {
     const { data, error } = await getSupabaseBrowserClient()
       .from('permanent_workflow_templates')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && Array.isArray(data) && data.length > 0) {
+    if (!error && Array.isArray(data)) {
       return data.map((row: any) => ({
         templateKey: row.template_key,
         name: row.name,
@@ -63,29 +87,45 @@ export async function fetchPermanentTemplates(user: any): Promise<WorkflowTempla
       }));
     }
   } catch (err) {
-    console.warn('Error fetching permanent templates from Supabase, falling back to local storage:', err);
-  }
-
-  // 2. Fallback to localStorage
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (e) {
-    console.warn('Could not read permanent templates from localStorage:', e);
+    console.warn('Error fetching permanent templates from Supabase:', err);
   }
 
   return [];
 }
 
 export async function savePermanentTemplate(
-  workflow: WorkflowRecord | { name: string; description?: string; definition_json?: any; trigger_type?: string; actions?: any; steps?: any },
+  workflow: WorkflowRecord | { id?: string; name: string; description?: string; definition_json?: any; trigger_type?: string; actions?: any; steps?: any },
   user: any
 ): Promise<{ success: boolean; error?: string }> {
-  if (!isAnthonyOrAuthorizedTeam(user)) {
-    return { success: false, error: 'Unauthorized: Permanent workflow templates are restricted to Anthony Cortez and his account teams.' };
+  if (!user) {
+    return { success: false, error: 'User session required.' };
+  }
+
+  const isAuth = await verifyUserIsAuthorized(user);
+  if (!isAuth) {
+    return { success: false, error: 'Unauthorized: Permanent workflow templates are strictly restricted to Anthony Cortez and authorized teams.' };
+  }
+
+  // Verification rule: The workflow must have been built and tested
+  const workflowId = (workflow as any).id;
+  if (workflowId) {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: executions, error: execErr } = await supabase
+        .from('workflow_executions')
+        .select('id, status')
+        .eq('workflow_id', workflowId)
+        .limit(1);
+
+      if (execErr || !executions || executions.length === 0) {
+        return {
+          success: false,
+          error: 'Rule: Workflows must be tested before saving into Permanent Templates. Run a test run first.',
+        };
+      }
+    } catch (e) {
+      console.warn('Could not verify workflow executions:', e);
+    }
   }
 
   const templateKey = `perm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -110,9 +150,9 @@ export async function savePermanentTemplate(
     },
   };
 
-  // 1. Save to Supabase
+  // Save to Supabase table protected by RLS
   try {
-    await getSupabaseBrowserClient().from('permanent_workflow_templates').insert({
+    const { error: insertErr } = await getSupabaseBrowserClient().from('permanent_workflow_templates').insert({
       template_key: templateKey,
       name: workflow.name,
       description: workflow.description,
@@ -127,18 +167,12 @@ export async function savePermanentTemplate(
       created_by: user.id,
       created_by_email: user.email,
     });
-  } catch (err) {
-    console.warn('Failed to insert into permanent_workflow_templates in Supabase:', err);
-  }
 
-  // 2. Persist in localStorage
-  try {
-    const existingRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    const existing: WorkflowTemplateMeta[] = existingRaw ? JSON.parse(existingRaw) : [];
-    existing.unshift(templateMeta);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(existing));
-  } catch (err) {
-    console.warn('Failed to save to localStorage:', err);
+    if (insertErr) {
+      return { success: false, error: `Failed to save permanent template: ${insertErr.message}` };
+    }
+  } catch (err: any) {
+    return { success: false, error: `Database error: ${err.message}` };
   }
 
   return { success: true };
