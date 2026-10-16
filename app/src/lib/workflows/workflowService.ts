@@ -335,6 +335,24 @@ export async function triggerWorkflow(params: {
       ? triggerData.items
       : Array.isArray(triggerData?.stagedItems)
       ? triggerData.stagedItems
+      : Array.isArray(triggerData?.messages)
+      ? triggerData.messages.map((m: any) => {
+          const sender = m.sender || m.from || m.author || 'LinkedIn Inquirer';
+          const msgText = m.message || m.text || m.body || m.preview || 'Inquiry received via LinkedIn.';
+          return {
+            title: m.title || `Review LinkedIn inquiry from ${sender}`,
+            description: m.description || 'Inquiry received on LinkedIn regarding Concludo automated workflow integration. Staged follow-up task.',
+            sender,
+            message: msgText,
+            priority: m.priority || 'high',
+            due_date: m.due_date || new Date(Date.now() + 86400000).toISOString().split('T')[0],
+            checklist: Array.isArray(m.checklist) ? m.checklist : [
+              `Review incoming message and background notes from ${sender}`,
+              'Draft and authorise response via Approval Centre',
+              'Schedule discovery call if verified',
+            ],
+          };
+        })
       : undefined;
 
     if (!stagedItems || stagedItems.length === 0) {
@@ -351,6 +369,8 @@ export async function triggerWorkflow(params: {
             {
               title: 'Review LinkedIn inquiry from Alex Mercer regarding enterprise partnership',
               description: 'Inquiry received on LinkedIn regarding Concludo automated workflow integration. Staged follow-up task.',
+              sender: 'Alex Mercer',
+              message: 'Hi Anthony, I came across Concludo and wanted to explore an enterprise partnership for our team of 45 consultants. Would love to connect and discuss your workflow governance capabilities.',
               priority: 'high',
               due_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
               checklist: [
@@ -362,6 +382,8 @@ export async function triggerWorkflow(params: {
             {
               title: 'Respond to Sarah Jenkins regarding meeting governance workflow',
               description: 'LinkedIn comment/inquiry regarding Concludo Phase 4 Meeting Governance features.',
+              sender: 'Sarah Jenkins',
+              message: 'Hi Anthony, does Concludo support multi-account calendar syncing with task governance? We are looking to roll this out across our ops department.',
               priority: 'normal',
               due_date: new Date(Date.now() + 172800000).toISOString().split('T')[0],
               checklist: [

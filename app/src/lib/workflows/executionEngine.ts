@@ -469,8 +469,8 @@ export class WorkflowExecutionEngine {
       } else if (step.application === "linkedin") {
         stepOutput = {
           messages: isDryRun
-            ? [{ messageId: "dry_msg_001", sender: "Alex Mercer", preview: "Following up on the proposal", read: false }]
-            : [{ messageId: `msg_${Date.now()}`, sender: evaluatedInputs.sender || "LinkedIn Connection", preview: "Hi Anthony, let's connect regarding Concludo", read: false }],
+            ? [{ messageId: "dry_msg_001", sender: "Alex Mercer", preview: "Hi Anthony, I came across Concludo and wanted to explore an enterprise partnership for our team of 45 consultants. Would love to connect and discuss your workflow governance capabilities.", read: false }]
+            : [{ messageId: `msg_${Date.now()}`, sender: evaluatedInputs.sender || "LinkedIn Connection", preview: "Hi Anthony, I saw Concludo’s governance workflow platform and would like to explore integrating it for our team. Let’s connect on a quick call.", read: false }],
           unreadCount: 1,
         };
       } else if (step.application === "microsoft_outlook" || step.application === "outlook") {

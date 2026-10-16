@@ -208,15 +208,69 @@ export const ApprovalsPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Payload Preview */}
-                  <div className="bg-[#0E1726] p-3 rounded-lg border border-[#21395C]">
-                    <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block mb-1">
-                      Staged Action Payload
-                    </span>
-                    <pre className="text-xs font-mono text-gray-300 overflow-x-auto max-h-40">
-                      {JSON.stringify(req.action_payload, null, 2)}
-                    </pre>
-                  </div>
+                  {/* Staged Items / Payload Preview */}
+                  {Array.isArray((req.action_payload as any)?.stagedItems) && (req.action_payload as any).stagedItems.length > 0 ? (
+                    <div className="space-y-3">
+                      <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block">
+                        Staged Items for Microsoft To Do ({(req.action_payload as any).stagedItems.length})
+                      </span>
+                      <div className="space-y-2.5">
+                        {(req.action_payload as any).stagedItems.map((item: any, idx: number) => (
+                          <div key={idx} className="bg-[#0E1726] p-3.5 rounded-lg border border-[#21395C] space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-sm font-semibold text-white">{item.title}</span>
+                              {item.priority && (
+                                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                                  item.priority === 'high' ? 'bg-amber-950 text-amber-400 border border-amber-800' : 'bg-[#21395C] text-gray-300'
+                                }`}>
+                                  {item.priority}
+                                </span>
+                              )}
+                            </div>
+                            {item.description && (
+                              <p className="text-xs text-gray-300">{item.description}</p>
+                            )}
+                            {(item.message || item.sender_message) && (
+                              <div className="bg-[#16263F]/90 border-l-2 border-[#E2B53C] pl-3 py-2 pr-3 rounded-r text-xs text-gray-200 space-y-1">
+                                {item.sender && (
+                                  <span className="font-semibold text-[#E2B53C] block">
+                                    Message from {item.sender}:
+                                  </span>
+                                )}
+                                <p className="italic text-gray-300 whitespace-pre-wrap">
+                                  "{item.message || item.sender_message}"
+                                </p>
+                              </div>
+                            )}
+                            {Array.isArray(item.checklist) && item.checklist.length > 0 && (
+                              <div className="pt-1 border-t border-[#21395C]/60">
+                                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium block mb-1">
+                                  Checklist Steps:
+                                </span>
+                                <ul className="space-y-1">
+                                  {item.checklist.map((step: string, sIdx: number) => (
+                                    <li key={sIdx} className="text-xs text-gray-300 flex items-center space-x-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-[#E2B53C]" />
+                                      <span>{step}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-[#0E1726] p-3 rounded-lg border border-[#21395C]">
+                      <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block mb-1">
+                        Staged Action Payload
+                      </span>
+                      <pre className="text-xs font-mono text-gray-300 overflow-x-auto max-h-40">
+                        {JSON.stringify(req.action_payload, null, 2)}
+                      </pre>
+                    </div>
+                  )}
 
                   {/* Actions for Pending */}
                   {req.status === 'pending' && (
