@@ -1,0 +1,4641 @@
+/* ==========================================================================
+   Concludo CRM: the module's own stylesheet.
+
+   Separate from index.css so the module can be reviewed, moved or removed
+   without touching the 1,710 line shared file every other page depends on.
+   Every selector is prefixed .ccrm- and nothing here is global, with one
+   deliberate exception noted at the end.
+
+   THE THEME, AND WHY IT IS NOT THE APPLICATION'S.
+
+   The module reads as the Concludo Calendar does: a navy band carrying the
+   title, the controls and the section tabs, and a light ground below it where
+   the work happens on white cards. The application's chrome around it, the
+   sidebar and the top bar, is untouched and stays dark.
+
+   This is a deliberate inversion of the application's palette, done in one
+   place. Rather than rewriting every rule, the module remaps the application's
+   own colour tokens inside two scopes:
+
+     .ccrm-module                 light ground, navy ink
+     .ccrm-header, .ccrm-tabs-shell   navy band, light ink
+
+   so a rule that says `color: var(--text-primary)` resolves to navy in the
+   body and to near-white on the band, and the geometry below needs no
+   per-rule theming. The mapping is declared once, loudly, at the top of each
+   scope. Nothing outside .ccrm-module is affected, because custom properties
+   only cascade downwards.
+
+   EVERY COLOUR PAIR HERE WAS MEASURED, not estimated. The ratios are in the
+   comments beside the tokens. The brand rule that gold is never text on a
+   light background is held to throughout: on the light ground gold appears
+   only as a rule, a chip fill behind navy text, or a border.
+
+   It brings its own accessibility baseline rather than inheriting one. The
+   application has no :focus-visible rule anywhere, sets outline: none on form
+   controls, has no prefers-reduced-motion block, and sets table { display:
+   block } below 900px, which destroys row and column alignment. None of that
+   is inherited here.
+   ========================================================================== */
+
+.ccrm-module {
+  /* ---------------------------------------------------- the brand palette */
+  --ccrm-navy: #16263f;
+  --ccrm-navy-2: #21395c;
+  --ccrm-gold: #e2b53c;
+  --ccrm-gold-deep: #bc8a1c;
+  --ccrm-ground: #f4f6fa;
+  --ccrm-card: #ffffff;
+
+  /* Ink on the light ground.
+     Navy on white 15.18:1, navy on the ground 14.03:1.
+     Secondary navy on white 11.64:1, on the ground 10.76:1. */
+  --ccrm-ink: #16263f;
+  --ccrm-ink-soft: #21395c;
+
+  /* Quiet text. The brand's own slate, and it is the smallest text in the
+     module, so it was the value worth checking first: 5.95:1 on a white card
+     and 5.50:1 on the light ground. Both pass WCAG 2.2 AA comfortably.
+     The application's --text-muted (#64748b) was never usable here. */
+  --ccrm-quiet: #5a6478;
+
+  /* Rules and edges. A white card on a #f4f6fa ground is 1.08:1, which is to
+     say invisible, so a card is defined by its border and a soft shadow
+     rather than by its fill. */
+  --ccrm-hairline: #d9dfe9;
+  --ccrm-hairline-strong: #c8d2e0;
+  --ccrm-shadow: 0 1px 2px rgba(22, 38, 63, 0.05), 0 6px 18px rgba(22, 38, 63, 0.06);
+  --ccrm-shadow-lift: 0 2px 4px rgba(22, 38, 63, 0.07), 0 12px 28px rgba(22, 38, 63, 0.09);
+
+  /* The focus ring.
+     Gold was the ring in the dark theme and it cannot be the ring here: gold
+     on the light ground measures 2.86:1 and SC 1.4.11 asks for 3:1 of a focus
+     indicator. Navy measures 14.03:1 on the ground and 15.18:1 on a card. The
+     band re-declares this back to gold, where gold is 9.62:1. */
+  --ccrm-focus: #16263f;
+
+  /* Status colours, re-chosen for a light ground. The dark theme's values
+     (#7fb2f0, #f3c958, #f0a3a3) were all under 3:1 on white.
+     Each is paired with a shape in the markup and never used alone, because
+     about one man in twelve cannot reliably separate red from green and a CRM
+     that signals risk with a coloured dot is unusable for him. */
+  --ccrm-open: #1a5fa8;        /* 6.47:1 white, 5.98:1 ground */
+  --ccrm-waiting: #7a5a0f;     /* 6.37:1 white, 5.89:1 ground */
+  --ccrm-review: #a42a22;      /* 7.16:1 white, 6.62:1 ground */
+  --ccrm-review-border: #e3bdb9;
+  --ccrm-review-wash: #fdf3f2;
+  --ccrm-stated: #166b4a;      /* 6.49:1 white, 6.00:1 ground */
+  --ccrm-attention-wash: #fdf8ec;
+
+  /* --------------------------------- the application's tokens, remapped
+     Every rule below, and every application class the module borrows, reads
+     these. Remapping them here is what turns the module light without
+     touching the rules one by one. */
+  --bg-base: var(--ccrm-ground);
+  --bg-surface: var(--ccrm-card);
+  --bg-surface-elevated: var(--ccrm-card);
+  --text-primary: var(--ccrm-ink);
+  --text-secondary: var(--ccrm-ink-soft);
+  --text-muted: var(--ccrm-quiet);
+  --border-subtle: var(--ccrm-hairline);
+  --border-glass: var(--ccrm-hairline-strong);
+  --border-gold: var(--ccrm-gold);
+
+  --ccrm-radius-card: 12px;
+  --ccrm-radius-control: 8px;
+  --ccrm-gap: 18px;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 0 26px;
+  font-family: var(--font-body);
+  color: var(--ccrm-ink);
+  background: var(--ccrm-ground);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- basics */
+
+.ccrm-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The skip link. The module sits behind 39 sidebar links, so a keyboard user
+   reaching the CRM has already pressed Tab forty times.
+   Navy on gold is 7.89:1. */
+.ccrm-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 120;
+  padding: 10px 16px;
+  background: var(--ccrm-gold);
+  color: var(--ccrm-navy);
+  font-weight: 600;
+  border-radius: 0 0 var(--ccrm-radius-control) 0;
+  text-decoration: none;
+}
+
+.ccrm-skip-link:focus {
+  left: 0;
+}
+
+/* Focus, visible on everything, with no transition.
+
+   The application's .btn-secondary carries `transition: all 0.2s ease`, so a
+   focus ring inherited from it fades in over 200ms and reads as no focus ring
+   at all. This rule is deliberately unconditional inside the module. */
+.ccrm-module :focus-visible {
+  outline: 3px solid var(--ccrm-focus);
+  outline-offset: 2px;
+  transition: none;
+  border-radius: 4px;
+}
+
+/* Links take their colour from their own class, not from the anchor reset.
+ *
+ * `:where()` is load bearing here. Written as `.ccrm-module a`, this reset is
+ * specificity 0,1,1 and beats every single-class rule in the file, so .ccrm-tab,
+ * .ccrm-tab-active, .ccrm-text-link, .ccrm-skip-link and .ccrm-proposal-indicator
+ * all silently inherited their parent's colour instead of their own. In the dark
+ * theme that was invisible, because the inherited colour was near-white on a
+ * dark surface and passed anyway. On a gold active tab it is white on gold,
+ * which the contrast suite measured at 1.93:1 against the 4.5:1 it needs.
+ *
+ * `:where()` contributes zero specificity, so this stays a reset for plain
+ * anchors and loses to anything that names a class. */
+:where(.ccrm-module) a {
+  color: inherit;
+}
+
+/* A link on the light ground is navy and underlined, never gold: gold on
+   white is 1.93:1 and deep gold is 3.09:1, so neither can carry text. The
+   underline is what marks it as a link once the colour no longer does. */
+.ccrm-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  color: var(--ccrm-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--ccrm-gold-deep);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+
+.ccrm-text-link:hover {
+  color: var(--ccrm-ink);
+  text-decoration-color: var(--ccrm-ink);
+}
+
+.ccrm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.ccrm-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ccrm-absent {
+  color: var(--ccrm-quiet);
+  font-style: italic;
+}
+
+/* ====================================================== the navy band
+
+   The header and the section tabs are one navy band at the top of the module,
+   the way the Concludo Calendar carries its title and its views. They are two
+   elements rather than one because the markup is a `header` followed by a
+   `nav`, and keeping them separate means a screen reader still hears a header
+   and a navigation rather than one undifferentiated region.
+
+   Inside the band the token mapping is inverted again, so every borrowed
+   application class draws light text on navy without a rule of its own. */
+
+.ccrm-header,
+.ccrm-tabs-shell {
+  --bg-base: var(--ccrm-navy);
+  --bg-surface: var(--ccrm-navy-2);
+  --bg-surface-elevated: var(--ccrm-navy-2);
+  --text-primary: #ffffff;        /* 15.18:1 on navy */
+  --text-secondary: #b4c0d2;      /* 8.25:1 on navy, 6.32:1 on secondary navy */
+  --text-muted: #b4c0d2;
+  --border-subtle: rgba(255, 255, 255, 0.14);
+  --border-glass: rgba(255, 255, 255, 0.22);
+  --ccrm-quiet: #b4c0d2;
+  --ccrm-focus: var(--gold-400);  /* 9.62:1 on navy */
+
+  background: var(--ccrm-navy);
+  color: #ffffff;
+}
+
+.ccrm-header {
+  padding: 22px 24px 18px;
+  border-bottom: 0;
+}
+
+/* The two halves of the band meet with no seam. */
+.ccrm-tabs-shell {
+  display: block;
+  margin: 0 0 24px;
+  padding: 0 24px 18px;
+  border-top: 0;
+}
+
+.ccrm-header-titles {
+  margin-bottom: 14px;
+}
+
+.ccrm-demo-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 9px 13px;
+  font-size: 0.78rem;
+  color: #d4dce8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-controls-shell {
+  display: block;
+}
+
+/* On a desktop there is no disclosure: the summary is hidden and the controls
+   are always shown, open or not, so the `open` attribute cannot hide them. */
+.ccrm-controls-summary {
+  display: none;
+}
+
+/* The controls sit directly on the band rather than inside a slab of their
+   own, as the Calendar's search and action do. Boxing twelve controls inside
+   a panel inside a band is three nested surfaces to say one thing, and it
+   made the band read as the heaviest object on the page. The gold labels
+   carry the grouping instead. */
+.ccrm-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 16px;
+  align-items: end;
+  padding: 16px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ccrm-control-wide {
+  grid-column: span 2;
+}
+
+/* Gold is legitimate here and only here: on navy it measures 7.89:1. */
+.ccrm-control .form-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ccrm-gold);
+}
+
+.ccrm-search-wrap {
+  position: relative;
+}
+
+.ccrm-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #b4c0d2;
+  pointer-events: none;
+}
+
+.ccrm-search-input {
+  padding-left: 34px;
+}
+
+.ccrm-control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.ccrm-header-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 0;
+}
+
+.ccrm-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 0.74rem;
+  color: #b4c0d2;
+}
+
+.ccrm-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--emerald-400);
+}
+
+.ccrm-proposal-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 13px;
+  font-size: 0.78rem;
+  color: #ffffff;
+  background: rgba(226, 181, 60, 0.12);
+  border: 1px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+  text-decoration: none;
+}
+
+.ccrm-proposal-indicator:hover {
+  background: rgba(226, 181, 60, 0.2);
+}
+
+.ccrm-proposal-indicator strong {
+  color: var(--gold-400);
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+.ccrm-tabs-summary {
+  display: none;
+}
+
+.ccrm-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+}
+
+.ccrm-tab-group-label {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #93a3ba;
+}
+
+.ccrm-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #c3cddc;
+  border: 1px solid transparent;
+  border-radius: var(--ccrm-radius-control);
+  text-decoration: none;
+}
+
+.ccrm-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* The active tab is a gold pill with navy text, as the Calendar's view
+   switcher is. Navy on gold measures 7.89:1. */
+.ccrm-tab-active {
+  color: var(--ccrm-navy);
+  background: var(--ccrm-gold);
+  border-color: var(--ccrm-gold);
+  font-weight: 600;
+}
+
+.ccrm-tab-active:hover {
+  color: var(--ccrm-navy);
+  background: #edc252;
+}
+
+/* ------------------------------------------------------------------ main */
+
+.ccrm-main {
+  margin-top: 0;
+  padding: 0 24px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.ccrm-view {
+  min-width: 0;
+}
+
+.ccrm-main:focus {
+  outline: none;
+}
+
+.ccrm-foot-note {
+  margin: 28px 24px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--ccrm-hairline-strong);
+  font-size: 0.73rem;
+  line-height: 1.6;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------------ view */
+
+.ccrm-view-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.ccrm-view-title {
+  margin: 0 0 4px;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-view-description {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-group-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 26px 0 12px;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ccrm-section-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-section-description {
+  margin: 3px 0 0;
+  font-size: 0.78rem;
+  color: var(--ccrm-quiet);
+}
+
+/* ----------------------------------------------------------- the cards */
+
+.ccrm-card-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+/* The gold left rule is the Calendar's card signature. It is decorative: the
+   count and the note carry the meaning, so nothing is lost where colour is
+   unavailable. */
+.ccrm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  height: 100%;
+  min-height: 44px;
+  padding: 14px 16px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-gold-deep);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+  text-decoration: none;
+}
+
+.ccrm-card:hover {
+  border-color: var(--ccrm-hairline-strong);
+  border-left-color: var(--ccrm-gold-deep);
+  box-shadow: var(--ccrm-shadow-lift);
+}
+
+.ccrm-card-count {
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--ccrm-ink);
+}
+
+/* A card that wants a person gets the full gold rule rather than the deep
+   one, and nothing else.
+
+   It was briefly given a warm cream fill as well. Rendered, eight of the
+   twelve cards on Today carry that state, so the screen went cream from edge
+   to edge and the gold stopped meaning anything at all. Gold marks what needs
+   a person; if it is on most of the screen it marks nothing. The fill came
+   back out.
+
+   It does NOT get a gold number either: gold on white is 1.93:1, and the
+   count is the one thing on the card that has to be readable across a desk. */
+.ccrm-card-attention {
+  border-left-width: 4px;
+  border-left-color: var(--ccrm-gold);
+}
+
+.ccrm-card-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-card-note {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+/* ---------------------------------------------------------- the panels */
+
+.ccrm-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--ccrm-gap);
+  align-items: start;
+}
+
+.ccrm-panel {
+  padding: 16px 18px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-panel-lead {
+  margin-bottom: var(--ccrm-gap);
+  border-color: var(--ccrm-hairline-strong);
+  border-top: 3px solid var(--ccrm-gold);
+}
+
+.ccrm-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ccrm-panel-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-panel-description {
+  margin: 3px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-panel-empty,
+.ccrm-empty-row {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 0.8rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-panel-more {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--ccrm-radius-control);
+  text-decoration: none;
+}
+
+.ccrm-item:hover {
+  background: var(--ccrm-ground);
+  border-color: var(--ccrm-hairline);
+}
+
+.ccrm-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ccrm-item-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-item-context {
+  font-size: 0.75rem;
+  color: var(--ccrm-ink-soft);
+}
+
+/* ---------------------------------------------------------- the reason */
+
+.ccrm-reason {
+  margin: 5px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+/* The standing chip.
+ *
+ * Neutral by default, and gold only where something needs a person.
+ *
+ * It was gold for every standing to begin with. Rendered on Relationships that
+ * put eight gold chips on one screen, which is how gold stops meaning "look
+ * here" and becomes the colour the chips happen to be. Gold is reserved for
+ * the one standing that asks for a decision; the rest are slate on the light
+ * ground, which still reads as a label and no longer shouts.
+ *
+ * Navy on gold is 7.89:1. The reverse, gold text, would be 1.93:1. */
+.ccrm-standing {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ccrm-standing-review {
+  color: var(--ccrm-navy);
+  background: var(--ccrm-gold);
+  border-color: var(--ccrm-gold-deep);
+}
+
+.ccrm-reason-text {
+  display: inline;
+}
+
+/* --------------------------------------------------------- status marks */
+
+.ccrm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-status-glyph {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.ccrm-status-open .ccrm-status-glyph {
+  color: var(--ccrm-open);
+}
+
+.ccrm-status-waiting .ccrm-status-glyph {
+  color: var(--ccrm-waiting);
+}
+
+.ccrm-status-review .ccrm-status-glyph {
+  color: var(--ccrm-review);
+}
+
+.ccrm-status-none .ccrm-status-glyph {
+  color: var(--ccrm-quiet);
+}
+
+/* ---------------------------------------------------------- basis chips */
+
+.ccrm-basis {
+  display: inline-block;
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  border: 1px solid var(--ccrm-hairline-strong);
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-ground);
+  white-space: nowrap;
+}
+
+.ccrm-basis-stated {
+  color: var(--ccrm-stated);
+  border-color: #b6d6c7;
+  background: #f1f8f4;
+}
+
+.ccrm-basis-inferred {
+  color: var(--ccrm-waiting);
+  border-color: #e2cd99;
+  background: var(--ccrm-attention-wash);
+}
+
+.ccrm-basis-calculated {
+  color: var(--ccrm-open);
+  border-color: #b9cde6;
+  background: #f1f5fb;
+}
+
+.ccrm-basis-unknown {
+  color: var(--ccrm-review);
+  border-color: var(--ccrm-review-border);
+  background: var(--ccrm-review-wash);
+}
+
+/* ---------------------------------------------------------------- table */
+
+/* The scroll lives on the wrapper, and the table stays a table.
+
+   index.css sets `table { display: block; overflow-x: auto }` below 900px,
+   which makes a table lose its rows and columns on a phone. This restores the
+   table and moves the scroll to a focusable wrapper, so the columns still line
+   up and a keyboard user can reach the scroll region. */
+/* `max-width: 100%` and `min-width: 0` are what actually keep the page from
+   growing: without them a table's intrinsic width pushes its container wider
+   than the viewport and the whole page scrolls sideways, which the brief
+   forbids for regular CRM work. The scroll belongs to this wrapper alone. */
+.ccrm-table-wrap {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  /* `overflow-x: auto` scrolls the table but does NOT keep it out of the
+     document's scrollable overflow: measured, a 1,909 pixel table inside a
+     1,350 pixel wrapper still let the whole page scroll sideways by 93 pixels
+     at desktop width. `contain: paint` is what actually stops that, because it
+     tells the browser nothing inside may paint outside, so the ancestors stop
+     counting it. The table still scrolls inside the wrapper at full width. */
+  contain: paint;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  background: var(--ccrm-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-table {
+  display: table !important;
+  width: max-content;
+  min-width: 100%;
+  max-width: none !important;
+  overflow: visible !important;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+/* The header is deliberately NOT sticky.
+
+   A `position: sticky` header inside this wrapper contributed its own width to
+   the document's scrollable overflow, which made the whole page scroll
+   sideways by 93 pixels at desktop width even though the table was correctly
+   contained. It bought nothing, because the wrapper has no height constraint
+   and so the header never had anything to stick to. Measured, then removed.
+
+   The column labels were gold in the dark theme. On a white header strip gold
+   is 1.93:1, so they are slate here, which is 5.95:1. */
+.ccrm-table thead th {
+  padding: 10px 13px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+  background: var(--ccrm-ground);
+  border-bottom: 1px solid var(--ccrm-hairline-strong);
+  white-space: nowrap;
+}
+
+.ccrm-table tbody th,
+.ccrm-table tbody td {
+  padding: 11px 13px;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 400;
+  border-bottom: 1px solid var(--ccrm-hairline);
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-table tbody tr:last-child th,
+.ccrm-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ccrm-table tbody tr:hover th,
+.ccrm-table tbody tr:hover td {
+  background: var(--ccrm-ground);
+}
+
+.ccrm-col-narrow {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.ccrm-table-plain {
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  background: var(--ccrm-card);
+  box-shadow: var(--ccrm-shadow);
+  max-width: 420px;
+}
+
+.ccrm-cell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ccrm-cell-strong {
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-cell-quiet {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-cell-quote {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+  font-style: italic;
+}
+
+.ccrm-money {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-inline-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+/* --------------------------------------------------------------- stages */
+
+.ccrm-stage {
+  margin-bottom: 22px;
+}
+
+.ccrm-stage-head {
+  margin-bottom: 9px;
+}
+
+.ccrm-stage-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-stage-count {
+  padding: 1px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ccrm-navy);
+  background: var(--ccrm-gold);
+  border: 1px solid var(--ccrm-gold-deep);
+  border-radius: 20px;
+}
+
+.ccrm-stage-criteria {
+  margin: 4px 0 0;
+  max-width: 76ch;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------- timeline */
+
+.ccrm-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-timeline-item {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--ccrm-hairline);
+}
+
+.ccrm-timeline-item:last-child {
+  border-bottom: 0;
+}
+
+.ccrm-timeline-when {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ccrm-timeline-kind {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-timeline-date {
+  font-size: 0.78rem;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-timeline-title {
+  margin: 0 0 3px;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-timeline-context,
+.ccrm-timeline-summary {
+  margin: 0 0 5px;
+  font-size: 0.79rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-timeline-source,
+.ccrm-timeline-flag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-size: 0.74rem;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------ proposals */
+
+.ccrm-proposal-list,
+.ccrm-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-proposal,
+.ccrm-review {
+  padding: 16px 18px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-proposal-destructive {
+  border-color: var(--ccrm-review-border);
+  border-left: 3px solid var(--ccrm-review);
+}
+
+.ccrm-proposal-head,
+.ccrm-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.ccrm-proposal-title,
+.ccrm-review-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-proposal-warning {
+  margin: 0 0 11px;
+  padding: 9px 12px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-review-wash);
+  border: 1px solid var(--ccrm-review-border);
+  border-left: 3px solid var(--ccrm-review);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-change-table {
+  display: table !important;
+  width: 100%;
+  max-width: none !important;
+  overflow: visible !important;
+  margin: 0 0 11px;
+  border-collapse: collapse;
+  font-size: 0.79rem;
+}
+
+.ccrm-change-table th,
+.ccrm-change-table td {
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--ccrm-hairline);
+  color: var(--ccrm-ink-soft);
+  font-weight: 400;
+}
+
+.ccrm-change-table thead th {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-change-to {
+  color: var(--ccrm-ink);
+  font-weight: 600;
+}
+
+.ccrm-proposal-rationale {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-proposal-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.ccrm-proposal-meta {
+  margin: 0 0 12px;
+  font-size: 0.73rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.ccrm-disabled-reason {
+  font-size: 0.73rem;
+  color: var(--ccrm-quiet);
+}
+
+/* --------------------------------------------------------------- review */
+
+.ccrm-review-reason,
+.ccrm-review-check {
+  margin: 0 0 6px;
+  font-size: 0.79rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.ccrm-compare-head {
+  margin: 0 0 4px;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+/* ---------------------------------------------------------------- plans */
+
+.ccrm-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--ccrm-gap);
+  align-items: start;
+}
+
+.ccrm-plan {
+  padding: 16px 18px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-plan-title {
+  margin: 0 0 6px;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-plan-objective {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-plan-empty {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-outcome-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-outcome-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  background: var(--ccrm-ground);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-outcome-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.ccrm-fact dt {
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-fact dd {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink-soft);
+}
+
+/* -------------------------------------------------------------- reports */
+
+.ccrm-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.ccrm-report-figure {
+  padding: 15px 17px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-gold-deep);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-report-value {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-report-label {
+  margin: 3px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-report-note {
+  margin: 5px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------- settings */
+
+.ccrm-settings-block {
+  margin-bottom: 18px;
+  padding: 15px 17px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-settings-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-settings-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.82rem;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-settings-stages li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ------------------------------------------------------- what is not built */
+
+.ccrm-not-built {
+  margin: 14px 0;
+  padding: 14px 17px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-gold-deep);
+  border-radius: var(--ccrm-radius-control);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-not-built-head {
+  margin: 0 0 5px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-not-built-body {
+  margin: 0 0 6px;
+  max-width: 76ch;
+  font-size: 0.79rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-not-built-when {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------- the states */
+
+.ccrm-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 28px 24px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-state-error {
+  border-color: var(--ccrm-review-border);
+  border-left: 3px solid var(--ccrm-review);
+}
+
+.ccrm-state-icon {
+  color: var(--ccrm-gold-deep);
+}
+
+.ccrm-state-error .ccrm-state-icon {
+  color: var(--ccrm-review);
+}
+
+.ccrm-state-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-state-body,
+.ccrm-state-hint {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-state-hint {
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-partial {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 14px;
+  padding: 11px 14px;
+  background: var(--ccrm-attention-wash);
+  border: 1px solid #e2cd99;
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-partial p {
+  margin: 0;
+  font-size: 0.79rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-partial-icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--ccrm-waiting);
+}
+
+.ccrm-spin {
+  animation: ccrm-spin 1s linear infinite;
+}
+
+@keyframes ccrm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================ the application's classes, inside the module
+
+   The module borrows .page-title, .form-input, .form-select and .btn-secondary
+   from index.css rather than reinventing them. Those are written for a dark
+   page and hardcode their fills, so remapping the tokens is not enough on its
+   own: these are the rules that finish the job.
+
+   Every selector below is inside .ccrm-module. Nothing on any other page
+   changes. */
+
+.ccrm-module .page-eyebrow {
+  color: var(--ccrm-gold);
+}
+
+.ccrm-module .page-title {
+  color: #ffffff;
+}
+
+.ccrm-module .page-subtitle {
+  color: #c3cddc;
+}
+
+/* The controls sit on the navy band, so the fields stay dark and gain a
+   border that is actually visible against it. */
+.ccrm-module .form-input,
+.ccrm-module .form-select,
+.ccrm-module .form-textarea {
+  background: rgba(8, 14, 25, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  color: #ffffff;
+  box-shadow: none;
+  padding: 9px 13px;
+  font-size: 0.85rem;
+}
+
+.ccrm-module .form-input::placeholder,
+.ccrm-module .form-textarea::placeholder {
+  color: #a7b4c7;
+}
+
+.ccrm-module .form-input:focus,
+.ccrm-module .form-select:focus,
+.ccrm-module .form-textarea:focus {
+  border-color: var(--ccrm-gold);
+  background: rgba(8, 14, 25, 0.72);
+  box-shadow: none;
+}
+
+.ccrm-module .form-select option {
+  background: var(--ccrm-navy);
+  color: #ffffff;
+}
+
+/* The band's buttons. A bordered gold button with navy text is the Calendar's
+   primary action; the secondary ones stay as outlines on the navy. */
+.ccrm-module .ccrm-control-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  color: #ffffff;
+  backdrop-filter: none;
+  padding: 9px 16px;
+  border-radius: var(--ccrm-radius-control);
+  box-shadow: none;
+}
+
+.ccrm-module .ccrm-control-actions .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: none;
+}
+
+/* One gold action, and it is Create.
+
+   The Calendar's single gold control is "New Item", so the equivalent here is
+   Create, not Refresh. The selector picks the first LINK in the row: Refresh
+   is a `button` and Create and Import are `a`, so `a:first-of-type` is Create
+   without the component needing a class it would otherwise not have. If a
+   link is ever added before Create, this rule moves with it, which is the one
+   thing to know before reordering that row. */
+.ccrm-module .ccrm-control-actions a.btn-secondary:first-of-type {
+  background: var(--ccrm-gold);
+  border-color: var(--ccrm-gold);
+  color: var(--ccrm-navy);
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-control-actions a.btn-secondary:first-of-type:hover {
+  background: #edc252;
+  border-color: #edc252;
+}
+
+/* Buttons that appear in the light body, such as the proposal actions, are
+   outlined navy on white rather than translucent white on nothing. */
+.ccrm-module .ccrm-proposal-actions .btn-secondary,
+.ccrm-module .ccrm-proposal-actions .btn-primary {
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline-strong);
+  color: var(--ccrm-ink);
+  backdrop-filter: none;
+  box-shadow: none;
+  padding: 9px 16px;
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-module .ccrm-proposal-actions .btn-secondary:hover:not(:disabled),
+.ccrm-module .ccrm-proposal-actions .btn-primary:hover:not(:disabled) {
+  background: var(--ccrm-ground);
+  border-color: var(--ccrm-navy-2);
+  transform: none;
+}
+
+/* ======================================================= Stage 4 additions
+
+   The relationship and account-management views. Everything below follows the
+   same rules as the rest of the file: gold is never text on the light ground,
+   quiet text is slate at 5.95:1 on a card, and nothing signals with colour
+   alone. */
+
+/* --------------------------------------------------- the view toolbar */
+
+.ccrm-view-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.ccrm-view-tenant {
+  margin: 6px 0 0;
+  font-size: 0.74rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-workspace-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 230px;
+}
+
+.ccrm-workspace-label {
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+/* The one form control that lives on the light ground rather than the band,
+   so it is overridden back to a light field. */
+.ccrm-module .ccrm-workspace-select {
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline-strong);
+  color: var(--ccrm-ink);
+  box-shadow: none;
+  font-size: 0.82rem;
+  /* 36px here and 44px below the breakpoint, SC 2.5.8. It was 8px of padding
+     and a small font, which measured 35px and failed on a phone. */
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
+.ccrm-module .ccrm-workspace-select:focus {
+  border-color: var(--ccrm-navy-2);
+  background: var(--ccrm-card);
+}
+
+.ccrm-module .ccrm-workspace-select option {
+  background: var(--ccrm-card);
+  color: var(--ccrm-ink);
+}
+
+/* ------------------------------------------------- the eight answers */
+
+/* A policy statement: a sentence whose whole job is to say what the product
+   refuses to do. Marked with a class so the browser suite can tell "there is no
+   risk score here" from an actual risk score, which a substring search cannot.
+   It is the only place those words are allowed to appear. */
+.ccrm-policy {
+  /* No styling of its own. It exists to be found. */
+}
+
+.ccrm-not-ranked {
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  max-width: 92ch;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-navy-2);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-answer-count {
+  flex: 0 0 auto;
+  padding: 2px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ccrm-navy);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 20px;
+}
+
+.ccrm-item-days {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ccrm-quiet);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- flags */
+
+.ccrm-flag-heading {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-flag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-flag {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* The two that need a person carry the gold rule. The rest are neutral,
+   because an indicator that shouts on every record stops meaning anything. */
+.ccrm-flag-conflicting,
+.ccrm-flag-duplicate_candidate,
+.ccrm-flag-review_recommended {
+  border-left-color: var(--ccrm-gold);
+}
+
+.ccrm-flag-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-flag-detail {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-flag-resolution {
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------ source trails */
+
+.ccrm-trail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-trail {
+  padding: 12px 14px;
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-trail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 6px;
+}
+
+.ccrm-trail-field {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-trail-confidence {
+  font-size: 0.7rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-trail-value {
+  margin: 0 0 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-trail-quote {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0 0 7px;
+  padding: 8px 11px;
+  font-size: 0.79rem;
+  line-height: 1.55;
+  font-style: italic;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-card);
+  border-left: 3px solid var(--ccrm-gold-deep);
+  border-radius: 0 var(--ccrm-radius-control) var(--ccrm-radius-control) 0;
+}
+
+.ccrm-trail-quote-icon {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  color: var(--ccrm-gold-deep);
+}
+
+.ccrm-trail-source,
+.ccrm-trail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-trail-meta {
+  margin: 6px 0 0;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-trail-unavailable {
+  color: var(--ccrm-review);
+}
+
+.ccrm-trail-where {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ccrm-quiet);
+}
+
+/* --------------------------------------------------------- timeline */
+
+.ccrm-timeline-body {
+  min-width: 0;
+}
+
+.ccrm-timeline-origin {
+  font-size: 0.72rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-timeline-capture {
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 4px;
+}
+
+.ccrm-independence {
+  margin: 18px 0 0;
+  padding: 11px 14px;
+  max-width: 92ch;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--ccrm-quiet);
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-focus-note {
+  margin: 0 0 14px;
+  padding: 10px 13px;
+  font-size: 0.78rem;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-attention-wash);
+  border: 1px solid #e2cd99;
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* ----------------------------------------------------- timeline filters */
+
+.ccrm-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.ccrm-filter-legend {
+  padding: 0;
+  margin: 0 0 6px;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-filter-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+  cursor: pointer;
+}
+
+.ccrm-filter-option:has(input:checked) {
+  background: var(--ccrm-attention-wash);
+  border-color: var(--ccrm-gold-deep);
+  font-weight: 600;
+}
+
+.ccrm-filter-option input {
+  accent-color: var(--ccrm-navy-2);
+  width: 14px;
+  height: 14px;
+}
+
+.ccrm-filter-count {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ccrm-quiet);
+}
+
+/* ----------------------------------------------------------- the tree */
+
+.ccrm-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-tree .ccrm-tree {
+  margin-left: 18px;
+  padding-left: 14px;
+  border-left: 2px solid var(--ccrm-hairline-strong);
+}
+
+.ccrm-tree-node {
+  margin: 0;
+}
+
+.ccrm-tree-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ccrm-hairline);
+}
+
+.ccrm-tree-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.ccrm-tree-meta,
+.ccrm-tree-counts,
+.ccrm-tree-depth {
+  font-size: 0.74rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-tree-depth {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------ coverage */
+
+.ccrm-coverage-heading {
+  margin: 14px 0 7px;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-role-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-role {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 11px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* A missing role is the point of the screen, so it carries the rule and the
+   word. The word is what survives when the colour does not. */
+.ccrm-role-absent {
+  border-left-color: var(--ccrm-gold);
+}
+
+.ccrm-role-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-role-note {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-role-primary {
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-navy);
+  background: var(--ccrm-gold);
+  border-radius: 4px;
+}
+
+.ccrm-missing-roles {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-attention-wash);
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* ----------------------------------------------- do not contact */
+
+/* Carried by a word and a rule, never by a colour on its own. This is the one
+   fact on a person record that changes what somebody is allowed to do. */
+.ccrm-dnc {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ccrm-review);
+  background: var(--ccrm-review-wash);
+  border: 1px solid var(--ccrm-review-border);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ccrm-dnc-banner {
+  margin: 0 0 18px;
+  padding: 14px 17px;
+  background: var(--ccrm-review-wash);
+  border: 1px solid var(--ccrm-review-border);
+  border-left: 4px solid var(--ccrm-review);
+  border-radius: var(--ccrm-radius-card);
+}
+
+.ccrm-dnc-head {
+  margin: 0 0 5px;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-review);
+}
+
+.ccrm-dnc-body {
+  margin: 0 0 5px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-dnc-meta {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------ consent and preferences */
+
+.ccrm-consent-list,
+.ccrm-pref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-consent,
+.ccrm-pref {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-stated);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-consent-withdrawn {
+  border-left-color: var(--ccrm-review);
+  background: var(--ccrm-review-wash);
+}
+
+.ccrm-consent-type,
+.ccrm-pref-channel {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-consent-sentence,
+.ccrm-pref-note {
+  font-size: 0.79rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-pref-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-pref-note {
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-scope-chip {
+  margin-left: 7px;
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 4px;
+}
+
+/* ------------------------------------------------------------- tags */
+
+.ccrm-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+.ccrm-tag {
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 20px;
+}
+
+/* -------------------------------------------------------------- risks */
+
+.ccrm-risk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-risk {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-risk-what {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-risk-because {
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ccrm-quiet);
+}
+
+/* ---------------------------------------------------------- the rest */
+
+.ccrm-sub-heading {
+  margin: 14px 0 7px;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 16px;
+  font-size: 0.78rem;
+}
+
+.ccrm-breadcrumb-sep {
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-breadcrumb-current {
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-conflict {
+  margin: 0 0 18px;
+}
+
+.ccrm-conflict-field {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--ccrm-ink-soft);
+}
+
+/* A card that is also a button. Same box, so the rail does not change shape
+   when a card becomes pressable. */
+.ccrm-card-button {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ccrm-card-button[aria-pressed='true'] {
+  border-color: var(--ccrm-navy-2);
+}
+
+/* ======================================================= Stage 5 additions
+
+   The write path, the lead inbox, the board and the forecast. Same rules as
+   the rest of the file: gold is never text on the light ground, quiet text is
+   slate, and nothing signals with colour alone. */
+
+/* ------------------------------------------------- writing, and saying so */
+
+.ccrm-write-notice {
+  margin: 0 0 18px;
+  padding: 12px 15px;
+  max-width: 92ch;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-navy-2);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-write-notice-body {
+  margin: 0 0 5px;
+  font-size: 0.79rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-write-notice-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-size: 0.73rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-reset-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+  cursor: pointer;
+}
+
+.ccrm-reset-button:hover {
+  border-color: var(--ccrm-navy-2);
+}
+
+.ccrm-write-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink);
+  background: #f1f8f4;
+  border: 1px solid #b6d6c7;
+  border-left: 3px solid var(--ccrm-stated);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* A refusal is a sentence somebody can act on, so it reads as information
+   rather than as an alarm. */
+.ccrm-write-result-refused {
+  background: var(--ccrm-review-wash);
+  border-color: var(--ccrm-review-border);
+  border-left-color: var(--ccrm-review);
+}
+
+.ccrm-role-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 190px;
+}
+
+.ccrm-role-meaning {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------- fields */
+
+.ccrm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ccrm-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+/* Said in words rather than with an asterisk, because an asterisk is a
+   convention somebody has to already know. */
+.ccrm-field-required {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-waiting);
+}
+
+.ccrm-field-optional {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-field-hint {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+/* Form controls on the light ground, as opposed to the ones on the navy band. */
+.ccrm-module .ccrm-field .form-input,
+.ccrm-module .ccrm-field .form-select,
+.ccrm-module .ccrm-capture-grid .form-input,
+.ccrm-module .ccrm-capture-grid .form-select,
+.ccrm-module .ccrm-decline .form-input,
+.ccrm-module .ccrm-move-controls .form-input,
+.ccrm-module .ccrm-move-controls .form-select,
+.ccrm-module .ccrm-submit-forecast .form-input,
+.ccrm-module .ccrm-submit-forecast .form-select {
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline-strong);
+  color: var(--ccrm-ink);
+  box-shadow: none;
+  min-height: 40px;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+}
+
+.ccrm-module .ccrm-field .form-input::placeholder {
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-field .form-input:focus,
+.ccrm-module .ccrm-field .form-select:focus,
+.ccrm-module .ccrm-capture-grid .form-input:focus,
+.ccrm-module .ccrm-capture-grid .form-select:focus {
+  border-color: var(--ccrm-navy-2);
+  background: var(--ccrm-card);
+  box-shadow: none;
+}
+
+.ccrm-module .ccrm-field .form-select option,
+.ccrm-module .ccrm-capture-grid .form-select option {
+  background: var(--ccrm-card);
+  color: var(--ccrm-ink);
+}
+
+/* A primary action on the light ground: gold, with navy text at 7.89:1. */
+.ccrm-module .ccrm-button-primary {
+  background: var(--ccrm-gold);
+  border-color: var(--ccrm-gold-deep);
+  color: var(--ccrm-navy);
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-button-primary:hover:not(:disabled) {
+  background: #edc252;
+}
+
+.ccrm-module .ccrm-lead-actions .btn-secondary,
+.ccrm-module .ccrm-capture-actions .btn-secondary,
+.ccrm-module .ccrm-move-controls .btn-secondary,
+.ccrm-module .ccrm-submit-forecast .btn-secondary,
+.ccrm-module .ccrm-decline .btn-secondary,
+.ccrm-module .ccrm-shape-picker .btn-secondary {
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline-strong);
+  color: var(--ccrm-ink);
+  backdrop-filter: none;
+  box-shadow: none;
+  padding: 9px 16px;
+  border-radius: var(--ccrm-radius-control);
+  transform: none;
+}
+
+.ccrm-module .ccrm-lead-actions .btn-secondary:hover:not(:disabled),
+.ccrm-module .ccrm-capture-actions .btn-secondary:hover:not(:disabled) {
+  background: var(--ccrm-ground);
+  border-color: var(--ccrm-navy-2);
+  transform: none;
+}
+
+/* ----------------------------------------------------------- the inbox */
+
+.ccrm-lead-org {
+  font-weight: 400;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-lead-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.ccrm-lead-source-label {
+  padding: 2px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-navy);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 20px;
+}
+
+/* Consent carries its own colour because what it says changes what somebody
+   is allowed to do next. "Not obtained" is the one that must stop a reader. */
+.ccrm-consent-not_obtained {
+  border-left-color: var(--ccrm-review);
+  background: var(--ccrm-review-wash);
+}
+
+.ccrm-consent-legitimate_interest,
+.ccrm-consent-implied {
+  border-left-color: var(--ccrm-gold-deep);
+}
+
+.ccrm-before-contact {
+  margin: 0 0 12px;
+  padding: 10px 13px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-review-wash);
+  border: 1px solid var(--ccrm-review-border);
+  border-left: 3px solid var(--ccrm-review);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-match {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-gold-deep);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-match-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.ccrm-match-strength {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-match-context,
+.ccrm-match-reason {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-match-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 0.72rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-routing {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 12px;
+  padding: 10px 13px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-navy-2);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-routing-blocked {
+  border-left-color: var(--ccrm-gold);
+  background: var(--ccrm-attention-wash);
+}
+
+.ccrm-routing-where {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-routing-why,
+.ccrm-next-action-why {
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-next-action {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 12px;
+}
+
+.ccrm-next-action-what {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-lead-missing {
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-lead-actions,
+.ccrm-capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.ccrm-inline-select {
+  max-width: 220px;
+}
+
+.ccrm-decline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--ccrm-ground);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-decline .ccrm-field {
+  flex: 1 1 240px;
+}
+
+.ccrm-lead-decided {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-ground);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* --------------------------------------------------------- the capture */
+
+.ccrm-capture-shell {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-capture-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+  cursor: pointer;
+}
+
+.ccrm-capture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.ccrm-capture-grid .ccrm-capture-actions {
+  grid-column: 1 / -1;
+}
+
+.ccrm-kind-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.ccrm-kind {
+  min-height: 40px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+  cursor: pointer;
+}
+
+.ccrm-kind-on {
+  color: var(--ccrm-navy);
+  background: var(--ccrm-gold);
+  border-color: var(--ccrm-gold-deep);
+}
+
+.ccrm-created {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  font-size: 0.8rem;
+  color: var(--ccrm-ink);
+  background: #f1f8f4;
+  border-left: 3px solid var(--ccrm-stated);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* ------------------------------------------------------------ the board */
+
+.ccrm-pipeline-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+.ccrm-shape-picker {
+  display: flex;
+  gap: 6px;
+}
+
+.ccrm-shape {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 7px 13px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ccrm-ink-soft);
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+  cursor: pointer;
+}
+
+.ccrm-shape-on {
+  color: var(--ccrm-navy);
+  background: var(--ccrm-gold);
+  border-color: var(--ccrm-gold-deep);
+}
+
+.ccrm-shape-note {
+  margin: 0 0 16px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ccrm-quiet);
+}
+
+/* The board scrolls inside itself, never the page. `contain: paint` is what
+   actually keeps a wide board out of the document's scroll width; the same
+   lesson as the tables, learned the same way. */
+.ccrm-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 1fr);
+  gap: 14px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  contain: paint;
+  padding-bottom: 8px;
+}
+
+.ccrm-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-card);
+  box-shadow: var(--ccrm-shadow);
+}
+
+.ccrm-column-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--ccrm-hairline);
+}
+
+.ccrm-column-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-column-count {
+  padding: 1px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ccrm-navy);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 20px;
+}
+
+.ccrm-column-value {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-column-note,
+.ccrm-column-empty {
+  width: 100%;
+  margin: 0;
+  font-size: 0.71rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-kcard {
+  padding: 11px 12px;
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-kcard-stale {
+  border-left-color: var(--ccrm-gold);
+  background: var(--ccrm-attention-wash);
+}
+
+.ccrm-kcard-title {
+  margin: 0 0 3px;
+  font-family: var(--font-heading);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.ccrm-kcard-org {
+  margin: 0 0 7px;
+  font-size: 0.74rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-kcard-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 5px;
+  font-size: 0.74rem;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-kcard-value {
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-kcard-moved {
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--ccrm-waiting);
+  background: var(--ccrm-attention-wash);
+  border: 1px solid #e2cd99;
+  border-radius: 4px;
+}
+
+.ccrm-kcard-next {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+}
+
+.ccrm-kcard-next-what {
+  color: var(--ccrm-ink);
+}
+
+.ccrm-kcard-next-when,
+.ccrm-kcard-contact,
+.ccrm-kcard-missing,
+.ccrm-kcard-criteria,
+.ccrm-kcard-stale-note,
+.ccrm-kcard-reopened {
+  margin: 0 0 4px;
+  font-size: 0.71rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-kcard-confidence {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 7px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--ccrm-hairline);
+}
+
+.ccrm-kcard-confidence-word {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-kcard-confidence-note {
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-compact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ccrm-compact-stage {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-lost-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-lost-reasons li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-lost-count {
+  min-width: 26px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+/* ------------------------------------------------ the work item workspace */
+
+.ccrm-criteria-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-criterion-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 40px;
+  padding: 8px 11px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-control);
+  cursor: pointer;
+}
+
+.ccrm-criterion-label input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ccrm-navy-2);
+}
+
+.ccrm-criterion-text {
+  flex: 1 1 auto;
+}
+
+.ccrm-criterion-kind {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-move-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.ccrm-move-controls .ccrm-field {
+  flex: 1 1 220px;
+}
+
+.ccrm-move-note {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-closed-reason {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-navy-2);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-approval {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-approval-outstanding {
+  border-left-color: var(--ccrm-gold);
+}
+
+.ccrm-approval-awaiting_a_person {
+  border-left-color: var(--ccrm-navy-2);
+}
+
+.ccrm-approval-met {
+  border-left-color: var(--ccrm-stated);
+}
+
+.ccrm-approval-what {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-approval-detail {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-approval-origin {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+/* ---------------------------------------------------------- the factors */
+
+.ccrm-factor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-factor {
+  display: grid;
+  grid-template-columns: minmax(130px, 170px) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 11px;
+  background: var(--ccrm-ground);
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* Direction is carried by a word in the third column as well as by the rule,
+   so it survives a greyscale print and a colour-blind reader. */
+.ccrm-factor-supports {
+  border-left-color: var(--ccrm-stated);
+}
+
+.ccrm-factor-weakens {
+  border-left-color: var(--ccrm-review);
+}
+
+.ccrm-factor-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-factor-fact {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-factor-direction {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+  white-space: nowrap;
+}
+
+.ccrm-estimate-explanation {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-factors-shell {
+  margin-top: 10px;
+}
+
+.ccrm-factors-summary {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--ccrm-ink-soft);
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------- the forecast */
+
+.ccrm-forecast-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--ccrm-gap);
+  align-items: start;
+  margin-bottom: var(--ccrm-gap);
+}
+
+/* The two are visually distinct on purpose. They are different kinds of
+   object and the layout should say so before the headings do. */
+.ccrm-forecast-human {
+  border-top: 3px solid var(--ccrm-navy-2);
+}
+
+.ccrm-forecast-system {
+  border-top: 3px solid var(--ccrm-gold-deep);
+}
+
+.ccrm-forecast-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-forecast-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 10px 12px;
+  background: var(--ccrm-ground);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-band-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-band-amount {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+  text-align: right;
+}
+
+.ccrm-band-count {
+  grid-column: 2;
+  font-size: 0.71rem;
+  color: var(--ccrm-quiet);
+  text-align: right;
+}
+
+.ccrm-band-meaning {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-forecast-gap {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-attention-wash);
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-two-views {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.ccrm-one-view {
+  min-width: 0;
+  padding: 11px 13px;
+  background: var(--ccrm-ground);
+  border-radius: var(--ccrm-radius-control);
+}
+
+.ccrm-view-value {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-view-note {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-submit-forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ccrm-disagreement {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ccrm-ink);
+  background: var(--ccrm-attention-wash);
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: var(--ccrm-radius-control);
+}
+
+/* ===================================================== responsive behaviour
+
+   Three shapes, matching the brief:
+
+   Desktop: the sidebar is the application's, and the module is a multi-panel
+   workspace. The panel grid fills by `auto-fit`, so it is two or three columns
+   depending on width rather than a fixed count.
+
+   Tablet: two columns, and the module's own controls wrap to two per row.
+
+   Mobile: one column, stacked, and the panel order already puts Handle first,
+   Follow-ups, Commitments, New relationships, Pipeline movement and the
+   proposal queue near the top, which is the order the brief asks for.
+
+   Nothing scrolls horizontally except a table, which does so inside its own
+   focusable wrapper rather than making the page wider than the screen. */
+
+@media (max-width: 1100px) {
+  .ccrm-panel-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  /* The band is tightened on a phone rather than merely narrowed.
+   *
+   * Stage 2 set a budget: the first line of page content has to be inside the
+   * first screen, and a test measures it. Restyling pushed it to 613 pixels on
+   * a 390 pixel wide screen, which is a regression the colours are not worth.
+   * Every value below was chosen by measuring the band and taking the height
+   * back out of the things that were decoration rather than information. */
+  .ccrm-header {
+    padding: 14px 16px 12px;
+  }
+
+  .ccrm-tabs-shell {
+    margin-bottom: 16px;
+    padding: 0 16px 12px;
+  }
+
+  .ccrm-header .page-header {
+    margin-bottom: 10px;
+  }
+
+  /* "Concludo Workspace" is already in the application's own header two
+     centimetres above this one. On a phone it is 26 pixels spent saying
+     something the screen has said. */
+  .ccrm-header .page-eyebrow {
+    display: none;
+  }
+
+  .ccrm-module .page-title {
+    font-size: 1.5rem;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+
+  .ccrm-module .page-subtitle {
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+
+  .ccrm-demo-note {
+    margin-bottom: 12px;
+    padding: 8px 11px;
+    font-size: 0.74rem;
+    line-height: 1.45;
+  }
+
+  .ccrm-controls-shell {
+    margin-bottom: 0;
+  }
+
+  .ccrm-header-foot {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .ccrm-sync {
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+
+  .ccrm-main {
+    padding: 0 16px;
+  }
+
+  .ccrm-foot-note {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
+  .ccrm-controls-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 44px;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: var(--ccrm-radius-control);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .ccrm-controls-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ccrm-controls-summary-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .ccrm-controls-summary-state {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.73rem;
+    color: #b4c0d2;
+    text-align: right;
+  }
+
+  /* The chevron, drawn from a border so it rotates with the disclosure
+     without any JavaScript. */
+  .ccrm-controls-summary-label::after {
+    content: '';
+    width: 7px;
+    height: 7px;
+    margin-left: 2px;
+    border-right: 1.5px solid #b4c0d2;
+    border-bottom: 1.5px solid #b4c0d2;
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 0.15s ease-out;
+  }
+
+  .ccrm-controls-shell[open] .ccrm-controls-summary-label::after {
+    transform: rotate(-135deg) translate(-2px, -2px);
+  }
+
+  .ccrm-controls-shell:not([open]) .ccrm-controls {
+    display: none;
+  }
+
+  .ccrm-controls {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .ccrm-control-wide {
+    grid-column: 1 / -1;
+  }
+
+  .ccrm-panel-grid,
+  .ccrm-plan-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ccrm-card-rail {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .ccrm-timeline-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .ccrm-timeline-when {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 9px;
+  }
+
+  /* Stage 4, on a phone. The toolbar drops under the heading, the workspace
+     picker goes full width so its name is readable, and the tree loses most of
+     its indentation so a level-three organisation still has room for a name. */
+  .ccrm-view-head {
+    flex-direction: column;
+  }
+
+  .ccrm-view-toolbar {
+    width: 100%;
+  }
+
+  .ccrm-workspace-picker {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .ccrm-module .ccrm-workspace-select {
+    min-height: 44px;
+  }
+
+  .ccrm-tree .ccrm-tree {
+    margin-left: 8px;
+    padding-left: 10px;
+  }
+
+  .ccrm-filter-bar {
+    padding: 12px 13px;
+  }
+
+  .ccrm-filter-option {
+    min-height: 44px;
+  }
+
+  .ccrm-item-days {
+    align-self: flex-start;
+  }
+
+  /* Stage 5, on a phone. The board is not offered below this width at all, so
+     there is nothing to make fit; what is left is making every control a thumb
+     has to hit at least 44 pixels. */
+  .ccrm-kind,
+  .ccrm-shape,
+  .ccrm-reset-button,
+  .ccrm-criterion-label {
+    min-height: 44px;
+  }
+
+  .ccrm-capture-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ccrm-forecast-pair,
+  .ccrm-two-views {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ccrm-factor {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .ccrm-pipeline-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ccrm-module .ccrm-field .form-input,
+  .ccrm-module .ccrm-field .form-select,
+  .ccrm-module .ccrm-capture-grid .form-input,
+  .ccrm-module .ccrm-capture-grid .form-select {
+    min-height: 44px;
+  }
+
+  /* Touch targets, SC 2.5.8 at the 44px level below the breakpoint. */
+  .ccrm-tab,
+  .ccrm-button,
+  .ccrm-text-link,
+  .ccrm-proposal-indicator,
+  .ccrm-card,
+  .ccrm-item {
+    min-height: 44px;
+  }
+
+  .ccrm-tabs {
+    gap: 10px 16px;
+  }
+
+  /* The fourteen tabs behind a disclosure. Measured without it, the first line
+     of page content sat 814 pixels down an 844 pixel screen. */
+  .ccrm-tabs-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: var(--ccrm-radius-control);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .ccrm-tabs-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ccrm-tabs-summary-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .ccrm-tabs-summary-label::after {
+    content: '';
+    width: 7px;
+    height: 7px;
+    margin-left: 2px;
+    border-right: 1.5px solid #b4c0d2;
+    border-bottom: 1.5px solid #b4c0d2;
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 0.15s ease-out;
+  }
+
+  .ccrm-tabs-shell[open] .ccrm-tabs-summary-label::after {
+    transform: rotate(-135deg) translate(-2px, -2px);
+  }
+
+  .ccrm-tabs-summary-state {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gold-400);
+  }
+
+  .ccrm-tabs-shell:not([open]) .ccrm-tabs {
+    display: none;
+  }
+
+  .ccrm-tabs-shell[open] .ccrm-tabs {
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .ccrm-card-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ccrm-header-foot {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ccrm-proposal-indicator {
+    width: 100%;
+  }
+}
+
+/* Reduced motion. The application ships an infinite pulse and several
+   transform hovers with no such block; this module honours the preference. */
+@media (prefers-reduced-motion: reduce) {
+  .ccrm-module *,
+  .ccrm-module *::before,
+  .ccrm-module *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast and forced colours. Borders are drawn with system colours so
+   the module keeps its structure when the author's palette is discarded. */
+@media (forced-colors: active) {
+  .ccrm-card,
+  .ccrm-panel,
+  .ccrm-proposal,
+  .ccrm-review,
+  .ccrm-plan,
+  .ccrm-report-figure,
+  .ccrm-state,
+  .ccrm-table-wrap,
+  .ccrm-not-built {
+    border: 1px solid ButtonBorder;
+  }
+
+  .ccrm-tab-active {
+    border: 2px solid Highlight;
+  }
+
+  .ccrm-module :focus-visible {
+    outline: 3px solid Highlight;
+  }
+
+  /* The status glyph is a character, so it survives forced colours where a
+     coloured dot drawn in CSS would not. */
+  .ccrm-status-glyph {
+    forced-color-adjust: none;
+  }
+}
+
+/* ========================================================================
+   The one deliberate exception to the prefix rule.
+
+   `.ccrm-module` resets the inherited mobile `table` rule from index.css for
+   its own tables only. It is scoped to the module and cannot affect any other
+   page. It is written here rather than fixed in index.css because changing a
+   global rule that ten existing pages depend on is a separate decision for the
+   application, not something a new module should make on its own.
+   ======================================================================== */
+
+/* The source breakdown under the lead rail: one line, quiet, complete. */
+.ccrm-module .ccrm-source-breakdown {
+  margin: 0 0 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ccrm-quiet);
+}
+
+/* Said before a viewer types, not after they press. Review red on the light
+   ground, measured at 7.16:1, so it reads as a constraint and not as an error
+   that has already happened. */
+.ccrm-module .ccrm-write-notice-readonly {
+  margin: 0 0 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid var(--ccrm-review);
+  border-radius: 0 6px 6px 0;
+  background: #fdf3f2;
+  color: var(--ccrm-ink);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+/* =====================================================================
+   Stage 6: account planning.
+
+   Two ideas carry most of this block.
+
+   First, the plan is in two columns and the columns mean something: the left
+   is read from the records, the right is what people wrote. They are given
+   different column labels and a different left rule so the difference survives
+   a glance, a screenshot and a greyscale print.
+
+   Second, the whitespace grid's unknown state has to be the LOUDEST thing on
+   the grid, not the quietest. Every instinct says grey it out. Grey reads as
+   nothing to do, and the unknown cells are the only ones worth a conversation.
+   So unknown gets the gold rule, and the state is written as a word in every
+   cell regardless.
+   ===================================================================== */
+
+/* -------------------------------------------------- shared small parts */
+
+.ccrm-module .ccrm-plain-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-module .ccrm-plain-list li {
+  margin-bottom: 0.3rem;
+}
+
+.ccrm-module .ccrm-missing-block {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: 0 6px 6px 0;
+  background: var(--ccrm-ground);
+}
+
+.ccrm-module .ccrm-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-module .ccrm-card-word {
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+/* ------------------------------------------------------- the plan page */
+
+.ccrm-module .ccrm-derivation-note {
+  border-left-color: var(--ccrm-navy);
+}
+
+.ccrm-module .ccrm-plan-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+  margin-bottom: 1.25rem;
+}
+
+.ccrm-module .ccrm-plan-column-label {
+  margin: 0 0 0.6rem;
+  padding-left: 0.6rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+/* The derived side carries a navy rule; the written side a gold one. The
+   difference is also stated in words above each column, because a colour alone
+   is not a label. */
+.ccrm-module .ccrm-plan-derived .ccrm-plan-column-label {
+  border-left: 3px solid var(--ccrm-navy);
+}
+
+.ccrm-module .ccrm-plan-written .ccrm-plan-column-label {
+  border-left: 3px solid var(--ccrm-gold-deep);
+}
+
+.ccrm-module .ccrm-plan-section {
+  margin: 0;
+}
+
+.ccrm-module .ccrm-plan-section-title {
+  margin: 0 0 0.35rem;
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-plan-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  font-style: italic;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-plan-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccrm-module .ccrm-plan-entries li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--ccrm-hairline);
+}
+
+.ccrm-module .ccrm-plan-entries li:last-child {
+  border-bottom: none;
+}
+
+.ccrm-module .ccrm-plan-entry-body {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-plan-entry-source {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-swot {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+/* ------------------------------------------------ the stakeholder map */
+
+.ccrm-module .ccrm-stakeholder {
+  padding: 0.85rem;
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: 8px;
+  background: var(--ccrm-card);
+}
+
+.ccrm-module .ccrm-stakeholder-name {
+  margin: 0;
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-stakeholder-role {
+  margin: 0.1rem 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-stakeholder-evidence {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink-soft);
+}
+
+/* A person recorded as standing in the way is the one claim on this page that
+   is about a human being rather than about a process, so it is marked as a
+   claim and always carries the sentence behind it. */
+.ccrm-module .ccrm-blocker-note {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border-left: 3px solid var(--ccrm-review);
+  border-radius: 0 6px 6px 0;
+  background: #fdf3f2;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-risk-help {
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-module .ccrm-risk-people {
+  color: var(--ccrm-quiet);
+}
+
+/* --------------------------------------------------- the whitespace grid */
+
+.ccrm-module .ccrm-unknown-note {
+  border-left-color: var(--ccrm-gold-deep);
+}
+
+.ccrm-module .ccrm-grid-scroll {
+  overflow-x: auto;
+  contain: paint;
+}
+
+.ccrm-module .ccrm-whitespace-table td {
+  vertical-align: top;
+  min-width: 11rem;
+}
+
+.ccrm-module .ccrm-ws-cell {
+  display: table-cell;
+}
+
+.ccrm-module .ccrm-ws-state {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-ws-note,
+.ccrm-module .ccrm-ws-derived,
+.ccrm-module .ccrm-ws-by {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-ws-derived {
+  font-style: italic;
+}
+
+/* THE UNKNOWN CELL IS THE LOUD ONE. Gold rule, cream fill, and the word "Not
+   known yet" in every one of them. A grid where the unknowns recede is a grid
+   that reads as a wall of noes. */
+.ccrm-module .ccrm-ws-unknown {
+  border-left: 3px solid var(--ccrm-gold-deep);
+  background: #fdf8ec;
+}
+
+.ccrm-module .ccrm-ws-in_use {
+  border-left: 3px solid var(--ccrm-stated, #166b4a);
+}
+
+.ccrm-module .ccrm-ws-open_opportunity {
+  border-left: 3px solid var(--ccrm-open);
+}
+
+.ccrm-module .ccrm-ws-potential_need {
+  border-left: 3px solid var(--ccrm-navy-2);
+}
+
+.ccrm-module .ccrm-ws-not_relevant {
+  border-left: 3px solid var(--ccrm-hairline-strong);
+}
+
+.ccrm-module .ccrm-ws-ask {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 6px;
+  background: var(--ccrm-card);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ccrm-ink-soft);
+  cursor: pointer;
+}
+
+.ccrm-module .ccrm-ws-card-unknown {
+  border-left: 3px solid var(--ccrm-gold-deep);
+}
+
+/* ------------------------------------------------------ the joint plan */
+
+/* The sentence that says this goes nowhere. Navy, at the top of every joint
+   plan, not a footnote. */
+.ccrm-module .ccrm-sharing-note {
+  border-left-color: var(--ccrm-navy);
+  background: var(--ccrm-ground);
+}
+
+.ccrm-module .ccrm-overdue {
+  color: var(--ccrm-review);
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-overdue-item {
+  color: var(--ccrm-review);
+}
+
+.ccrm-module .ccrm-preview {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px dashed var(--ccrm-hairline-strong);
+  border-radius: 8px;
+  background: var(--ccrm-ground);
+}
+
+.ccrm-module .ccrm-preview-not-shared {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--ccrm-hairline);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-preview-title {
+  margin: 0;
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-preview-objective {
+  margin: 0.25rem 0 0.9rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-module .ccrm-preview-actions {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.ccrm-module .ccrm-preview-actions li {
+  margin-bottom: 0.65rem;
+}
+
+.ccrm-module .ccrm-preview-action {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-preview-meta,
+.ccrm-module .ccrm-preview-waiting {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--ccrm-quiet);
+}
+
+/* --------------------------------------------------------- the review */
+
+.ccrm-module .ccrm-promise-column {
+  min-width: 0;
+}
+
+.ccrm-module .ccrm-agenda {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.ccrm-module .ccrm-agenda li {
+  margin-bottom: 0.6rem;
+}
+
+.ccrm-module .ccrm-agenda-heading {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-agenda-because {
+  display: block;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------ phone */
+
+@media (max-width: 900px) {
+  .ccrm-module .ccrm-plan-columns,
+  .ccrm-module .ccrm-swot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* On a phone the two columns stack, so the labels stop being a left and a
+     right and have to carry the whole distinction themselves. They already say
+     it in words, which is why this works. */
+  .ccrm-module .ccrm-plan-written .ccrm-plan-column-label {
+    margin-top: 1rem;
+  }
+
+  .ccrm-module .ccrm-whitespace-table td {
+    min-width: 9rem;
+  }
+
+  .ccrm-module .ccrm-ws-ask,
+  .ccrm-module .ccrm-back-link {
+    min-height: 44px;
+  }
+}
+
+/* =====================================================================
+   Stage 7: the proposal queue.
+
+   One idea carries this block: the marks on a proposal row are the part
+   somebody reads at speed, so they are words with an icon rather than an icon
+   with a tooltip, and the three that matter (a message, something
+   irreversible, a source carrying text addressed to software) are visually
+   distinct from each other and from the routine ones.
+   ===================================================================== */
+
+.ccrm-module .ccrm-proposal-row {
+  align-items: flex-start;
+}
+
+.ccrm-module .ccrm-proposal-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.ccrm-module .ccrm-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--ccrm-hairline-strong);
+  border-radius: 999px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ccrm-quiet);
+  background: var(--ccrm-card);
+}
+
+/* A message to a customer. Navy: this is not an error, it is the thing that
+   needs a person. */
+.ccrm-module .ccrm-mark-message {
+  border-color: var(--ccrm-navy-2);
+  color: var(--ccrm-navy-2);
+}
+
+/* Something that cannot be undone. */
+.ccrm-module .ccrm-mark-destructive {
+  border-color: var(--ccrm-review);
+  color: var(--ccrm-review);
+}
+
+/* A source carrying text addressed to software. Gold, because it is unusual
+   rather than wrong, and because it must not read as an error the person can
+   dismiss. */
+.ccrm-module .ccrm-mark-injection {
+  border-color: var(--ccrm-gold-deep);
+  color: var(--ccrm-gold-deep);
+  background: #fdf8ec;
+}
+
+.ccrm-module .ccrm-injection-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border-left: 3px solid var(--ccrm-gold-deep);
+  border-radius: 0 6px 6px 0;
+  background: #fdf8ec;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--ccrm-ink);
+}
+
+/* ------------------------------------------------- the eleven headings */
+
+.ccrm-module .ccrm-explain-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.1rem;
+}
+
+/* The two that are read most carefully get the full width: what would change,
+   and what would leave Concludo. */
+.ccrm-module .ccrm-explain-grid > .ccrm-explain:nth-child(4),
+.ccrm-module .ccrm-explain-grid > .ccrm-explain:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+.ccrm-module .ccrm-explain-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-source-quote {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  font-style: italic;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-plain-list-warn li {
+  color: var(--ccrm-review);
+}
+
+.ccrm-module .ccrm-diff-table th[scope='row'] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ------------------------------------------------------- the draft */
+
+.ccrm-module .ccrm-draft {
+  padding: 0.85rem;
+  border: 1px dashed var(--ccrm-hairline-strong);
+  border-radius: 8px;
+  background: var(--ccrm-ground);
+}
+
+.ccrm-module .ccrm-draft-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--ccrm-navy-2);
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-draft-body {
+  margin: 0.6rem 0 0;
+  padding: 0.75rem;
+  border-radius: 6px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--ccrm-ink);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.ccrm-module .ccrm-agent-list dd {
+  color: var(--ccrm-quiet);
+}
+
+@media (max-width: 900px) {
+  .ccrm-module .ccrm-explain-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ccrm-module .ccrm-diff-table {
+    font-size: 0.75rem;
+  }
+}
+
+/* =====================================================================
+   Stage 8: indicators, the importer, and the registers
+
+   Everything here is scoped inside `.ccrm-module`, like every other block
+   above, so the CRM's light surface cannot leak into the navy app shell.
+
+   The indicator states are marked by a WORD in the markup and by a border
+   here. Never by colour alone: a reader with no colour vision gets the word,
+   and a green zero that means "nobody has looked" is the exact confusion this
+   page exists to prevent.
+   ===================================================================== */
+
+.ccrm-module .ccrm-indicator {
+  border-left: 3px solid var(--ccrm-hairline-strong);
+}
+
+.ccrm-module .ccrm-indicator-attention {
+  border-left-color: var(--ccrm-review);
+}
+
+.ccrm-module .ccrm-indicator-clear {
+  border-left-color: var(--ccrm-stated);
+}
+
+/* Nothing to measure is deliberately NEUTRAL rather than green. */
+.ccrm-module .ccrm-indicator-nothing_to_measure {
+  border-left-color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-indicator-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.ccrm-module .ccrm-code-block {
+  margin: 0.6rem 0 0;
+  padding: 0.75rem;
+  border-radius: 6px;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: var(--ccrm-ink);
+  white-space: pre;
+  overflow-x: auto;
+  /* A long error file should not stretch the page sideways. */
+  max-width: 100%;
+  contain: paint;
+}
+
+.ccrm-module .ccrm-textarea {
+  width: 100%;
+  min-height: 7rem;
+  padding: 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--ccrm-hairline-strong);
+  background: var(--ccrm-card);
+  color: var(--ccrm-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.ccrm-module .ccrm-textarea:focus-visible {
+  outline: 2px solid var(--ccrm-focus);
+  outline-offset: 2px;
+}
+
+.ccrm-module .ccrm-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+}
+
+/* 44 by 44, so a control is reachable on a phone. WCAG 2.2 SC 2.5.8 asks for
+   24 by 24; the larger size is what makes it usable rather than merely
+   conformant. */
+.ccrm-module .ccrm-form-actions .ccrm-button,
+.ccrm-module .ccrm-disclosure-button {
+  min-height: 44px;
+  padding: 0.5rem 0.9rem;
+}
+
+.ccrm-module .ccrm-disclosure-button {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding-left: 0;
+  padding-right: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.ccrm-module .ccrm-disclosure-button:focus-visible {
+  outline: 2px solid var(--ccrm-focus);
+  outline-offset: 2px;
+}
+
+.ccrm-module .ccrm-panel-footer {
+  margin: 0.75rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.ccrm-module .ccrm-draft {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--ccrm-hairline);
+  background: var(--ccrm-ground);
+}
+
+@media (max-width: 700px) {
+  .ccrm-module .ccrm-form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ccrm-module .ccrm-code-block {
+    font-size: 0.68rem;
+  }
+}
+
+/* Prose inside a code block wraps. A CSV error file does not, because its
+   columns have to stay in their columns to be readable. */
+.ccrm-module .ccrm-code-block.ccrm-code-wrap {
+  white-space: pre-wrap;
+}
+
+/* =====================================================================
+   Phase 2A-i: the attention list
+
+   Scoped inside `.ccrm-module`, like every other block above.
+
+   A dismissed condition is marked by a LEFT BORDER and the word "Dismissed"
+   in its own sentence, never by colour alone and never by hiding it. A
+   dismissal that disappears from the page is a dismissal nobody can reverse.
+   ===================================================================== */
+
+.ccrm-module .ccrm-signal {
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--ccrm-hairline-strong);
+}
+
+.ccrm-module .ccrm-signal-dismissed {
+  border-left-color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-signal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.ccrm-module .ccrm-evidence-list {
+  margin: 0.35rem 0 0.5rem;
+  padding-left: 0.9rem;
+  border-left: 1px dotted var(--ccrm-hairline-strong);
+}
+
+.ccrm-module .ccrm-signal-decide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.ccrm-module .ccrm-signal-decide .form-control {
+  flex: 1 1 18rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--ccrm-hairline-strong);
+  background: var(--ccrm-card);
+  color: var(--ccrm-ink);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.ccrm-module .ccrm-signal-decide .form-control:focus-visible {
+  outline: 2px solid var(--ccrm-focus);
+  outline-offset: 2px;
+}
+
+.ccrm-module .ccrm-signal-decide .ccrm-button {
+  min-height: 44px;
+}
+
+@media (max-width: 700px) {
+  .ccrm-module .ccrm-signal-decide {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* =====================================================================
+   Phase 2B-i: customer memory
+
+   Scoped inside `.ccrm-module`, like every other block above.
+
+   THE ONE DESIGN DECISION WORTH WRITING DOWN. "Not recorded" is styled to be
+   READ, not to be dismissed. It is the same size as a real answer, in the
+   quiet ink rather than a warning colour, with a dotted left border so it is
+   distinguishable without relying on colour at all. An empty answer rendered
+   in small grey italics is an empty answer people skip, and skipping it is
+   how somebody walks into a meeting believing a question was answered.
+   ===================================================================== */
+
+.ccrm-module .ccrm-answer-list {
+  list-style: none;
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ccrm-module .ccrm-answer {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: 6px;
+  background: var(--ccrm-card);
+}
+
+.ccrm-module .ccrm-answer-empty {
+  border-left-style: dotted;
+  border-left-color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-answer-question {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-heading);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-answer-text,
+.ccrm-module .ccrm-answer-not-recorded {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.ccrm-module .ccrm-answer-text {
+  color: var(--ccrm-ink);
+}
+
+/* Same size, quieter ink. Not italics, not smaller. */
+.ccrm-module .ccrm-answer-not-recorded {
+  color: var(--ccrm-quiet);
+}
+
+/* The kind of thing an entry is, above its sentence. A label rather than a
+   coloured dot, because eight kinds in eight colours is eight things to learn
+   and nothing for a screen reader. */
+.ccrm-module .ccrm-item-kind {
+  display: inline-block;
+  margin-bottom: 0.15rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-memory-search {
+  margin: 0.25rem 0 1rem;
+}
+
+.ccrm-module .ccrm-memory-search .form-control {
+  flex: 1 1 20rem;
+}
