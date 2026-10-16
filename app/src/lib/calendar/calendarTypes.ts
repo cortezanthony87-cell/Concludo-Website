@@ -72,7 +72,7 @@ export interface CalendarItem {
   review_cadence?: ReviewCadence | null;
   review_expires_on?: string | null;
   visibility: CalendarVisibility;
-  source_type?: 'meeting' | 'report' | 'project' | 'decision_register' | 'risk_register' | 'board_paper' | 'other' | null;
+  source_type?: 'meeting' | 'report' | 'project' | 'decision_register' | 'risk_register' | 'board_paper' | 'email' | 'other' | null;
   source_id?: string | null;
   source_title?: string | null;
   source_reference?: string | null;

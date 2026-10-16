@@ -60,9 +60,16 @@ CREATE TABLE IF NOT EXISTS public.user_email_actions (
   thread_id text NOT NULL,
   action text NOT NULL,
   account_email text,
-  created_at timestamptz DEFAULT now(),
-  CONSTRAINT user_email_actions_user_thread_action_unique UNIQUE(user_id, thread_id, action)
+  created_at timestamptz DEFAULT now()
 );
+
+-- Safely ensure account_email column exists on pre-existing installations
+ALTER TABLE public.user_email_actions ADD COLUMN IF NOT EXISTS account_email text;
+ALTER TABLE public.user_email_actions DROP CONSTRAINT IF EXISTS user_email_actions_user_thread_action_unique;
+
+-- Mailbox-scoped uniqueness index
+CREATE UNIQUE INDEX IF NOT EXISTS user_email_actions_user_acc_thread_act_idx
+  ON public.user_email_actions (user_id, thread_id, action, COALESCE(account_email, ''));
 
 ALTER TABLE public.user_email_actions ENABLE ROW LEVEL SECURITY;
 

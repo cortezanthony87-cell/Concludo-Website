@@ -63,8 +63,6 @@ export const EmailThreadPage: React.FC = () => {
     try {
       const pane = document.querySelector('.ecc-col-conversation') || document.querySelector('.ecc-conversation');
       if (pane) pane.scrollTop = 0;
-      const main = document.querySelector('.main-content-area');
-      if (main) main.scrollTop = 0;
     } catch (_) {}
   }, [threadId]);
 
@@ -125,10 +123,6 @@ export const EmailThreadPage: React.FC = () => {
         if (pane) pane.scrollTop = 0;
         if (typeof window !== 'undefined' && window.innerWidth <= 1100) {
           setPane('conversation');
-        }
-        const target = document.getElementById('ecc-conversation-heading') || document.querySelector('.ecc-conversation-head') || document.querySelector('.ecc-col-conversation');
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       } catch (_) {}
     }, 50);

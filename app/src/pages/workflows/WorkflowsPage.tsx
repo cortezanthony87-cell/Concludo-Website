@@ -330,7 +330,7 @@ export const WorkflowsPage: React.FC = () => {
                 {workflows.map((wf) => (
                   <div
                     key={wf.id}
-                    className="bg-[#16263F] border border-[#21395C] hover:border-[#E2B53C]/70 rounded-2xl p-6 flex flex-col justify-between shadow-xl transition-all duration-200 relative"
+                    className="bg-[#16263F] border border-[#21395C] hover:border-[#E2B53C]/70 rounded-2xl p-6 flex flex-col justify-between shadow-xl transition-all duration-200 relative overflow-hidden"
                     style={{ boxSizing: 'border-box' }}
                   >
                     <div>
@@ -404,10 +404,10 @@ export const WorkflowsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Template Controls - All Options Strictly Contained Inside Template Box */}
-                    <div className="mt-5 pt-4 border-t border-[#21395C] space-y-2.5 w-full">
-                      {/* Top Action Row: Primary Builder & Execution */}
-                      <div className="grid grid-cols-2 gap-2.5 w-full">
+                    {/* Template Action Box - All Controls Strictly Contained Inside */}
+                    <div className="mt-5 p-3.5 bg-[#0B1320] border border-[#21395C] rounded-xl space-y-2.5 w-full box-border">
+                      {/* Row 1: Primary Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2 w-full">
                         <Link
                           to={`/workflows/builder?id=${wf.id}`}
                           className="w-full py-2.5 px-3 bg-gradient-to-r from-[#E2B53C] to-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-md transition border border-[#E2B53C] hover:brightness-110"
@@ -427,23 +427,23 @@ export const WorkflowsPage: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Secondary Action Row: Pause/Activate & Delete (Separated Gold Boxes) */}
-                      <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-[#21395C]/60 w-full">
+                      {/* Row 2: Pause and Delete (Separated Gold Boxes) */}
+                      <div className="grid grid-cols-2 gap-2 w-full">
                         {/* Option: Pause / Activate in Dedicated Gold Box */}
                         <button
                           onClick={() => handleToggleActive(wf)}
-                          className="w-full py-2 px-2.5 bg-[#0E1726] hover:bg-[#21395C] text-white hover:text-[#E2B53C] border border-[#E2B53C] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition"
+                          className="w-full py-2 px-2.5 bg-[#16263F] hover:bg-[#21395C] text-white hover:text-[#E2B53C] border border-[#E2B53C] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition"
                           title={wf.is_active ? 'Pause this workflow' : 'Activate this workflow'}
                         >
                             {wf.is_active ? (
                               <>
                                 <Pause className="w-3 h-3 text-[#E2B53C]" />
-                                <span>Pause Workflow</span>
+                                <span>Pause</span>
                               </>
                             ) : (
                               <>
                                 <Play className="w-3 h-3 text-[#E2B53C]" />
-                                <span>Activate Workflow</span>
+                                <span>Activate</span>
                               </>
                             )}
                           </button>
@@ -451,7 +451,7 @@ export const WorkflowsPage: React.FC = () => {
                         {/* Option: Delete in Dedicated Gold Box with Two-Step Confirmation */}
                         <div className="w-full">
                           {confirmDeleteId === wf.id ? (
-                            <div className="flex items-center justify-between w-full bg-[#0E1726] border border-[#E2B53C] rounded-xl p-1 shadow">
+                            <div className="flex items-center justify-between w-full bg-[#16263F] border border-[#E2B53C] rounded-lg p-1 shadow">
                               <span className="text-[10px] text-[#E2B53C] px-1 font-semibold">Delete?</span>
                               <div className="flex items-center gap-1">
                               <button
@@ -479,23 +479,23 @@ export const WorkflowsPage: React.FC = () => {
                           ) : (
                             <button
                               onClick={() => setConfirmDeleteId(wf.id)}
-                              className="w-full py-2 px-2.5 bg-[#0E1726] hover:bg-rose-950/30 text-[#E2B53C] hover:text-rose-300 border border-[#E2B53C] hover:border-rose-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition"
+                              className="w-full py-2 px-2.5 bg-[#16263F] hover:bg-rose-950/30 text-[#E2B53C] hover:text-rose-300 border border-[#E2B53C] hover:border-rose-400 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition"
                               title="Delete this workflow"
                             >
                               <Trash2 className="w-3 h-3 text-[#E2B53C]" />
-                              <span>Delete Workflow</span>
+                              <span>Delete</span>
                             </button>
                           )}
                         </div>
                       </div>
 
-                      {/* Executive Only: Save as Permanent Template in Full-Width Gold Box */}
+                      {/* Row 3: Save as Permanent Template (Anthony & Team Only) */}
                       {isAuthorizedAdmin && (
-                        <div className="pt-1 border-t border-[#21395C]/60 w-full">
+                        <div className="w-full pt-0.5">
                           <button
                             onClick={() => handleSavePermanentTemplate(wf)}
                             disabled={savingTemplateId === wf.id}
-                            className="w-full py-2 px-3 bg-[#E2B53C]/10 hover:bg-[#E2B53C]/20 text-[#E2B53C] border border-[#E2B53C] rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow transition"
+                            className="w-full py-2 px-3 bg-[#E2B53C]/10 hover:bg-[#E2B53C]/20 text-[#E2B53C] border border-[#E2B53C] rounded-lg text-xs font-bold flex items-center justify-center gap-2 shadow transition"
                             title="Save this workflow into permanent templates library (exclusive to your account and team)"
                           >
                             <Bookmark className="w-3.5 h-3.5 text-[#E2B53C]" />
@@ -526,7 +526,7 @@ export const WorkflowsPage: React.FC = () => {
                 {permanentTemplates.map((tpl) => (
                   <div
                     key={tpl.templateKey}
-                    className="bg-[#16263F] border border-[#E2B53C]/60 rounded-2xl p-6 flex flex-col justify-between shadow-xl transition-all duration-200 relative"
+                    className="bg-[#16263F] border border-[#E2B53C]/60 rounded-2xl p-6 flex flex-col justify-between shadow-xl transition-all duration-200 relative overflow-hidden"
                     style={{ boxSizing: 'border-box' }}
                   >
                     <div>
@@ -541,10 +541,10 @@ export const WorkflowsPage: React.FC = () => {
                       <h3 className="text-lg font-bold font-heading text-white mt-4 leading-snug">{tpl.name}</h3>
                       <p className="text-xs text-slate-300 mt-2.5 line-clamp-3 leading-relaxed">{tpl.description}</p>
                     </div>
-                    <div className="mt-5 pt-4 border-t border-[#21395C] w-full">
+                    <div className="mt-5 p-3.5 bg-[#0B1320] border border-[#21395C] rounded-xl w-full">
                       <Link
                         to={`/workflows/builder?template=${tpl.templateKey}`}
-                        className="w-full py-2.5 px-3 bg-gradient-to-r from-[#E2B53C] to-[#BC8A1C] text-[#0E1726] font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow border border-[#E2B53C] hover:brightness-110 transition"
+                        className="w-full py-2.5 px-3 bg-gradient-to-r from-[#E2B53C] to-[#BC8A1C] text-[#0E1726] font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow border border-[#E2B53C] hover:brightness-110 transition"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>Use Template in Builder</span>
