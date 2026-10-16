@@ -2602,7 +2602,7 @@ export class IntegrationsHubService {
 
     const { error } = await this.supabase
       .from('integration_app_requests')
-      .insert({ provider_id: providerId });
+      .insert({ provider_id: providerId, user_id: user.id });
     if (error && error.code !== '23505') {
       throw error;
     }
