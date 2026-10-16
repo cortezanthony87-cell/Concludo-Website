@@ -152,18 +152,44 @@ Deno.serve(async (request) => {
       try {
         const { accessToken } = await getOrRefreshAccessToken(service, msConn.id);
 
-        // Find or create 'Concludo Tasks' list
-        let listId = 'default';
+        // Determine target list name from workflow configuration or defaults
+        const targetListName = (
+          workflow.definition_json?.steps?.find((s: any) => s.application === 'microsoft_todo')?.inputMapping?.listName ||
+          workflow.definition_json?.steps?.find((s: any) => s.application === 'microsoft_todo')?.configuration?.listName ||
+          (wfName.toLowerCase().includes('linkedin') ? 'LinkedIn Follow-ups' : 'Concludo Tasks')
+        );
+
+        let listId = '';
         const listRes = await fetch('https://graph.microsoft.com/v1.0/me/todo/lists', {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
 
         if (listRes.ok) {
           const listJson = await listRes.json();
-          const existingList = (listJson.value || []).find((l: any) => l.displayName === 'Concludo Tasks' || l.wellknownListName === 'defaultList');
+          const existingList = (listJson.value || []).find((l: any) => l.displayName?.toLowerCase() === targetListName.toLowerCase());
           if (existingList) {
             listId = existingList.id;
+          } else {
+            // Create the custom named list explicitly in Microsoft To Do
+            const createListRes = await fetch('https://graph.microsoft.com/v1.0/me/todo/lists', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ displayName: targetListName }),
+            });
+            if (createListRes.ok) {
+              const newListData = await createListRes.json();
+              listId = newListData.id;
+            } else {
+              // Fallback to default list if list creation encounters permission issues
+              const defaultList = (listJson.value || []).find((l: any) => l.wellknownListName === 'defaultList' || l.displayName === 'Tasks');
+              listId = defaultList ? defaultList.id : 'default';
+            }
           }
+        } else {
+          listId = 'default';
         }
 
         const createdTasks: any[] = [];
@@ -210,15 +236,19 @@ Deno.serve(async (request) => {
             }
 
             // Also mirror created task into Concludo Action Tracker
-            await service.from('action_tracker').insert({
-              user_id: user.id,
-              action_title: title,
-              action_description: desc,
-              status: 'pending',
-              ownership_type: 'individual',
-              workflow_id: workflow.id,
-              due_date: item.due_date || null,
-            }).catch((err) => console.warn('Failed to mirror to action_tracker:', err));
+            try {
+              await service.from('action_tracker').insert({
+                user_id: user.id,
+                action_title: title,
+                action_description: desc,
+                status: 'not_started',
+                ownership_type: 'personal',
+                workflow_id: workflow.id,
+                due_date: item.due_date || null,
+              });
+            } catch (err: any) {
+              console.warn('Failed to mirror to action_tracker:', err.message);
+            }
           } else {
             const errText = await createRes.text().catch(() => '');
             console.error('Failed to create Microsoft To Do task:', createRes.status, errText);
