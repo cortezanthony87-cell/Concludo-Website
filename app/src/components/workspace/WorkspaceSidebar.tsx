@@ -79,7 +79,7 @@ function useMatches(query: string): boolean {
 /** Which groups the person left open. Per browser, and never load bearing. */
 function useOpenGroups(): [Set<WorkspaceGroup>, (group: WorkspaceGroup) => void] {
   const [open, setOpen] = React.useState<Set<WorkspaceGroup>>(() => {
-    const fallback = new Set<WorkspaceGroup>(['Work', 'Intelligence', 'Automation', 'Connectivity']);
+    const fallback = new Set<WorkspaceGroup>(['Work', 'Connectivity', 'Automation', 'Intelligence']);
     try {
       const saved = window.localStorage.getItem('concludo.sidebar.groups');
       if (!saved) return fallback;

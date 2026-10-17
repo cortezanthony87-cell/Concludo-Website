@@ -32,21 +32,25 @@ import type { FeatureKey } from '../permissions/types';
 
 export type WorkspaceGroup =
   | 'Work'
-  | 'Intelligence'
-  | 'Automation'
   | 'Connectivity'
+  | 'Automation'
+  | 'Intelligence'
   | 'Admin';
 
 /**
  * The five groups, in the order they appear.
  *
- * Work is first and pinned. The rest scroll.
+ * 1. Work
+ * 2. Connectivity
+ * 3. Automation
+ * 4. Intelligence
+ * 5. Admin
  */
 export const WORKSPACE_GROUPS: WorkspaceGroup[] = [
   'Work',
-  'Intelligence',
-  'Automation',
   'Connectivity',
+  'Automation',
+  'Intelligence',
   'Admin',
 ];
 
@@ -198,6 +202,76 @@ const DESTINATIONS: WorkspaceDestination[] = [
     badge: 'blocking',
   },
 
+  /* -------------------------------------------------------- Connectivity */
+  {
+    path: '/integrations',
+    label: 'Connect App',
+    iconName: 'Plug',
+    accessibleDescription:
+      'Connect the apps this workspace reads from and writes to, with your own credentials.',
+    group: 'Connectivity',
+    feature: 'workspace_basic',
+  },
+  {
+    path: '/automation-export',
+    label: 'Automation Export',
+    iconName: 'Layers',
+    accessibleDescription: 'Take an automation out of the workspace.',
+    group: 'Connectivity',
+    feature: 'automation_export',
+  },
+  {
+    path: '/webhooks',
+    label: 'Webhooks',
+    iconName: 'Webhook',
+    accessibleDescription: 'Where the workspace sends an event when something happens.',
+    group: 'Connectivity',
+    feature: 'webhooks',
+  },
+  {
+    path: '/api',
+    label: 'Public API',
+    iconName: 'Code',
+    accessibleDescription: 'Reach the workspace from your own code.',
+    group: 'Connectivity',
+    feature: 'api_access',
+  },
+  {
+    path: '/endpoint-report',
+    label: 'Endpoint Report',
+    iconName: 'FileBarChart',
+    accessibleDescription: 'How the connected endpoints are behaving.',
+    group: 'Connectivity',
+    feature: 'endpoint_report',
+  },
+
+  /* ---------------------------------------------------------- Automation */
+  {
+    path: '/agents',
+    label: 'AI Agents',
+    iconName: 'Bot',
+    accessibleDescription: 'The agents that prepare work for you, and how each one is doing.',
+    group: 'Automation',
+    feature: 'ai_agents',
+  },
+  {
+    path: '/workflows',
+    label: 'Workflows',
+    iconName: 'Workflow',
+    accessibleDescription: 'The steps that run when something happens.',
+    group: 'Automation',
+    feature: 'workflow_orchestration',
+  },
+  {
+    path: '/actions',
+    label: 'Actions',
+    iconName: 'ListChecks',
+    accessibleDescription: 'What is to be done, and by when.',
+    group: 'Automation',
+    feature: 'action_tracker',
+  },
+  { path: '/agents/dashboard', label: 'Agent Dashboard', iconName: 'Gauge', accessibleDescription: 'How the agents are running.', group: 'Automation', feature: 'ai_agents', mergedInto: '/agents' },
+
   /* -------------------------------------------------------- Intelligence
    *
    * The four merged destinations. Hidden until MERGED_PAGES_READY is true.
@@ -259,70 +333,6 @@ const DESTINATIONS: WorkspaceDestination[] = [
   { path: '/executive-intelligence', label: 'Executive Intelligence', iconName: 'Compass', accessibleDescription: 'What matters at an executive level.', group: 'Intelligence', feature: 'executive_intelligence', mergedInto: '/briefings' },
   { path: '/executive-center', label: 'Executive Centre', iconName: 'FileText', accessibleDescription: 'The executive view of the workspace.', group: 'Intelligence', feature: 'executive_intelligence', mergedInto: '/briefings' },
   { path: '/executive-command-center', label: 'Command Centre', iconName: 'Compass', accessibleDescription: 'The operating view of the workspace.', group: 'Intelligence', feature: 'executive_command_center', mergedInto: '/briefings' },
-
-  { path: '/endpoint-report', label: 'Endpoint Report', iconName: 'FileBarChart', accessibleDescription: 'How the connected endpoints are behaving.', group: 'Connectivity', feature: 'endpoint_report' },
-
-  /* ---------------------------------------------------------- Automation */
-  {
-    path: '/agents',
-    label: 'AI Agents',
-    iconName: 'Bot',
-    accessibleDescription: 'The agents that prepare work for you, and how each one is doing.',
-    group: 'Automation',
-    feature: 'ai_agents',
-  },
-  {
-    path: '/workflows',
-    label: 'Workflows',
-    iconName: 'Workflow',
-    accessibleDescription: 'The steps that run when something happens.',
-    group: 'Automation',
-    feature: 'workflow_orchestration',
-  },
-  {
-    path: '/actions',
-    label: 'Actions',
-    iconName: 'ListChecks',
-    accessibleDescription: 'What is to be done, and by when.',
-    group: 'Automation',
-    feature: 'action_tracker',
-  },
-  { path: '/agents/dashboard', label: 'Agent Dashboard', iconName: 'Gauge', accessibleDescription: 'How the agents are running.', group: 'Automation', feature: 'ai_agents', mergedInto: '/agents' },
-
-  /* -------------------------------------------------------- Connectivity */
-  {
-    path: '/integrations',
-    label: 'Connect App',
-    iconName: 'Plug',
-    accessibleDescription:
-      'Connect the apps this workspace reads from and writes to, with your own credentials.',
-    group: 'Connectivity',
-    feature: 'workspace_basic',
-  },
-  {
-    path: '/automation-export',
-    label: 'Automation Export',
-    iconName: 'Layers',
-    accessibleDescription: 'Take an automation out of the workspace.',
-    group: 'Connectivity',
-    feature: 'automation_export',
-  },
-  {
-    path: '/webhooks',
-    label: 'Webhooks',
-    iconName: 'Webhook',
-    accessibleDescription: 'Where the workspace sends an event when something happens.',
-    group: 'Connectivity',
-    feature: 'webhooks',
-  },
-  {
-    path: '/api',
-    label: 'Public API',
-    iconName: 'Code',
-    accessibleDescription: 'Reach the workspace from your own code.',
-    group: 'Connectivity',
-    feature: 'api_access',
-  },
 
   /* ---------------------------------------------------------------- Admin */
   { path: '/admin', label: 'Enterprise Admin', iconName: 'Shield', accessibleDescription: 'Members, roles and workspace settings.', group: 'Admin', feature: 'organization_admin' },
