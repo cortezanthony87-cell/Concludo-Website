@@ -625,7 +625,7 @@ export const CopilotPage: React.FC = () => {
                   ENTERPRISE
                 </span>
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#cbd5e1' }}>
                 Natural Language Intelligence & Enterprise Decision Assistant
               </div>
             </div>
@@ -692,7 +692,7 @@ export const CopilotPage: React.FC = () => {
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '0 0 8px', color: '#f8fafc' }}>
                   Ask Concludo Anything About Your Organization
                 </h2>
-                <p style={{ fontSize: '0.88rem', color: '#94a3b8', maxWidth: '600px', margin: '0 auto', lineHeight: '1.5' }}>
+                <p style={{ fontSize: '0.98rem', fontWeight: 600, color: '#cbd5e1', maxWidth: '640px', margin: '0 auto', lineHeight: '1.5' }}>
                   Concludo Copilot answers questions with evidence-based facts drawn directly from your projects, decisions, action tracker, transcripts, and organizational memory graph.
                 </p>
               </div>

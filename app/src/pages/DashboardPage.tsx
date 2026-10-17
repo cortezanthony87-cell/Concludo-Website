@@ -495,7 +495,7 @@ export const DashboardPage: React.FC = () => {
         <h1 className="page-title" style={{ marginBottom: '8px' }}>
           {welcomeGreeting}
         </h1>
-        <p className="page-subtitle" style={{ fontSize: '0.96rem', color: '#94a3b8' }}>
+        <p className="page-subtitle" style={{ fontSize: '1.05rem', fontWeight: 600, color: '#cbd5e1' }}>
           Concludo Workspace is your central command hub for meeting intelligence, structured records, and verifiable outcomes.
         </p>
       </div>

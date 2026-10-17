@@ -369,13 +369,13 @@ input, select, textarea {
 }
 
 .sidebar-category-label {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  padding: 8px 14px 4px 14px;
-  margin-top: 8px;
+  letter-spacing: 0.12em;
+  color: #cbd5e1;
+  padding: 10px 14px 4px 14px;
+  margin-top: 10px;
 }
 
 .sidebar-link {
@@ -384,8 +384,8 @@ input, select, textarea {
   gap: 12px;
   padding: 10px 14px;
   border-radius: 10px;
-  font-size: 0.92rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text-secondary);
   transition: all 0.2s ease;
   position: relative;
@@ -416,6 +416,23 @@ input, select, textarea {
   border-radius: 0 3px 3px 0;
   background: var(--gold-500);
   box-shadow: 0 0 10px var(--gold-400);
+}
+
+/* Concludo Copilot Glowing State */
+.sidebar-copilot-link {
+  background: linear-gradient(90deg, rgba(226, 181, 60, 0.16) 0%, rgba(33, 57, 92, 0.3) 100%) !important;
+  border-left: 3px solid #e2b53c !important;
+  border-color: rgba(226, 181, 60, 0.35) !important;
+  box-shadow: 0 0 16px rgba(226, 181, 60, 0.22), inset 0 0 12px rgba(226, 181, 60, 0.08) !important;
+}
+
+.sidebar-copilot-link:hover {
+  background: linear-gradient(90deg, rgba(226, 181, 60, 0.24) 0%, rgba(33, 57, 92, 0.45) 100%) !important;
+  box-shadow: 0 0 20px rgba(226, 181, 60, 0.35), inset 0 0 14px rgba(226, 181, 60, 0.12) !important;
+}
+
+.mobile-nav-copilot svg {
+  filter: drop-shadow(0 0 6px rgba(226, 181, 60, 0.75));
 }
 
 /* Sidebar Footer & Telemetry Indicator */
@@ -479,9 +496,11 @@ input, select, textarea {
 }
 
 .page-subtitle {
-  color: var(--text-secondary);
-  font-size: 0.98rem;
-  max-width: 680px;
+  color: #cbd5e1;
+  font-size: 1.05rem;
+  font-weight: 600;
+  max-width: 720px;
+  line-height: 1.5;
 }
 
 /* Glassmorphic Futuristic Cards */
@@ -780,8 +799,9 @@ input, select, textarea {
 }
 
 .auth-subtitle {
-  font-size: 0.88rem;
-  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #cbd5e1;
   margin-top: 6px;
 }
 
@@ -1387,7 +1407,10 @@ input[type="password"].bg-white::placeholder {
   }
 
   .page-subtitle {
-    font-size: 0.88rem !important;
+    font-size: 0.96rem !important;
+    font-weight: 600 !important;
+    color: #cbd5e1 !important;
+    line-height: 1.45 !important;
   }
 
   .content-card {
