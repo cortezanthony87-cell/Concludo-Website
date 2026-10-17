@@ -292,12 +292,12 @@ const DESTINATIONS: WorkspaceDestination[] = [
   /* -------------------------------------------------------- Connectivity */
   {
     path: '/integrations',
-    label: 'Connect apps',
+    label: 'Connect App',
     iconName: 'Plug',
     accessibleDescription:
       'Connect the apps this workspace reads from and writes to, with your own credentials.',
     group: 'Connectivity',
-    feature: 'third_party_integrations',
+    feature: 'workspace_basic',
   },
   {
     path: '/automation-export',

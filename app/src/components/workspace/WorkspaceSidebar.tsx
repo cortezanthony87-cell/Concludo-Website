@@ -79,7 +79,7 @@ function useMatches(query: string): boolean {
 /** Which groups the person left open. Per browser, and never load bearing. */
 function useOpenGroups(): [Set<WorkspaceGroup>, (group: WorkspaceGroup) => void] {
   const [open, setOpen] = React.useState<Set<WorkspaceGroup>>(() => {
-    const fallback = new Set<WorkspaceGroup>(['Intelligence', 'Automation', 'Connectivity']);
+    const fallback = new Set<WorkspaceGroup>(['Work', 'Intelligence', 'Automation', 'Connectivity']);
     try {
       const saved = window.localStorage.getItem('concludo.sidebar.groups');
       if (!saved) return fallback;
@@ -112,17 +112,24 @@ const Row: React.FC<{
   destination: WorkspaceDestination;
   count?: number;
   rail: boolean;
-}> = ({ destination, count, rail }) => (
+}> = ({ destination, count, rail }) => {
+  const isCopilot = destination.path === '/copilot';
+  return (
   <li>
     <NavLink
       to={destination.path}
       end={destination.path === '/dashboard'}
       title={rail ? destination.label : destination.accessibleDescription}
       aria-label={rail ? destination.label : undefined}
-      className={({ isActive }) => (isActive ? 'cws-row cws-row-on' : 'cws-row')}
+      className={({ isActive }) =>
+        `cws-row${isActive ? ' cws-row-on' : ''}${isCopilot ? ' cws-row-copilot' : ''}`
+      }
     >
       <Icon name={destination.iconName} />
       <span className="cws-row-label">{destination.label}</span>
+      {isCopilot && !rail && (
+        <span className="cws-copilot-badge">AI</span>
+      )}
       {destination.badge && count !== undefined && count > 0 ? (
         rail ? (
           <span
@@ -135,7 +142,8 @@ const Row: React.FC<{
       ) : null}
     </NavLink>
   </li>
-);
+  );
+};
 
 export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
   counts = {},
@@ -160,6 +168,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       const userPlan = (profile.plan as PlanType) || 'free_preview';
       // Work destinations always visible to authenticated workspace users
       if (destination.group === 'Work') return true;
+      if (destination.path === '/integrations') return true;
       return checkClientFeatureDisplay(userPlan, destination.feature).isAllowed;
     },
     [profile]
@@ -192,8 +201,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       className={`cws${rail ? ' cws-rail' : ''}${phone ? ' cws-drawer' : ''}`}
       ref={panelRef}
     >
-      {/* pinned */}
-      <div className="cws-pinned">
         <div className="cws-brand">
           {/* The supplied mark. Never redrawn, recoloured or outlined. */}
           <img src="/brand/concludo-mark.png" alt="" aria-hidden="true" className="cws-mark" />
@@ -229,11 +236,9 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             />
           ))}
         </ul>
-      </div>
 
       <div className="cws-divider" />
 
-      {/* scrolling */}
       <div className="cws-scroll">
         {scrollingGroups.map((group) => {
           const items = destinationsInGroup(group).filter(permitted);

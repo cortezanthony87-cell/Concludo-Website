@@ -49,18 +49,30 @@
   background: var(--cws-ground);
   border-right: 1px solid var(--cws-edge);
   font-family: Inter, "Segoe UI", Arial, sans-serif;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #3E5273 transparent;
 }
 
-/* ------------------------------------------------------------ pinned */
-
-.cws-pinned { flex: 0 0 auto; }
+.cws::-webkit-scrollbar { width: 8px; }
+.cws::-webkit-scrollbar-thumb {
+  background: #2A3E5C;
+  border-radius: 8px;
+  border: 2px solid var(--cws-ground);
+}
 
 .cws-brand {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 20px 20px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--cws-ground);
 }
 
 .cws-mark { width: 22px; height: 25px; object-fit: contain; }
@@ -141,19 +153,7 @@
 
 .cws-scroll {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: #3E5273 transparent;
   padding-bottom: 8px;
-}
-
-.cws-scroll::-webkit-scrollbar { width: 8px; }
-.cws-scroll::-webkit-scrollbar-thumb {
-  background: #2A3E5C;
-  border-radius: 8px;
-  border: 2px solid var(--cws-ground);
 }
 
 /* -------------------------------------------------------------- groups */
@@ -176,17 +176,50 @@
 
 .cws-group-label {
   font-family: Poppins, Montserrat, Arial, sans-serif;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--cws-label);
+  color: #cbd5e1;
   padding: 0 20px;
   margin: 18px 0 6px;
 }
 
+/* ---------------------------------------------------- Copilot Gold Glow */
+
+.cws-row-copilot {
+  background: linear-gradient(90deg, rgba(226, 181, 60, 0.16) 0%, rgba(33, 57, 92, 0.28) 100%) !important;
+  border-left: 3px solid #e2b53c !important;
+  box-shadow: 0 0 16px rgba(226, 181, 60, 0.22), inset 0 0 12px rgba(226, 181, 60, 0.08) !important;
+}
+
+.cws-row-copilot svg {
+  color: #e2b53c !important;
+  filter: drop-shadow(0 0 6px rgba(226, 181, 60, 0.75)) !important;
+}
+
+.cws-row-copilot .cws-row-label {
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+  text-shadow: 0 0 10px rgba(226, 181, 60, 0.35) !important;
+}
+
+.cws-copilot-badge {
+  font-size: 0.65rem;
+  background: #e2b53c;
+  color: #0f172a;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+  margin-left: auto;
+  box-shadow: 0 0 8px rgba(226, 181, 60, 0.5);
+}
 .cws-group-toggle .cws-group-label { padding: 0; margin: 0; }
 
+  .cws-rail .cws-row-copilot {
+    border-left: none !important;
+    box-shadow: 0 0 12px rgba(226, 181, 60, 0.3) !important;
+  }
 /* ---------------------------------------------------------------- rows */
 
 .cws-list { list-style: none; margin: 0; padding: 0; }
