@@ -1,0 +1,365 @@
+/* =====================================================================
+   Concludo Workspace sidebar
+
+   Its own file rather than another block in index.css, which is already
+   1,710 lines and which every other page depends on. This one can be
+   reviewed, moved or removed without touching that.
+
+   Every colour below was measured, not eyeballed:
+
+     item text    #E8EDF5 on #0D1626   15.40:1   pass
+     active text  #FFFFFF on #16263F   15.18:1   pass
+     gold         #E2B53C on #0D1626    9.41:1   pass
+     badge text   #C6D3E4 on #1F3250    8.49:1   pass
+     navy on gold #16263F on #E2B53C    7.89:1   pass
+     group label  #98A7BC on #0D1626    7.40:1   pass
+     idle icon    #8696AD on #0D1626    6.02:1   pass
+
+   The group label is #98A7BC rather than #93A2B8 because the latter reads
+   4.49:1 against a hovered row at #21395C, which is under the threshold.
+
+   Gold reaches 1.93:1 on white, so it is an accent, a bar and a badge fill.
+   It is never text on a light surface. On this dark ground it is fine, which
+   is why the focus ring is gold here and navy in the content area.
+   ===================================================================== */
+
+.cws-nav {
+  --cws-ground: #0D1626;
+  --cws-surface: #16263F;
+  --cws-raised: #111E33;
+  --cws-edge: #1B2A42;
+  --cws-edge-strong: #22344F;
+  --cws-text: #E8EDF5;
+  --cws-text-idle: #D3DCE8;
+  --cws-label: #98A7BC;
+  --cws-icon: #8696AD;
+  --cws-gold: #E2B53C;
+  --cws-gold-deep: #BC8A1C;
+  --cws-badge-bg: #1F3250;
+  --cws-badge-text: #C6D3E4;
+
+  flex: 0 0 288px;
+  width: 288px;
+}
+
+.cws {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--cws-ground);
+  border-right: 1px solid var(--cws-edge);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ pinned */
+
+.cws-pinned { flex: 0 0 auto; }
+
+.cws-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 14px;
+}
+
+.cws-mark { width: 22px; height: 25px; object-fit: contain; }
+
+.cws-wordmark {
+  font-family: Poppins, Montserrat, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #FFFFFF;
+  letter-spacing: -0.01em;
+}
+
+.cws-chip {
+  margin-left: auto;
+  font-family: Poppins, Montserrat, Arial, sans-serif;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--cws-surface);
+  background: var(--cws-gold);
+  padding: 3px 7px;
+  border-radius: 4px;
+}
+
+.cws-close {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: var(--cws-surface);
+  color: var(--cws-badge-text);
+  cursor: pointer;
+}
+
+.cws-search-wrap { padding: 0 16px 14px; }
+
+.cws-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 38px;
+  padding: 0 11px;
+  background: var(--cws-raised);
+  border: 1px solid var(--cws-edge-strong);
+  border-radius: 9px;
+  color: var(--cws-icon);
+  font: 500 12.5px Inter, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cws-search:hover { border-color: #2F4668; }
+.cws-search:focus-visible { outline: 2px solid var(--cws-gold); outline-offset: 2px; }
+.cws-search-label { flex: 1; min-width: 0; }
+
+.cws-kbd {
+  font: 600 9.5px Inter, sans-serif;
+  color: var(--cws-label);
+  background: #1A2C49;
+  border: 1px solid #2A3E5C;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.cws-divider {
+  flex: 0 0 auto;
+  height: 1px;
+  background: var(--cws-edge);
+  margin: 4px 16px 0;
+}
+
+/* ----------------------------------------------------------- scrolling */
+
+.cws-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #3E5273 transparent;
+  padding-bottom: 8px;
+}
+
+.cws-scroll::-webkit-scrollbar { width: 8px; }
+.cws-scroll::-webkit-scrollbar-thumb {
+  background: #2A3E5C;
+  border-radius: 8px;
+  border: 2px solid var(--cws-ground);
+}
+
+/* -------------------------------------------------------------- groups */
+
+.cws-group-head { margin: 0; }
+
+.cws-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 20px;
+  margin: 18px 0 6px;
+  min-height: 24px;
+  background: none;
+  border: 0;
+  color: var(--cws-label);
+  cursor: pointer;
+}
+
+.cws-group-label {
+  font-family: Poppins, Montserrat, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cws-label);
+  padding: 0 20px;
+  margin: 18px 0 6px;
+}
+
+.cws-group-toggle .cws-group-label { padding: 0; margin: 0; }
+
+/* ---------------------------------------------------------------- rows */
+
+.cws-list { list-style: none; margin: 0; padding: 0; }
+
+.cws-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 40px;
+  padding: 0 12px;
+  margin: 0 8px;
+  border-radius: 8px;
+  color: var(--cws-text-idle);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  text-decoration: none;
+  position: relative;
+}
+
+.cws-row svg { flex: 0 0 18px; color: var(--cws-icon); }
+.cws-row-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cws-row:hover { background: var(--cws-surface); color: #F4F6FA; }
+.cws-row:hover svg { color: #B9C6D8; }
+
+.cws-row:focus-visible { outline: 2px solid var(--cws-gold); outline-offset: -2px; }
+
+/* The active row reaches the sidebar edge and squares its left corners, so
+   the gold bar and the panel read as one shape. Inset, the bar floats free
+   of the panel it belongs to and looks like an accident. */
+.cws-row-on {
+  background: var(--cws-surface);
+  color: #FFFFFF;
+  font-weight: 600;
+  margin-left: 0;
+  padding-left: 20px;
+  border-radius: 0 8px 8px 0;
+}
+
+.cws-row-on svg { color: var(--cws-gold); }
+
+.cws-row-on::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--cws-gold);
+}
+
+/* -------------------------------------------------------------- badges
+   Two kinds and never a third. Gold means a person is blocking something.
+   Slate means a number worth knowing. */
+
+.cws-badge {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.cws-badge-blocking { background: var(--cws-gold); color: var(--cws-surface); }
+.cws-badge-informational { background: var(--cws-badge-bg); color: var(--cws-badge-text); }
+
+.cws-dot {
+  position: absolute;
+  top: 7px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 2px solid var(--cws-ground);
+}
+
+.cws-dot-blocking { background: var(--cws-gold); }
+.cws-dot-informational { background: #6E86A8; }
+
+/* -------------------------------------------------------------- footer */
+
+.cws-footer {
+  flex: 0 0 auto;
+  margin: 10px 16px 16px;
+  padding: 12px 13px;
+  background: var(--cws-raised);
+  border: 1px solid var(--cws-badge-bg);
+  border-radius: 10px;
+}
+
+.cws-secured {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font: 600 9px Inter, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cws-gold);
+  margin-bottom: 7px;
+}
+
+.cws-secured-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cws-gold); }
+.cws-org { font: 600 12px Poppins, Montserrat, Arial, sans-serif; color: var(--cws-text); }
+.cws-place { font: 400 11px Inter, sans-serif; color: var(--cws-label); margin-top: 1px; }
+
+/* ================================================= the rail, 900 to 1179 */
+
+@media (min-width: 900px) and (max-width: 1179px) {
+  .cws-nav { flex-basis: 72px; width: 72px; }
+
+  .cws-brand { justify-content: center; padding: 16px 0 12px; }
+  .cws-search-wrap { padding: 0 16px 12px; }
+  .cws-search { justify-content: center; padding: 0; height: 40px; }
+  .cws-group-label, .cws-group-head, .cws-footer { display: none; }
+
+  .cws-row {
+    justify-content: center;
+    gap: 0;
+    margin: 2px 16px;
+    padding: 0;
+    height: 40px;
+  }
+
+  .cws-row-on { margin-left: 0; padding-left: 0; border-radius: 0 9px 9px 0; }
+
+  .cws-rail-divider {
+    height: 1px;
+    background: var(--cws-edge);
+    margin: 8px auto;
+    width: 26px;
+  }
+}
+
+/* ======================================================= the drawer, <900 */
+
+@media (max-width: 899px) {
+  .cws-nav-drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 60;
+    width: min(390px, 86vw);
+    flex-basis: auto;
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+  }
+
+  .cws-nav-open { transform: translateX(0); }
+
+  .cws-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(6, 12, 22, 0.6);
+  }
+
+  /* A thumb needs more than a pointer does. */
+  .cws-row { height: 48px; font-size: 14.5px; }
+  .cws-search { height: 44px; }
+  .cws-close { width: 40px; height: 40px; }
+  .cws-chip { display: none; }
+}
+
+/* ================================================== motion and contrast */
+
+@media (prefers-reduced-motion: reduce) {
+  /* The panel is there or it is not. No slide, no fade. */
+  .cws-nav-drawer { transition: none; }
+}
+
+@media (prefers-contrast: more) {
+  .cws-row { color: #FFFFFF; }
+  .cws-row svg { color: #C6D3E4; }
+  .cws-group-label { color: #C6D3E4; }
+}

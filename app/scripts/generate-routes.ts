@@ -31,6 +31,8 @@ const routes = [
   'calendar',
   'projects',
   'projects/new',
+  'new-transcript',
+  'transcripts/new',
   'search',
   'account',
   'settings',

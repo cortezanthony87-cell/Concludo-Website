@@ -83,6 +83,8 @@ import { EMAIL_ROUTES, EMAIL_DETAIL_ROUTES } from './pages/email/emailRouteTable
 // Concludo CRM
 import { CrmModuleLayout } from './components/crm/CrmModuleLayout';
 import { CRM_ROUTES, CRM_DETAIL_ROUTES } from './pages/crm/crmRouteTable';
+import { activeRedirects } from './lib/workspace/legacyRedirects';
+import { MERGED_PAGES_READY } from './lib/workspace/workspaceNav';
 
 // Billing & Checkout Pages
 import { CheckoutPage } from './pages/CheckoutPage';
@@ -234,6 +236,10 @@ export const App: React.FC = () => {
                 <Route key={segment} path={segment} element={<Component />} />
               ))}
             </Route>
+
+            {Object.entries(activeRedirects(MERGED_PAGES_READY)).map(([from, to]) => (
+              <Route key={from} path={from} element={<Navigate to={to} replace />} />
+            ))}
 
             <Route path="/test-connection" element={<ConnectionTestPage />} />
           </Route>
