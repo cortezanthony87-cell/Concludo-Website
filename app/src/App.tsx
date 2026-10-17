@@ -138,8 +138,8 @@ export const App: React.FC = () => {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
 
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/projects/new" element={<NewProjectPage />} />
+            {/* /projects moved to dashboard redirect */}
+            {/* /projects/new moved to dashboard redirect */}
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/account" element={<AccountPage />} />
