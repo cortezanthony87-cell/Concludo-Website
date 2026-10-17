@@ -307,6 +307,7 @@ export interface CrmDestination {
 export type CrmModulePath =
   | '/crm'
   | '/crm/attention'
+  | '/crm/dashboard'
   | '/crm/memory'
   | '/crm/relationships'
   | '/crm/people'

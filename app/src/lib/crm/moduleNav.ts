@@ -133,6 +133,24 @@ export const CRM_MODULE_DESTINATIONS: CrmDestination[] = [
     group: 'Accounts',
   },
   {
+    /* The overview leads Evidence rather than Work, and that placement is
+       load-bearing. Work is where a person DOES something: Today, Capture,
+       Leads, Pipeline, Commitments. This page is a reporting view and nothing
+       on it is an instruction, so it belongs beside Forecast and Reports.
+
+       It was briefly in Work, which pushed that cluster to six tabs and
+       tripped the five-per-cluster rule in the shell suite. That rule is not
+       cosmetic: a cluster that grows past about five stops being a cluster
+       and becomes the undivided row it was meant to replace. The right fix
+       was to put the tab where it belongs, not to raise the limit. */
+    path: '/crm/dashboard',
+    label: 'Overview',
+    iconName: 'LayoutDashboard',
+    accessibleDescription:
+      'How this is going: what is open, what has closed, what is waiting, and what changed. Every figure opens the records behind it.',
+    group: 'Evidence',
+  },
+  {
     path: '/crm/activities',
     label: 'Activities',
     iconName: 'History',

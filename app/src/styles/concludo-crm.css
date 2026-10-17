@@ -4639,3 +4639,652 @@
 .ccrm-module .ccrm-memory-search .form-control {
   flex: 1 1 20rem;
 }
+
+/* =====================================================================
+   The CRM overview
+
+   Scoped inside `.ccrm-module`, like every other block above.
+
+   THE ONE COLOUR DECISION. Bars are navy. Gold appears once per chart at
+   most, and only on the thing a person can act on: the portion of a stage
+   sitting longer than that stage usually takes. Gold on every bar means
+   gold means nothing, and the page becomes decoration.
+
+   Measured, on the light module ground #F4F6FA:
+     navy    #16263F  14.03:1  text and bars
+     slate   #5A6478   5.50:1  captions and basis lines
+   Gold reaches 1.78:1 on that ground, so it is a bar fill and never text.
+   ===================================================================== */
+
+.ccrm-module .ccrm-figure-row {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ccrm-module .ccrm-figure {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0.85rem 0.95rem;
+  background: var(--ccrm-card);
+  border: 1px solid var(--ccrm-hairline);
+  border-left: 3px solid var(--ccrm-hairline-strong);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ccrm-module .ccrm-figure:hover {
+  border-left-color: var(--ccrm-accent, #BC8A1C);
+}
+
+.ccrm-module .ccrm-figure:focus-visible {
+  outline: 2px solid var(--ccrm-focus);
+  outline-offset: 2px;
+}
+
+.ccrm-module .ccrm-figure-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-figure-value {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ccrm-ink);
+  margin: 0.3rem 0 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ccrm-module .ccrm-figure-basis {
+  font-size: 0.72rem;
+  color: var(--ccrm-quiet);
+  line-height: 1.45;
+}
+
+/* What a figure leaves out is said, not hidden. Same size as the basis line,
+   because a caveat in smaller type is a caveat nobody reads. */
+.ccrm-module .ccrm-figure-omits {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ccrm-ink);
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px dotted var(--ccrm-hairline-strong);
+}
+
+.ccrm-module .ccrm-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  /* Stretch, not start. Panels in a row that end at different heights leave
+     ragged gaps, and a dashboard with gaps reads as one that is missing
+     something. */
+  align-items: stretch;
+}
+
+.ccrm-module .ccrm-dash-wide { grid-column: span 2; }
+
+/* A list panel takes the whole row. Spanning two of three columns leaves a
+   third of the row empty, which is the most visible kind of dead space. */
+.ccrm-module .ccrm-dash-full { grid-column: 1 / -1; }
+
+/* Twelve entries in one column is a tall thin list. Two columns at width.
+   The base rule is display:flex, which ignores `columns`, so the display has
+   to be set back to block for the column rule to apply at all. */
+.ccrm-module .ccrm-dash-full .ccrm-item-list {
+  display: block;
+  columns: 2;
+  column-gap: 2.25rem;
+}
+
+.ccrm-module .ccrm-dash-full .ccrm-item-list > li {
+  break-inside: avoid;
+}
+
+/* A stage holding work with no recorded value draws no bar, because the bar
+   encodes value. Without this the empty track reads as "nothing here" when
+   the note beside it says one item. */
+/* Specificity, deliberately. This rule sits earlier in the file than
+   `.ccrm-bar-track`, whose `background` SHORTHAND resets background-image, so
+   at equal specificity the hatch was silently discarded and a stage holding
+   unvalued work rendered identically to an empty one. It had never once
+   drawn. Found by looking at a rendered panel, not by reading the CSS. */
+.ccrm-module .ccrm-bar-track.ccrm-bar-track-novalue {
+  /* A stage holding work with no value recorded is not an empty stage, and
+     the two must not look alike. At 0.55 opacity the hatch read as a LIGHTER
+     track than an empty one, which is backwards: something is here, it just
+     cannot be drawn. Full-strength hatch, no opacity. */
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--ccrm-hairline-strong) 0 3px,
+    var(--ccrm-card) 3px 7px
+  );
+  border: 1px solid var(--ccrm-hairline-strong);
+}
+
+/* ------------------------------------------------------------- bars */
+
+.ccrm-module .ccrm-bar-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.ccrm-module .ccrm-bar-list-tight {
+  gap: 0.6rem;
+}
+
+.ccrm-module .ccrm-bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+
+.ccrm-module .ccrm-bar-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ccrm-ink);
+  min-width: 0;
+}
+
+.ccrm-module .ccrm-bar-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ccrm-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ccrm-module .ccrm-bar-count {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--ccrm-quiet);
+}
+
+/* The track is the zero line. Bars start at it, always. */
+.ccrm-module .ccrm-bar-track {
+  position: relative;
+  height: 14px;
+  background: var(--ccrm-hairline);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ccrm-module .ccrm-bar-track-thin {
+  height: 10px;
+}
+
+.ccrm-module .ccrm-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--ccrm-ink);
+  border-radius: 3px;
+}
+
+/* The most recent quarter, so the eye lands on the one that is still moving. */
+.ccrm-module .ccrm-bar-fill-latest {
+  background: var(--ccrm-ink);
+  box-shadow: inset 0 0 0 2px var(--ccrm-card), inset 0 0 0 4px var(--ccrm-ink);
+}
+
+/* The chip that marks a stuck stage.
+
+   The bar encodes value, so a stage holding one item with no value recorded
+   draws no bar, and a gold segment of zero width marks nothing. The panel
+   promises that stuck work is visible, so the chip carries that promise and
+   the bar segment reinforces it where there is a value to draw. */
+.ccrm-module .ccrm-bar-stuck-chip {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #16263F;
+  background: #E2B53C;
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* The one thing on this page a person can act on. */
+.ccrm-module .ccrm-bar-stuck {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #E2B53C;
+  border-radius: 3px;
+}
+
+.ccrm-module .ccrm-dash-grid .ccrm-panel-empty {
+  margin-block: auto;
+}
+
+.ccrm-module .ccrm-dash-grid .ccrm-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.ccrm-module .ccrm-bar-note {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+@media (max-width: 1100px) {
+  .ccrm-module .ccrm-figure-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ccrm-module .ccrm-dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ccrm-module .ccrm-dash-wide { grid-column: span 2; }
+}
+
+@media (max-width: 700px) {
+  .ccrm-module .ccrm-figure-row { grid-template-columns: 1fr; }
+  .ccrm-module .ccrm-dash-grid { grid-template-columns: 1fr; }
+  .ccrm-module .ccrm-dash-wide { grid-column: span 1; }
+  .ccrm-module .ccrm-dash-full .ccrm-item-list { columns: 1; }
+  .ccrm-module .ccrm-bar-head { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
+}
+
+/* =====================================================================
+   OVERVIEW CHARTS: rings, columns and percentages.
+
+   THE RAMP. Eight tones, navy through slate, plus gold held back for the one
+   wedge that is the thing to act on. Eight rather than six because a ring of
+   seven equal categories is a real case in this data, and the alternative was
+   a grouped wedge larger than the categories it tidied away.
+
+   Measured against white: #16263f 15.18:1, #21395c 10.76:1, #2f4f7a 7.42:1,
+   #3f6b9e 4.74:1, #5a6478 5.95:1, #7c8699 3.73:1, #a3acbd 2.28:1, #c9d0dc
+   1.56:1. The lighter half carries no text and never will: these are ring and
+   bar fills, with their labels outside, in the legend, in navy. The legend
+   swatch is decorative and marked aria-hidden, so pairing a name with a value
+   never depends on telling two greys apart.
+
+   GOLD. #e2b53c is 1.93:1 on white and fails at every size, so it is a fill
+   and a badge background only, never text, and never more than one wedge per
+   ring.
+   ===================================================================== */
+
+.ccrm-module {
+  --ccrm-ramp-0: #16263f;
+  --ccrm-ramp-1: #21395c;
+  --ccrm-ramp-2: #2f4f7a;
+  --ccrm-ramp-3: #3f6b9e;
+  --ccrm-ramp-4: #5a6478;
+  --ccrm-ramp-5: #7c8699;
+  --ccrm-ramp-6: #a3acbd;
+  --ccrm-ramp-7: #c9d0dc;
+}
+
+/* ---------------------------------------------------------- the ring row */
+
+.ccrm-module .ccrm-ring-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 0.9rem;
+  align-items: stretch;
+}
+
+.ccrm-module .ccrm-ring-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.ccrm-module .ccrm-ring-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 190px;
+  margin: 0.35rem auto 0.6rem;
+}
+
+.ccrm-module .ccrm-ring {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Twelve o'clock, clockwise. Without this a ring starts at three o'clock,
+     which nobody reads a proportion from. */
+  transform: rotate(-90deg);
+}
+
+.ccrm-module .ccrm-ring-base {
+  fill: none;
+  stroke: var(--ccrm-hairline);
+  stroke-width: 15;
+}
+
+.ccrm-module .ccrm-ring-seg {
+  fill: none;
+  stroke-width: 15;
+  /* Butt, not round. Rounded caps on a wedge overlap the next one and read as
+     a larger share than the number beside it. */
+  stroke-linecap: butt;
+}
+
+.ccrm-module .ccrm-ring-seg-0 { stroke: var(--ccrm-ramp-0); }
+.ccrm-module .ccrm-ring-seg-1 { stroke: var(--ccrm-ramp-1); }
+.ccrm-module .ccrm-ring-seg-2 { stroke: var(--ccrm-ramp-2); }
+.ccrm-module .ccrm-ring-seg-3 { stroke: var(--ccrm-ramp-3); }
+.ccrm-module .ccrm-ring-seg-4 { stroke: var(--ccrm-ramp-4); }
+.ccrm-module .ccrm-ring-seg-5 { stroke: var(--ccrm-ramp-5); }
+.ccrm-module .ccrm-ring-seg-6 { stroke: var(--ccrm-ramp-6); }
+.ccrm-module .ccrm-ring-seg-7 { stroke: var(--ccrm-ramp-7); }
+.ccrm-module .ccrm-ring-seg-accent { stroke: var(--ccrm-gold); }
+
+/* The hole carries the denominator. A ring whose middle is empty is a ring
+   whose percentages are of something the reader has to guess. */
+.ccrm-module .ccrm-ring-hole {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 22%;
+}
+
+.ccrm-module .ccrm-ring-hole-value {
+  font-family: var(--ccrm-font-head, 'Poppins', system-ui, sans-serif);
+  font-weight: 650;
+  font-size: 1.05rem;
+  line-height: 1.1;
+  color: var(--ccrm-ink);
+  letter-spacing: -0.01em;
+}
+
+.ccrm-module .ccrm-ring-hole-label {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ccrm-quiet);
+}
+
+/* One wedge is not a chart. Say the number in words instead. */
+.ccrm-module .ccrm-ring-single {
+  margin: 0.6rem 0 0.75rem;
+  padding: 0.9rem 0.85rem;
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline);
+  border-radius: var(--ccrm-radius-control);
+  text-align: center;
+}
+
+.ccrm-module .ccrm-ring-single-value {
+  margin: 0;
+  font-family: var(--ccrm-font-head, 'Poppins', system-ui, sans-serif);
+  font-weight: 650;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-ring-single-label {
+  margin: 0.25rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------------ the legend */
+
+.ccrm-module .ccrm-ring-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ccrm-module .ccrm-ring-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.ccrm-module .ccrm-ring-key {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  /* Baseline alignment puts a bare square too high against text. */
+  transform: translateY(1px);
+}
+
+.ccrm-module .ccrm-ring-key-0 { background: var(--ccrm-ramp-0); }
+.ccrm-module .ccrm-ring-key-1 { background: var(--ccrm-ramp-1); }
+.ccrm-module .ccrm-ring-key-2 { background: var(--ccrm-ramp-2); }
+.ccrm-module .ccrm-ring-key-3 { background: var(--ccrm-ramp-3); }
+.ccrm-module .ccrm-ring-key-4 { background: var(--ccrm-ramp-4); }
+.ccrm-module .ccrm-ring-key-5 { background: var(--ccrm-ramp-5); }
+.ccrm-module .ccrm-ring-key-6 { background: var(--ccrm-ramp-6); }
+.ccrm-module .ccrm-ring-key-7 { background: var(--ccrm-ramp-7); }
+.ccrm-module .ccrm-ring-key-accent { background: var(--ccrm-gold); }
+
+.ccrm-module .ccrm-ring-legend-name {
+  color: var(--ccrm-ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A legend entry is a link, and a short word like "Email" makes a 27px wide
+   target that fails SC 2.5.8 on a phone. The link fills its column instead,
+   so the target is the width of the row rather than the width of the word.
+   Found by the browser suite measuring rendered boxes, not by reading the
+   markup, which is the only way this kind of defect surfaces. */
+.ccrm-module .ccrm-ring-legend-name .ccrm-text-link {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 0;
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+  .ccrm-module .ccrm-ring-legend-name .ccrm-text-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .ccrm-module .ccrm-ring-legend li {
+    align-items: center;
+  }
+}
+
+.ccrm-module .ccrm-ring-legend-grouped {
+  display: block;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-ring-legend-share {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-ring-legend-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--ccrm-quiet);
+  font-size: 0.72rem;
+}
+
+/* The denominator in words, under every chart. */
+.ccrm-module .ccrm-ring-basis {
+  margin: 0.7rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--ccrm-hairline);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+  /* Pushes itself to the bottom so the basis line of three panels in a row
+     sits on one line. */
+  margin-top: auto;
+}
+
+/* --------------------------------------------------------- the columns */
+
+.ccrm-module .ccrm-columns {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: end;
+  margin-top: 0.3rem;
+}
+
+.ccrm-module .ccrm-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ccrm-module .ccrm-column-value {
+  font-size: 0.72rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-column-track {
+  width: 100%;
+  max-width: 46px;
+  height: 104px;
+  background: var(--ccrm-hairline);
+  border-radius: 3px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.ccrm-module .ccrm-column-fill {
+  width: 100%;
+  background: var(--ccrm-ramp-1);
+  border-radius: 3px 3px 0 0;
+}
+
+/* The most recent quarter is the one being read. One gold column, and only
+   because it is the one the eye should land on first. */
+.ccrm-module .ccrm-column-fill-latest {
+  background: var(--ccrm-gold);
+}
+
+.ccrm-module .ccrm-column-share {
+  font-size: 0.78rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-column-label {
+  font-size: 0.7rem;
+  color: var(--ccrm-ink-soft);
+  text-align: center;
+}
+
+.ccrm-module .ccrm-column-count,
+.ccrm-module .ccrm-column-change {
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--ccrm-quiet);
+  text-align: center;
+}
+
+/* ------------------------------------------- percentages on the bars */
+
+/* The share leads the row, because the share is what the bar is drawing and
+   the money is the detail. Tabular figures so a column of them aligns. */
+.ccrm-module .ccrm-bar-share {
+  display: inline-block;
+  min-width: 2.6em;
+  text-align: right;
+  margin-right: 0.4rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ccrm-ink);
+}
+
+/* ---------------------------------------- the coverage meter on a tile */
+
+.ccrm-module .ccrm-figure-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  margin-top: 0.1rem;
+}
+
+.ccrm-module .ccrm-figure-meter-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.ccrm-module .ccrm-figure-meter-percent {
+  font-size: 0.74rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-figure-meter-label {
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-figure-meter-track {
+  display: block;
+  height: 4px;
+  background: var(--ccrm-hairline);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ccrm-module .ccrm-figure-meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--ccrm-ramp-2);
+  border-radius: 2px;
+}
+
+@media (max-width: 1180px) {
+  .ccrm-module .ccrm-ring-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .ccrm-module .ccrm-ring-row { grid-template-columns: 1fr; }
+  .ccrm-module .ccrm-ring-wrap { max-width: 170px; }
+  .ccrm-module .ccrm-columns { gap: 0.3rem; }
+  .ccrm-module .ccrm-column-track { height: 86px; max-width: 38px; }
+  .ccrm-module .ccrm-bar-share { min-width: 0; margin-right: 0.3rem; }
+}

@@ -156,6 +156,7 @@ const routes = [
   'test-connection',
   'crm',
   'crm/attention',
+  'crm/dashboard',
   'crm/memory',
   'crm/relationships',
   'crm/people',

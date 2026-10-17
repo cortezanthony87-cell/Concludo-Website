@@ -121,13 +121,13 @@ for (const size of WIDTHS) {
     // Fourteen in Stage 2. Stage 4 added People, Hierarchy and Coverage, and
     // split the Relationships cluster rather than letting one grow to seven.
     // Stage 5 added Capture and Forecast, which was nineteen. Phase 2A-i added
-    // Attention, which was twenty, and Phase 2B-i added Memory, which is
-    // twenty-one. The number is asserted rather than described because the
+    // Attention, which was twenty, and Phase 2B-i added Memory, which was
+    // twenty-one, and the Overview is twenty-two. The number is asserted rather than described because the
     // failure it catches is a destination quietly disappearing from one
     // breakpoint and not another.
     assert(
-      info.tabs === 21,
-      `${size.label} ${view.title}: all twenty-one destinations are present (saw ${info.tabs})`
+      info.tabs === 22,
+      `${size.label} ${view.title}: all twenty-two destinations are present (saw ${info.tabs})`
     );
     assert(info.activeTabs === 1, `${size.label} ${view.title}: exactly one tab is marked current`);
     assert(

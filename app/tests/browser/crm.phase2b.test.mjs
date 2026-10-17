@@ -569,7 +569,8 @@ for (const size of [PHONE, TABLET, DESKTOP]) {
     .locator('.ccrm-tab')
     .evaluateAll((nodes) => nodes.map((node) => node.textContent.trim()));
 
-  assertEqual(tabs.length, 21, `${size.width}px: twenty-one destinations (saw ${tabs.length})`);
+  // Twenty-two since the Overview was added beside Today.
+  assertEqual(tabs.length, 22, `${size.width}px: twenty-two destinations (saw ${tabs.length})`);
   assert(tabs.includes('Memory'), `${size.width}px: Memory is one of them`);
 
   const active = await page
