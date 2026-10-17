@@ -122,7 +122,7 @@ const Row: React.FC<{
       className={({ isActive }) => (isActive ? 'cws-row cws-row-on' : 'cws-row')}
     >
       <Icon name={destination.iconName} />
-      {rail ? null : <span className="cws-row-label">{destination.label}</span>}
+      <span className="cws-row-label">{destination.label}</span>
       {destination.badge && count !== undefined && count > 0 ? (
         rail ? (
           <span

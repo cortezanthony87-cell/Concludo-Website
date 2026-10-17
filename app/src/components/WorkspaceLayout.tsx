@@ -296,15 +296,6 @@ export const WorkspaceLayout: React.FC = () => {
         </div>
       </header>
 
-      {/* Backdrop overlay for mobile drawer */}
-      {mobileSidebarOpen && (
-        <div
-          className="mobile-sidebar-backdrop"
-          onClick={() => setMobileSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
       {/* App body: Left sidebar + Main content area */}
       <div className="app-shell-body">
         {/* Left sidebar */}

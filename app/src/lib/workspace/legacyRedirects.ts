@@ -21,9 +21,8 @@
  * A hash is used so the Dashboard can scroll to, or open, the right thing.
  */
 export const REMOVED_PATHS: Record<string, string> = {
-  '/projects': '/dashboard#projects',
-  '/transcripts/new': '/dashboard#new-transcript',
-  '/new-transcript': '/dashboard#new-transcript',
+  '/transcripts/new': '/projects/new',
+  '/new-transcript': '/projects/new',
 };
 
 /**
