@@ -861,10 +861,16 @@
   .ecc-control-buttons {
     grid-column: span 1;
   }
-  .ecc-control-buttons .btn-secondary {
+  .ecc-control-buttons button,
+  .ecc-control-buttons .btn-secondary,
+  .ecc-control-buttons .ecc-connect-email-btn,
+  .ecc-control-buttons .ecc-scan-emails-btn,
+  .ecc-control-buttons .btn-gold {
     flex: 1;
     justify-content: center;
     min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .ecc-metric-grid {

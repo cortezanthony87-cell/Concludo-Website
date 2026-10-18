@@ -185,7 +185,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
         <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>All strategic priority alerts resolved. No active leadership exceptions across active initiatives.</span>
+            <span>No active strategic priority alerts or leadership exceptions across active initiatives.</span>
           </div>
           <span className="text-emerald-400 font-medium">Operational Baseline Active</span>
         </div>
@@ -340,7 +340,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               <FileText className="w-4 h-4 text-sky-400" />
               <h3 className="text-sm font-semibold text-white">Critical Decisions</h3>
             </div>
-            <span className="text-xs text-slate-400">{isDemoMode ? 'Demo Baseline' : `${twin.model_state.decisions_count} Documented`}</span>
+            <span className="text-xs text-slate-400">{isDemoMode ? 'Demo Baseline' : twin.model_state.decisions_count > 0 ? `${twin.model_state.decisions_count} Documented` : 'Baseline Template'}</span>
           </div>
 
           <div className="space-y-3">
@@ -377,7 +377,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <h3 className="text-sm font-semibold text-white">Critical Actions</h3>
             </div>
-            <span className="text-xs text-slate-400">{isDemoMode ? 'Demo Baseline' : `${twin.model_state.open_actions_count} Open`}</span>
+            <span className="text-xs text-slate-400">{isDemoMode ? 'Demo Baseline' : twin.model_state.open_actions_count > 0 ? `${twin.model_state.open_actions_count} Open` : 'Baseline Template'}</span>
           </div>
 
           <div className="space-y-3">

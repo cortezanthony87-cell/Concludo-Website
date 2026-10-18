@@ -89,7 +89,7 @@ export const EmailSettingsPage: React.FC = () => {
             ) : (
               <span className="ecc-account-state">
                 <Lock size={12} aria-hidden="true" />
-                Demonstration preview
+                Demonstration preview (Not connected)
               </span>
             )}
           </li>
