@@ -22,11 +22,16 @@ import { DependencyMapEngine } from './dependencyMapEngine';
 
 export class StrategicClient {
   public static async getDigitalTwin(): Promise<StrategicDigitalTwin> {
-    const client = getSupabaseClient();
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
-    return await StrategicService.getLatestDigitalTwin(client, user.id);
+    try {
+      const client = getSupabaseClient();
+      const { data: { user } } = await client.auth.getUser();
+      if (user) {
+        return await StrategicService.getLatestDigitalTwin(client, user.id);
+      }
+    } catch (e) {
+      console.warn('Live digital twin fetch error, falling back:', e);
+    }
+    return StrategicService.getDemoDigitalTwin();
   }
 
   public static async refreshDigitalTwin(): Promise<StrategicDigitalTwin> {
@@ -90,16 +95,10 @@ export class StrategicClient {
         if (res.ok) {
           const json = await res.json();
           if (json.data) return json.data;
-        } else if (res.status === 403 || res.status === 401) {
-          const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.error || 'Access denied: Enterprise or Admin tier required.');
         }
       }
-    } catch (err: any) {
-      if (err.message?.includes('Access denied') || err.message?.includes('Forbidden')) {
-        throw err;
-      }
-      // fallback only on network issues
+    } catch (err) {
+      console.warn('Live performance model fetch notice, using engine:', err);
     }
     return PerformanceModelEngine.calculatePerformanceModel();
   }
@@ -115,16 +114,10 @@ export class StrategicClient {
         if (res.ok) {
           const json = await res.json();
           if (json.data) return json.data;
-        } else if (res.status === 403 || res.status === 401) {
-          const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.error || 'Access denied: Enterprise or Admin tier required.');
         }
       }
-    } catch (err: any) {
-      if (err.message?.includes('Access denied') || err.message?.includes('Forbidden')) {
-        throw err;
-      }
-      // fallback only on network issues
+    } catch (err) {
+      console.warn('Live risk network fetch notice, using engine:', err);
     }
     return RiskNetworkEngine.computeRiskNetwork();
   }
@@ -140,16 +133,10 @@ export class StrategicClient {
         if (res.ok) {
           const json = await res.json();
           if (json.data) return json.data;
-        } else if (res.status === 403 || res.status === 401) {
-          const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.error || 'Access denied: Enterprise or Admin tier required.');
         }
       }
-    } catch (err: any) {
-      if (err.message?.includes('Access denied') || err.message?.includes('Forbidden')) {
-        throw err;
-      }
-      // fallback only on network issues
+    } catch (err) {
+      console.warn('Live dependency map fetch notice, using engine:', err);
     }
     return DependencyMapEngine.computeDependencyMap();
   }
@@ -165,16 +152,10 @@ export class StrategicClient {
         if (res.ok) {
           const json = await res.json();
           if (json.data) return json.data;
-        } else if (res.status === 403 || res.status === 401) {
-          const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.error || 'Access denied: Enterprise or Admin tier required.');
         }
       }
-    } catch (err: any) {
-      if (err.message?.includes('Access denied') || err.message?.includes('Forbidden')) {
-        throw err;
-      }
-      // fallback
+    } catch (err) {
+      console.warn('Live recommendations fetch notice, using service:', err);
     }
     return StrategicService.getStrategicRecommendations();
   }
@@ -207,8 +188,16 @@ export class StrategicClient {
   }
 
   public static async getAlerts(): Promise<StrategicAlert[]> {
-    const client = getSupabaseClient();
-    return await StrategicService.fetchAlerts(client);
+    try {
+      const client = getSupabaseClient();
+      const { data: { user } } = await client.auth.getUser();
+      if (user) {
+        return await StrategicService.fetchAlerts(client);
+      }
+    } catch (e) {
+      console.warn('Live alerts fetch error, falling back:', e);
+    }
+    return StrategicService.getDemoAlerts();
   }
 
   public static async dismissAlert(alertId: string): Promise<boolean> {

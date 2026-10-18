@@ -46,6 +46,24 @@ export function useViewData(accountId: string): ViewData {
   }, [dataset, ignored]);
   const records = useMemo(() => withoutDeferred(allRecords, deferred), [allRecords, deferred]);
 
+  const filterParams = new URLSearchParams(location.search).get('filters');
+  const activeFilters = useMemo(
+    () => (filterParams ? filterParams.split(',').filter(Boolean) : []),
+    [filterParams]
+  );
+
+  const filteredRecords = useMemo(() => {
+    if (activeFilters.length === 0) return records;
+    return records.filter((r) => {
+      if (activeFilters.includes('unread') && r.thread.isRead) return false;
+      if (activeFilters.includes('has_deadline') && !r.nextStatedDeadline && !r.nextAnyDeadline) return false;
+      if (activeFilters.includes('has_attachment') && !r.hasAttachment) return false;
+      if (activeFilters.includes('flagged') && !r.analysis.securityAlert) return false;
+      if (activeFilters.includes('awaiting_reply') && !r.analysis.replyRequired) return false;
+      return true;
+    });
+  }, [records, activeFilters]);
+
   // An unknown account is an error, never an empty list. Silence and zero must
   // not look the same: one means nothing to do, the other means something is
   // wrong and the person is being shown nothing without being told.
@@ -57,7 +75,7 @@ export function useViewData(accountId: string): ViewData {
 
   return {
     dataset,
-    records: state === 'empty' ? [] : records,
+    records: state === 'empty' ? [] : filteredRecords,
     allRecords: state === 'empty' ? [] : allRecords,
     accountLabel: dataset?.account.label ?? 'Unknown account',
     accountType: dataset?.account.accountType ?? 'work',

@@ -318,6 +318,8 @@ export const EmailThreadPage: React.FC = () => {
               onClearSelection={() => setSelected(null)}
               isFullView={isFullView}
               onToggleFullView={() => setIsFullView((v) => !v)}
+              onIgnoreEmail={handleIgnoreCurrentEmail}
+              onSwitchToIntelligence={() => setPane('intelligence')}
             />
           </div>
 

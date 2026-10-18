@@ -5,8 +5,8 @@
  * personal are never combined, so the account is always named, always visible,
  * and carries a word as well as a colour.
  */
-import React from 'react';
-import { RefreshCw, Search, SlidersHorizontal, Settings2, Briefcase, House, Sparkles, MailPlus } from 'lucide-react';
+import React, { useState } from 'react';
+import { RefreshCw, Search, SlidersHorizontal, Settings2, Briefcase, House, Sparkles, MailPlus, Check, X } from 'lucide-react';
 import {
   EmailAccountSummary,
   EmailViewState,
@@ -61,6 +61,15 @@ export const EmailDashboardHeader: React.FC<Props> = ({
   onOpenConnectModal,
 }) => {
   const isWork = account?.accountType === 'work';
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const toggleQuickFilter = (key: string) => {
+    const current = viewState.filters;
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+    setViewState({ filters: next });
+  };
 
   return (
     <header className="ecc-header">
@@ -225,18 +234,91 @@ export const EmailDashboardHeader: React.FC<Props> = ({
             </button>
           )}
 
-          <button
-            type="button"
-            className="btn-secondary ecc-icon-button"
-            aria-label="Filter threads"
-            aria-expanded={false}
-          >
-            <SlidersHorizontal size={14} aria-hidden="true" />
-            Filter
-            {viewState.filters.length > 0 ? (
-              <span className="ecc-filter-count">{viewState.filters.length}</span>
-            ) : null}
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={`btn-secondary ecc-icon-button ${filterOpen ? 'active' : ''}`}
+              aria-label="Filter threads"
+              aria-expanded={filterOpen}
+              onClick={() => setFilterOpen((v) => !v)}
+            >
+              <SlidersHorizontal size={14} aria-hidden="true" />
+              Filter
+              {viewState.filters.length > 0 ? (
+                <span className="ecc-filter-count">{viewState.filters.length}</span>
+              ) : null}
+            </button>
+
+            {filterOpen && (
+              <div
+                className="ecc-filter-dropdown"
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  right: 0,
+                  background: 'rgba(9, 14, 26, 0.96)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(226, 181, 60, 0.35)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.7)',
+                  zIndex: 100,
+                  minWidth: '220px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#e2b53c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Quick Filters
+                  </span>
+                  {viewState.filters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setViewState({ filters: [] })}
+                      style={{ background: 'transparent', border: 'none', color: '#f87171', fontSize: '11px', cursor: 'pointer', padding: 0 }}
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+                {[
+                  { key: 'unread', label: 'Unread Only' },
+                  { key: 'has_deadline', label: 'Has Deadline' },
+                  { key: 'has_attachment', label: 'Has Attachment' },
+                  { key: 'flagged', label: 'Flagged / Security' },
+                  { key: 'awaiting_reply', label: 'Needs Reply' },
+                ].map((f) => {
+                  const active = viewState.filters.includes(f.key);
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => toggleQuickFilter(f.key)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        background: active ? 'rgba(226, 181, 60, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                        border: active ? '1px solid rgba(226, 181, 60, 0.4)' : '1px solid transparent',
+                        color: active ? '#ffffff' : '#cbd5e1',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span>{f.label}</span>
+                      {active && <Check size={13} color="#e2b53c" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <button
             type="button"

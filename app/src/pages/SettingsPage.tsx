@@ -80,7 +80,7 @@ export const SettingsPage: React.FC = () => {
           <span>WORKSPACE CONFIGURATION</span>
         </div>
         <h1 className="page-title">Workspace Settings</h1>
-        <p className="page-subtitle">Configure organization preferences and workspace defaults.</p>
+        <p className="page-subtitle">Configure organisation preferences and workspace defaults.</p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '720px' }}>
@@ -309,7 +309,7 @@ export const SettingsPage: React.FC = () => {
             }}
           >
             <Sparkles size={18} />
-            <span>Workspace preferences and organization defaults</span>
+          <span>Workspace preferences and organisation defaults</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -380,7 +380,7 @@ export const SettingsPage: React.FC = () => {
               </span>
             </div>
 
-            {/* Organization Profile */}
+            {/* Organisation Profile */}
             <div
               style={{
                 padding: '16px',
@@ -395,7 +395,7 @@ export const SettingsPage: React.FC = () => {
               <Building size={20} color="#f3c958" />
               <div>
                 <div style={{ fontWeight: 600, fontSize: '0.92rem', color: '#f8fafc' }}>
-                  Organization Profile
+                  Organisation Profile
                 </div>
                 <div style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
                   Concludo Pty Ltd (Melbourne VIC) · ACN 701 605 898

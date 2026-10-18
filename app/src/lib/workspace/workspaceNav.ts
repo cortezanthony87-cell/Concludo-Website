@@ -270,7 +270,7 @@ const DESTINATIONS: WorkspaceDestination[] = [
     group: 'Automation',
     feature: 'action_tracker',
   },
-  { path: '/agents/dashboard', label: 'Agent Dashboard', iconName: 'Gauge', accessibleDescription: 'How the agents are running.', group: 'Automation', feature: 'ai_agents', mergedInto: '/agents' },
+  { path: '/agents/dashboard', label: 'Agent Dashboard', iconName: 'Gauge', accessibleDescription: 'How the agents are running.', group: 'Automation', feature: 'ai_agents' },
 
   /* -------------------------------------------------------- Intelligence
    *
@@ -332,15 +332,17 @@ const DESTINATIONS: WorkspaceDestination[] = [
   { path: '/executive-briefings', label: 'Executive Briefings', iconName: 'FileText', accessibleDescription: 'Briefings assembled for an executive audience.', group: 'Intelligence', feature: 'executive_intelligence', mergedInto: '/briefings' },
   { path: '/executive-intelligence', label: 'Executive Intelligence', iconName: 'Compass', accessibleDescription: 'What matters at an executive level.', group: 'Intelligence', feature: 'executive_intelligence', mergedInto: '/briefings' },
   { path: '/executive-center', label: 'Executive Centre', iconName: 'FileText', accessibleDescription: 'The executive view of the workspace.', group: 'Intelligence', feature: 'executive_intelligence', mergedInto: '/briefings' },
-  { path: '/executive-command-center', label: 'Command Centre', iconName: 'Compass', accessibleDescription: 'The operating view of the workspace.', group: 'Intelligence', feature: 'executive_command_center', mergedInto: '/briefings' },
+  { path: '/executive-command-center', label: 'Executive Command Centre', iconName: 'Compass', accessibleDescription: 'The operating view of the workspace.', group: 'Intelligence', feature: 'executive_command_center', mergedInto: '/briefings' },
 
   /* ---------------------------------------------------------------- Admin */
-  { path: '/admin', label: 'Enterprise Admin', iconName: 'Shield', accessibleDescription: 'Members, roles and workspace settings.', group: 'Admin', feature: 'organization_admin' },
+  { path: '/settings', label: 'Settings', iconName: 'Settings', accessibleDescription: 'How this workspace behaves.', group: 'Admin', feature: 'workspace_basic' },
+  { path: '/team/settings', label: 'Team Settings', iconName: 'Users', accessibleDescription: 'Manage team members, roles and invitations.', group: 'Admin', feature: 'workspace_basic' },
+  { path: '/checkout', label: 'Packages & Plans', iconName: 'CreditCard', accessibleDescription: 'What this workspace includes.', group: 'Admin', feature: 'workspace_basic' },
+  { path: '/admin', label: 'Admin Portal', iconName: 'Shield', accessibleDescription: 'Members, roles and workspace settings.', group: 'Admin', feature: 'organization_admin' },
   { path: '/admin/audit', label: 'Audit Logs', iconName: 'ScrollText', accessibleDescription: 'Who did what, and when.', group: 'Admin', feature: 'audit_logging' },
   { path: '/admin/compliance', label: 'Compliance', iconName: 'Scale', accessibleDescription: 'Consent, retention and the obligations that attach to them.', group: 'Admin', feature: 'compliance_controls' },
   { path: '/admin/security', label: 'Security', iconName: 'KeyRound', accessibleDescription: 'Access, keys and sign-in.', group: 'Admin', feature: 'security_controls' },
-  { path: '/checkout', label: 'Packages & Plans', iconName: 'CreditCard', accessibleDescription: 'What this workspace includes.', group: 'Admin', feature: 'workspace_basic' },
-  { path: '/settings', label: 'Settings', iconName: 'Settings', accessibleDescription: 'How this workspace behaves.', group: 'Admin', feature: 'workspace_basic' },
+  { path: '/settings/deleted', label: 'Recently Deleted', iconName: 'Trash2', accessibleDescription: 'Soft-deleted records and 30-day retention status.', group: 'Admin', feature: 'workspace_basic' },
 ];
 
 /**
@@ -375,7 +377,5 @@ export function findDestinationByPath(path: string): WorkspaceDestination | unde
 
 /** Whether a path is one of the four destinations that replaces older views. */
 export function isMergeTarget(path: string): boolean {
-  return DESTINATIONS.some(
-    (destination) => destination.mergedInto !== undefined && destination.mergedInto === path
-  );
+  return path === '/memory' || path === '/briefings';
 }

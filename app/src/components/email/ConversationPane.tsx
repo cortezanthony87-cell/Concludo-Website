@@ -16,7 +16,7 @@
  * and looking broken.
  */
 import React, { useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight, Paperclip, ShieldAlert, Reply, Maximize2, Minimize2, Eye } from 'lucide-react';
+import { ChevronDown, ChevronRight, Paperclip, ShieldAlert, Reply, Maximize2, Minimize2, Eye, CheckCircle2, Brain } from 'lucide-react';
 import { EmailMessage, Attachment } from '../../lib/email/model';
 import { SourceLocation } from '../../lib/email/threadIntelligence';
 import { AccountBadge, formatDayTime } from './viewPrimitives';
@@ -34,6 +34,8 @@ interface Props {
   onClearSelection: () => void;
   isFullView?: boolean;
   onToggleFullView?: () => void;
+  onIgnoreEmail?: () => void;
+  onSwitchToIntelligence?: () => void;
 }
 
 export const ConversationPane: React.FC<Props> = ({
@@ -46,6 +48,8 @@ export const ConversationPane: React.FC<Props> = ({
   onClearSelection,
   isFullView,
   onToggleFullView,
+  onIgnoreEmail,
+  onSwitchToIntelligence,
 }) => {
   const paneRef = useRef<HTMLDivElement>(null);
   const firstHighlighted = highlights[0]?.messageId ?? null;
@@ -86,6 +90,86 @@ export const ConversationPane: React.FC<Props> = ({
             </button>
           </div>
         ) : null}
+      </div>
+
+      {/* Intelligent Actions in Conversation view */}
+      <div
+        className="ecc-intelligent-actions"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '8px',
+          margin: '0 0 14px',
+          padding: '8px 10px',
+          background: 'rgba(22, 38, 63, 0.7)',
+          border: '1px solid rgba(226, 181, 60, 0.25)',
+          borderRadius: '8px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {onIgnoreEmail && (
+            <button
+              type="button"
+              onClick={onIgnoreEmail}
+              className="ecc-btn-ignore-email"
+              title="Ignore email: removes from overview and inbox, marks as done, and excludes from Email Command Centre"
+            >
+              <CheckCircle2 size={13} color="#FCA5A5" />
+              <span>Ignore email</span>
+            </button>
+          )}
+
+          {onToggleFullView && (
+            <button
+              type="button"
+              onClick={onToggleFullView}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : 'rgba(33, 57, 92, 0.8)',
+                border: '1px solid #E2B53C',
+                color: isFullView ? '#0E1726' : '#E2B53C',
+                borderRadius: '6px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title={isFullView ? 'Return to standard view' : 'Expand email to full view'}
+            >
+              {isFullView ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span>{isFullView ? 'Standard view' : 'Full view email'}</span>
+            </button>
+          )}
+        </div>
+
+        {onSwitchToIntelligence && (
+          <button
+            type="button"
+            onClick={onSwitchToIntelligence}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              background: 'rgba(226, 181, 60, 0.15)',
+              border: '1px solid rgba(226, 181, 60, 0.4)',
+              color: '#E2B53C',
+              borderRadius: '6px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Open Intelligence analysis, recommendations and draft replies"
+          >
+            <Brain size={13} />
+            <span>Intelligence & Drafts</span>
+          </button>
+        )}
       </div>
 
       <ol className="ecc-message-list" aria-labelledby="ecc-conversation-heading">

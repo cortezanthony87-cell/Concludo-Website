@@ -79,11 +79,14 @@ function useMatches(query: string): boolean {
 /** Which groups the person left open. Per browser, and never load bearing. */
 function useOpenGroups(): [Set<WorkspaceGroup>, (group: WorkspaceGroup) => void] {
   const [open, setOpen] = React.useState<Set<WorkspaceGroup>>(() => {
-    const fallback = new Set<WorkspaceGroup>(['Work', 'Connectivity', 'Automation', 'Intelligence']);
+    const fallback = new Set<WorkspaceGroup>(['Work', 'Connectivity', 'Automation', 'Intelligence', 'Admin']);
     try {
       const saved = window.localStorage.getItem('concludo.sidebar.groups');
       if (!saved) return fallback;
-      return new Set(JSON.parse(saved) as WorkspaceGroup[]);
+      const parsed = JSON.parse(saved) as WorkspaceGroup[];
+      const set = new Set(parsed);
+      set.add('Admin');
+      return set;
     } catch {
       // Private windows and blocked site data both throw here. A remembered
       // group is a convenience, so the fallback is the whole feature.
@@ -285,7 +288,10 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             <span className="cws-secured-dot" />
             Workspace secured
           </div>
-          <div className="cws-org">Concludo Pty Ltd</div>
+          <div className="cws-org" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="Building2" size={13} />
+            <span>Concludo Pty Ltd</span>
+          </div>
           <div className="cws-place">Melbourne, Australia</div>
         </div>
       )}

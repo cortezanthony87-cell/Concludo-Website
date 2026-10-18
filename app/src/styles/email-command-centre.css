@@ -295,11 +295,17 @@
   margin: 0;
   border-bottom: 1px solid var(--border-subtle);
   width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.ecc-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .ecc-tab-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px 6px;
   margin: 0;

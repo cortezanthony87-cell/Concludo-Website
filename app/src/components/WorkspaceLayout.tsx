@@ -315,33 +315,6 @@ export const WorkspaceLayout: React.FC = () => {
       {!location.pathname.startsWith('/workflows/builder') && (
         <nav className="mobile-bottom-bar" aria-label="Mobile Navigation">
         <NavLink
-          to="/calendar"
-          className={({ isActive }) =>
-            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
-          }
-        >
-          <CalendarIcon size={19} />
-          <span>Calendar</span>
-        </NavLink>
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) =>
-            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
-          }
-        >
-          <LayoutDashboard size={19} />
-          <span>Home</span>
-        </NavLink>
-        <NavLink
-          to="/projects"
-          className={({ isActive }) =>
-            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
-          }
-        >
-          <FolderKanban size={19} />
-          <span>Projects</span>
-        </NavLink>
-        <NavLink
           to="/copilot"
           className={({ isActive }) =>
             isActive ? 'mobile-nav-item active mobile-nav-copilot' : 'mobile-nav-item mobile-nav-copilot'
@@ -351,13 +324,40 @@ export const WorkspaceLayout: React.FC = () => {
           <span>Copilot</span>
         </NavLink>
         <NavLink
-          to="/actions"
+          to="/dashboard"
           className={({ isActive }) =>
             isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
           }
         >
-          <CheckSquare size={19} />
-          <span>Actions</span>
+          <LayoutDashboard size={19} />
+          <span>Dashboard</span>
+        </NavLink>
+        <NavLink
+          to="/calendar"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <CalendarIcon size={19} />
+          <span>Calendar</span>
+        </NavLink>
+        <NavLink
+          to="/email"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <Mail size={19} />
+          <span>Email</span>
+        </NavLink>
+        <NavLink
+          to="/crm"
+          className={({ isActive }) =>
+            isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
+          }
+        >
+          <Contact size={19} />
+          <span>CRM</span>
         </NavLink>
         <button
           type="button"

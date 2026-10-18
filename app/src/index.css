@@ -933,16 +933,7 @@ input, select, textarea {
 button.btn-connect-gold,
 button[class*="btn-connect-gold"],
 a.btn-connect-gold,
-a[class*="btn-connect-gold"],
-button.bg-amber-500,
-button[class*="bg-amber-500"],
-.bg-amber-500,
-button[class*="bg-[#E2B53C]"],
-a[class*="bg-[#E2B53C]"],
-button[class*="bg-[#e2b53c]"],
-a[class*="bg-[#e2b53c]"],
-.bg-\[\#E2B53C\],
-.bg-\[\#e2b53c\] {
+a[class*="btn-connect-gold"] {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -974,16 +965,7 @@ a[class*="bg-[#e2b53c]"],
 button.btn-connect-gold:hover,
 button[class*="btn-connect-gold"]:hover,
 a.btn-connect-gold:hover,
-a[class*="btn-connect-gold"]:hover,
-button.bg-amber-500:hover,
-button[class*="bg-amber-500"]:hover,
-.bg-amber-500:hover,
-button[class*="bg-[#E2B53C]"]:hover,
-a[class*="bg-[#E2B53C]"]:hover,
-button[class*="bg-[#e2b53c]"]:hover,
-a[class*="bg-[#e2b53c]"]:hover,
-.bg-\[\#E2B53C\]:hover,
-.bg-\[\#e2b53c\]:hover {
+a[class*="btn-connect-gold"]:hover {
   background: linear-gradient(135deg, #fae08f 0%, #f3c958 50%, #d49f25 100%) !important;
   background-color: #f3c958 !important;
   color: #16263F !important;
@@ -995,21 +977,14 @@ a[class*="bg-[#e2b53c]"]:hover,
 button.btn-connect-gold:active,
 button[class*="btn-connect-gold"]:active,
 a.btn-connect-gold:active,
-a[class*="btn-connect-gold"]:active,
-button.bg-amber-500:active,
-button[class*="bg-[#E2B53C]"]:active,
-a[class*="bg-[#E2B53C]"]:active {
+a[class*="btn-connect-gold"]:active {
   transform: translateY(0) !important;
 }
 
 /* Ensure icons inside the connect button are dark navy and crisp */
 .btn-connect-gold svg,
 button[class*="btn-connect-gold"] svg,
-a[class*="btn-connect-gold"] svg,
-button.bg-amber-500 svg,
-button[class*="bg-amber-500"] svg,
-button[class*="bg-[#E2B53C]"] svg,
-a[class*="bg-[#E2B53C]"] svg {
+a[class*="btn-connect-gold"] svg {
   stroke: #16263F !important;
   color: #16263F !important;
   stroke-width: 2.5 !important;
@@ -1393,8 +1368,10 @@ input[type="password"].bg-white::placeholder {
 
   /* Main content area takes full screen width */
   .main-content-area {
-    padding: 20px 16px calc(85px + env(safe-area-inset-bottom, 0px)) 16px !important; /* Extra bottom padding for mobile bottom bar */
+    padding: 20px 16px calc(105px + env(safe-area-inset-bottom, 20px)) 16px !important; /* Extra bottom padding for mobile bottom bar */
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     max-width: 100vw;
     box-sizing: border-box;
     overflow-x: hidden;
@@ -1669,7 +1646,9 @@ input[type="password"].bg-white::placeholder {
   }
 
   .main-content-area {
-    padding: 10px 8px 80px 8px !important;
+    padding: 16px 14px calc(115px + env(safe-area-inset-bottom, 25px)) 14px !important;
+    min-width: 0 !important;
+    width: 100% !important;
     max-width: 100vw !important;
     box-sizing: border-box !important;
     overflow-x: hidden !important;

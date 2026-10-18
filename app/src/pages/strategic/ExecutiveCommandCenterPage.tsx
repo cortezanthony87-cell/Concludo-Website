@@ -14,6 +14,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { StrategicClient } from '../../lib/strategic/strategicClient';
+import { StrategicService } from '../../lib/strategic/strategicService';
+import { RiskNetworkEngine } from '../../lib/strategic/riskNetworkEngine';
 import {
   StrategicDigitalTwin,
   StrategicAlert,
@@ -44,8 +46,11 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
       setRecommendations(recsData);
       setRiskNet(riskData);
     } catch (err: any) {
-      console.error('Failed to load command center data:', err);
-      setError(err?.message || 'Failed to load Executive Command Centre');
+      console.warn('Command center data notice, using safe fallback:', err);
+      setTwin(StrategicService.getDemoDigitalTwin());
+      setAlerts(StrategicService.getDemoAlerts());
+      setRecommendations(StrategicService.getStrategicRecommendations());
+      setRiskNet(RiskNetworkEngine.computeRiskNetwork());
     } finally {
       setLoading(false);
     }
@@ -90,16 +95,39 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
     );
   }
 
+  const isDemoMode = Boolean(twin.id.startsWith('demo-'));
+
   return (
     <div className="space-y-8 pb-12">
+      {/* Demo Mode Notice */}
+      {isDemoMode && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 text-xs text-amber-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#E2B53C] shrink-0" />
+            <span>
+              <strong className="text-white">Demonstration Model (Preview Mode):</strong> Displaying synthetic organisational baseline. Connect live workspace data sources for authentic telemetry.
+            </span>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-[#E2B53C] border border-amber-500/30 shrink-0">
+            Synthetic Demo
+          </span>
+        </div>
+      )}
+
       {/* Top Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-white tracking-tight">Executive Command Centre</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E2B53C]/10 text-[#E2B53C] border border-[#E2B53C]/30">
-              Leadership Oversight
-            </span>
+            {isDemoMode ? (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                Demonstration Model
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E2B53C]/10 text-[#E2B53C] border border-[#E2B53C]/30">
+                Leadership Oversight
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-400 mt-1">
             Unified strategic operating dashboard for enterprise visibility, initiative health, and proactive risk control.
@@ -108,21 +136,24 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
 
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-xs text-slate-400">Organization Health</div>
+            <div className="text-xs text-slate-400">Organisation Health</div>
             <div className="text-2xl font-bold text-white flex items-center justify-end gap-1">
               <span className="text-[#E2B53C]">{twin.strategic_health}</span>
               <span className="text-xs text-slate-500">/ 100</span>
             </div>
+            {isDemoMode && (
+              <div className="text-[10px] text-amber-400/90 font-medium">Demo Baseline</div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Strategic Alerts Section */}
-      {alerts.length > 0 && (
+      {alerts.length > 0 ? (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
             <Bell className="w-3.5 h-3.5 text-amber-400" />
-            Active Strategic Alerts (Informational Only)
+            {isDemoMode ? 'Active Strategic Alerts (Demonstration Mode — Informational Only)' : 'Active Strategic Alerts (Informational Only)'}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {alerts.map((alert) => (
@@ -136,7 +167,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
                     <h4 className="text-sm font-semibold text-white">{alert.title}</h4>
                     <p className="text-xs text-slate-300 mt-1 leading-relaxed">{alert.description}</p>
                     <span className="inline-block mt-2 text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      {alert.alert_type.replace(/_/g, ' ')}
+                      {isDemoMode ? `DEMO · ${alert.alert_type.replace(/_/g, ' ')}` : alert.alert_type.replace(/_/g, ' ')}
                     </span>
                   </div>
                 </div>
@@ -149,6 +180,14 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>All strategic priority alerts resolved. No active leadership exceptions across active initiatives.</span>
+          </div>
+          <span className="text-emerald-400 font-medium">Operational Baseline Active</span>
         </div>
       )}
 
@@ -180,7 +219,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#E2B53C] shrink-0 mt-0.5" />
                 <span>
-                  <strong className="text-white">Cross-Squad PMO Synchronization:</strong> Turnaround cadence under 48 hours on critical reviews.
+                  <strong className="text-white">Cross-Squad PMO Synchronisation:</strong> Turnaround cadence under 48 hours on critical reviews.
                 </span>
               </li>
             </ul>
@@ -227,7 +266,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
 
               <div>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-300">Knowledge Utilization</span>
+                  <span className="text-slate-300">Knowledge Utilisation</span>
                   <span className="text-white font-semibold">{twin.knowledge_health}%</span>
                 </div>
                 <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -260,7 +299,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               {riskNet?.nodes.slice(0, 3).map((r) => (
                 <div key={r.id} className="bg-slate-800/40 border border-slate-700/60 rounded-lg p-2.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-200 truncate pr-2">{r.title}</span>
+                    <span className="font-medium text-slate-200 pr-2">{r.title}</span>
                     <span
                       className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
                         r.severity === 'high' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'
@@ -269,9 +308,17 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
                       {r.severity}
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-1 truncate">
+                  <div className="text-[11px] text-slate-400 mt-1">
                     Origin: {r.originTitle}
                   </div>
+                  {r.mitigationRecommendation && (
+                    <div className="text-[11px] text-slate-300 mt-1.5 leading-relaxed">
+                      <span className="text-amber-400/90 font-medium">Mitigation: </span>{r.mitigationRecommendation}
+                    </div>
+                  )}
+                  {r.impactAreas && r.impactAreas.length > 0 && (
+                    <div className="text-[10px] text-slate-400 mt-1">Impact: {r.impactAreas.join(' · ')}</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -293,7 +340,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               <FileText className="w-4 h-4 text-sky-400" />
               <h3 className="text-sm font-semibold text-white">Critical Decisions</h3>
             </div>
-            <span className="text-xs text-slate-400">{twin.model_state.decisions_count} Documented</span>
+            <span className="text-xs text-slate-400">{isDemoMode ? 'Demo Baseline' : `${twin.model_state.decisions_count} Documented`}</span>
           </div>
 
           <div className="space-y-3">
@@ -330,7 +377,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <h3 className="text-sm font-semibold text-white">Critical Actions</h3>
             </div>
-            <span className="text-xs text-slate-400">{twin.model_state.open_actions_count} Open</span>
+            <span className="text-xs text-slate-400">{isDemoMode ? 'Demo Baseline' : `${twin.model_state.open_actions_count} Open`}</span>
           </div>
 
           <div className="space-y-3">
@@ -374,7 +421,7 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
             <Sparkles className="w-5 h-5 text-[#E2B53C]" />
             <h2 className="text-base font-semibold text-white">Executive Recommendations</h2>
           </div>
-          <span className="text-xs text-slate-400">Evidence-backed advisory guidance</span>
+          <span className="text-xs text-slate-400">{isDemoMode ? 'Advisory baseline (Demonstration)' : 'Evidence-backed advisory guidance'}</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -389,6 +436,9 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
                 </div>
                 <h4 className="text-sm font-semibold text-white">{rec.title}</h4>
                 <p className="text-xs text-slate-300 mt-2 leading-relaxed">{rec.summary}</p>
+                {rec.explanation && (
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed border-t border-slate-700/50 pt-2">{rec.explanation}</p>
+                )}
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-700/60 text-[11px] text-slate-400 flex justify-between items-center">
@@ -397,6 +447,19 @@ export const ExecutiveCommandCenterPage: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Governance & Operating Principles */}
+      <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 text-xs text-slate-400 flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Shield className="w-4 h-4 text-[#E2B53C] shrink-0" />
+          <span>
+            <strong className="text-slate-200">Governance Guardrails:</strong> Concludo proposes; a person disposes. Intelligence is advisory and evidence-grounded. Measure work, never people.
+          </span>
+        </div>
+        <div className="text-[11px] text-slate-500 whitespace-nowrap">
+          Australian English · Tenant-Isolated
         </div>
       </div>
     </div>

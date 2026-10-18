@@ -305,7 +305,7 @@
 
 .cws-footer {
   flex: 0 0 auto;
-  margin: 10px 16px 16px;
+  margin: 10px 16px calc(16px + env(safe-area-inset-bottom, 12px));
   padding: 12px 13px;
   background: var(--cws-raised);
   border: 1px solid var(--cws-badge-bg);
@@ -325,6 +325,7 @@
 
 .cws-secured-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cws-gold); }
 .cws-org { font: 600 12px Poppins, Montserrat, Arial, sans-serif; color: var(--cws-text); }
+.cws-org svg { color: var(--cws-gold); }
 .cws-place { font: 400 11px Inter, sans-serif; color: var(--cws-label); margin-top: 1px; }
 
 /* ================================================= the rail, 900 to 1179 */

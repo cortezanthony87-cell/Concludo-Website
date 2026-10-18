@@ -16,7 +16,7 @@ import { EmailDashboardHeader } from './EmailDashboardHeader';
 import { EmailConnectModal } from './EmailConnectModal';
 import { LocalActionProvider } from '../../lib/email/localActions';
 import { loadUserEmailAccounts } from '../../lib/email/connectedMailboxes';
-import { EmailAccountSummary } from '../../lib/email/types';
+import { EmailAccountSummary, EmailViewState } from '../../lib/email/types';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { runAgent } from '../../lib/agents/agentRunner';
 import { AgentRunResult } from '../../lib/agents/types';
@@ -34,6 +34,8 @@ export interface EmailModuleContext {
   accountId: string;
   refreshToken: number;
   linkTo: (path: string) => string;
+  viewState?: EmailViewState;
+  setViewState?: (patch: Partial<EmailViewState>) => void;
 }
 
 export const EmailModuleLayout: React.FC = () => {
@@ -201,6 +203,8 @@ export const EmailModuleLayout: React.FC = () => {
     accountId: account?.id ?? viewState.accountId,
     refreshToken,
     linkTo,
+    viewState,
+    setViewState,
   };
 
   return (

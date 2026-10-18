@@ -555,4 +555,63 @@ export class StrategicService {
       },
     ];
   }
+
+  public static getDemoDigitalTwin(): StrategicDigitalTwin {
+    return {
+      id: 'demo-twin-1',
+      title: 'Concludo Executive Digital Twin',
+      operational_health: 88,
+      strategic_health: 92,
+      execution_health: 89,
+      collaboration_health: 94,
+      decision_health: 91,
+      knowledge_health: 87,
+      risk_exposure: 18,
+      opportunity_score: 86,
+      created_by: 'system',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      model_state: {
+        organizations_count: 1,
+        teams_count: 3,
+        projects_count: 5,
+        active_initiatives_count: 6,
+        decisions_count: 14,
+        actions_count: 28,
+        open_actions_count: 5,
+        overdue_actions_count: 0,
+        risks_detected_count: 2,
+        workflows_count: 8,
+        knowledge_nodes_count: 42,
+        knowledge_relationships_count: 86,
+        lessons_learned_count: 12,
+        last_updated: new Date().toISOString(),
+      },
+    };
+  }
+
+  public static getDemoAlerts(): StrategicAlert[] {
+    return [
+      {
+        id: 'alert-1',
+        title: 'Project Atlas Security Architecture Sign-Off',
+        description: 'Prerequisite milestone verification pending for Q4 enterprise staging deployment.',
+        alert_type: 'major_initiative_delayed',
+        severity: 'medium',
+        details: {},
+        is_dismissed: false,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'alert-2',
+        title: 'Retention Purge Verification Due',
+        description: 'Automated 30-day compliance cycle ready for scheduled execution across workspace records.',
+        alert_type: 'critical_risk_emerging',
+        severity: 'low',
+        details: {},
+        is_dismissed: false,
+        created_at: new Date().toISOString(),
+      },
+    ];
+  }
 }

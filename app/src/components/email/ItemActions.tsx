@@ -148,6 +148,19 @@ export const ItemActions: React.FC<Props> = ({
             </span>
           );
         })}
+        <span className="ecc-action-wrap">
+          <button
+            type="button"
+            className="ecc-action"
+            onClick={() => actions.ignoreEmail(threadId)}
+            title="Ignore email: removes from overview and working queues, marks done"
+            aria-label={`Ignore email for ${subject}`}
+          >
+            <Icons.CheckCircle2 size={13} color="#FCA5A5" />
+            Ignore email
+          </button>
+          <span className="ecc-visually-hidden">Removes this thread from overview and queues.</span>
+        </span>
       </div>
 
       {(isDeferred || isWaiting || isReviewed) && (

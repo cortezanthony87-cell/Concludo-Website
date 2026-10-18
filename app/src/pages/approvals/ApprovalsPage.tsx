@@ -250,7 +250,7 @@ export const ApprovalsPage: React.FC = () => {
                                 <ul className="space-y-1">
                                   {item.checklist.map((step: string, sIdx: number) => (
                                     <li key={sIdx} className="text-xs text-gray-300 flex items-center space-x-1.5">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-[#E2B53C]" />
+                                      <span className="shrink-0" style={{ width: '6px', height: '6px', minWidth: '6px', minHeight: '6px', backgroundColor: '#E2B53C', borderRadius: '50%', display: 'inline-block' }} />
                                       <span>{step}</span>
                                     </li>
                                   ))}
