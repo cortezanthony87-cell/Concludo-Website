@@ -74,25 +74,20 @@ function daysAgo(iso: string, now: string): string {
 
 const RING_GAP = 1;
 
-const Ring: React.FC<{ donut: Donut; currency: string }> = ({ donut, currency }) => {
+const Ring: React.FC<{ donut: Donut; currency: string; isExample?: boolean }> = ({ donut, currency, isExample }) => {
   const value = (amount: number, count: number) =>
     donut.unit === 'money' ? formatMoney(amount, currency) : String(count);
 
-  /* A ring with one wedge is the number 100 drawn as a circle. Say it. */
-  if (donut.slices.length < 2) {
-    const only = donut.slices[0] ?? null;
+  if (donut.slices.length === 0) {
     return (
       <div className="ccrm-ring-single">
-        <p className="ccrm-ring-single-value">{only ? '100%' : 'None'}</p>
-        <p className="ccrm-ring-single-label">
-          {only
-            ? `all ${donut.totalFigure} ${donut.totalUnit.replace(/,.*$/, '')} ${donut.unit === 'money' ? 'sits in' : 'came from'} ${only.label}`
-            : `nothing recorded to divide, so there is no ring to draw`}
-        </p>
+        <p className="ccrm-ring-single-value">None</p>
+        <p className="ccrm-ring-single-label">nothing recorded to divide, so there is no ring to draw</p>
       </div>
     );
   }
 
+  const isSingle = donut.slices.length === 1;
   let offset = 0;
   return (
     <div className="ccrm-ring-wrap">
@@ -108,8 +103,8 @@ const Ring: React.FC<{ donut: Donut; currency: string }> = ({ donut, currency })
         </title>
         <circle className="ccrm-ring-base" cx="60" cy="60" r="44" pathLength={100} />
         {donut.slices.map((slice) => {
-          const length = Math.max(slice.fraction * 100 - RING_GAP, 0.4);
-          const dash = `${length} ${100 - length}`;
+          const length = isSingle ? 100 : Math.max(slice.fraction * 100 - RING_GAP, 0.4);
+          const dash = isSingle ? '100 0' : `${length} ${100 - length}`;
           const thisOffset = offset;
           offset -= slice.fraction * 100;
           return (
@@ -179,6 +174,210 @@ const RingLegend: React.FC<{
   </ul>
 );
 
+interface DisplayDonutResult {
+  donut: Donut;
+  isExample: boolean;
+}
+
+/**
+ * Returns the user's real donut if items exist.
+ * If no items are recorded yet in this category, returns an authentic example
+ * preview so the chart is always visual.
+ * 
+ * ISOLATION GUARANTEE: Example figures live strictly in this visual view layer.
+ * They are never saved to session data or database, and never mixed or averaged
+ * into user reports, pipeline totals, or exports.
+ */
+function getDisplayDonut(donut: Donut, currency: string): DisplayDonutResult {
+  if (donut.slices.length > 0) {
+    return { donut, isExample: false };
+  }
+
+  if (donut.key === 'pipeline_by_stage') {
+    return {
+      isExample: true,
+      donut: {
+        key: donut.key,
+        label: donut.label,
+        question: donut.question,
+        unit: 'money',
+        total: 25000,
+        totalLabel: 'AU$25k in total (Example)',
+        totalFigure: 'AU$25k',
+        totalUnit: 'example open pipeline',
+        slices: [
+          {
+            key: 'ex-proposal',
+            label: 'Proposal (Example)',
+            value: 12500,
+            count: 2,
+            share: 50,
+            fraction: 0.5,
+            startAngle: 0,
+            endAngle: 180,
+            tone: -1,
+            path: null,
+            grouped: false,
+            groupedCount: 0,
+          },
+          {
+            key: 'ex-appraisal',
+            label: 'Appraisal (Example)',
+            value: 7500,
+            count: 2,
+            share: 30,
+            fraction: 0.3,
+            startAngle: 180,
+            endAngle: 288,
+            tone: 0,
+            path: null,
+            grouped: false,
+            groupedCount: 0,
+          },
+          {
+            key: 'ex-negotiation',
+            label: 'Negotiation (Example)',
+            value: 5000,
+            count: 1,
+            share: 20,
+            fraction: 0.2,
+            startAngle: 288,
+            endAngle: 360,
+            tone: 3,
+            path: null,
+            grouped: false,
+            groupedCount: 0,
+          },
+        ],
+        basis: 'Example figure shown for preview only',
+        omits: 'isolated from live workspace data',
+      },
+    };
+  }
+
+  if (donut.key === 'enquiries_by_source') {
+    return {
+      isExample: true,
+      donut: {
+        key: donut.key,
+        label: donut.label,
+        question: donut.question,
+        unit: 'count',
+        total: 10,
+        totalLabel: '10 enquiries in total (Example)',
+        totalFigure: '10',
+        totalUnit: 'example enquiries',
+        slices: [
+          {
+            key: 'ex-website',
+            label: 'Website (Example)',
+            value: 0,
+            count: 4,
+            share: 40,
+            fraction: 0.4,
+            startAngle: 0,
+            endAngle: 144,
+            tone: 0,
+            path: null,
+            grouped: false,
+            groupedCount: 0,
+          },
+          {
+            key: 'ex-referral',
+            label: 'Referral (Example)',
+            value: 0,
+            count: 3,
+            share: 30,
+            fraction: 0.3,
+            startAngle: 144,
+            endAngle: 252,
+            tone: 2,
+            path: null,
+            grouped: false,
+            groupedCount: 0,
+          },
+          {
+            key: 'ex-event',
+            label: 'Event (Example)',
+            value: 0,
+            count: 2,
+            share: 20,
+            fraction: 0.2,
+            startAngle: 252,
+            endAngle: 324,
+            tone: 4,
+            path: null,
+            grouped: false,
+            groupedCount: 0,
+          },
+          {
+            key: 'ex-direct',
+            label: 'Direct (Example)',
+            value: 0,
+            count: 1,
+            share: 10,
+            fraction: 0.1,
+            startAngle: 324,
+            endAngle: 360,
+            tone: -1,
+            path: null,
+            grouped: false,
+            groupedCount: 0,
+          },
+        ],
+        basis: 'Example figure shown for preview only',
+        omits: 'isolated from live workspace data',
+      },
+    };
+  }
+
+  return {
+    isExample: true,
+    donut: {
+      key: donut.key,
+      label: donut.label,
+      question: donut.question,
+      unit: 'count',
+      total: 4,
+      totalLabel: '4 promises in total (Example)',
+      totalFigure: '4',
+      totalUnit: 'example promises',
+      slices: [
+        {
+          key: 'ex-ours',
+          label: 'Ours to keep (Example)',
+          value: 0,
+          count: 2,
+          share: 50,
+          fraction: 0.5,
+          startAngle: 0,
+          endAngle: 180,
+          tone: -1,
+          path: null,
+          grouped: false,
+          groupedCount: 0,
+        },
+        {
+          key: 'ex-theirs',
+          label: 'Waiting on them (Example)',
+          value: 0,
+          count: 2,
+          share: 50,
+          fraction: 0.5,
+          startAngle: 180,
+          endAngle: 360,
+          tone: 0,
+          path: null,
+          grouped: false,
+          groupedCount: 0,
+        },
+      ],
+      basis: 'Example figure shown for preview only',
+      omits: 'isolated from live workspace data',
+    },
+  };
+}
+
 export const CrmDashboardPage: React.FC = () => {
   const { data, now, version, linkTo } = useStage4();
 
@@ -244,25 +443,52 @@ export const CrmDashboardPage: React.FC = () => {
       {/* ------------------------------------------------- the three rings */}
 
       <div className="ccrm-ring-row">
-        {overview.donuts.map((donut) => (
-          <section className="ccrm-panel ccrm-ring-panel" key={donut.key} aria-labelledby={`ring-${donut.key}`}>
-            <div className="ccrm-panel-head">
-              <div>
-                <h3 className="ccrm-panel-title" id={`ring-${donut.key}`}>
-                  {donut.label}
-                </h3>
-                <p className="ccrm-panel-description">{donut.question}</p>
+        {overview.donuts.map((rawDonut) => {
+          const display = getDisplayDonut(rawDonut, overview.currency);
+          return (
+            <section className="ccrm-panel ccrm-ring-panel" key={display.donut.key} aria-labelledby={`ring-${display.donut.key}`}>
+              <div className="ccrm-panel-head">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h3 className="ccrm-panel-title" id={`ring-${display.donut.key}`}>
+                      {display.donut.label}
+                    </h3>
+                    {display.isExample && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          background: 'rgba(226, 181, 60, 0.15)',
+                          border: '1px solid rgba(226, 181, 60, 0.4)',
+                          color: '#e2b53c',
+                          fontWeight: 600,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        Example Preview
+                      </span>
+                    )}
+                  </div>
+                  <p className="ccrm-panel-description">{display.donut.question}</p>
+                </div>
               </div>
-            </div>
 
-            <Ring donut={donut} currency={overview.currency} />
-            <RingLegend donut={donut} currency={overview.currency} linkTo={linkTo} />
+              <Ring donut={display.donut} currency={overview.currency} isExample={display.isExample} />
+              <RingLegend donut={display.donut} currency={overview.currency} linkTo={linkTo} />
 
-            <p className="ccrm-ring-basis">
-              {donut.basis}.{donut.omits ? ` Leaves out ${donut.omits}.` : ''}
-            </p>
-          </section>
-        ))}
+              {display.isExample ? (
+                <p className="ccrm-ring-basis" style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                  Example figure shown for preview. When you record your own organisations, leads, deals or promises, this example is immediately replaced and is never mixed into your reports.
+                </p>
+              ) : (
+                <p className="ccrm-ring-basis">
+                  {display.donut.basis}.{display.donut.omits ? ` Leaves out ${display.donut.omits}.` : ''}
+                </p>
+              )}
+            </section>
+          );
+        })}
       </div>
 
       <div className="ccrm-dash-grid">
