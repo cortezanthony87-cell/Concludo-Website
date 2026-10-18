@@ -119,6 +119,22 @@ export const CRM_MODULE_DESTINATIONS: CrmDestination[] = [
     group: 'Relationships',
   },
   {
+    /* The KAM Copilot sits in Accounts, beside the plans it reads. It is not
+       in Evidence with the Overview: the Overview reports what happened across
+       the workspace, and this prepares a person for one conversation with one
+       customer. Different job, different cluster.
+
+       The icon is a compass rather than a brain or a spark. This module makes
+       no claim to think, and an icon that implied one would be the first
+       dishonest thing on the page. */
+    path: '/crm/kam',
+    label: 'KAM Copilot',
+    iconName: 'Compass',
+    accessibleDescription:
+      'One account through six lenses: what is recorded, what the copilot inferred, and what nobody has answered. Carries no judgement about any person.',
+    group: 'Accounts',
+  },
+  {
     path: '/crm/account-plans',
     label: 'Account Plans',
     iconName: 'Target',

@@ -309,6 +309,7 @@ export type CrmModulePath =
   | '/crm/attention'
   | '/crm/dashboard'
   | '/crm/memory'
+  | '/crm/kam'
   | '/crm/relationships'
   | '/crm/people'
   | '/crm/organisations'

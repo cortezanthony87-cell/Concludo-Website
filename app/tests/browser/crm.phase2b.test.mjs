@@ -570,7 +570,7 @@ for (const size of [PHONE, TABLET, DESKTOP]) {
     .evaluateAll((nodes) => nodes.map((node) => node.textContent.trim()));
 
   // Twenty-two since the Overview was added beside Today.
-  assertEqual(tabs.length, 22, `${size.width}px: twenty-two destinations (saw ${tabs.length})`);
+  assertEqual(tabs.length, 23, `${size.width}px: twenty-three destinations (saw ${tabs.length})`);
   assert(tabs.includes('Memory'), `${size.width}px: Memory is one of them`);
 
   const active = await page

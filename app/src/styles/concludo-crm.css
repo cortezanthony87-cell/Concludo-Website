@@ -5288,3 +5288,261 @@
   .ccrm-module .ccrm-column-track { height: 86px; max-width: 38px; }
   .ccrm-module .ccrm-bar-share { min-width: 0; margin-right: 0.3rem; }
 }
+
+/* =====================================================================
+   KAM COPILOT
+
+   THE THREE COLUMNS ARE THE DESIGN. Recorded, inferred and unanswered sit
+   side by side under three headings, because a label inside a list can be
+   skimmed past and a column cannot. The failure this prevents is somebody
+   reading an inference in a quarterly review as though it were a fact.
+
+   The three headings are distinguished by a coloured rule above each, not by
+   coloured text: slate for recorded, gold for inferred, navy outline for
+   unanswered. Gold is 1.93:1 on white and fails as text at every size, so it
+   is a rule and never a word. The words themselves carry the meaning anyway,
+   which is what makes the colour redundant and therefore safe.
+   ===================================================================== */
+
+.ccrm-module .ccrm-kam-lens {
+  margin-bottom: 0.9rem;
+}
+
+.ccrm-module .ccrm-kam-coverage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  text-align: right;
+  max-width: 170px;
+}
+
+.ccrm-module .ccrm-kam-coverage-figure {
+  font-family: var(--ccrm-font-head, 'Poppins', system-ui, sans-serif);
+  font-weight: 650;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--ccrm-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The figure never appears without this sentence. A percentage beside a
+   customer's name is read as a grade unless it is told not to be. */
+.ccrm-module .ccrm-kam-coverage-label {
+  font-size: 0.64rem;
+  line-height: 1.35;
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-kam-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 0.4rem;
+}
+
+.ccrm-module .ccrm-kam-column {
+  min-width: 0;
+}
+
+.ccrm-module .ccrm-kam-column-head {
+  margin: 0 0 0.5rem;
+  padding-top: 0.45rem;
+  border-top: 3px solid var(--ccrm-hairline);
+  font-family: var(--ccrm-font-head, 'Poppins', system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-kam-known { border-top-color: var(--ccrm-ramp-3, #3f6b9e); }
+.ccrm-module .ccrm-kam-assumed { border-top-color: var(--ccrm-gold); }
+.ccrm-module .ccrm-kam-unknown { border-top-color: var(--ccrm-hairline-strong); }
+
+.ccrm-module .ccrm-kam-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.ccrm-module .ccrm-kam-finding {
+  min-width: 0;
+}
+
+.ccrm-module .ccrm-kam-statement {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink);
+}
+
+/* The reasoning sits with the inference, not in a footnote, so a reader can
+   disagree with how it was worked out rather than only with the conclusion. */
+.ccrm-module .ccrm-kam-from {
+  margin: 0.3rem 0 0;
+  padding: 0.4rem 0.5rem;
+  background: var(--ccrm-attention-wash);
+  border-left: 3px solid var(--ccrm-gold);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-module .ccrm-kam-from-label {
+  font-weight: 650;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-kam-sources {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+/* The customer's own sentence, marked as a quotation, so it is never confused
+   with the copilot's paraphrase of it. */
+.ccrm-module .ccrm-kam-quote {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--ccrm-ink-soft);
+  font-style: italic;
+}
+
+.ccrm-module .ccrm-kam-source-label {
+  color: var(--ccrm-quiet);
+}
+
+.ccrm-module .ccrm-kam-empty {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------ the buying centre */
+
+.ccrm-module .ccrm-kam-seats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1.2rem;
+}
+
+.ccrm-module .ccrm-kam-seat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--ccrm-hairline);
+  font-size: 0.78rem;
+}
+
+/* An empty seat that a decision needs is the one thing on this panel worth
+   acting on, so it is the one thing that carries gold. */
+.ccrm-module .ccrm-kam-seat-empty {
+  border-left: 3px solid var(--ccrm-gold);
+  padding-left: 0.5rem;
+  background: var(--ccrm-attention-wash);
+}
+
+.ccrm-module .ccrm-kam-seat-label {
+  color: var(--ccrm-ink);
+  font-weight: 600;
+}
+
+.ccrm-module .ccrm-kam-seat-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+  color: var(--ccrm-ink);
+  text-align: right;
+}
+
+.ccrm-module .ccrm-kam-seat-none {
+  color: var(--ccrm-waiting);
+  font-weight: 600;
+}
+
+/* An empty seat nobody needs for a decision is a fact, not a flag. */
+.ccrm-module .ccrm-kam-seat-none-quiet {
+  color: var(--ccrm-quiet);
+}
+
+/* The two panels above the lenses. Not stretched: the seat list is seven
+   short rows and the question list is five blocks, and matching their heights
+   leaves one of them two thirds empty. */
+.ccrm-module .ccrm-kam-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: start;
+  margin-bottom: 0.9rem;
+}
+
+@media (max-width: 980px) {
+  .ccrm-module .ccrm-kam-top { grid-template-columns: 1fr; }
+}
+
+.ccrm-module .ccrm-kam-seat-note {
+  font-size: 0.68rem;
+  color: var(--ccrm-quiet);
+}
+
+/* ------------------------------------------------------ questions */
+
+.ccrm-module .ccrm-kam-questions {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.ccrm-module .ccrm-kam-question-kind {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ccrm-ground);
+  border: 1px solid var(--ccrm-hairline-strong);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ccrm-ink-soft);
+}
+
+.ccrm-module .ccrm-kam-question {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--ccrm-ink);
+}
+
+.ccrm-module .ccrm-kam-question-closes {
+  margin: 0.2rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ccrm-quiet);
+}
+
+@media (max-width: 1180px) {
+  .ccrm-module .ccrm-kam-columns { grid-template-columns: 1fr; }
+  .ccrm-module .ccrm-kam-column-head { margin-top: 0.3rem; }
+}
+
+@media (max-width: 700px) {
+  .ccrm-module .ccrm-kam-seats { grid-template-columns: 1fr; }
+  .ccrm-module .ccrm-kam-coverage { max-width: none; align-items: flex-start; text-align: left; }
+}

@@ -33,6 +33,7 @@ import { BuildContext, makeIds } from './agents/build';
 import { captureAgent, followThroughAgent } from './agents/intake';
 import { dataStewardAgent, pipelineAgent } from './agents/hygiene';
 import { relationshipAgent, renewalAgent, serviceContextAgent } from './agents/briefing';
+import { kamCopilotAgent } from './agents/kam';
 import { accountPlanningAgent, draftingAgent, privacyConsentAgent } from './agents/drafting';
 
 /* ======================================================= running them */
@@ -69,6 +70,7 @@ export function runAgents(
     { agent: 'service_context', run: serviceContextAgent },
     { agent: 'renewal', run: renewalAgent },
     { agent: 'privacy_consent', run: privacyConsentAgent },
+    { agent: 'kam_copilot', run: kamCopilotAgent },
   ];
 
   const proposals: AgentProposal[] = [];

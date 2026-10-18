@@ -49,7 +49,8 @@ export type AgentName =
   | 'account_planning'
   | 'service_context'
   | 'renewal'
-  | 'privacy_consent';
+  | 'privacy_consent'
+  | 'kam_copilot';
 
 export const AGENT_NAMES: AgentName[] = [
   'capture',
@@ -62,6 +63,7 @@ export const AGENT_NAMES: AgentName[] = [
   'service_context',
   'renewal',
   'privacy_consent',
+  'kam_copilot',
 ];
 
 export const AGENT_LABELS: Record<AgentName, string> = {
@@ -75,6 +77,7 @@ export const AGENT_LABELS: Record<AgentName, string> = {
   service_context: 'Service context',
   renewal: 'Renewal',
   privacy_consent: 'Privacy and consent',
+  kam_copilot: 'KAM Copilot',
 };
 
 export const AGENT_PURPOSES: Record<AgentName, string> = {
@@ -88,6 +91,8 @@ export const AGENT_PURPOSES: Record<AgentName, string> = {
   service_context: 'Says what is wrong for a customer, without the detail.',
   renewal: 'Assembles what is actually recorded before a renewal.',
   privacy_consent: 'Finds what the law and the record require before contact.',
+  kam_copilot:
+    'Reads an account through six lenses and names what nobody has answered. Proposes questions, never judgements about people.',
 };
 
 /* ========================================== what a proposal must carry */
@@ -394,6 +399,9 @@ function rowExists(data: CrmWorkspaceData, table: string, id: string): boolean {
     crm_joint_plans: data.jointPlans,
     crm_email_references: data.emailReferences,
     crm_pipeline_stages: data.stages,
+    crm_account_plan_entries: data.accountPlanEntries,
+    crm_account_plan_outcomes: data.accountPlanOutcomes,
+    crm_joint_plan_actions: data.jointPlanActions,
   };
 
   const rows = collections[table];

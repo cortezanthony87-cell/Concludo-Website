@@ -1020,8 +1020,9 @@ group('The queue summarises itself honestly', () => {
   assertEqual(after.waiting, batch.skipped.length, 'what is left waiting is what was skipped');
 });
 
-group('All ten agents exist, are named, and run', () => {
-  assertEqual(AGENT_NAMES.length, 10, 'ten agents');
+group('All eleven agents exist, are named, and run', () => {
+  /* Ten from Stage 7, plus the KAM Copilot added 17 October 2026. */
+  assertEqual(AGENT_NAMES.length, 11, 'eleven agents');
 
   const seen = new Set<string>();
   for (const data of CRM_WORKSPACES) {

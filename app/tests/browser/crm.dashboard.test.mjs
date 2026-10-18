@@ -733,7 +733,7 @@ for (const size of [PHONE, TABLET, DESKTOP]) {
     .locator('.ccrm-tab')
     .evaluateAll((nodes) => nodes.map((node) => node.textContent.trim()));
 
-  assertEqual(tabs.length, 22, `${size.width}px: twenty-two destinations (saw ${tabs.length})`);
+  assertEqual(tabs.length, 23, `${size.width}px: twenty-three destinations (saw ${tabs.length})`);
   assert(tabs.includes('Overview'), `${size.width}px: Overview is one of them`);
 
   const active = await page

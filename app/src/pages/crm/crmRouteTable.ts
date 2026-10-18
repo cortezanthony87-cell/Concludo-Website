@@ -19,6 +19,7 @@ import { CRM_MODULE_DESTINATIONS } from '../../lib/crm/moduleNav';
 import { CrmTodayPage } from './CrmTodayPage';
 import { CrmAttentionPage } from './CrmAttentionPage';
 import { CrmDashboardPage } from './CrmDashboardPage';
+import { CrmKamPage } from './CrmKamPage';
 import { CrmMemoryPage } from './CrmMemoryPage';
 import { CrmPeoplePage } from './CrmPeoplePage';
 import { CrmCapturePage } from './CrmCapturePage';
@@ -54,6 +55,7 @@ const COMPONENTS: Record<CrmModulePath, ComponentType> = {
   '/crm/attention': CrmAttentionPage,
   '/crm/dashboard': CrmDashboardPage,
   '/crm/memory': CrmMemoryPage,
+  '/crm/kam': CrmKamPage,
   '/crm/relationships': CrmRelationshipsPage,
   '/crm/people': CrmPeoplePage,
   '/crm/organisations': CrmOrganisationsPage,
