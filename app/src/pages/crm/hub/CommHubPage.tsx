@@ -177,7 +177,7 @@ export const CommHubPage: React.FC = () => {
           onClick={() => setActiveTab('intel')}
         >
           <Icons.Sparkles size={16} color="var(--hub-gold2)" />
-          <span>Intelligence and Copilot</span>
+          <span>Copilot Intelligence</span>
           <span className="hub-tab-chip red">3 alerts</span>
         </button>
       </div>

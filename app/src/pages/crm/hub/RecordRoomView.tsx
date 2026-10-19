@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import * as Icons from 'lucide-react';
 import { HUB_MESSAGES, HUB_MEMBERS, HUB_RECORD_ROOMS } from '../../../lib/crm/hub/data';
 import { CommMessage } from '../../../lib/crm/hub/types';
@@ -26,14 +26,57 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
   const [messages, setMessages] = useState<CommMessage[]>(HUB_MESSAGES);
   const [inputVal, setInputVal] = useState('');
   const [proposalReviewed, setProposalReviewed] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    name: string;
+    sizePhrase: string;
+    versionPhrase: string;
+    accessPhrase: string;
+    type: 'pdf' | 'doc' | 'xls' | 'ppt' | 'file';
+    dataUrl?: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const write = useCrmWrite();
 
   const room =
     HUB_RECORD_ROOMS.find((r) => r.id === roomId) || HUB_RECORD_ROOMS[0];
 
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const detectFileType = (fileName: string, mime: string): 'pdf' | 'doc' | 'xls' | 'ppt' | 'file' => {
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf') || mime.includes('pdf')) return 'pdf';
+    if (lower.endsWith('.doc') || lower.endsWith('.docx') || mime.includes('word')) return 'doc';
+    if (lower.endsWith('.xls') || lower.endsWith('.xlsx') || lower.endsWith('.csv') || mime.includes('spreadsheet') || mime.includes('excel')) return 'xls';
+    if (lower.endsWith('.ppt') || lower.endsWith('.pptx') || mime.includes('presentation') || mime.includes('powerpoint')) return 'ppt';
+    return 'file';
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setPendingAttachment({
+        name: file.name,
+        sizePhrase: formatBytes(file.size),
+        versionPhrase: 'uploaded device file',
+        accessPhrase: 'internal team review',
+        type: detectFileType(file.name, file.type),
+        dataUrl,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleSend = () => {
-    if (!inputVal.trim()) return;
-    const text = inputVal.trim();
+    if (!inputVal.trim() && !pendingAttachment) return;
+    const text = inputVal.trim() || (pendingAttachment ? `Shared file: ${pendingAttachment.name}` : '');
 
     // All writes go through existing commit() path
     const result = write.run('Post message to record room', (context, workspace) => {
@@ -44,6 +87,7 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
         body: text,
         authorName: 'Maya Chen',
         authorInitials: 'MC',
+        fileAttachment: pendingAttachment || undefined,
       });
     });
 
@@ -51,6 +95,7 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
       setMessages([...HUB_MESSAGES]);
       if (onSendMessage) onSendMessage(text);
       setInputVal('');
+      setPendingAttachment(null);
     }
   };
 
@@ -214,18 +259,38 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
               {/* File attachment */}
               {msg.fileAttachment && (
                 <div style={{ marginTop: '8px', display: 'flex', gap: '10px', alignItems: 'center', background: '#FFFFFF', border: '1px solid var(--hub-hair)', borderRadius: '8px', padding: '8px 12px', maxWidth: '420px' }}>
-                  <div style={{ width: '30px', height: '36px', borderRadius: '4px', background: '#E8EDF5', color: 'var(--hub-navy2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700 }}>
-                    PDF
+                  <div style={{ width: '32px', height: '36px', borderRadius: '4px', background: '#E8EDF5', color: 'var(--hub-navy2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' }}>
+                    {msg.fileAttachment.type || 'FILE'}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '12.5px' }}>{msg.fileAttachment.name}</div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={msg.fileAttachment.name}>
+                      {msg.fileAttachment.name}
+                    </div>
                     <div style={{ fontSize: '11px', color: 'var(--hub-slate)' }}>
                       {msg.fileAttachment.sizePhrase} · {msg.fileAttachment.versionPhrase} · {msg.fileAttachment.accessPhrase}
                     </div>
                   </div>
-                  <button style={{ marginLeft: 'auto', background: 'transparent', border: 0, color: 'var(--hub-slate)', cursor: 'pointer' }} aria-label="Download attachment">
-                    <Icons.Download size={14} />
-                  </button>
+                  {msg.fileAttachment.dataUrl ? (
+                    <a
+                      href={msg.fileAttachment.dataUrl}
+                      download={msg.fileAttachment.name}
+                      style={{ marginLeft: 'auto', color: 'var(--hub-slate)', display: 'inline-flex', padding: 4 }}
+                      title={`Download ${msg.fileAttachment.name}`}
+                      aria-label={`Download ${msg.fileAttachment.name}`}
+                    >
+                      <Icons.Download size={14} />
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      style={{ marginLeft: 'auto', background: 'transparent', border: 0, color: 'var(--hub-slate)', cursor: 'pointer', padding: 4 }}
+                      title={`Download ${msg.fileAttachment.name}`}
+                      aria-label="Download attachment"
+                      onClick={() => alert(`Downloading ${msg.fileAttachment?.name}`)}
+                    >
+                      <Icons.Download size={14} />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -282,6 +347,32 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
 
       {/* Composer */}
       <div className="hub-composer">
+        {/* Hidden device file picker */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+
+        {/* Pending attachment preview pill */}
+        {pendingAttachment && (
+          <div style={{ margin: '8px 12px 0', padding: '6px 10px', background: '#F1F4F9', border: '1px solid var(--hub-hair)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+            <Icons.FileText size={14} color="var(--hub-navy2)" />
+            <span style={{ fontWeight: 600, color: 'var(--hub-navy)' }}>{pendingAttachment.name}</span>
+            <span style={{ color: 'var(--hub-slate)', fontSize: '11px' }}>({pendingAttachment.sizePhrase})</span>
+            <button
+              type="button"
+              onClick={() => setPendingAttachment(null)}
+              style={{ marginLeft: 'auto', background: 'transparent', border: 0, color: 'var(--hub-slate)', cursor: 'pointer', padding: 2 }}
+              title="Remove file"
+              aria-label="Remove attachment"
+            >
+              <Icons.X size={13} />
+            </button>
+          </div>
+        )}
+
         <textarea
           placeholder="Message Northbridge account room..."
           value={inputVal}
@@ -294,8 +385,15 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
           }}
         />
         <div className="hub-composer-tools">
-          <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Attach file">
-            <Icons.Paperclip size={15} color="var(--hub-slate)" />
+          <button
+            type="button"
+            className="hub-btn-out"
+            style={{ border: 0, padding: 6, cursor: 'pointer' }}
+            aria-label="Attach file from device"
+            title="Attach file from your device, laptop, or desktop"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Icons.Paperclip size={15} color={pendingAttachment ? 'var(--hub-navy)' : 'var(--hub-slate)'} />
           </button>
           <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Mention colleague">
             <Icons.AtSign size={15} color="var(--hub-slate)" />

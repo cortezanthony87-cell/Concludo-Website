@@ -73,7 +73,8 @@ export interface CommMessage {
     sizePhrase: string;
     versionPhrase: string;
     accessPhrase: string;
-    type: 'pdf' | 'doc' | 'xls' | 'ppt';
+    type: 'pdf' | 'doc' | 'xls' | 'ppt' | 'file';
+    dataUrl?: string;
   };
   editedAt: string | null;
   deletedAt: string | null;

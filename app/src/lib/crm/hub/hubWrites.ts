@@ -20,6 +20,14 @@ export interface CreateHubMessageArgs {
   body: string;
   authorName: string;
   authorInitials: string;
+  fileAttachment?: {
+    name: string;
+    sizePhrase: string;
+    versionPhrase: string;
+    accessPhrase: string;
+    type: 'pdf' | 'doc' | 'xls' | 'ppt' | 'file';
+    dataUrl?: string;
+  };
 }
 
 /**
@@ -27,7 +35,7 @@ export interface CreateHubMessageArgs {
  * Every write is checked, validated, and audited via commit().
  */
 export function createHubMessage(args: CreateHubMessageArgs): CommMessage {
-  const { context, data, conversationId, body, authorName, authorInitials } = args;
+  const { context, data, conversationId, body, authorName, authorInitials, fileAttachment } = args;
 
   return commit<CommMessage>({
     context,
@@ -55,6 +63,7 @@ export function createHubMessage(args: CreateHubMessageArgs): CommMessage {
         reactions: [],
         threadRepliesCount: 0,
         lastReplyAt: undefined,
+        fileAttachment: fileAttachment || undefined,
         editedAt: null,
         deletedAt: null,
         createdAt: new Date().toISOString(),
