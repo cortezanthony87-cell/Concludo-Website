@@ -14,10 +14,9 @@ export const CommHubPage: React.FC = () => {
   const { viewState } = useCrmViewState();
   const currentWorkspaceId = viewState?.workspaceId || 'ws-kestrel-advisory';
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState<'inbox' | 'customer' | 'room' | 'messages' | 'email' | 'spaces' | 'files' | 'partners' | 'projects' | 'templates' | 'invitations' | 'notifications' | 'archive'>('customer');
+  const [activeTab, setActiveTab] = useState<'rooms' | 'customer' | 'inbox' | 'intel'>('rooms');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('room-northbridge-account');
-  const [intelCollapsed, setIntelCollapsed] = useState<boolean>(false);
-  const [mobileIntelOpen, setMobileIntelOpen] = useState<boolean>(false);
+  const [isIntelDrawerOpen, setIsIntelDrawerOpen] = useState<boolean>(false);
 
   // Strict Gate 2: If this is a real customer workspace, refuse completely
   if (!isDemoWorkspace(currentWorkspaceId)) {
@@ -82,12 +81,14 @@ export const CommHubPage: React.FC = () => {
           <div>
             <div className="hub-crumb">CRM · COMMUNICATE</div>
             <h1 className="hub-title">
-              {activeNav === 'customer'
+              {activeTab === 'customer'
                 ? 'Customer Workspace'
-                : activeNav === 'room'
-                ? 'Record Room'
-                : activeNav === 'inbox'
+                : activeTab === 'rooms'
+                ? 'Record Rooms'
+                : activeTab === 'inbox'
                 ? 'Inbox'
+                : activeTab === 'intel'
+                ? 'Intelligence and Copilot'
                 : 'Communication Hub'}
             </h1>
           </div>
@@ -114,7 +115,7 @@ export const CommHubPage: React.FC = () => {
             className="hub-btn-out"
             style={{ background: 'transparent', borderColor: '#3A5680', color: '#FFFFFF', padding: '0 10px' }}
             aria-label="Notifications"
-            onClick={() => setActiveNav('inbox')}
+            onClick={() => setActiveTab('inbox')}
           >
             <Icons.Bell size={15} />
             {unreadInboxCount > 0 && (
@@ -128,7 +129,7 @@ export const CommHubPage: React.FC = () => {
           <button
             className="hub-btn-gold"
             onClick={() => {
-              setActiveNav('room');
+              setActiveTab('rooms');
               setSelectedRoomId('room-northbridge-account');
             }}
           >
@@ -143,231 +144,172 @@ export const CommHubPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Hub Grid */}
-      <div className={`hub-grid ${intelCollapsed ? 'collapsed-intel' : ''} ${mobileIntelOpen ? 'show-mobile-intel' : ''}`}>
-        {/* Left 248px Navigation */}
-        <div className="hub-nav">
-          <div className="hub-nav-lbl">Hub navigation</div>
+      {/* Top Sub-Navigation Tabs */}
+      <div className="hub-top-tabs">
+        <button
+          className={`hub-top-tab-btn ${activeTab === 'rooms' ? 'active' : ''}`}
+          onClick={() => setActiveTab('rooms')}
+        >
+          <Icons.MessageSquare size={16} />
+          <span>Record Rooms</span>
+        </button>
 
-          <button
-            className={`hub-nav-link ${activeNav === 'inbox' ? 'active' : ''}`}
-            onClick={() => setActiveNav('inbox')}
-            style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-          >
-            <Icons.Inbox size={15} />
-            <span>Inbox</span>
-            {unreadInboxCount > 0 && <span className="hub-nav-count">{unreadInboxCount}</span>}
-          </button>
+        <button
+          className={`hub-top-tab-btn ${activeTab === 'customer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('customer')}
+        >
+          <Icons.Building2 size={16} />
+          <span>Customer Workspace</span>
+          <span className="hub-tab-chip">Northbridge Industrial</span>
+        </button>
 
-          <button
-            className={`hub-nav-link ${activeNav === 'customer' ? 'active' : ''}`}
-            onClick={() => setActiveNav('customer')}
-            style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-          >
-            <Icons.Building2 size={15} />
-            <span>Customers</span>
-            <span className="hub-nav-count">1</span>
-          </button>
+        <button
+          className={`hub-top-tab-btn ${activeTab === 'inbox' ? 'active' : ''}`}
+          onClick={() => setActiveTab('inbox')}
+        >
+          <Icons.Inbox size={16} />
+          <span>Inbox</span>
+          {unreadInboxCount > 0 && <span className="hub-tab-chip gold">{unreadInboxCount}</span>}
+        </button>
 
-          <button
-            className={`hub-nav-link ${activeNav === 'messages' ? 'active' : ''}`}
-            onClick={() => setActiveNav('messages')}
-            style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-          >
-            <Icons.MessageSquare size={15} />
-            <span>Messages</span>
-          </button>
+        <button
+          className={`hub-top-tab-btn ${activeTab === 'intel' ? 'active' : ''}`}
+          onClick={() => setActiveTab('intel')}
+        >
+          <Icons.Sparkles size={16} color="var(--hub-gold2)" />
+          <span>Intelligence and Copilot</span>
+          <span className="hub-tab-chip red">3 alerts</span>
+        </button>
+      </div>
 
-          <button
-            className={`hub-nav-link ${activeNav === 'email' ? 'active' : ''}`}
-            onClick={() => setActiveNav('email')}
-            style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-          >
-            <Icons.Mail size={15} />
-            <span>Email</span>
-          </button>
+      {/* Main Content Area */}
+      <div className="hub-content-area">
+        {activeTab === 'rooms' && (
+          <div className="hub-room-layout">
+            {/* Left compact room channels list */}
+            <div className="hub-room-nav">
+              <div className="hub-nav-lbl">Pinned conversations</div>
+              <button
+                className={`hub-nav-link ${selectedRoomId === 'room-northbridge-account' ? 'active' : ''}`}
+                onClick={() => setSelectedRoomId('room-northbridge-account')}
+                style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
+              >
+                <span style={{ fontWeight: 700, color: 'var(--hub-navy)' }}>#</span>
+                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>Northbridge account room</span>
+                <span className="hub-nav-dot" />
+              </button>
 
-          <button
-            className={`hub-nav-link ${activeNav === 'spaces' ? 'active' : ''}`}
-            onClick={() => setActiveNav('spaces')}
-            style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-          >
-            <Icons.Network size={15} />
-            <span>Shared spaces</span>
-          </button>
+              <div className="hub-nav-lbl" style={{ marginTop: '12px' }}>Recent record rooms</div>
+              {HUB_RECORD_ROOMS.map((room) => (
+                <button
+                  key={room.id}
+                  className={`hub-nav-link ${selectedRoomId === room.id ? 'active' : ''}`}
+                  onClick={() => setSelectedRoomId(room.id)}
+                  style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
+                >
+                  <span style={{ fontWeight: 700, color: 'var(--hub-navy)' }}>#</span>
+                  <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{room.title}</span>
+                </button>
+              ))}
 
-          <button
-            className={`hub-nav-link ${activeNav === 'files' ? 'active' : ''}`}
-            onClick={() => setActiveNav('files')}
-            style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-          >
-            <Icons.Folder size={15} />
-            <span>Files</span>
-          </button>
+              <div className="hub-nav-lbl" style={{ marginTop: '12px' }}>Account views</div>
+              <button
+                className="hub-nav-link"
+                onClick={() => setActiveTab('customer')}
+                style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
+              >
+                <Icons.Building2 size={14} />
+                <span>Customer Workspace</span>
+              </button>
+              <button
+                className="hub-nav-link"
+                onClick={() => setActiveTab('intel')}
+                style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
+              >
+                <Icons.Sparkles size={14} color="var(--hub-gold2)" />
+                <span>Account Intelligence</span>
+              </button>
+            </div>
 
-          <div className="hub-nav-lbl" style={{ marginTop: '10px' }}>Pinned conversations</div>
-          <button
-            className={`hub-nav-link ${activeNav === 'room' && selectedRoomId === 'room-northbridge-account' ? 'active' : ''}`}
-            onClick={() => {
-              setSelectedRoomId('room-northbridge-account');
-              setActiveNav('room');
-            }}
-            style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-          >
-            <span style={{ fontWeight: 700, color: 'var(--hub-navy)' }}>#</span>
-            <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>Northbridge account room</span>
-            <span className="hub-nav-dot" />
-          </button>
+            {/* Center conversation */}
+            <div className="hub-room-main">
+              <RecordRoomView
+                roomId={selectedRoomId}
+                onToggleIntel={() => setIsIntelDrawerOpen(!isIntelDrawerOpen)}
+                isIntelOpen={isIntelDrawerOpen}
+              />
+            </div>
 
-          <div className="hub-nav-lbl" style={{ marginTop: '10px' }}>Recent record rooms</div>
-          {HUB_RECORD_ROOMS.map((room) => (
-            <button
-              key={room.id}
-              className={`hub-nav-link ${activeNav === 'room' && selectedRoomId === room.id ? 'active' : ''}`}
-              onClick={() => {
-                setSelectedRoomId(room.id);
-                setActiveNav('room');
-              }}
-              style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent' }}
-            >
-              <span style={{ fontWeight: 700, color: 'var(--hub-navy)' }}>#</span>
-              <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{room.title}</span>
-            </button>
-          ))}
-        </div>
+            {/* Docked intelligence sidebar for wide desktop screens (>= 1400px) */}
+            {isIntelDrawerOpen && (
+              <div className="hub-room-docked-intel">
+                <IntelligencePanel mode="panel" onClose={() => setIsIntelDrawerOpen(false)} />
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Centre View */}
-        {activeNav === 'customer' && (
+        {activeTab === 'customer' && (
           <CustomerWorkspaceView
             onOpenRoom={(roomId) => {
               setSelectedRoomId(roomId);
-              setActiveNav('room');
+              setActiveTab('rooms');
             }}
           />
         )}
 
-        {activeNav === 'room' && (
-          <RecordRoomView
-            roomId={selectedRoomId}
-            onReviewProposal={() => {
-              // Open intelligence or confirm proposal
-            }}
-          />
-        )}
-
-        {activeNav === 'inbox' && (
+        {activeTab === 'inbox' && (
           <InboxView
             onSelectRoom={(roomId) => {
               setSelectedRoomId(roomId);
-              setActiveNav('room');
+              setActiveTab('rooms');
             }}
           />
         )}
 
-        {activeNav === 'messages' && (
-          <div className="hub-centre" style={{ padding: '36px', textAlign: 'center' }}>
-            <div className="hub-card" style={{ maxWidth: '520px', margin: '20px auto', textAlign: 'left' }}>
-              <h4>Direct and group messaging</h4>
-              <p style={{ fontSize: '13px', color: '#33435C', lineHeight: 1.5 }}>
-                Internal direct messaging and general channels ship in Release 1. In Release 0, conversations are hosted in internal record rooms linked to accounts and opportunities.
-              </p>
-              <button
-                className="hub-btn-navy"
-                style={{ marginTop: '12px' }}
-                onClick={() => {
-                  setSelectedRoomId('room-northbridge-account');
-                  setActiveNav('room');
-                }}
-              >
-                Open Northbridge account room
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeNav === 'email' && (
-          <div className="hub-centre" style={{ padding: '36px', textAlign: 'center' }}>
-            <div className="hub-card" style={{ maxWidth: '520px', margin: '20px auto', textAlign: 'left' }}>
-              <h4>Email integration</h4>
-              <p style={{ fontSize: '13px', color: '#33435C', lineHeight: 1.5 }}>
-                Email inside the Communication Hub ships in Release 2 following Microsoft publisher verification and 14 days of sync testing.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {activeNav === 'spaces' && (
-          <div className="hub-centre" style={{ padding: '36px', textAlign: 'center' }}>
-            <div className="hub-card" style={{ maxWidth: '520px', margin: '20px auto', textAlign: 'left' }}>
-              <h4>External shared spaces</h4>
-              <p style={{ fontSize: '13px', color: '#33435C', lineHeight: 1.5 }}>
-                Shared spaces with external guests ship in Release 3, gated by converted Team pilots and lawyer reviewed data processing agreements.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {activeNav === 'files' && (
-          <div className="hub-centre" style={{ padding: '36px', textAlign: 'center' }}>
-            <div className="hub-card" style={{ maxWidth: '520px', margin: '20px auto', textAlign: 'left' }}>
-              <h4>Document library</h4>
-              <p style={{ fontSize: '13px', color: '#33435C', lineHeight: 1.5 }}>
-                File preview, versioning, and sharing ship in Release 1. In Release 0, document records are browsed in the customer workspace Files tab.
-              </p>
-              <button
-                className="hub-btn-navy"
-                style={{ marginTop: '12px' }}
-                onClick={() => setActiveNav('customer')}
-              >
-                Go to customer files
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Right Intelligence Panel */}
-        {!intelCollapsed ? (
-          <IntelligencePanel />
-        ) : (
-          <div
-            style={{ background: 'var(--hub-white)', borderLeft: '1px solid var(--hub-hair)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '16px', cursor: 'pointer' }}
-            onClick={() => setIntelCollapsed(false)}
-            title="Expand intelligence panel"
-          >
-            <Icons.Sparkles size={18} color="var(--hub-gold2)" />
-          </div>
+        {activeTab === 'intel' && (
+          <IntelligencePanel mode="full" />
         )}
       </div>
 
-      {/* Mobile Bottom Navigation (m1 wireframe) */}
+      {/* Floating slide-out drawer on smaller screens (< 1400px) when opened from room */}
+      {isIntelDrawerOpen && activeTab === 'rooms' && (
+        <div className="hub-drawer-overlay" onClick={() => setIsIntelDrawerOpen(false)}>
+          <div className="hub-drawer-content" onClick={(e) => e.stopPropagation()}>
+            <IntelligencePanel mode="panel" onClose={() => setIsIntelDrawerOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Navigation (m1 wireframe, strictly hidden on desktop) */}
       <div className="hub-mobile-tabs">
         <button
-          className={`hub-mobile-tab-btn ${activeNav === 'inbox' ? 'active' : ''}`}
-          onClick={() => setActiveNav('inbox')}
+          className={`hub-mobile-tab-btn ${activeTab === 'inbox' ? 'active' : ''}`}
+          onClick={() => setActiveTab('inbox')}
         >
           <Icons.Inbox size={18} />
           <span>Inbox</span>
         </button>
         <button
-          className={`hub-mobile-tab-btn ${activeNav === 'customer' ? 'active' : ''}`}
-          onClick={() => setActiveNav('customer')}
+          className={`hub-mobile-tab-btn ${activeTab === 'customer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('customer')}
         >
           <Icons.Building2 size={18} />
-          <span>Accounts</span>
+          <span>Workspace</span>
         </button>
         <button
-          className={`hub-mobile-tab-btn ${activeNav === 'room' ? 'active' : ''}`}
+          className={`hub-mobile-tab-btn ${activeTab === 'rooms' ? 'active' : ''}`}
           onClick={() => {
             setSelectedRoomId('room-northbridge-account');
-            setActiveNav('room');
+            setActiveTab('rooms');
           }}
         >
           <Icons.MessageSquare size={18} />
-          <span>Room</span>
+          <span>Rooms</span>
         </button>
         <button
-          className={`hub-mobile-tab-btn ${mobileIntelOpen ? 'active' : ''}`}
-          onClick={() => setMobileIntelOpen(!mobileIntelOpen)}
+          className={`hub-mobile-tab-btn ${activeTab === 'intel' ? 'active' : ''}`}
+          onClick={() => setActiveTab('intel')}
         >
           <Icons.Sparkles size={18} color="var(--hub-gold2)" />
           <span>Copilot</span>
@@ -380,10 +322,10 @@ export const CommHubPage: React.FC = () => {
         onClose={() => setIsSearchOpen(false)}
         onSelect={(res) => {
           if (res.category === 'Records' || res.category === 'Timeline items') {
-            setActiveNav('customer');
+            setActiveTab('customer');
           } else if (res.category === 'Record rooms' || res.category === 'Messages') {
             setSelectedRoomId('room-northbridge-account');
-            setActiveNav('room');
+            setActiveTab('rooms');
           }
         }}
       />

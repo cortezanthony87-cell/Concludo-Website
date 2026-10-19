@@ -10,12 +10,16 @@ interface RecordRoomViewProps {
   roomId?: string;
   onSendMessage?: (text: string) => void;
   onReviewProposal?: () => void;
+  onToggleIntel?: () => void;
+  isIntelOpen?: boolean;
 }
 
 export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
   roomId = 'room-northbridge-account',
   onSendMessage,
   onReviewProposal,
+  onToggleIntel,
+  isIntelOpen = false,
 }) => {
   const [messages, setMessages] = useState<CommMessage[]>(HUB_MESSAGES);
   const [inputVal, setInputVal] = useState('');
@@ -115,6 +119,22 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
             <Icons.Folder size={13} />
             Files
           </button>
+          <button
+            className="hub-btn-out"
+            style={{
+              height: '30px',
+              padding: '0 10px',
+              background: isIntelOpen ? '#E8EDF5' : '#FFFFFF',
+              borderColor: isIntelOpen ? 'var(--hub-navy)' : 'var(--hub-hair)',
+              color: 'var(--hub-navy)',
+              cursor: 'pointer',
+            }}
+            onClick={onToggleIntel}
+            title="Toggle Copilot intelligence panel"
+          >
+            <Icons.Sparkles size={13} color="var(--hub-gold2)" />
+            <span>Copilot (3)</span>
+          </button>
           <button className="hub-btn-out" style={{ height: '30px', padding: '0 8px' }} aria-label="Room options">
             <Icons.MoreHorizontal size={14} />
           </button>
@@ -125,10 +145,12 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
       <div className="hub-feed">
         {/* Pinned banner */}
         <div className="hub-pinned-banner">
-          <Icons.Pin size={14} color="var(--hub-gold2)" />
-          <span style={{ fontWeight: 600 }}>Pinned:</span>
-          <span>Board meets 6 November. Revised scope due Friday 31 October.</span>
-          <span style={{ marginLeft: 'auto', color: 'var(--hub-slate)', fontSize: '11px' }}>Pinned by Maya Chen</span>
+          <div className="hub-pinned-content">
+            <Icons.Pin size={14} color="var(--hub-gold2)" style={{ flexShrink: 0 }} />
+            <span style={{ fontWeight: 700, color: 'var(--hub-ink)' }}>Pinned:</span>
+            <span style={{ color: '#22324B' }}>Board meets 6 November. Revised scope due Friday 31 October.</span>
+          </div>
+          <div className="hub-pinned-meta">Pinned by Maya Chen</div>
         </div>
 
         <div className="hub-daysep">Tuesday 21 October</div>
@@ -267,11 +289,11 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
           <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Add emoji">
             <Icons.Smile size={15} color="var(--hub-slate)" />
           </button>
-          <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Ask Copilot">
+          <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Ask Copilot" onClick={onToggleIntel}>
             <Icons.Sparkles size={15} color="var(--hub-gold2)" />
           </button>
 
-          <span style={{ fontSize: '11px', color: 'var(--hub-slate)', marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--hub-slate)', marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
             <Icons.Eye size={12} />
             Visible to internal team (Kestrel Advisory)
           </span>
