@@ -76,6 +76,7 @@ export interface CommMessage {
     type: 'pdf' | 'doc' | 'xls' | 'ppt' | 'file';
     dataUrl?: string;
   };
+  invitationId?: string;
   editedAt: string | null;
   deletedAt: string | null;
   createdAt: string;

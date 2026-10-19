@@ -5,6 +5,10 @@ import { CommMessage } from '../../../lib/crm/hub/types';
 import { useCrmWrite, setActingRole, currentActingRole } from '../../../components/crm/Stage5Pieces';
 import { createHubMessage, proposeHubUpdate } from '../../../lib/crm/hub/hubWrites';
 import { decideProposal } from '../../../lib/crm/stage5/writes';
+import { FileSharingModal } from '../../../components/collaboration/FileSharingModal';
+import { CreateCalendarItemModal } from '../../../components/collaboration/CreateCalendarItemModal';
+import { CalendarInvitationCard } from '../../../components/collaboration/CalendarInvitationCard';
+import { collaborationStore, useCollaboration } from '../../../lib/collaboration/collaborationStore';
 
 interface RecordRoomViewProps {
   roomId?: string;
@@ -24,6 +28,8 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
   isIntelOpen = false,
 }) => {
   const [messages, setMessages] = useState<CommMessage[]>(HUB_MESSAGES);
+  const [isFilesModalOpen, setIsFilesModalOpen] = useState(false);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const [proposalReviewed, setProposalReviewed] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{
@@ -36,6 +42,8 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const write = useCrmWrite();
+  const store = useCollaboration();
+  const storeCalendarEvents = store.getCalendarEvents();
 
   const room =
     HUB_RECORD_ROOMS.find((r) => r.id === roomId) || HUB_RECORD_ROOMS[0];
@@ -97,6 +105,27 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
       setInputVal('');
       setPendingAttachment(null);
     }
+  };
+
+  const handleCalendarEventCreated = (event: any) => {
+    const inviteMsg: CommMessage = {
+      id: `msg-${Date.now()}`,
+      crmWorkspaceId: 'ws-kestrel-advisory',
+      conversationId: roomId,
+      authorKind: 'user',
+      authorId: 'usr-maya-chen',
+      authorName: 'Maya Chen',
+      authorInitials: 'MC',
+      authorOrg: 'Kestrel Advisory',
+      isExternal: false,
+      body: `Calendar item created: ${event.title} on ${event.date} at ${event.startTime}.`,
+      bodyFormat: 'plain',
+      invitationId: event.id,
+      editedAt: null,
+      deletedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, inviteMsg]);
   };
 
   const handleReviewProposal = () => {
@@ -162,19 +191,30 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
               </span>
             ))}
           </div>
-          <button className="hub-btn-out" style={{ height: '30px', padding: '0 8px' }}>
+          <button
+            type="button"
+            className="hub-btn-out"
+            style={{ height: '30px', padding: '0 10px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            onClick={() => setIsFilesModalOpen(true)}
+            title="File Sharing and Collaboration"
+          >
             <Icons.Folder size={13} />
-            Files
+            <span>Files</span>
           </button>
           <button
+            type="button"
             className="hub-btn-out"
             style={{
               height: '30px',
-              padding: '0 10px',
+              padding: '0 12px',
               background: isIntelOpen ? '#E8EDF5' : '#FFFFFF',
               borderColor: isIntelOpen ? 'var(--hub-navy)' : 'var(--hub-hair)',
               color: 'var(--hub-navy)',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
             onClick={onToggleIntel}
             title="Toggle Copilot intelligence panel"
@@ -189,7 +229,7 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
       </div>
 
       {/* Mobile room selector pills (visible on narrow viewports) */}
-      <div className="hub-mobile-room-selector">
+      <div className="hub-mobile-room-selector" style={{ display: 'flex', gap: '8px' }}>
         {HUB_RECORD_ROOMS.map((r) => (
           <button
             key={r.id}
@@ -293,6 +333,16 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
                   )}
                 </div>
               )}
+
+              {/* Calendar Invitation Card if linked */}
+              {msg.invitationId && (
+                (() => {
+                  const ev = storeCalendarEvents.find((e) => e.id === msg.invitationId);
+                  return ev ? (
+                    <CalendarInvitationCard event={ev} />
+                  ) : null;
+                })()
+              )}
             </div>
           </div>
         ))}
@@ -384,31 +434,39 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
             }
           }}
         />
-        <div className="hub-composer-tools">
+        <div className="hub-composer-tools" style={{ gap: '16px', display: 'flex', alignItems: 'center' }}>
+          <button className="hub-btn-out" style={{ border: 0, padding: 6, cursor: 'pointer' }} aria-label="Mention colleague" title="Mention colleague (@)">
+            <Icons.AtSign size={15} color="var(--hub-slate)" />
+          </button>
+          <button className="hub-btn-out" style={{ border: 0, padding: 6, cursor: 'pointer' }} aria-label="Link record" title="Link CRM record (#)">
+            <Icons.Hash size={15} color="var(--hub-slate)" />
+          </button>
+          <button className="hub-btn-out" style={{ border: 0, padding: 6, cursor: 'pointer' }} aria-label="Add emoji" title="Add emoji (😊)">
+            <Icons.Smile size={15} color="var(--hub-slate)" />
+          </button>
+          <button
+            type="button"
+            className="hub-btn-out"
+            style={{ border: 0, padding: '6px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            aria-label="Create Calendar Item"
+            title="Schedule calendar event or meeting invitation"
+            onClick={() => setIsCalendarModalOpen(true)}
+          >
+            <Icons.Calendar size={15} color="var(--hub-navy)" />
+            <span style={{ fontSize: '12px', fontWeight: 650, color: 'var(--hub-navy)' }}>Calendar</span>
+          </button>
           <button
             type="button"
             className="hub-btn-out"
             style={{ border: 0, padding: 6, cursor: 'pointer' }}
-            aria-label="Attach file from device"
-            title="Attach file from your device, laptop, or desktop"
-            onClick={() => fileInputRef.current?.click()}
+            aria-label="Ask Copilot"
+            title="Ask Copilot (✨)"
+            onClick={onToggleIntel}
           >
-            <Icons.Paperclip size={15} color={pendingAttachment ? 'var(--hub-navy)' : 'var(--hub-slate)'} />
-          </button>
-          <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Mention colleague">
-            <Icons.AtSign size={15} color="var(--hub-slate)" />
-          </button>
-          <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Link record">
-            <Icons.Hash size={15} color="var(--hub-slate)" />
-          </button>
-          <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Add emoji">
-            <Icons.Smile size={15} color="var(--hub-slate)" />
-          </button>
-          <button className="hub-btn-out" style={{ border: 0, padding: 6 }} aria-label="Ask Copilot" onClick={onToggleIntel}>
             <Icons.Sparkles size={15} color="var(--hub-gold2)" />
           </button>
 
-          <span style={{ fontSize: '11px', color: 'var(--hub-slate)', marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '11px', color: 'var(--hub-slate)', marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
             <Icons.Eye size={12} />
             Visible to internal team (Kestrel Advisory)
           </span>
@@ -424,6 +482,22 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Create Calendar Item Modal */}
+      <CreateCalendarItemModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        conversationId={roomId}
+        defaultCrmLink={`${room.title} · S03: Account Room`}
+        onCreated={handleCalendarEventCreated}
+      />
+
+      {/* File Sharing Modal */}
+      <FileSharingModal
+        isOpen={isFilesModalOpen}
+        onClose={() => setIsFilesModalOpen(false)}
+        roomName={room.title}
+      />
     </div>
   );
 };

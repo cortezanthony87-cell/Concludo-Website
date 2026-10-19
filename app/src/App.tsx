@@ -83,6 +83,7 @@ import { EMAIL_ROUTES, EMAIL_DETAIL_ROUTES } from './pages/email/emailRouteTable
 // Concludo CRM
 import { CrmModuleLayout } from './components/crm/CrmModuleLayout';
 import { CRM_ROUTES, CRM_DETAIL_ROUTES } from './pages/crm/crmRouteTable';
+import { CommHubPage } from './pages/crm/hub/CommHubPage';
 import { activeRedirects } from './lib/workspace/legacyRedirects';
 import { MERGED_PAGES_READY } from './lib/workspace/workspaceNav';
 
@@ -225,7 +226,8 @@ export const App: React.FC = () => {
 
             {/* Concludo CRM Module */}
             <Route path="/crm" element={<CrmModuleLayout />}>
-              {CRM_ROUTES.map(({ path, segment, isIndex, Component }) =>
+              <Route path="communicate" element={<CommHubPage />} />
+              {CRM_ROUTES.filter((r) => r.segment !== 'communicate').map(({ path, segment, isIndex, Component }) =>
                 isIndex ? (
                   <Route key={path} index element={<Component />} />
                 ) : (

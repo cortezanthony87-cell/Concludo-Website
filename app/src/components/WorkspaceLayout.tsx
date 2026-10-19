@@ -44,17 +44,25 @@ import {
   Cpu,
   Sliders,
   CreditCard,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
 import { resetAllScrollPositions } from './ScrollToTop';
 import { WorkspaceSidebar } from './workspace/WorkspaceSidebar';
+import { useBadgeCounts, useCollaboration } from '../lib/collaboration/collaborationStore';
+import { NotificationCentreModal } from './collaboration/NotificationCentreModal';
+import { MessagePopupNotifier } from './collaboration/MessagePopupNotifier';
 
 export const WorkspaceLayout: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, authStatus } = useAuth();
   const location = useLocation();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [isNotificationCentreOpen, setIsNotificationCentreOpen] = useState(false);
+  const badgeCounts = useBadgeCounts();
+  const store = useCollaboration();
+  const unreadNotifsCount = store.getNotifications().filter((n) => !n.isRead).length;
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -126,6 +134,53 @@ export const WorkspaceLayout: React.FC = () => {
         </div>
 
         <div className="nav-right-group">
+          {/* Real-time Notifications Bell */}
+          <button
+            type="button"
+            className="top-navbar-bell-btn"
+            onClick={() => setIsNotificationCentreOpen(true)}
+            aria-label="Open notifications centre"
+            title="Notifications Centre"
+            style={{
+              position: 'relative',
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              borderRadius: '8px',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#F4F6FA',
+            }}
+          >
+            <Bell size={17} />
+            {unreadNotifsCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  background: 'var(--cws-gold, #E2B53C)',
+                  color: '#0D1626',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  height: '18px',
+                  minWidth: '18px',
+                  borderRadius: '999px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px',
+                  boxSizing: 'border-box',
+                }}
+              >
+                {unreadNotifsCount}
+              </span>
+            )}
+          </button>
+
           {/* Plan badge reading dynamically from user profile */}
           <div className="plan-badge-placeholder" title={`Current Subscription: ${planBadgeText}`}>
             <span className="plan-badge-dot" />
@@ -300,6 +355,11 @@ export const WorkspaceLayout: React.FC = () => {
       <div className="app-shell-body">
         {/* Left sidebar */}
         <WorkspaceSidebar
+          counts={{
+            '/crm/communicate': badgeCounts.communicate,
+            '/calendar': badgeCounts.calendar,
+            '/email': badgeCounts.email,
+          }}
           onOpenSearch={() => navigate("/search")}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
@@ -370,6 +430,13 @@ export const WorkspaceLayout: React.FC = () => {
         </button>
       </nav>
       )}
+
+      {/* Notification Centre Modal & Message Popup Notifier */}
+      <NotificationCentreModal
+        isOpen={isNotificationCentreOpen}
+        onClose={() => setIsNotificationCentreOpen(false)}
+      />
+      <MessagePopupNotifier />
     </div>
   );
 };

@@ -17,6 +17,9 @@ import {
   fetchDailyNote,
   saveDailyNote,
 } from '../lib/calendar/calendarClient';
+import type { CollabCalendarEvent } from '../lib/collaboration/collaborationTypes';
+import { collaborationStore } from '../lib/collaboration/collaborationStore';
+import { isDemoWorkspace } from '../lib/crm/hub/featureFlag';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -145,12 +148,63 @@ export const CalendarPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     const { data } = await fetchCalendarItems(supabase.client, user.id);
-    setItems(data);
+    const dbItems = data || [];
+
+    // Synchronise with real-time collaboration store events (gated to demo mode or user-created session events)
+    const isDemo = Boolean(user && isDemoWorkspace(user.id));
+    const collabEvents = collaborationStore
+      .getCalendarEvents()
+      .filter((e) => isDemo || !e.id.startsWith('evt-'))
+      .map((e: CollabCalendarEvent): CalendarItem => ({
+      id: e.id,
+      creator_id: e.creatorId,
+      calendar_id: null,
+      owner_id: null,
+      owner_name: e.creatorName,
+      organization_id: null,
+      type: e.eventType as any,
+      title: e.title,
+      description: e.description || null,
+      notes: isDemo && e.id.startsWith('evt-') ? '[Demonstration] Synthetic collaboration event' : null,
+      reference: null,
+      priority: 'medium',
+      status: (e.status === 'accepted' ? 'open' : e.status) as any,
+      status_reason: e.statusReason || null,
+      due_date: e.date,
+      due_time: `${e.startTime}:00`,
+      date_inferred: false,
+      start_date: e.date,
+      end_date: e.date,
+      progress_percentage: null,
+      review_type: null,
+      review_cadence: null,
+      review_expires_on: null,
+      visibility: 'private',
+      source_type: 'other',
+      source_id: null,
+      source_title: e.crmLink || 'CRM Record Room',
+      source_reference: null,
+      source_occurred_at: e.createdAt,
+      project_id: null,
+      output_id: null,
+      idempotency_key: e.id,
+      created_at: e.createdAt,
+      updated_at: e.createdAt,
+      deleted_at: e.deletedAt || null,
+    }));
+
+    const existingIds = new Set(dbItems.map((it) => it.id));
+    const combined = [...dbItems, ...collabEvents.filter((c: CalendarItem) => !existingIds.has(c.id))];
+    setItems(combined);
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
+  }, [user]);
+
+  useEffect(() => {
+    return collaborationStore.subscribe(loadData);
   }, [user]);
 
   // Synchronise calendar date to user's timezone when profile is loaded

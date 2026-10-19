@@ -44,6 +44,7 @@ import { metricCounts, METRICS } from '../../lib/email/aggregation';
 import { METRIC_DESTINATION } from '../../lib/email/shellAdapter';
 import { PriorityBand, ThreadStatus } from '../../lib/email/model';
 import { ThreadRecord } from '../../lib/email/filters';
+import { EmailActionCentreSection } from '../../components/email/EmailActionCentreSection';
 
 export const EmailOverviewPage: React.FC = () => {
   const { accountId, linkTo } = useOutletContext<EmailModuleContext>();
@@ -181,6 +182,9 @@ export const EmailOverviewPage: React.FC = () => {
           </p>
         </section>
       ) : null}
+
+      {/* Unified Email Action Centre with Awaiting Action Queue & Follow-up Intelligence */}
+      <EmailActionCentreSection />
 
       {/* 3. The index. Eight counts, quiet, each a way into a view. */}
       <nav className="ecc-rail" aria-label="Counts across this account">

@@ -241,7 +241,7 @@
 }
 
 .cws-row svg { flex: 0 0 18px; color: var(--cws-icon); }
-.cws-row-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cws-row-label { flex: 1; min-width: 0; white-space: nowrap; }
 
 .cws-row:hover { background: var(--cws-surface); color: #F4F6FA; }
 .cws-row:hover svg { color: #B9C6D8; }
@@ -278,15 +278,25 @@
 
 .cws-badge {
   margin-left: auto;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0 6px;
+  border-radius: 999px;
+  height: 20px;
+  min-width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1;
+  background: var(--cws-gold, #E2B53C);
+  color: #0D1626;
 }
 
-.cws-badge-blocking { background: var(--cws-gold); color: var(--cws-surface); }
-.cws-badge-informational { background: var(--cws-badge-bg); color: var(--cws-badge-text); }
+.cws-badge-gold,
+.cws-badge-blocking,
+.cws-badge-informational { background: var(--cws-gold, #E2B53C); color: #0D1626; }
 
 .cws-dot {
   position: absolute;
@@ -296,7 +306,12 @@
   height: 7px;
   border-radius: 50%;
   border: 2px solid var(--cws-ground);
+  background: var(--cws-gold, #E2B53C);
 }
+
+.cws-dot-gold,
+.cws-dot-blocking,
+.cws-dot-informational { background: var(--cws-gold, #E2B53C); }
 
 .cws-dot-blocking { background: var(--cws-gold); }
 .cws-dot-informational { background: #6E86A8; }
@@ -331,7 +346,7 @@
 /* ================================================= the rail, 900 to 1179 */
 
 @media (min-width: 900px) and (max-width: 1179px) {
-  .cws-nav { flex-basis: 76px; width: 76px; }
+  .cws-nav { flex-basis: 88px; width: 88px; }
 
   .cws-brand { justify-content: center; padding: 16px 0 12px; }
   .cws-search-wrap { padding: 0 8px 12px; }
@@ -355,13 +370,13 @@
   }
 
   .cws-row-label {
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 500;
     line-height: 1.1;
     text-align: center;
-    max-width: 66px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
     display: block;
     color: var(--cws-text-idle);

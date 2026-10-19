@@ -151,6 +151,7 @@ const DESTINATIONS: WorkspaceDestination[] = [
     group: 'Work',
     feature: 'concludo_copilot',
     pinned: true,
+    badge: 'informational',
   },
   {
     path: '/dashboard',
@@ -161,6 +162,7 @@ const DESTINATIONS: WorkspaceDestination[] = [
     group: 'Work',
     feature: 'workspace_basic',
     pinned: true,
+    badge: 'informational',
   },
   {
     path: '/calendar',
@@ -170,12 +172,24 @@ const DESTINATIONS: WorkspaceDestination[] = [
     group: 'Work',
     feature: 'workspace_basic',
     pinned: true,
+    badge: 'informational',
   },
   {
     path: '/email',
     label: 'Email',
     iconName: 'Mail',
     accessibleDescription: 'What needs a reply, what you are waiting on, and what is drafted.',
+    group: 'Work',
+    feature: 'workspace_basic',
+    pinned: true,
+    badge: 'informational',
+  },
+  {
+    path: '/crm/communicate',
+    label: 'Communicate',
+    iconName: 'MessageSquare',
+    accessibleDescription:
+      'Customer workspace, unified timeline, record rooms and communication intelligence.',
     group: 'Work',
     feature: 'workspace_basic',
     pinned: true,

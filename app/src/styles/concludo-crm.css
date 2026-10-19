@@ -421,7 +421,7 @@
 .ccrm-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px; /* Icon -> Text = 8px */
   min-height: 34px;
   padding: 6px 11px;
   font-size: 0.8rem;
@@ -430,7 +430,11 @@
   border: 1px solid transparent;
   border-radius: var(--ccrm-radius-control);
   text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
+
+.ccrm-tab span { white-space: nowrap; }
 
 .ccrm-tab:hover {
   color: #ffffff;
@@ -3475,8 +3479,6 @@
 
   .ccrm-controls-summary-state {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.73rem;
     color: #b4c0d2;
@@ -3667,8 +3669,6 @@
 
   .ccrm-tabs-summary-state {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.78rem;
     font-weight: 600;

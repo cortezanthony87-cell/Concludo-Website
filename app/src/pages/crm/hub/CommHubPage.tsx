@@ -8,15 +8,20 @@ import { RecordRoomView } from './RecordRoomView';
 import { InboxView } from './InboxView';
 import { IntelligencePanel } from './IntelligencePanel';
 import { SearchModal } from './SearchModal';
+import { NotificationCentreModal } from '../../../components/collaboration/NotificationCentreModal';
+import { useCollaboration } from '../../../lib/collaboration/collaborationStore';
 import '../../../styles/concludo-comm-hub.css';
 
 export const CommHubPage: React.FC = () => {
   const { viewState } = useCrmViewState();
   const currentWorkspaceId = viewState?.workspaceId || 'ws-kestrel-advisory';
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'rooms' | 'customer' | 'inbox' | 'intel'>('rooms');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('room-northbridge-account');
   const [isIntelDrawerOpen, setIsIntelDrawerOpen] = useState<boolean>(false);
+  const store = useCollaboration();
+  const unreadNotifs = store.getNotifications().filter((n) => !n.isRead).length;
 
   // Strict Gate 2: If this is a real customer workspace, refuse completely
   if (!isDemoWorkspace(currentWorkspaceId)) {
@@ -112,15 +117,16 @@ export const CommHubPage: React.FC = () => {
 
           {/* Notification Bell */}
           <button
+            type="button"
             className="hub-btn-out"
-            style={{ background: 'transparent', borderColor: '#3A5680', color: '#FFFFFF', padding: '0 10px' }}
-            aria-label="Notifications"
-            onClick={() => setActiveTab('inbox')}
+            style={{ position: 'relative', background: 'transparent', borderColor: '#3A5680', color: '#FFFFFF', padding: '0 10px', cursor: 'pointer' }}
+            aria-label="Open notifications centre"
+            onClick={() => setIsNotifOpen(true)}
           >
             <Icons.Bell size={15} />
-            {unreadInboxCount > 0 && (
-              <span style={{ background: 'var(--hub-gold)', color: 'var(--hub-navy)', borderRadius: '8px', padding: '0 4px', fontSize: '9px', fontWeight: 700 }}>
-                {unreadInboxCount}
+            {unreadNotifs > 0 && (
+              <span style={{ background: 'var(--hub-gold)', color: 'var(--hub-navy)', borderRadius: '8px', padding: '0 5px', fontSize: '10px', fontWeight: 700, marginLeft: '4px' }}>
+                {unreadNotifs}
               </span>
             )}
           </button>
@@ -294,6 +300,12 @@ export const CommHubPage: React.FC = () => {
             setActiveTab('rooms');
           }
         }}
+      />
+
+      {/* Notification Centre Modal */}
+      <NotificationCentreModal
+        isOpen={isNotifOpen}
+        onClose={() => setIsNotifOpen(false)}
       />
     </div>
   );

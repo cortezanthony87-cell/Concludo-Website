@@ -48,7 +48,7 @@
 .hub-top-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px; /* Button -> Button = 12px */
   background: var(--hub-white);
   border-bottom: 1px solid var(--hub-hair);
   padding: 0 12px;
@@ -66,7 +66,7 @@
 .hub-top-tab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px; /* Icon -> Text = 8px */
   padding: 10px 10px;
   font-size: 12.5px;
   font-weight: 600;
@@ -485,6 +485,8 @@
 .hub-centre {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  width: 100%;
   min-width: 0;
   background: var(--hub-light);
   overflow-y: auto;
@@ -494,9 +496,10 @@
 .hub-chead {
   background: var(--hub-white);
   border-bottom: 1px solid var(--hub-hair);
-  padding: 14px 22px;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -763,7 +766,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 16px; /* Spacing: 16px between actions per toolbar standard */
   padding: 8px 12px;
   border-top: 1px solid #EDF0F5;
 }
@@ -931,5 +934,42 @@
     width: 100%;
     max-width: 100%;
     margin-left: 0;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOutPopup {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.file-modal-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  flex: 1;
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .file-modal-layout {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
   }
 }
