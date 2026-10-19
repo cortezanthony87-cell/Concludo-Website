@@ -177,6 +177,7 @@ const routes = [
   'crm/data-quality',
   'crm/imports',
   'crm/settings',
+  'crm/communicate',
   'pricing',
   'demo'
 ];

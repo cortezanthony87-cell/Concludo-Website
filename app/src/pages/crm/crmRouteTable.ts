@@ -48,6 +48,7 @@ import { CrmReportsPage } from './CrmReportsPage';
 import { CrmDataQualityPage } from './CrmDataQualityPage';
 import { CrmImportsPage } from './CrmImportsPage';
 import { CrmSettingsPage } from './CrmSettingsPage';
+import { CommHubPage } from './hub/CommHubPage';
 
 /** Every destination has exactly one page. The type enforces it. */
 const COMPONENTS: Record<CrmModulePath, ComponentType> = {
@@ -120,4 +121,8 @@ export const CRM_DETAIL_ROUTES: { segment: string; Component: ComponentType }[] 
 
   /* Stage 7. One route, under the destination that already exists. */
   { segment: 'proposals/:proposalId', Component: CrmProposalPage },
+
+  /* Communication Hub Release 0 (deployed dark behind hub_r0 feature flag) */
+  { segment: 'communicate', Component: CommHubPage },
+  { segment: 'communicate/*', Component: CommHubPage },
 ];

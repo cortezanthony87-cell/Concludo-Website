@@ -818,6 +818,413 @@ begin
 end
 $$;
 
+-- =====================================================================
+-- Block 10: Communication Hub (comm_) tables schema, RLS, and soft delete
+-- =====================================================================
+do $$
+declare
+  v_tables integer;
+  v_enabled integer;
+  v_forced integer;
+  v_policies integer;
+  v_for_all integer;
+  v_missing text;
+begin
+  select count(*) into v_tables
+  from pg_tables where schemaname = 'public' and tablename like 'comm_%';
+
+  if v_tables <> 9 then
+    raise exception 'FAIL: expected 9 R0 comm_ tables, found %', v_tables;
+  end if;
+
+  select count(*) filter (where relrowsecurity),
+         count(*) filter (where relforcerowsecurity)
+    into v_enabled, v_forced
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'comm_%';
+
+  if v_enabled <> v_tables then
+    raise exception 'FAIL: % of % comm_ tables have RLS enabled', v_enabled, v_tables;
+  end if;
+
+  if v_forced <> v_tables then
+    select string_agg(c.relname, ', ') into v_missing
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'comm_%'
+      and not c.relforcerowsecurity;
+    raise exception 'FAIL: these comm_ tables do not FORCE row level security: %', v_missing;
+  end if;
+
+  -- No FOR ALL policies
+  select count(*) into v_for_all
+  from pg_policies where schemaname = 'public' and tablename like 'comm_%' and cmd = 'ALL';
+
+  if v_for_all > 0 then
+    raise exception 'FAIL: % comm_ policies are FOR ALL; policies must be per operation', v_for_all;
+  end if;
+
+  -- Every comm_ table must have all four per-operation policies (SELECT, INSERT, UPDATE, DELETE)
+  select string_agg(t.tablename || ' (missing ' || cmd_missing || ')', ', ') into v_missing
+  from (
+    select tablename, string_agg(cmd, ', ') as cmd_missing
+    from (
+      select t.tablename, ops.cmd
+      from pg_tables t
+      cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) as ops(cmd)
+      where t.schemaname = 'public' and t.tablename like 'comm_%'
+        and not exists (
+          select 1 from pg_policies p
+          where p.schemaname = 'public' and p.tablename = t.tablename and p.cmd = ops.cmd
+        )
+    ) missing_ops
+    group by tablename
+  ) t;
+
+  if v_missing is not null then
+    raise exception 'FAIL: comm_ tables missing required per-operation policies: %', v_missing;
+  end if;
+
+  -- Every comm_ table must have crm_workspace_id and soft delete (deleted_at)
+  select string_agg(t.tablename, ', ') into v_missing
+  from pg_tables t
+  where t.schemaname = 'public' and t.tablename like 'comm_%'
+    and not exists (
+      select 1 from information_schema.columns c
+      where c.table_schema = 'public' and c.table_name = t.tablename and c.column_name = 'crm_workspace_id'
+    );
+
+  if v_missing is not null then
+    raise exception 'FAIL: these comm_ tables lack crm_workspace_id: %', v_missing;
+  end if;
+
+  select string_agg(t.tablename, ', ') into v_missing
+  from pg_tables t
+  where t.schemaname = 'public' and t.tablename like 'comm_%'
+    and not exists (
+      select 1 from information_schema.columns c
+      where c.table_schema = 'public' and c.table_name = t.tablename and c.column_name = 'deleted_at'
+    );
+
+  if v_missing is not null then
+    raise exception 'FAIL: these comm_ tables lack deleted_at: %', v_missing;
+  end if;
+
+  raise notice 'PASS block 10: 9 R0 comm_ tables, all RLS enabled and forced, per-operation policies, tenant-isolated with soft delete';
+end
+$$;
+
+-- =====================================================================
+-- Block 11: Prohibition of scores, rankings, per-user rollups on comm_ tables
+-- =====================================================================
+do $$
+declare
+  offending text;
+  test_failed boolean := false;
+begin
+  -- Real check across comm_ and crm_ tables
+  select string_agg(table_name || '.' || column_name, ', ')
+  into offending
+  from information_schema.columns
+  where table_schema = 'public'
+    and (table_name like 'comm_%' or table_name like 'crm_%')
+    and (
+      column_name in (
+        'score', 'grade', 'rating',
+        'performance_score', 'productivity_score',
+        'attention_score', 'health_score', 'engagement_score', 'risk_score',
+        'relationship_score', 'weighting', 'weight',
+        'reads_per_user', 'read_count_by_user', 'activity_score', 'usage_score'
+      )
+      or column_name like '%_score'
+      or column_name like '%_ranking'
+      or column_name like '%_per_user'
+    );
+
+  if offending is not null then
+    raise exception
+      'FAIL: score, ranking, or per-user column detected (%).',
+      offending;
+  end if;
+
+  -- Extend check: test that adding an offending column TO A COMM_ TABLE causes this check to fail
+  execute 'create table public.comm_test_offending (id uuid primary key, crm_workspace_id uuid, deleted_at timestamptz, engagement_score numeric)';
+  begin
+    select string_agg(table_name || '.' || column_name, ', ')
+    into offending
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'comm_test_offending'
+      and (
+        column_name in ('engagement_score', 'health_score')
+        or column_name like '%_score'
+        or column_name like '%_ranking'
+        or column_name like '%_per_user'
+      );
+    if offending is not null then
+      test_failed := true;
+    end if;
+  exception when others then
+    test_failed := true;
+  end;
+  execute 'drop table public.comm_test_offending';
+
+  if not test_failed then
+    raise exception 'FAIL: verification block failed to flag offending column on comm_ table';
+  end if;
+
+  -- Check that no user-grouped views exist on comm_ tables
+  select string_agg(table_name, ', ')
+  into offending
+  from information_schema.views
+  where table_schema = 'public'
+    and table_name like 'comm_%';
+
+  if offending is not null then
+    raise exception 'FAIL: view found on comm_ tables (%). No views grouped by user permitted.', offending;
+  end if;
+
+  raise notice 'PASS block 11: comm_ tables strictly forbid scores, rankings and per-user columns; confirmed detection triggers';
+end
+$$;
+
+-- =====================================================================
+-- Block 12: Row level security on record rooms and timeline items
+-- =====================================================================
+do $$
+declare
+  v_ws_a uuid;
+  v_ws_b uuid;
+  v_admin uuid := '11111111-1111-1111-1111-111111111111';
+  v_contributor uuid := '22222222-2222-2222-2222-222222222222';
+  v_outsider uuid := '33333333-3333-3333-3333-333333333333';
+  v_viewer_only uuid := '44444444-4444-4444-4444-444444444444';
+  v_conv_public uuid;
+  v_conv_private uuid;
+  v_msg uuid;
+  v_visible integer;
+  v_failed boolean;
+begin
+  select id into v_ws_a from public.crm_workspaces where name = 'Verify A';
+  select id into v_ws_b from public.crm_workspaces where name = 'Verify B';
+
+  insert into public.crm_workspace_members (crm_workspace_id, user_id, crm_role)
+  values (v_ws_a, v_viewer_only, 'crm_viewer')
+  on conflict do nothing;
+
+  -- Create a public record room and a private record room in Workspace A
+  insert into public.comm_conversations (
+    crm_workspace_id, kind, title, record_table, record_id, is_private, created_by
+  ) values (
+    v_ws_a, 'record_room', 'Northbridge Account Room', 'crm_organisations', gen_random_uuid(), false, v_admin
+  ) returning id into v_conv_public;
+
+  insert into public.comm_conversations (
+    crm_workspace_id, kind, title, record_table, record_id, is_private, created_by
+  ) values (
+    v_ws_a, 'record_room', 'Confidential Deal Room', 'crm_organisations', gen_random_uuid(), true, v_admin
+  ) returning id into v_conv_private;
+
+  -- Admin and contributor are members of the private room; viewer_only is not
+  insert into public.comm_conversation_members (
+    crm_workspace_id, conversation_id, member_kind, member_id, role
+  ) values
+    (v_ws_a, v_conv_private, 'user', v_admin, 'owner'),
+    (v_ws_a, v_conv_private, 'user', v_contributor, 'member');
+
+  insert into public.comm_messages (
+    crm_workspace_id, conversation_id, author_id, body
+  ) values
+    (v_ws_a, v_conv_public, v_admin, 'Public account room message');
+
+  insert into public.comm_messages (
+    crm_workspace_id, conversation_id, author_id, body
+  ) values
+    (v_ws_a, v_conv_private, v_admin, 'Private confidential message')
+  returning id into v_msg;
+
+  insert into public.comm_pins (
+    crm_workspace_id, conversation_id, message_id, pinned_by
+  ) values
+    (v_ws_a, v_conv_private, v_msg, v_admin);
+
+  insert into public.comm_timeline_items (
+    crm_workspace_id, record_table, record_id, event_at, item_type, title, source_table, source_id
+  ) values (
+    v_ws_a, 'crm_organisations', gen_random_uuid(), clock_timestamp(), 'message', 'Room created', 'comm_conversations', v_conv_public
+  );
+
+  -- Test 1: Signed in as Outsider (member of Workspace B, not A)
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', v_outsider::text, true);
+
+  select count(*) into v_visible from public.comm_conversations where crm_workspace_id = v_ws_a;
+  if v_visible <> 0 then
+    raise exception 'FAIL: outsider could read % conversations in Workspace A', v_visible;
+  end if;
+
+  select count(*) into v_visible from public.comm_messages where crm_workspace_id = v_ws_a;
+  if v_visible <> 0 then
+    raise exception 'FAIL: outsider could read % messages in Workspace A', v_visible;
+  end if;
+
+  select count(*) into v_visible from public.comm_timeline_items where crm_workspace_id = v_ws_a;
+  if v_visible <> 0 then
+    raise exception 'FAIL: outsider could read % timeline items in Workspace A', v_visible;
+  end if;
+
+  -- Test 2: Outsider cannot write to Workspace A comm_ tables
+  v_failed := false;
+  begin
+    insert into public.comm_messages (crm_workspace_id, conversation_id, author_id, body)
+    values (v_ws_a, v_conv_public, v_outsider, 'Unauthorized intrusion message');
+  exception when others then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: outsider inserted a message into Workspace A'; end if;
+
+  -- Test 3: Signed in as Viewer Only in Workspace A (non-member of private room)
+  perform set_config('request.jwt.claim.sub', v_viewer_only::text, true);
+
+  -- Viewer can read public record room in Workspace A
+  select count(*) into v_visible from public.comm_conversations where id = v_conv_public;
+  if v_visible <> 1 then
+    raise exception 'FAIL: workspace viewer could not read non-private record room';
+  end if;
+
+  -- Viewer CANNOT read private record room where they are not a member
+  select count(*) into v_visible from public.comm_conversations where id = v_conv_private;
+  if v_visible <> 0 then
+    raise exception 'FAIL: non-member viewer could read private record room (RLS bypass)';
+  end if;
+
+  -- Viewer CANNOT read messages in private record room where they are not a member
+  select count(*) into v_visible from public.comm_messages where conversation_id = v_conv_private;
+  if v_visible <> 0 then
+    raise exception 'FAIL: non-member viewer could read messages in private record room (RLS bypass)';
+  end if;
+
+  -- Viewer CANNOT read members of private record room where they are not a member (metadata leak check)
+  select count(*) into v_visible from public.comm_conversation_members where conversation_id = v_conv_private;
+  if v_visible <> 0 then
+    raise exception 'FAIL: non-member viewer could read membership of private record room (metadata leak)';
+  end if;
+
+  -- Viewer CANNOT read pins in private record room
+  select count(*) into v_visible from public.comm_pins where conversation_id = v_conv_private;
+  if v_visible <> 0 then
+    raise exception 'FAIL: non-member viewer could read pins in private record room (metadata leak)';
+  end if;
+
+  -- Viewer CAN read messages in public record room in Workspace A
+  select count(*) into v_visible from public.comm_messages where conversation_id = v_conv_public;
+  if v_visible <> 1 then
+    raise exception 'FAIL: workspace viewer could not read messages in public record room';
+  end if;
+
+  -- Test 3b: Signed in as Contributor who is a member of the private room
+  perform set_config('request.jwt.claim.sub', v_contributor::text, true);
+  select count(*) into v_visible from public.comm_messages where conversation_id = v_conv_private;
+  if v_visible <> 1 then
+    raise exception 'FAIL: private room member could not read private room messages';
+  end if;
+
+  select count(*) into v_visible from public.comm_conversation_members where conversation_id = v_conv_private;
+  if v_visible <> 2 then
+    raise exception 'FAIL: private room member could not read private room members list';
+  end if;
+
+  select count(*) into v_visible from public.comm_pins where conversation_id = v_conv_private;
+  if v_visible <> 1 then
+    raise exception 'FAIL: private room member could not read private room pins';
+  end if;
+
+  -- Return to viewer for write tests
+  perform set_config('request.jwt.claim.sub', v_viewer_only::text, true);
+
+  -- Test 4: Viewer cannot write a message (needs crm_contributor)
+  v_failed := false;
+  begin
+    insert into public.comm_messages (crm_workspace_id, conversation_id, author_id, body)
+    values (v_ws_a, v_conv_public, v_viewer_only, 'Viewer attempted message');
+  exception when others then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: crm_viewer was able to insert a message'; end if;
+
+  -- Test 4b: Contributor who is NOT a member of private room cannot write to private room
+  -- (v_viewer_only upgraded to contributor for this subtest to test non-member contributor write)
+  reset role;
+  insert into public.crm_workspace_members (crm_workspace_id, user_id, crm_role)
+  values (v_ws_a, v_viewer_only, 'crm_contributor')
+  on conflict (crm_workspace_id, user_id) do update set crm_role = 'crm_contributor';
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', v_viewer_only::text, true);
+
+  v_failed := false;
+  begin
+    insert into public.comm_messages (crm_workspace_id, conversation_id, author_id, body)
+    values (v_ws_a, v_conv_private, v_viewer_only, 'Non-member contributor attempted message');
+  exception when others then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: non-member contributor was able to insert into private room'; end if;
+
+  -- Test 5: Direct DML on comm_timeline_items (read model) is blocked
+  v_failed := false;
+  begin
+    insert into public.comm_timeline_items (crm_workspace_id, record_table, record_id, event_at, item_type, title, source_table, source_id)
+    values (v_ws_a, 'crm_organisations', gen_random_uuid(), clock_timestamp(), 'message', 'Direct bypass', 'comm_conversations', v_conv_public);
+  exception when others then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: direct DML on comm_timeline_items was permitted'; end if;
+
+  -- Test 6: Cross-workspace child constraint check
+  -- Cannot insert a message with crm_workspace_id = v_ws_b referencing conversation in v_ws_a
+  v_failed := false;
+  begin
+    insert into public.comm_messages (crm_workspace_id, conversation_id, author_id, body)
+    values (v_ws_b, v_conv_public, v_admin, 'Cross-workspace mismatch attempt');
+  exception when others then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: cross-workspace child row was permitted'; end if;
+
+  -- Test 7: Non-author contributor cannot update another user message
+  perform set_config('request.jwt.claim.sub', v_contributor::text, true);
+  v_failed := false;
+  begin
+    update public.comm_messages
+    set body = 'Tampered body by contributor'
+    where id = v_msg;
+    if not found then v_failed := true; end if;
+  exception when others then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: non-author contributor was able to update another author message'; end if;
+
+  -- Test 8: Writing a message produces an audit record in crm_audit_events
+  reset role;
+  declare
+    v_audit_count_before integer;
+    v_audit_count_after integer;
+    v_test_msg_id uuid;
+  begin
+    select count(*) into v_audit_count_before
+    from public.crm_audit_events
+    where subject_table = 'comm_messages';
+
+    insert into public.comm_messages (crm_workspace_id, conversation_id, author_id, body)
+    values (v_ws_a, v_conv_public, v_admin, 'Audit test message')
+    returning id into v_test_msg_id;
+
+    select count(*) into v_audit_count_after
+    from public.crm_audit_events
+    where subject_table = 'comm_messages' and subject_id = v_test_msg_id;
+
+    if v_audit_count_after <> 1 then
+      raise exception 'FAIL: audit record was not created for comm_messages insert';
+    end if;
+  end;
+
+  raise notice 'PASS block 12: row level security verified on record rooms: outsider reads 0, non-member blocked from private rooms and messages, member reads private messages, read-model direct writes blocked, cross-workspace child writes blocked, non-author message update blocked, write audit verified';
+end
+$$;
+
 rollback;
 
 \echo ''
