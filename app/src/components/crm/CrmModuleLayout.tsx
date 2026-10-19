@@ -139,6 +139,7 @@ export const CrmModuleLayout: React.FC = () => {
   }, [location.pathname]);
 
   const context: CrmModuleContext = { linkTo, refreshToken };
+  const isCommunicate = location.pathname.startsWith('/crm/communicate');
 
   return (
     <div className="ccrm-module">
@@ -146,15 +147,17 @@ export const CrmModuleLayout: React.FC = () => {
         Skip to the CRM
       </a>
 
-      <CrmHeader
-        dataset={CRM_DATASET}
-        viewState={viewState}
-        setViewState={setViewState}
-        onRefresh={handleRefresh}
-        refreshing={refreshing}
-        awaitingConfirmation={awaitingConfirmation}
-        linkTo={linkTo}
-      />
+      {!isCommunicate && (
+        <CrmHeader
+          dataset={CRM_DATASET}
+          viewState={viewState}
+          setViewState={setViewState}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
+          awaitingConfirmation={awaitingConfirmation}
+          linkTo={linkTo}
+        />
+      )}
 
       <nav aria-label="CRM sections">
         <details className="ccrm-tabs-shell" open={sectionsOpen} onToggle={onSectionsToggle}>

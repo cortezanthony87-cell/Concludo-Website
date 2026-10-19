@@ -48,21 +48,27 @@
 .hub-top-tabs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: var(--hub-white);
   border-bottom: 1px solid var(--hub-hair);
-  padding: 0 20px;
+  padding: 0 18px;
   overflow-x: auto;
   min-height: 48px;
   flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.hub-top-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .hub-top-tab-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
+  padding: 10px 16px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--hub-slate);
   background: transparent;
@@ -112,9 +118,51 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: calc(100vh - 165px);
+  height: calc(100vh - 170px);
   overflow: hidden;
   position: relative;
+}
+
+/* Mobile Room Selector Pills */
+.hub-mobile-room-selector {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .hub-mobile-room-selector {
+    display: flex;
+    gap: 8px;
+    padding: 8px 14px;
+    background: #F8FAFD;
+    border-bottom: 1px solid var(--hub-hair);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .hub-mobile-room-selector::-webkit-scrollbar {
+    display: none;
+  }
+  .hub-room-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hub-slate);
+    background: #FFFFFF;
+    border: 1px solid var(--hub-hair);
+    white-space: nowrap;
+    min-height: 44px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .hub-room-pill.active {
+    background: var(--hub-navy);
+    color: #FFFFFF;
+    border-color: var(--hub-navy);
+  }
 }
 
 /* Room Layout: 2-column with expandable drawer/sidebar */
@@ -846,71 +894,26 @@
   overflow: hidden;
 }
 
-/* Mobile Bottom Navigation: Strictly hidden on desktop */
-.hub-mobile-tabs {
-  display: none !important;
-}
-
 /* Responsive Rules: 1200px, 900px, 640px, 390px */
 @media (max-width: 900px) {
   .hub-top-tabs {
-    display: none;
+    display: flex;
+    padding: 0 8px;
+    gap: 4px;
+    border-bottom: 1px solid var(--hub-hair);
+  }
+  .hub-top-tab-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 44px;
+    border-radius: 6px 6px 0 0;
   }
   .hub-room-nav {
     display: none;
   }
-  .hub-mobile-tabs {
-    display: flex !important;
-    position: fixed;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-    left: 0;
-    right: 0;
-    height: 56px;
-    background: #FFFFFF;
-    border-top: 1px solid var(--hub-hair);
-    z-index: 45;
-    box-shadow: 0 -2px 10px rgba(13, 22, 38, 0.08);
-    padding: 0 10px;
-    justify-content: space-around;
-    align-items: center;
-  }
-  .hub-mobile-tab-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    height: 100%;
-    min-height: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--hub-slate);
-    background: transparent;
-    border: 0;
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 8px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .hub-mobile-tab-btn:active,
-  .hub-mobile-tab-btn.active {
-    color: var(--hub-navy);
-    background: #E8EDF5;
-    font-weight: 700;
-  }
-  .hub-mobile-tab-btn span {
-    white-space: nowrap;
-    font-size: 11px;
-    line-height: 1.2;
-  }
 }
 
 @media (max-width: 640px) {
-  .hub-container {
-    padding-bottom: 120px;
-  }
   .hub-band-row {
     flex-wrap: wrap;
     gap: 8px;

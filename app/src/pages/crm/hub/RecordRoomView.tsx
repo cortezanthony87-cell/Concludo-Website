@@ -11,6 +11,7 @@ interface RecordRoomViewProps {
   onSendMessage?: (text: string) => void;
   onReviewProposal?: () => void;
   onToggleIntel?: () => void;
+  onSelectRoom?: (roomId: string) => void;
   isIntelOpen?: boolean;
 }
 
@@ -19,6 +20,7 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
   onSendMessage,
   onReviewProposal,
   onToggleIntel,
+  onSelectRoom,
   isIntelOpen = false,
 }) => {
   const [messages, setMessages] = useState<CommMessage[]>(HUB_MESSAGES);
@@ -139,6 +141,21 @@ export const RecordRoomView: React.FC<RecordRoomViewProps> = ({
             <Icons.MoreHorizontal size={14} />
           </button>
         </div>
+      </div>
+
+      {/* Mobile room selector pills (visible on narrow viewports) */}
+      <div className="hub-mobile-room-selector">
+        {HUB_RECORD_ROOMS.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            className={`hub-room-pill ${r.id === room.id ? 'active' : ''}`}
+            onClick={() => onSelectRoom && onSelectRoom(r.id)}
+          >
+            <Icons.Hash size={12} />
+            <span>{r.title}</span>
+          </button>
+        ))}
       </div>
 
       {/* Feed */}

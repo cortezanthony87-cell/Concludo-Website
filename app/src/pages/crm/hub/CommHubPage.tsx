@@ -235,6 +235,7 @@ export const CommHubPage: React.FC = () => {
             <div className="hub-room-main">
               <RecordRoomView
                 roomId={selectedRoomId}
+                onSelectRoom={setSelectedRoomId}
                 onToggleIntel={() => setIsIntelDrawerOpen(!isIntelDrawerOpen)}
                 isIntelOpen={isIntelDrawerOpen}
               />
@@ -280,41 +281,6 @@ export const CommHubPage: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Mobile Bottom Navigation (m1 wireframe, strictly hidden on desktop) */}
-      <div className="hub-mobile-tabs">
-        <button
-          className={`hub-mobile-tab-btn ${activeTab === 'inbox' ? 'active' : ''}`}
-          onClick={() => setActiveTab('inbox')}
-        >
-          <Icons.Inbox size={18} />
-          <span>Inbox</span>
-        </button>
-        <button
-          className={`hub-mobile-tab-btn ${activeTab === 'customer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('customer')}
-        >
-          <Icons.Building2 size={18} />
-          <span>Workspace</span>
-        </button>
-        <button
-          className={`hub-mobile-tab-btn ${activeTab === 'rooms' ? 'active' : ''}`}
-          onClick={() => {
-            setSelectedRoomId('room-northbridge-account');
-            setActiveTab('rooms');
-          }}
-        >
-          <Icons.MessageSquare size={18} />
-          <span>Rooms</span>
-        </button>
-        <button
-          className={`hub-mobile-tab-btn ${activeTab === 'intel' ? 'active' : ''}`}
-          onClick={() => setActiveTab('intel')}
-        >
-          <Icons.Sparkles size={18} color="var(--hub-gold2)" />
-          <span>Copilot</span>
-        </button>
-      </div>
 
       {/* Search Modal (S22) */}
       <SearchModal
