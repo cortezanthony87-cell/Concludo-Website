@@ -321,6 +321,7 @@ export type CrmModulePath =
   | '/crm/pipeline'
   | '/crm/activities'
   | '/crm/commitments'
+  | '/crm/communicate'
   | '/crm/account-plans'
   | '/crm/service'
   | '/crm/proposals'

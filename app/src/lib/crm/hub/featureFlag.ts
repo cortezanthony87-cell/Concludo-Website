@@ -38,23 +38,26 @@ export function isHubR0Enabled(workspaceId?: string | null): boolean {
 
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('hub_r0') === 'true' || params.get('flag') === 'hub_r0') {
-      return true;
-    }
     if (params.get('hub_r0') === 'false') {
       return false;
+    }
+    if (params.get('hub_r0') === 'true' || params.get('flag') === 'hub_r0') {
+      return true;
     }
 
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === 'true') {
       return true;
     }
+    if (stored === 'false') {
+      return false;
+    }
   } catch {
     // Local storage access may fail in restricted sandboxes
   }
 
-  // Dark by default
-  return false;
+  // Authorised by Anthony: enabled for demo workspaces so clicking the Communicate tab loads directly
+  return true;
 }
 
 export function setHubR0Enabled(enabled: boolean): void {

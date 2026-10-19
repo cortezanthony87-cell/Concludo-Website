@@ -68,6 +68,7 @@ const COMPONENTS: Record<CrmModulePath, ComponentType> = {
   '/crm/pipeline': CrmPipelinePage,
   '/crm/activities': CrmActivitiesPage,
   '/crm/commitments': CrmCommitmentsPage,
+  '/crm/communicate': CommHubPage,
   '/crm/account-plans': CrmAccountPlansPage,
   '/crm/service': CrmServicePage,
   '/crm/proposals': CrmProposalsPage,
@@ -123,6 +124,5 @@ export const CRM_DETAIL_ROUTES: { segment: string; Component: ComponentType }[] 
   { segment: 'proposals/:proposalId', Component: CrmProposalPage },
 
   /* Communication Hub Release 0 (deployed dark behind hub_r0 feature flag) */
-  { segment: 'communicate', Component: CommHubPage },
   { segment: 'communicate/*', Component: CommHubPage },
 ];

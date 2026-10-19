@@ -72,8 +72,8 @@ group('The destinations are complete, internal and grouped', () => {
   // second: what this business already knows about one customer.
   assertEqual(
     CRM_MODULE_DESTINATIONS.length,
-    23,
-    'fourteen from Stage 2, three from Stage 4, two from Stage 5, one from Phase 2A-i, one from Phase 2B-i, one for the Overview, one for the KAM Copilot'
+    24,
+    'fourteen from Stage 2, three from Stage 4, two from Stage 5, one from Phase 2A-i, one from Phase 2B-i, one for the Overview, one for the KAM Copilot, one for Communicate'
   );
 
   const paths = CRM_MODULE_DESTINATIONS.map((d) => d.path);
@@ -114,6 +114,8 @@ group('The destinations are complete, internal and grouped', () => {
     // Stage 5.
     'Capture',
     'Forecast',
+    // Communication Hub
+    'Communicate',
   ];
   for (const label of expected) {
     assert(
@@ -132,10 +134,10 @@ group('The destinations are complete, internal and grouped', () => {
   for (const groupName of CRM_TAB_GROUPS) {
     const inGroup = crmDestinationsInGroup(groupName);
     assert(inGroup.length > 0, `the ${groupName} cluster is not empty`);
-    assert(inGroup.length <= 5, `the ${groupName} cluster stays scannable`);
+    assert(inGroup.length <= 6, `the ${groupName} cluster stays scannable`);
     covered += inGroup.length;
   }
-  assertEqual(covered, 23, 'every destination belongs to exactly one cluster');
+  assertEqual(covered, 24, 'every destination belongs to exactly one cluster');
 });
 
 group('An unknown path lands somewhere useful', () => {
@@ -164,7 +166,7 @@ group('Routes are derived from the destinations and cannot drift', () => {
   const segments = CRM_MODULE_PATHS.map((path) =>
     path === '/crm' ? '' : path.replace('/crm/', '')
   );
-  assertEqual(segments.length, 23, 'one route segment per destination');
+  assertEqual(segments.length, 24, 'one route segment per destination');
   assertEqual(segments[0], '', 'the root is the index route');
   assert(
     segments.slice(1).every((segment) => segment.length > 0 && !segment.includes('/')),

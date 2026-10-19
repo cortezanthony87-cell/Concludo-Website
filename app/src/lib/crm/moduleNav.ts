@@ -31,6 +31,14 @@ export const CRM_MODULE_DESTINATIONS: CrmDestination[] = [
     group: 'Work',
   },
   {
+    path: '/crm/communicate',
+    label: 'Communicate',
+    iconName: 'MessageSquare',
+    accessibleDescription:
+      'Customer workspace, unified timeline, record rooms, and communication intelligence.',
+    group: 'Work',
+  },
+  {
     path: '/crm/capture',
     label: 'Capture',
     iconName: 'PlusCircle',
