@@ -185,15 +185,14 @@ const DESTINATIONS: WorkspaceDestination[] = [
     badge: 'informational',
   },
   {
-    path: '/crm/communicate',
-    label: 'Communicate',
-    iconName: 'MessageSquare',
+    path: '/meeting-output',
+    label: 'Meeting output',
+    iconName: 'FileText',
     accessibleDescription:
-      'Customer workspace, unified timeline, record rooms and communication intelligence.',
+      'Paste a transcript, import meeting notes, generate structured outputs, and save to a project.',
     group: 'Work',
     feature: 'workspace_basic',
     pinned: true,
-    badge: 'informational',
   },
   {
     path: '/crm',

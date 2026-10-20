@@ -3,20 +3,33 @@ import { useNavigate } from 'react-router-dom';
 import { X, MessageSquare, Mail, ExternalLink } from 'lucide-react';
 import { ActivePopupNotification } from '../../lib/collaboration/collaborationTypes';
 import { collaborationStore } from '../../lib/collaboration/collaborationStore';
+import { useAuth } from '../../lib/auth/AuthContext';
+import { isDemoWorkspace } from '../../lib/crm/hub/featureFlag';
 
 export const MessagePopupNotifier: React.FC = () => {
+  const { user } = useAuth();
   const [popups, setPopups] = useState<ActivePopupNotification[]>([]);
   const navigate = useNavigate();
 
+  // STRICT PRIVACY RULE:
+  // Synthetic demonstration popups must NEVER trigger or display on real customer accounts.
+  // Only users in authorized demo workspaces receive synthetic in-memory popups.
+  const isDemo = Boolean(user && isDemoWorkspace(user.id));
+
   useEffect(() => {
+    if (!isDemo) {
+      setPopups([]);
+      return;
+    }
+
     const update = () => {
       setPopups([...collaborationStore.getActivePopups()]);
     };
     update();
     return collaborationStore.subscribe(update);
-  }, []);
+  }, [isDemo]);
 
-  if (popups.length === 0) return null;
+  if (popups.length === 0 || !isDemo) return null;
 
   const handleOpen = (popup: ActivePopupNotification) => {
     collaborationStore.openPopup(popup.id);

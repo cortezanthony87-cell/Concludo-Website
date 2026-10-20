@@ -1,56 +1,31 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Outlet, Link, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import {
   Menu,
   X,
-  LayoutDashboard,
-  Calendar as CalendarIcon,
-  FolderKanban,
-  Search,
-  FileText,
-  Mail,
-  BrainCircuit,
-  CheckSquare,
-  Settings,
-  ChevronDown,
   User,
   LogOut,
-  Building2,
-  Zap,
-  Database,
-  Shield,
-  Trash2,
-  Loader2,
-  Lightbulb,
-  BarChart3,
-  FileBarChart,
-  Users,
-  Contact,
-  FileSpreadsheet,
-  Scale,
-  KeyRound,
-  Share2,
-  Webhook as WebhookIcon,
-  Code2,
-  Layers,
-  Bot,
-  Workflow,
-  CheckCircle,
-  Gauge,
-  TrendingUp,
-  Clock,
-  Compass,
-  Sparkles,
-  Cpu,
-  Sliders,
   CreditCard,
+  Settings,
+  Shield,
+  Loader2,
+  Trash2,
+  Database,
+  Users,
   Bell,
+  Sparkles,
+  LayoutDashboard,
+  Calendar as CalendarIcon,
+  Mail,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
 import { resetAllScrollPositions } from './ScrollToTop';
 import { WorkspaceSidebar } from './workspace/WorkspaceSidebar';
 import { useBadgeCounts, useCollaboration } from '../lib/collaboration/collaborationStore';
+import { useAccountNotifications } from '../lib/notifications/useAccountNotifications';
+import { isDemoWorkspace } from '../lib/crm/hub/featureFlag';
 import { NotificationCentreModal } from './collaboration/NotificationCentreModal';
 import { MessagePopupNotifier } from './collaboration/MessagePopupNotifier';
 
@@ -60,9 +35,35 @@ export const WorkspaceLayout: React.FC = () => {
   const location = useLocation();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [isNotificationCentreOpen, setIsNotificationCentreOpen] = useState(false);
-  const badgeCounts = useBadgeCounts();
+
+  // Authenticated real notifications
+  const accountNotifs = useAccountNotifications();
+
+  // Demo fallback strictly when in demo workspace
   const store = useCollaboration();
-  const unreadNotifsCount = store.getNotifications().filter((n) => !n.isRead).length;
+  const badgeCounts = useBadgeCounts();
+  const isDemo = Boolean(user && isDemoWorkspace(user.id));
+
+  // STRICT PRIVACY GUARANTEE:
+  // On an authenticated account, unread count comes purely from public.user_notifications.
+  // Synthetic demonstration data never appears in any notification on a real account.
+  const effectiveUnreadNotifsCount = isDemo
+    ? store.getNotifications().filter((n) => !n.isRead).length
+    : accountNotifs.unreadCount;
+
+  // Sidebar badge counts:
+  // - "Communicate" under Work is removed from sidebar; its count is shown inside CRM tab only.
+  // - Calendar and Email badge counts only show active items when in demo mode or when authenticated items exist.
+  const sidebarCounts = isDemo
+    ? {
+        '/calendar': badgeCounts.calendar,
+        '/email': badgeCounts.email,
+      }
+    : {
+        '/calendar': 0,
+        '/email': 0,
+      };
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -151,12 +152,13 @@ export const WorkspaceLayout: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              color: '#F8FAFC',
               cursor: 'pointer',
-              color: '#F4F6FA',
+              marginRight: '8px',
             }}
           >
-            <Bell size={17} />
-            {unreadNotifsCount > 0 && (
+            <Bell size={18} />
+            {effectiveUnreadNotifsCount > 0 && (
               <span
                 style={{
                   position: 'absolute',
@@ -173,10 +175,11 @@ export const WorkspaceLayout: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '0 4px',
-                  boxSizing: 'border-box',
+                  lineHeight: 1,
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
                 }}
               >
-                {unreadNotifsCount}
+                {effectiveUnreadNotifsCount}
               </span>
             )}
           </button>
@@ -188,35 +191,28 @@ export const WorkspaceLayout: React.FC = () => {
             <span>{planBadgeText}</span>
           </div>
 
-          {/* Account menu */}
+          {/* User Account Menu */}
           <div className="account-menu-container" ref={accountMenuRef}>
             <button
               type="button"
               className="account-menu-button"
               onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+              aria-label="User account menu"
               aria-expanded={accountMenuOpen}
-              aria-label="Account menu"
+              aria-haspopup="true"
             >
-              <div className="account-avatar">{userInitial}</div>
-              <span
-                style={{
-                  fontSize: '0.88rem',
-                  fontWeight: 600,
-                  color: '#f8fafc',
-                  maxWidth: '180px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-                title={userEmail}
-              >
-                {displayName}
+              <span className="user-avatar-initial" aria-hidden="true">
+                {userInitial}
               </span>
-              <ChevronDown size={14} color="#94a3b8" />
+              <span className="user-display-name">{displayName}</span>
             </button>
 
             {accountMenuOpen && (
-              <div className="account-dropdown">
+              <div
+                className="account-dropdown-menu"
+                role="menu"
+                aria-label="User options"
+              >
                 <div className="dropdown-user-header">
                   {fullName && (
                     <div
@@ -355,11 +351,7 @@ export const WorkspaceLayout: React.FC = () => {
       <div className="app-shell-body">
         {/* Left sidebar */}
         <WorkspaceSidebar
-          counts={{
-            '/crm/communicate': badgeCounts.communicate,
-            '/calendar': badgeCounts.calendar,
-            '/email': badgeCounts.email,
-          }}
+          counts={sidebarCounts}
           onOpenSearch={() => navigate("/search")}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
@@ -416,14 +408,14 @@ export const WorkspaceLayout: React.FC = () => {
             isActive ? 'mobile-nav-item active' : 'mobile-nav-item'
           }
         >
-          <Contact size={19} />
+          <User size={19} />
           <span>CRM</span>
         </NavLink>
         <button
           type="button"
-          className={`mobile-nav-item ${mobileSidebarOpen ? 'active' : ''}`}
-          onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          aria-label="More sections"
+          className="mobile-nav-item mobile-nav-menu-btn"
+          onClick={() => setMobileSidebarOpen(true)}
+          aria-label="Open full navigation menu"
         >
           <Menu size={19} />
           <span>Menu</span>
@@ -431,11 +423,13 @@ export const WorkspaceLayout: React.FC = () => {
       </nav>
       )}
 
-      {/* Notification Centre Modal & Message Popup Notifier */}
+      {/* Real-time Notifications Modal */}
       <NotificationCentreModal
         isOpen={isNotificationCentreOpen}
         onClose={() => setIsNotificationCentreOpen(false)}
       />
+
+      {/* Bottom-right 10-second popup alerts */}
       <MessagePopupNotifier />
     </div>
   );

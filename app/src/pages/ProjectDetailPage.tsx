@@ -75,6 +75,7 @@ import { extractCalendarPayloadItems } from '../lib/calendar/calendarAdapter';
 import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
 import { computeProjectEvolution } from '../lib/intelligence/projectEvolution';
 import { ProjectEvolutionCard } from '../components/projects/ProjectEvolutionCard';
+import { ProjectFilesSection } from '../components/projects/ProjectFilesSection';
 
 
 
@@ -1697,6 +1698,9 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* SECTION: PROJECT FILE STORAGE (Device, Meeting Outputs, Teams Imports) */}
+      <ProjectFilesSection projectId={project.id} projectTitle={project.title} />
 
       {/* SECTION: SAVED OUTPUTS */}
       <section className="content-card" style={{ padding: '24px' }}>

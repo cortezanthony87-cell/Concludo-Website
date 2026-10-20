@@ -3,15 +3,15 @@ import { collaborationStore } from '../src/lib/collaboration/collaborationStore'
 import { PINNED_DESTINATIONS, destinationsInGroup } from '../src/lib/workspace/workspaceNav';
 
 describe('Concludo CRM Communication, Calendar & Email Collaboration Platform', () => {
-  it('Navigation: Communicate label is complete and present in sidebar', () => {
+  it('Navigation: Sidebar replaces Communicate with Meeting output and removes Communicate from sidebar Work', () => {
     const workItems = destinationsInGroup('Work');
-    const commDest = workItems.find((d) => d.path === '/crm/communicate');
-    expect(commDest).toBeDefined();
-    expect(commDest?.label).toBe('Communicate');
-    expect(commDest?.badge).toBe('informational');
-    // Pinned destinations includes Communicate
-    const pinnedComm = PINNED_DESTINATIONS.find((d) => d.path === '/crm/communicate');
-    expect(pinnedComm).toBeDefined();
+    // Workspace sidebar Work group has Meeting output
+    const outputDest = workItems.find((d) => d.path === '/meeting-output');
+    expect(outputDest).toBeDefined();
+    expect(outputDest?.label).toBe('Meeting output');
+    // Communicate is removed from Workspace sidebar Work group
+    const commSidebar = workItems.find((d) => d.path === '/crm/communicate');
+    expect(commSidebar).toBeUndefined();
   });
 
   it('Navigation: Calendar has badge enabled', () => {

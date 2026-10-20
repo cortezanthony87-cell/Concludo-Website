@@ -17,6 +17,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { NewProjectPage } from './pages/NewProjectPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
+import { MeetingOutputPage } from './pages/MeetingOutputPage';
 import { SearchPage } from './pages/SearchPage';
 import { AccountPage } from './pages/AccountPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -142,6 +143,7 @@ export const App: React.FC = () => {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/new" element={<NewProjectPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
+            <Route path="/meeting-output" element={<MeetingOutputPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/settings" element={<SettingsPage />} />

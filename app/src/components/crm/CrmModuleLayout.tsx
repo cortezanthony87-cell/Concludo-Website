@@ -29,6 +29,7 @@ import { sessionWorkspace } from '../../lib/crm/stage5/session';
 import { planningEnabled } from '../../lib/crm/stage6/visibility';
 import { composeToday } from '../../lib/crm/today';
 import { CrmHeader } from './CrmHeader';
+import { useBadgeCounts } from '../../lib/collaboration/collaborationStore';
 import '../../styles/concludo-crm.css';
 
 /** Resolves a lucide icon by name, falling back to a neutral mark. */
@@ -140,6 +141,7 @@ export const CrmModuleLayout: React.FC = () => {
 
   const context: CrmModuleContext = { linkTo, refreshToken };
   const isCommunicate = location.pathname.startsWith('/crm/communicate');
+  const badgeCounts = useBadgeCounts();
 
   return (
     <div className="ccrm-module">
@@ -184,6 +186,9 @@ export const CrmModuleLayout: React.FC = () => {
                   >
                     <Icon name={destination.iconName} />
                     <span>{destination.label}</span>
+                    {destination.path === '/crm/communicate' && badgeCounts.communicate > 0 && (
+                      <span className="ccrm-tab-badge">{badgeCounts.communicate}</span>
+                    )}
                   </NavLink>
                 </li>
               ))}
