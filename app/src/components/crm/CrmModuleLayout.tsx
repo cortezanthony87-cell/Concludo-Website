@@ -25,7 +25,9 @@ import { useLocation } from 'react-router-dom';
 import { useCrmScrollMemory, useCrmViewState } from '../../lib/crm/useCrmViewState';
 import { crmDestinationForPath } from '../../lib/crm/moduleNav';
 import { CRM_DATASET } from '../../lib/crm/data/workspace';
-import { sessionWorkspace } from '../../lib/crm/stage5/session';
+import { sessionWorkspace, subscribeToWrites } from '../../lib/crm/stage5/session';
+import { syncCustomWorkspacesWithSupabase, workspaceToDataset } from '../../lib/crm/customWorkspaceStore';
+import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 import { planningEnabled } from '../../lib/crm/stage6/visibility';
 import { composeToday } from '../../lib/crm/today';
 import { CrmHeader } from './CrmHeader';
@@ -70,6 +72,30 @@ export const CrmModuleLayout: React.FC = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [writeVersion, setWriteVersion] = useState(0);
+
+  React.useEffect(() => {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      syncCustomWorkspacesWithSupabase(supabase).catch((e) => {
+        console.warn('Custom workspace sync notice:', e);
+      });
+    } catch (e) {
+      // Ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    return subscribeToWrites(() => setWriteVersion((v) => v + 1));
+  }, []);
+
+  React.useEffect(() => {
+    const handleWorkspaceChanged = () => {
+      setRefreshToken((t) => t + 1);
+    };
+    window.addEventListener('concludo_crm_workspaces_changed', handleWorkspaceChanged);
+    return () => window.removeEventListener('concludo_crm_workspaces_changed', handleWorkspaceChanged);
+  }, []);
 
   /**
    * HIDDEN BY DEFAULT, in the one place that decides what is on screen.
@@ -98,12 +124,15 @@ export const CrmModuleLayout: React.FC = () => {
     }, 450);
   }, []);
 
-  // The header's proposals indicator needs one number from the composition.
-  // Computing the whole composition here and once more on Today is cheap on a
-  // workspace this size and keeps the two from disagreeing.
+  const currentWorkspace = sessionWorkspace(viewState.workspaceId);
+  const isAuthentic = Boolean((currentWorkspace.workspace as any).isAuthentic || currentWorkspace.workspace.id.startsWith('ws-org-'));
+  const activeDataset = useMemo(() => {
+    return isAuthentic ? workspaceToDataset(currentWorkspace) : CRM_DATASET;
+  }, [currentWorkspace, isAuthentic, refreshToken, writeVersion]);
+
   const awaitingConfirmation = useMemo(
-    () => composeToday(CRM_DATASET, viewState).awaitingConfirmation,
-    [viewState]
+    () => composeToday(activeDataset, viewState).awaitingConfirmation,
+    [activeDataset, viewState]
   );
 
   /**
@@ -151,7 +180,7 @@ export const CrmModuleLayout: React.FC = () => {
 
       {!isCommunicate && (
         <CrmHeader
-          dataset={CRM_DATASET}
+          dataset={activeDataset}
           viewState={viewState}
           setViewState={setViewState}
           onRefresh={handleRefresh}
@@ -204,11 +233,11 @@ export const CrmModuleLayout: React.FC = () => {
       </div>
 
       <p className="ccrm-foot-note">
-        Concludo proposes; a person disposes. This module reads and recommends. It never sends a
-        message, changes a customer record or merges anything without a person confirming it. What
-        you change here is held in this browser tab against synthetic records and is put back when
-        the tab closes; nothing is written to any customer system. Prices referenced anywhere in
-        Concludo remain indicative until validated with real buyers.
+        {isAuthentic ? (
+          `Concludo proposes; a person disposes. This CRM workspace is dedicated to ${currentWorkspace.workspace.name}. Records and imported documents are saved and connected to your open projects.`
+        ) : (
+          `Concludo proposes; a person disposes. This module reads and recommends. It never sends a message, changes a customer record or merges anything without a person confirming it. What you change here is held in this browser tab against synthetic records and is put back when the tab closes; nothing is written to any customer system. Prices referenced anywhere in Concludo remain indicative until validated with real buyers.`
+        )}
       </p>
     </div>
   );

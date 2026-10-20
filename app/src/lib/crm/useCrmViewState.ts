@@ -20,6 +20,7 @@ import {
   rememberCrmScroll,
   serialiseCrmViewState,
 } from './viewState';
+import { setActiveWorkspaceId } from './customWorkspaceStore';
 
 export interface UseCrmViewState {
   viewState: CrmViewState;
@@ -38,6 +39,9 @@ export function useCrmViewState(): UseCrmViewState {
 
   const setViewState = useCallback(
     (next: Partial<CrmViewState>) => {
+      if (next.workspaceId) {
+        setActiveWorkspaceId(next.workspaceId);
+      }
       // Changing any filter by hand clears the saved view, unless the change is
       // the saved view itself. A named view whose filters no longer match it is
       // a lie about what the person is looking at.

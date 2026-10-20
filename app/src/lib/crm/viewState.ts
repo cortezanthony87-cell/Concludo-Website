@@ -15,6 +15,7 @@
 import { CrmViewState } from './types';
 import { crmSavedView } from './moduleNav';
 import { CRM_DEFAULT_WORKSPACE_ID } from './stage4/workspace';
+import { getActiveWorkspaceId } from './customWorkspaceStore';
 
 export const CRM_DEFAULT_VIEW_STATE: CrmViewState = {
   workspaceId: CRM_DEFAULT_WORKSPACE_ID,
@@ -65,7 +66,7 @@ export function parseCrmViewState(search: string): CrmViewState {
   const rawType = params.get('type') as CrmViewState['recordType'] | null;
 
   const state: CrmViewState = {
-    workspaceId: params.get('w') || CRM_DEFAULT_WORKSPACE_ID,
+    workspaceId: params.get('w') || getActiveWorkspaceId() || CRM_DEFAULT_WORKSPACE_ID,
     organisationId: params.get('org') || 'all',
     pipelineId: params.get('pipeline') || 'all',
     owner: params.get('owner') || 'all',

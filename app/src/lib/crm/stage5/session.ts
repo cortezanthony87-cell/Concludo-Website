@@ -25,6 +25,7 @@
  */
 import { CrmWorkspaceData } from '../domain';
 import { CRM_WORKSPACES } from '../data/workspaces';
+import { getCustomWorkspaces, registerWorkspaceSaveHook } from '../customWorkspaceStore';
 import { invalidateCaches } from '../cacheBus';
 import { CRM_DEMO_NOW } from '../data/factory';
 import { CrmContext } from '../repositories/repository';
@@ -215,6 +216,14 @@ export function sessionWorkspace(workspaceId: string): CrmWorkspaceData {
   const existing = store.get(workspaceId);
   if (existing) return existing;
 
+  const custom = getCustomWorkspaces().find((d) => d.workspace.id === workspaceId);
+  if (custom) {
+    const copy: CrmWorkspaceData = JSON.parse(JSON.stringify(custom));
+    store.set(copy.workspace.id, copy);
+    // Authentic workspace: never seed with synthetic demo history!
+    return store.get(workspaceId) ?? copy;
+  }
+
   const source =
     CRM_WORKSPACES.find((d) => d.workspace.id === workspaceId) ?? CRM_WORKSPACES[0];
   const copy: CrmWorkspaceData = JSON.parse(JSON.stringify(source));
@@ -224,6 +233,21 @@ export function sessionWorkspace(workspaceId: string): CrmWorkspaceData {
 
   return store.get(workspaceId) ?? copy;
 }
+
+/**
+ * Update or replace the in-memory copy of a workspace (e.g. on custom workspace save or import)
+ * and notify all subscribers immediately.
+ */
+export function updateSessionWorkspace(workspace: CrmWorkspaceData): void {
+  store.set(workspace.workspace.id, workspace);
+  notifyWritten();
+}
+
+// Connect workspace save hook so external custom workspace saves update the session store
+registerWorkspaceSaveHook((workspace) => {
+  store.set(workspace.workspace.id, workspace);
+  notifyWritten();
+});
 
 /* ------------------------------------------------- cache invalidation
  *

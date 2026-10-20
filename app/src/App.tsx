@@ -229,6 +229,7 @@ export const App: React.FC = () => {
             {/* Concludo CRM Module */}
             <Route path="/crm" element={<CrmModuleLayout />}>
               <Route path="communicate" element={<CommHubPage />} />
+              <Route path="contacts" element={<Navigate to="/crm/people" replace />} />
               {CRM_ROUTES.filter((r) => r.segment !== 'communicate').map(({ path, segment, isIndex, Component }) =>
                 isIndex ? (
                   <Route key={path} index element={<Component />} />

@@ -19,6 +19,7 @@
  */
 import { CrmWorkspaceData } from '../domain';
 import { CRM_WORKSPACES } from '../data/workspaces';
+import { getCustomWorkspaces } from '../customWorkspaceStore';
 
 export const CRM_DEFAULT_WORKSPACE_ID = 'ws-agency';
 
@@ -45,6 +46,16 @@ export const CRM_WORKSPACE_CHOICES: WorkspaceChoice[] = CRM_WORKSPACES.map((data
   recordsPlural: data.workspace.recordTerminologyPlural,
 }));
 
+export function getLiveWorkspaceChoices(): WorkspaceChoice[] {
+  const custom = getCustomWorkspaces().map((data) => ({
+    id: data.workspace.id,
+    name: `${data.workspace.name} (Your organisation)`,
+    shape: SHAPE_WORDS[data.workspace.depth] ?? data.workspace.depth,
+    recordsPlural: data.workspace.recordTerminologyPlural,
+  }));
+  return [...custom, ...CRM_WORKSPACE_CHOICES];
+}
+
 /**
  * The workspace behind an id.
  *
@@ -54,6 +65,8 @@ export const CRM_WORKSPACE_CHOICES: WorkspaceChoice[] = CRM_WORKSPACES.map((data
  * such thing in a tenanted model.
  */
 export function crmWorkspace(id: string | null | undefined): CrmWorkspaceData {
+  const custom = getCustomWorkspaces().find((d) => d.workspace.id === id);
+  if (custom) return custom;
   const found = CRM_WORKSPACES.find((d) => d.workspace.id === id);
   return found ?? CRM_WORKSPACES.find((d) => d.workspace.id === CRM_DEFAULT_WORKSPACE_ID)!;
 }

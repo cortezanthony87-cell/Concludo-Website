@@ -21,12 +21,15 @@
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Plus, RefreshCw, Search, Settings2, Sparkles } from 'lucide-react';
+import { Download, FolderOpen, Plus, RefreshCw, Search, Settings2, Sparkles } from 'lucide-react';
 import { CrmDataset, CrmViewState } from '../../lib/crm/types';
 import { CRM_DATE_RANGE_LABELS, crmFiltersAreActive } from '../../lib/crm/viewState';
 import { CRM_SAVED_VIEWS } from '../../lib/crm/moduleNav';
 import { ownersIn } from '../../lib/crm/selectors';
 import { formatDayTime } from '../../lib/crm/today';
+import { isAuthenticWorkspace } from '../../lib/crm/customWorkspaceStore';
+import { CrmCreateModal } from './CrmCreateModal';
+import { CrmImportModal } from './CrmImportModal';
 
 interface Props {
   dataset: CrmDataset;
@@ -54,7 +57,17 @@ export const CrmHeader: React.FC<Props> = ({
   awaitingConfirmation,
   linkTo,
 }) => {
-  const [controlsOpen, setControlsOpen] = React.useState(() => !isPhoneWidth());
+  const [controlsOpen, setControlsOpen] = React.useState(true);
+  const [createModalOpen, setCreateModalOpen] = React.useState(false);
+  const [importModalOpen, setImportModalOpen] = React.useState(false);
+
+  const isAuthentic = Boolean(
+    (dataset.workspace as any).isAuthentic ||
+    isAuthenticWorkspace(viewState.workspaceId) ||
+    dataset.workspace.id.startsWith('ws-org-')
+  );
+  const linkedProjectId = (dataset.workspace as any).linkedProjectId;
+  const linkedProjectTitle = (dataset.workspace as any).linkedProjectTitle;
 
   const onControlsToggle = React.useCallback((event: React.SyntheticEvent<HTMLDetailsElement>) => {
     setControlsOpen(event.currentTarget.open);
@@ -103,8 +116,9 @@ export const CrmHeader: React.FC<Props> = ({
       </div>
 
       <p className="ccrm-demo-note" role="status">
-        Demonstration data. No customer information, mailbox or accounting system is connected, and
-        nothing here is sent anywhere.
+        {isAuthentic
+          ? `Authentic organisation CRM workspace for ${dataset.workspace.name}. Records and imported documents are saved and connected to your open projects.`
+          : 'Demonstration data. No customer information, mailbox or accounting system is connected, and nothing here is sent anywhere.'}
       </p>
 
       <details className="ccrm-controls-shell" open={controlsOpen} onToggle={onControlsToggle}>
@@ -251,18 +265,38 @@ export const CrmHeader: React.FC<Props> = ({
           </div>
 
           <div className="ccrm-control-actions">
-            <button type="button" className="btn-secondary ccrm-button" onClick={onRefresh}>
+            <button type="button" className="btn-secondary ccrm-button min-h-[44px] flex items-center gap-1.5" onClick={onRefresh}>
               <RefreshCw size={14} className={refreshing ? 'ccrm-spin' : undefined} aria-hidden="true" />
               {refreshing ? 'Refreshing' : 'Refresh'}
             </button>
-            <Link className="btn-secondary ccrm-button" to={linkTo('/crm/settings')}>
+            <button
+              type="button"
+              className="btn-primary ccrm-button ccrm-button-primary min-h-[44px] flex items-center gap-1.5"
+              onClick={() => setCreateModalOpen(true)}
+              title="Create a new, fresh CRM for your organisation"
+            >
               <Plus size={14} aria-hidden="true" />
               Create
-            </Link>
-            <Link className="btn-secondary ccrm-button" to={linkTo('/crm/imports')}>
+            </button>
+            <button
+              type="button"
+              className="btn-secondary ccrm-button min-h-[44px] flex items-center gap-1.5"
+              onClick={() => setImportModalOpen(true)}
+              title="Import files from device or open projects"
+            >
               <Download size={14} aria-hidden="true" />
               Import
-            </Link>
+            </button>
+            {linkedProjectId ? (
+              <Link
+                className="btn-secondary ccrm-button min-h-[44px] flex items-center gap-1.5"
+                to={`/projects/${linkedProjectId}`}
+                title="Open linked dashboard project"
+              >
+                <FolderOpen size={14} className="text-[#E2B53C]" aria-hidden="true" />
+                {linkedProjectTitle ? `Project: ${linkedProjectTitle}` : 'Open Project'}
+              </Link>
+            ) : null}
             {crmFiltersAreActive(viewState) ? (
               <button
                 type="button"
@@ -289,7 +323,7 @@ export const CrmHeader: React.FC<Props> = ({
       <div className="ccrm-header-foot">
         <p className="ccrm-sync">
           <span className="ccrm-sync-dot" aria-hidden="true" />
-          Last synchronised {formatDayTime(dataset.lastSynchronisedAt)}. Demonstration data only.
+          Last synchronised {formatDayTime(dataset.lastSynchronisedAt)}. {isAuthentic ? 'Authentic organisation workspace.' : 'Demonstration data only.'}
         </p>
         <Link className="ccrm-proposal-indicator" to={linkTo('/crm/proposals')}>
           <Sparkles size={14} aria-hidden="true" />
@@ -299,6 +333,23 @@ export const CrmHeader: React.FC<Props> = ({
           </span>
         </Link>
       </div>
+
+      {/* Modals */}
+      <CrmCreateModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={(newWorkspaceId) => {
+          setViewState({ workspaceId: newWorkspaceId });
+          onRefresh();
+        }}
+      />
+
+      <CrmImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        workspaceId={viewState.workspaceId}
+        onImportComplete={onRefresh}
+      />
     </header>
   );
 };

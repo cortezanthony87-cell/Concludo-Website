@@ -16,6 +16,8 @@ import React from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
 import { AsyncState, CrmDataset, CrmViewState } from '../../lib/crm/types';
 import { CRM_DATASET } from '../../lib/crm/data/workspace';
+import { sessionWorkspace, subscribeToWrites } from '../../lib/crm/stage5/session';
+import { workspaceToDataset } from '../../lib/crm/customWorkspaceStore';
 import { useCrmViewState } from '../../lib/crm/useCrmViewState';
 import { crmFiltersAreActive } from '../../lib/crm/viewState';
 import { CrmModuleContext } from './CrmModuleLayout';
@@ -40,9 +42,16 @@ export function useCrmView(): CrmViewData {
   const location = useLocation();
   const { viewState, setViewState, linkTo } = useCrmViewState();
   const forced = forcedState(location.search);
+  const [, setWriteVersion] = React.useState(0);
+  React.useEffect(() => {
+    return subscribeToWrites(() => setWriteVersion((v) => v + 1));
+  }, []);
+  const wsData = sessionWorkspace(viewState.workspaceId);
+  const isAuthentic = Boolean((wsData.workspace as any).isAuthentic || wsData.workspace.id.startsWith('ws-org-'));
+  const dataset = isAuthentic ? workspaceToDataset(wsData) : CRM_DATASET;
 
   return {
-    dataset: CRM_DATASET,
+    dataset,
     viewState,
     setViewState,
     linkTo,

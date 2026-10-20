@@ -28,7 +28,7 @@ import { CRM_DEMO_NOW } from '../../lib/crm/data/factory';
 import { useCrmViewState } from '../../lib/crm/useCrmViewState';
 import { crmFiltersAreActive } from '../../lib/crm/viewState';
 import { CrmViewState } from '../../lib/crm/types';
-import { CRM_WORKSPACE_CHOICES } from '../../lib/crm/stage4/workspace';
+import { getLiveWorkspaceChoices } from '../../lib/crm/stage4/workspace';
 import {
   sessionVersion,
   sessionWorkspace,
@@ -108,6 +108,7 @@ export function useStage4(): Stage4View {
 
 export const WorkspacePicker: React.FC = () => {
   const { viewState, setViewState } = useStage4();
+  const choices = getLiveWorkspaceChoices();
 
   return (
     <div className="ccrm-workspace-picker">
@@ -120,7 +121,7 @@ export const WorkspacePicker: React.FC = () => {
         value={viewState.workspaceId}
         onChange={(event) => setViewState({ workspaceId: event.target.value })}
       >
-        {CRM_WORKSPACE_CHOICES.map((choice) => (
+        {choices.map((choice) => (
           <option key={choice.id} value={choice.id}>
             {choice.name}, {choice.shape.toLowerCase()}
           </option>
@@ -159,6 +160,7 @@ export const Stage4Scaffold: React.FC<ScaffoldProps> = ({
   children,
 }) => {
   const { state, viewState, setViewState, data } = useStage4();
+  const isAuthentic = Boolean((data.workspace as any).isAuthentic || data.workspace.id.startsWith('ws-org-'));
 
   const clearFilters = () =>
     setViewState({
@@ -204,7 +206,9 @@ export const Stage4Scaffold: React.FC<ScaffoldProps> = ({
           </h2>
           <p className="ccrm-view-description">{description}</p>
           <p className="ccrm-view-tenant">
-            Showing {data.workspace.name}. Demonstration data, synthetic throughout.
+            {isAuthentic
+              ? `Showing ${data.workspace.name}. Authentic organisation records.`
+              : `Showing ${data.workspace.name}. Demonstration data, synthetic throughout.`}
           </p>
         </div>
         <div className="ccrm-view-toolbar">

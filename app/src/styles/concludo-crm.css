@@ -1606,6 +1606,8 @@
    without the component needing a class it would otherwise not have. If a
    link is ever added before Create, this rule moves with it, which is the one
    thing to know before reordering that row. */
+.ccrm-module .ccrm-control-actions .ccrm-button-primary,
+.ccrm-module .ccrm-control-actions button.ccrm-button-primary,
 .ccrm-module .ccrm-control-actions a.btn-secondary:first-of-type {
   background: var(--ccrm-gold);
   border-color: var(--ccrm-gold);
@@ -1613,6 +1615,8 @@
   font-weight: 600;
 }
 
+.ccrm-module .ccrm-control-actions .ccrm-button-primary:hover,
+.ccrm-module .ccrm-control-actions button.ccrm-button-primary:hover,
 .ccrm-module .ccrm-control-actions a.btn-secondary:first-of-type:hover {
   background: #edc252;
   border-color: #edc252;

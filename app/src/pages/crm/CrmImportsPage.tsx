@@ -27,9 +27,12 @@
  * afternoon is the most common way a small business breaks the Spam Act, and
  * the product should not make it easy.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Download, Upload } from 'lucide-react';
 import { Stage4Scaffold, useStage4 } from '../../components/crm/Stage4Scaffold';
+import { CrmImportModal } from '../../components/crm/CrmImportModal';
+import { parseDocument } from '../../lib/crm/documentImporter';
 import {
   RolePicker,
   WriteNotice,
@@ -94,6 +97,7 @@ const ROW_STATE_WORDS: Record<ImportRow['state'], string> = {
 export const CrmImportsPage: React.FC = () => {
   const { data, now, linkTo } = useStage4();
   const write = useCrmWrite();
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const [kind, setKind] = React.useState<ImportKind>('contacts');
   const [text, setText] = React.useState<string>(SAMPLE.contacts);
@@ -188,6 +192,27 @@ export const CrmImportsPage: React.FC = () => {
       <WriteNotice />
       <WriteResultLine result={write.last} onClear={write.clearLast} />
 
+      {/* Universal Document and Project Importer Banner */}
+      <div className="rounded-xl border border-slate-700 bg-[#142036] p-5 my-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Download size={16} className="text-[#E2B53C]" />
+            <span>Universal Document and Open Project Importer</span>
+          </h3>
+          <p className="text-xs text-slate-300 mt-1 max-w-xl">
+            Import Excel spreadsheets (.xlsx, .xls), PDF documents, Word briefs (.docx), or stored files and meeting notes directly from your open dashboard projects.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setImportModalOpen(true)}
+          className="shrink-0 flex items-center gap-2 rounded-lg bg-[#E2B53C] hover:bg-[#d4a834] px-4 py-2.5 min-h-[44px] text-xs font-semibold text-[#0D1626] transition-colors"
+        >
+          <Upload size={14} />
+          <span>Import from Device or Project</span>
+        </button>
+      </div>
+
       <p className="ccrm-policy" role="note">
         Nothing is merged by this importer. A row that looks like a record already here waits for a
         person to decide, including an exact match on an email address, because two people share a
@@ -252,6 +277,43 @@ export const CrmImportsPage: React.FC = () => {
         <label className="ccrm-field-label" htmlFor="imp-text">
           Delimited text
         </label>
+        <div className="my-2">
+          <input
+            type="file"
+            id="imp-file-picker"
+            className="hidden"
+            accept=".xlsx,.xls,.csv,.tsv,.docx,.doc,.pdf,.txt,.md"
+            onChange={async (e) => {
+              if (e.target.files && e.target.files[0]) {
+                try {
+                  const file = e.target.files[0];
+                  const parsedResult = await parseDocument(file);
+                  if (parsedResult.rawText) {
+                    setText(parsedResult.rawText);
+                  } else if (parsedResult.rows.length > 0) {
+                    const csvLines = [
+                      parsedResult.headers.join(','),
+                      ...parsedResult.rows.map((r) =>
+                        parsedResult.headers.map((h) => `"${(r[h] || '').replace(/"/g, '""')}"`).join(',')
+                      ),
+                    ].join('\n');
+                    setText(csvLines);
+                  }
+                } catch (err) {
+                  console.error('Failed to parse file for text view:', err);
+                }
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary ccrm-button min-h-[44px] flex items-center gap-2"
+            onClick={() => document.getElementById('imp-file-picker')?.click()}
+          >
+            <Upload size={14} aria-hidden="true" />
+            Upload file from device (Excel, PDF, Word, CSV)
+          </button>
+        </div>
         <textarea
           id="imp-text"
           className="form-control ccrm-textarea"
@@ -541,6 +603,17 @@ export const CrmImportsPage: React.FC = () => {
           </ul>
         )}
       </section>
+
+      <CrmImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        workspaceId={data.workspace.id}
+        onImportComplete={() => {
+          window.dispatchEvent(
+            new CustomEvent('concludo_crm_workspaces_changed', { detail: data.workspace.id })
+          );
+        }}
+      />
     </Stage4Scaffold>
   );
 };
