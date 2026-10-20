@@ -87,6 +87,39 @@ export class ErrorBoundary extends Component<Props, State> {
             >
               The workspace encountered a temporary rendering issue. Please reload the page to refresh your session.
             </p>
+            {this.state.error && (
+              <div
+                style={{
+                  textAlign: 'left',
+                  background: 'rgba(0, 0, 0, 0.45)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '8px',
+                  padding: '14px 16px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ color: '#ef4444', fontWeight: 650, fontSize: '0.85rem', marginBottom: '6px' }}>
+                  {this.state.error.name}: {this.state.error.message}
+                </div>
+                {this.state.error.stack && (
+                  <pre
+                    style={{
+                      margin: 0,
+                      fontSize: '0.72rem',
+                      color: '#94a3b8',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all',
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {this.state.error.stack}
+                  </pre>
+                )}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
             <button
               onClick={() => window.location.reload()}
               style={{
@@ -102,6 +135,28 @@ export class ErrorBoundary extends Component<Props, State> {
             >
               Reload Workspace
             </button>
+            <button
+              onClick={() => {
+                try {
+                  window.localStorage.clear();
+                  window.sessionStorage.clear();
+                } catch {}
+                window.location.href = '/login';
+              }}
+              style={{
+                padding: '12px 20px',
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                color: '#f8fafc',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.92rem',
+                cursor: 'pointer',
+              }}
+            >
+              Return to Sign In
+            </button>
+            </div>
           </div>
         </div>
       );
