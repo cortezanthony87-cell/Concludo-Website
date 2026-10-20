@@ -273,6 +273,14 @@ export const IntegrationsPage: React.FC = () => {
           >
             <History className="w-3.5 h-3.5" /> Sync Logs
           </Link>
+          <a
+            href="https://www.concludo.au/workspace/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-[#E2B53C] rounded-lg text-xs font-medium transition border border-amber-400/30 flex items-center gap-2"
+          >
+            <Info className="w-3.5 h-3.5 text-[#E2B53C]" /> Site Guide
+          </a>
         </div>
       </div>
 
