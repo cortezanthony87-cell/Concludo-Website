@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    { "source": "/workshops", "destination": "/pricing/", "permanent": true },
+    { "source": "/faq", "destination": "/", "permanent": true },
+    { "source": "/contact", "destination": "/about/", "permanent": true }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": true
+}

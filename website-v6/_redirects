@@ -1,0 +1,4 @@
+# Netlify redirects. Vercel users: see vercel.json instead. Delete this file on GitHub Pages.
+/workshops            /pricing/   301
+/faq                  /           301
+/contact              /about/     301

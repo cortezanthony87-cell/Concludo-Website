@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Concludo Workspace</title>
+<meta name="description" content="One workspace that turns a transcript into finished work, holds the customer record, sorts the inbox, runs the calendar and makes a person approve anything that leaves the building.">
+<link rel="canonical" href="https://www.concludo.au/workspace/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Concludo">
+<meta property="og:title" content="The Concludo Workspace">
+<meta property="og:description" content="One workspace that turns a transcript into finished work, holds the customer record, sorts the inbox, runs the calendar and makes a person approve anything that leaves the building.">
+<meta property="og:url" content="https://www.concludo.au/workspace/">
+<meta property="og:locale" content="en_AU">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/img/mark.webp" type="image/webp">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: paper and ink. The app is a dark instrument panel; this is the
+   thing it produces. Warm white sheets, navy ink, gold used the way a marker is
+   used on a printed transcript. Big alternating feature blocks, each anchored by
+   one real product shot framed like a window. */
+:root{
+  --paper:#FFFFFF;
+  --mist:#F4F6FA;            /* brand light */
+  --mist-2:#EDF1F7;
+  --wash:#FDF7E7;            /* warm band, derived from brand gold */
+  --ink:#16263F;             /* brand navy. 15.18:1 on paper */
+  --ink-soft:#21395C;        /* brand navy mid. 10.8:1 on paper */
+  --slate:#566178;           /* 6.3:1 on paper */
+  --slate-2:#646F82;         /* 5.07:1 paper, 4.69:1 mist, 4.75:1 wash */
+  --gold:#E2B53C;            /* FILLS ONLY. 1.93:1 on paper, never text here */
+  --gold-deep:#BC8A1C;       /* rules and marks only, never text on paper */
+  --line:#E4E9F2;
+  --line-2:#D5DDEA;
+  --font-display:'Poppins',system-ui,'Segoe UI',Arial,sans-serif;
+  --font-body:'Inter',system-ui,'Segoe UI',Arial,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --maxw:1320px;
+  --shadow-sm:0 1px 2px rgba(22,38,63,.06);
+  --shadow:0 2px 4px rgba(22,38,63,.05),0 12px 30px -12px rgba(22,38,63,.18);
+  --shadow-lg:0 4px 10px rgba(22,38,63,.07),0 30px 60px -24px rgba(22,38,63,.3);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--font-body);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:#fff}
+img{max-width:100%;display:block}
+p{margin:0}
+a{color:inherit}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:700;margin:0;line-height:1.12;
+  letter-spacing:-.025em;text-wrap:balance;color:var(--ink)}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- shell ---------- */
+.wrap{width:100%;max-width:var(--maxw);margin:0 auto;
+  padding-left:max(18px,env(safe-area-inset-left,0px));
+  padding-right:max(18px,env(safe-area-inset-right,0px))}
+section>.wrap{padding-block:clamp(58px,7vw,104px)}
+.bg-mist{background:var(--mist)}
+.bg-wash{background:var(--wash)}
+.bg-ink{background:var(--ink);color:#fff}
+.bg-ink h2,.bg-ink h3,.bg-ink h4{color:#fff}
+
+/* ---------- nav ---------- */
+header.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:rgba(255,255,255,.93);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;gap:16px;padding-block:11px}
+.brand{display:flex;align-items:center;gap:9px;text-decoration:none;flex:0 0 auto}
+.brand img{width:28px;height:auto}
+.brand span{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-.03em;color:var(--ink)}
+.nav-links{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
+.nav-links a{font-size:15px;font-weight:500;color:var(--slate);text-decoration:none;padding:10px 13px;
+  border-radius:8px;min-height:44px;display:inline-flex;align-items:center}
+.nav-links a:hover{color:var(--ink);background:var(--mist)}
+.nav-links a[aria-current="page"]{color:var(--ink);font-weight:600;box-shadow:inset 0 -3px 0 var(--gold)}
+
+@media (max-width:1000px){
+  .nav-in{flex-wrap:wrap;gap:6px}
+  .nav-links{width:100%;margin-left:0;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;scrollbar-width:none}
+  .nav-links::-webkit-scrollbar{display:none}
+  .nav-links a{white-space:nowrap;font-size:14.5px;padding:10px}
+}
+
+/* ---------- type ---------- */
+h1{font-size:clamp(37px,4.7vw,66px);letter-spacing:-.035em}
+h2{font-size:clamp(29px,3.9vw,46px);letter-spacing:-.03em}
+h3{font-size:clamp(20px,2.1vw,25px)}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--slate);margin-bottom:18px}
+.kicker::before{content:"";width:22px;height:3px;background:var(--gold);border-radius:2px;flex:0 0 auto}
+.lede{font-size:clamp(18px,1.4vw,21px);color:var(--slate);max-width:56ch;line-height:1.56}
+.muted{color:var(--slate);max-width:68ch}
+.fine{font-size:14px;color:var(--slate-2);line-height:1.55}
+.bg-ink .lede,.bg-ink .muted{color:#C3D0E4}
+.bg-ink .fine{color:#9FB0C9}
+.bg-ink .kicker{color:#C3D0E4}
+
+/* The signature device: a marker swipe, the way you would mark a printed
+   transcript. Drawn as a background gradient rather than an absolute SVG so it
+   survives a line break in the middle of the phrase, which is exactly where a
+   big headline breaks. */
+.mark{
+  background-image:linear-gradient(104deg,rgba(226,181,60,0) .4%,rgba(226,181,60,.62) 2.2%,
+    rgba(226,181,60,.5) 96%,rgba(226,181,60,0) 99%);
+  background-repeat:no-repeat;
+  background-size:100% 40%;
+  background-position:0 84%;
+  padding:0 .1em;
+  -webkit-box-decoration-break:clone;
+  box-decoration-break:clone;
+}
+.bg-ink .mark{background-image:linear-gradient(104deg,rgba(226,181,60,0) .4%,rgba(226,181,60,.85) 2.2%,
+    rgba(226,181,60,.7) 96%,rgba(226,181,60,0) 99%)}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:52px;
+  padding:14px 26px;border-radius:10px;font-weight:600;font-size:16px;text-decoration:none;
+  border:1.5px solid transparent;cursor:pointer;font-family:var(--font-body)}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-primary:hover{background:#0F1C30}
+.btn-gold{background:var(--gold);color:var(--ink)}      /* navy on gold is 7.89:1 */
+.btn-gold:hover{background:#EFC557}
+.btn-line{border-color:var(--line-2);color:var(--ink);background:var(--paper)}
+.btn-line:hover{border-color:var(--ink);background:var(--mist)}
+.bg-ink .btn-line{border-color:rgba(255,255,255,.35);color:#fff;background:transparent}
+.bg-ink .btn-line:hover{background:rgba(255,255,255,.1);border-color:#fff}
+.btn-sm{min-height:44px;padding:10px 18px;font-size:15px}
+/* defined after .btn so it actually wins: the nav button goes before the links wrap */
+@media (max-width:1220px){a.nav-cta{display:none}}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+
+/* ---------- hero ---------- */
+.hero{position:relative;overflow:hidden;background:
+  radial-gradient(68vw 620px at 86% -10%,rgba(226,181,60,.26),transparent 64%),
+  radial-gradient(52vw 540px at -4% 104%,rgba(33,57,92,.09),transparent 62%),var(--paper)}
+.hero>.wrap{position:relative;padding-block:clamp(44px,4.6vw,76px);max-width:1460px}
+.hero-grid{display:grid;grid-template-columns:1fr 1.04fr;gap:clamp(30px,3.6vw,64px);align-items:center}
+@media (max-width:940px){.hero-grid{grid-template-columns:1fr;gap:38px}}
+.hero .lede{margin-top:20px}
+.hero .btns{margin-top:30px}
+.pill{display:inline-flex;align-items:center;gap:9px;background:var(--paper);border:1px solid var(--line-2);
+  border-radius:999px;padding:7px 15px 7px 9px;font-size:13.5px;font-weight:600;color:var(--ink);
+  box-shadow:var(--shadow-sm);margin-bottom:22px}
+.pill b{background:var(--gold);color:var(--ink);border-radius:999px;padding:3px 9px;font-size:11.5px;
+  letter-spacing:.07em;text-transform:uppercase;font-weight:700}
+
+/* ---------- the hero composition: transcript becomes finished work ---------- */
+.compose{position:relative;display:grid;gap:14px}
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+  padding:18px 20px;min-width:0}
+.sheet-head{display:flex;align-items:center;gap:9px;padding-bottom:11px;margin-bottom:12px;
+  border-bottom:1px solid var(--line)}
+.sheet-head .tag{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--slate-2)}
+.dot3{display:flex;gap:4px;flex:0 0 auto}
+.dot3 i{width:7px;height:7px;border-radius:50%;background:var(--line-2);display:block}
+.tline{height:7px;border-radius:4px;background:var(--mist-2);margin-bottom:8px}
+.tline.hl{background:rgba(226,181,60,.55)}
+.speak{font-family:var(--font-mono);font-size:12px;color:var(--slate);margin-bottom:6px;line-height:1.5}
+.speak b{color:var(--ink);font-weight:500}
+.speak.lit{background:rgba(226,181,60,.3);border-radius:3px;padding:1px 4px;display:inline-block}
+.flowline{display:flex;align-items:center;gap:11px;padding-left:4px}
+.flowline .bar{height:2px;background:linear-gradient(90deg,var(--gold),rgba(226,181,60,.15));flex:1;border-radius:2px}
+.flowline span{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--slate-2);flex:0 0 auto}
+.outs-fan{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:460px){.outs-fan{grid-template-columns:1fr}}
+.ocard{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 15px;
+  box-shadow:var(--shadow-sm);min-width:0}
+.ocard.wide{grid-column:1/-1}
+.ocard h4{font-size:14.5px;margin-bottom:7px;letter-spacing:-.01em}
+.ocard .row{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--slate);
+  line-height:1.45;margin-bottom:5px}
+.ocard .row:last-child{margin-bottom:0}
+.ocard .row i{width:14px;height:14px;border-radius:4px;background:var(--mist);flex:0 0 auto;margin-top:2px;
+  display:grid;place-items:center}
+.ocard .row i svg{width:9px;height:9px;stroke:var(--ink-soft);fill:none;stroke-width:2.6}
+.owner{font-family:var(--font-mono);font-size:10.5px;color:var(--slate-2)}
+.approve{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--wash);
+  border:1px solid rgba(188,138,28,.3);border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600}
+.approve .mini{background:var(--ink);color:#fff;border-radius:7px;padding:7px 13px;font-size:12.5px;
+  font-weight:600;flex:0 0 auto}
+
+/* ---------- capture strip ---------- */
+.strip{border-block:1px solid var(--line);background:var(--mist)}
+.strip>.wrap{padding-block:26px}
+.strip-in{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center;text-align:center}
+.strip-lab{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.srcs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.src{display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--line-2);
+  border-radius:999px;padding:9px 17px;font-size:14.5px;font-weight:600;color:var(--ink)}
+.src svg{width:15px;height:15px;stroke:var(--ink-soft);fill:none;stroke-width:1.9;stroke-linecap:round}
+
+/* ---------- output tiles ---------- */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media (max-width:1000px){.tiles{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:520px){.tiles{grid-template-columns:1fr}}
+.tile{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;
+  box-shadow:var(--shadow-sm);min-width:0;position:relative}
+.tile::after{content:"";position:absolute;top:0;right:0;width:26px;height:26px;
+  background:linear-gradient(225deg,var(--mist) 50%,transparent 50%);border-radius:0 14px 0 0}
+.tile .num{font-family:var(--font-mono);font-size:11px;color:var(--slate-2);letter-spacing:.1em}
+.tile h3{font-size:17.5px;margin:9px 0 7px;letter-spacing:-.015em}
+.tile p{font-size:14.5px;color:var(--slate);line-height:1.5}
+
+/* ---------- big feature blocks ---------- */
+.block{display:grid;grid-template-columns:.88fr 1.12fr;gap:clamp(30px,4.4vw,64px);align-items:center}
+.block.rev .block-txt{order:2}
+/* a reversed block whose shot carries the detail: give the figure the wide column */
+.block.rev.wide{grid-template-columns:1.12fr .88fr}
+@media (max-width:940px){
+  .block{grid-template-columns:1fr;gap:30px}
+  .block.rev.wide{grid-template-columns:1fr}
+  .block.rev .block-txt{order:0}
+}
+.block-txt h2{margin-bottom:16px}
+.block-txt .muted{font-size:17px}
+.checks{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
+.checks li{display:flex;gap:12px;font-size:15.5px;color:var(--ink);line-height:1.5}
+.checks i{width:21px;height:21px;border-radius:6px;background:var(--gold);flex:0 0 auto;margin-top:2px;
+  display:grid;place-items:center}
+.checks i svg{width:12px;height:12px;stroke:var(--ink);fill:none;stroke-width:3;stroke-linecap:round}
+
+/* the product window: a bright frame so the dark app shot reads as a screen */
+.window{border-radius:16px;overflow:hidden;background:var(--paper);border:1px solid var(--line-2);
+  box-shadow:var(--shadow-lg)}
+.window-bar{display:flex;align-items:center;gap:11px;padding:11px 15px;background:var(--mist);
+  border-bottom:1px solid var(--line)}
+.window-bar .addr{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:7px;
+  padding:5px 12px;font-family:var(--font-mono);font-size:11.5px;color:var(--slate-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.window img{width:100%;height:auto;display:block}
+.window-foot{padding:10px 15px;background:var(--paper);border-top:1px solid var(--line);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--slate-2)}
+
+/* ---------- module grid ---------- */
+.mods{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:940px){.mods{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:600px){.mods{grid-template-columns:1fr}}
+.mod{border-radius:16px;padding:26px;border:1px solid var(--line);background:var(--paper);min-width:0;
+  box-shadow:var(--shadow-sm)}
+.mod.t-gold{background:var(--wash);border-color:rgba(188,138,28,.26)}
+.mod.t-mist{background:var(--mist);border-color:var(--line-2)}
+.mod h3{font-size:19px;margin-bottom:9px}
+.mod p{font-size:15px;color:var(--slate);line-height:1.55}
+.mico{width:42px;height:42px;border-radius:11px;background:var(--ink);display:grid;place-items:center;margin-bottom:16px}
+.mod.t-gold .mico{background:var(--gold)}
+.mico svg{width:20px;height:20px;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;stroke:#fff}
+.mod.t-gold .mico svg{stroke:var(--ink)}
+
+/* ---------- governance band ---------- */
+.gov-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,4vw,56px);align-items:start}
+@media (max-width:900px){.gov-grid{grid-template-columns:1fr;gap:32px}}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:30px}
+@media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat .n{font-family:var(--font-display);font-weight:700;font-size:clamp(34px,4.4vw,50px);line-height:1;
+  color:var(--gold);font-variant-numeric:tabular-nums}
+.stat .l{font-size:14px;color:#C3D0E4;margin-top:9px;line-height:1.4}
+.rules{display:flex;flex-direction:column;gap:14px}
+.rule-card{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.14);border-radius:13px;padding:21px}
+.rule-card h3{font-size:18.5px;margin-bottom:8px}
+.rule-card p{font-size:15px;color:#C3D0E4;line-height:1.55}
+
+/* ---------- audience ---------- */
+.auds{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:900px){.auds{grid-template-columns:1fr}}
+.aud{background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  box-shadow:var(--shadow-sm);min-width:0}
+.aud-top{background:var(--ink);padding:18px 22px}
+.aud-top .who{font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.aud-top h3{font-size:19px;color:#fff;margin-top:7px}
+.aud-body{padding:22px}
+.aud-body p{font-size:15px;color:var(--slate);line-height:1.58}
+
+/* ---------- pricing ---------- */
+.prices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:900px){.prices{grid-template-columns:minmax(0,1fr)}}
+/* the four-plan row on the pricing page */
+@media (max-width:1240px){.prices[style*="repeat(4"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media (max-width:760px){.prices[style*="repeat(4"]{grid-template-columns:minmax(0,1fr)!important}}
+.prices.prices-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:760px){.prices.prices-2{grid-template-columns:minmax(0,1fr)}}
+.price{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:28px;
+  display:flex;flex-direction:column;box-shadow:var(--shadow-sm);min-width:0}
+.price.best{border:2px solid var(--ink);box-shadow:var(--shadow)}
+.price .tier{font-size:12.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--slate)}
+.price .amt{font-family:var(--font-display);font-weight:700;font-size:44px;line-height:1;margin-top:14px;
+  font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.price .per{font-size:14.5px;color:var(--slate);margin-top:9px}
+.price ul{list-style:none;margin:20px 0 26px;padding:0;display:flex;flex-direction:column;gap:11px}
+.price li{font-size:15px;display:flex;gap:10px;line-height:1.45}
+.price li svg{width:14px;height:14px;stroke:var(--gold-deep);fill:none;stroke-width:3;flex:0 0 auto;margin-top:5px}
+.price .btn{margin-top:auto}
+.badge-best{display:inline-block;background:var(--gold);color:var(--ink);border-radius:6px;padding:3px 10px;
+  font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+
+/* ---------- table ---------- */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;min-width:580px;font-size:15.5px}
+th,td{text-align:left;padding:15px 18px;border-bottom:1px solid var(--line)}
+th{font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);font-weight:700;background:var(--mist)}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+
+/* ---------- note ---------- */
+.note{border-left:4px solid var(--gold);background:var(--wash);padding:18px 22px;border-radius:0 12px 12px 0}
+.note p{font-size:15px;color:var(--ink-soft);line-height:1.6}
+.note strong{color:var(--ink)}
+.bg-ink .note{background:rgba(226,181,60,.12);border-left-color:var(--gold)}
+.bg-ink .note p{color:#DCE5F2}
+
+/* ---------- faq ---------- */
+details{border:1px solid var(--line);border-radius:12px;background:var(--paper);margin-bottom:11px}
+summary{cursor:pointer;padding:19px 22px;font-weight:600;font-size:17px;list-style:none;display:flex;
+  justify-content:space-between;gap:16px;align-items:center;min-height:56px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"";width:13px;height:13px;flex:0 0 auto;border-right:2.5px solid var(--ink);
+  border-bottom:2.5px solid var(--ink);transform:rotate(45deg);margin-top:-5px}
+details[open] summary::after{transform:rotate(-135deg);margin-top:3px}
+details .ans{padding:0 22px 20px;font-size:16px;color:var(--slate);line-height:1.65;max-width:72ch}
+
+/* ---------- cta band ---------- */
+.cta{background:var(--gold)}
+.cta h2{max-width:19ch;margin-inline:auto}
+.cta p{color:#4A3A10}
+
+/* ---------- footer ---------- */
+footer{background:var(--mist);border-top:1px solid var(--line)}
+footer>.wrap{padding-block:50px}
+.fgrid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:32px}
+@media (max-width:860px){.fgrid{grid-template-columns:1fr 1fr;gap:28px}}
+@media (max-width:520px){.fgrid{grid-template-columns:1fr}}
+.fcol h4{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);
+  font-family:var(--font-body);font-weight:700;margin-bottom:15px}
+.fcol ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.fcol a{font-size:15px;color:var(--slate);text-decoration:none}
+.fcol a:hover{color:var(--ink);text-decoration:underline}
+.mailrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px}
+.mail{font-family:var(--font-mono);font-size:15px;color:var(--ink);font-weight:500;user-select:all;word-break:break-all}
+.copybtn{background:var(--paper);border:1px solid var(--line-2);color:var(--slate);border-radius:8px;
+  padding:9px 13px;font-size:13px;cursor:pointer;font-family:var(--font-body);min-height:40px}
+.copybtn:hover{border-color:var(--ink);color:var(--ink)}
+.flegal{margin-top:38px;padding-top:24px;border-top:1px solid var(--line-2);display:flex;flex-wrap:wrap;
+  gap:16px;justify-content:space-between;align-items:center}
+.llinks{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:15px;color:var(--slate-2)}
+.llinks a{color:var(--slate);text-decoration:none}
+.llinks a:hover{color:var(--ink);text-decoration:underline}
+
+/* ---------- the output spread: meeting in, document out ---------- */
+.outgrid{display:grid;grid-template-columns:minmax(0,.68fr) minmax(0,1.32fr);gap:clamp(28px,4vw,56px);align-items:start}
+.outgrid>*{min-width:0}
+@media (max-width:980px){.outgrid{grid-template-columns:minmax(0,1fr);gap:30px}}
+.mcard{background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  box-shadow:var(--shadow-sm)}
+.mcard-top{background:var(--ink);padding:18px 22px}
+.mcard-top .who{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.mcard-top h3{font-size:19px;color:#fff;margin-top:7px}
+.mcard dl{margin:0;padding:20px 22px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 16px}
+.mcard dt{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--slate-2);font-weight:700;
+  padding-top:2px;white-space:nowrap}
+.mcard dd{margin:0;font-size:14.5px;color:var(--ink);font-weight:500}
+.mcard .said{padding:0 22px 20px}
+.mcard .said p{font-family:var(--font-mono);font-size:12.5px;line-height:1.6;color:var(--slate);margin-bottom:8px}
+.mcard .said b{color:var(--ink);font-weight:500}
+.mcard .said .lit{background:rgba(226,181,60,.32);border-radius:3px;padding:1px 3px}
+.arrowdn{display:flex;align-items:center;gap:12px;padding:0 22px 20px}
+.arrowdn .bar{height:2px;flex:1;border-radius:2px;background:linear-gradient(90deg,var(--gold),rgba(226,181,60,.15))}
+.arrowdn span{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-2)}
+.outlist{list-style:none;margin:0;padding:0 22px 22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+@media (max-width:520px){.outlist{grid-template-columns:minmax(0,1fr)}}
+.outlist li{font-size:13.5px;display:flex;gap:8px;align-items:center;color:var(--ink);font-weight:500}
+.outlist li i{width:16px;height:16px;border-radius:5px;background:var(--gold);flex:0 0 auto;display:grid;
+  place-items:center}
+.outlist li i svg{width:9px;height:9px;stroke:var(--ink);fill:none;stroke-width:3.4}
+
+/* ---------- calendar type legend ---------- */
+.legend{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px}
+.legend span{display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--line-2);
+  border-radius:999px;padding:7px 15px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.legend i{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+
+/* ---------- agent cards ---------- */
+.lane{margin-bottom:46px}
+.lane-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-bottom:14px;margin-bottom:22px;
+  border-bottom:1px solid var(--line)}
+.lane-head h3{font-size:clamp(21px,2.3vw,27px)}
+.lane-head .cat{background:var(--ink);color:#fff;border-radius:999px;padding:4px 13px;font-size:11.5px;
+  font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.lane-head .cm{margin-left:auto;font-size:14.5px;color:var(--slate)}
+@media (max-width:700px){.lane-head .cm{margin-left:0;width:100%}}
+.agrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.agrid{grid-template-columns:minmax(0,1fr)}}
+.agent{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:24px;
+  box-shadow:var(--shadow-sm);min-width:0;display:flex;flex-direction:column}
+.agent-top{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
+.asig{width:46px;height:46px;border-radius:12px;background:var(--ink);display:grid;place-items:center;flex:0 0 auto}
+.asig svg{width:22px;height:22px;stroke:var(--gold);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.agent-top h4{font-size:18.5px;letter-spacing:-.02em}
+.pill-post{display:inline-block;margin-top:8px;border-radius:6px;padding:3px 10px;font-family:var(--font-mono);
+  font-size:10.5px;font-weight:500;letter-spacing:.09em;text-transform:uppercase}
+.pill-post.decide{background:var(--gold);color:var(--ink)}
+.pill-post.reports{background:var(--mist-2);color:var(--ink-soft);border:1px solid var(--line-2)}
+.voice{border-left:3px solid var(--gold);padding-left:15px;font-size:15.5px;line-height:1.5;color:var(--ink);
+  margin-bottom:18px}
+.alab{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-soft);margin-bottom:7px}
+.alab::before{content:"";width:14px;height:3px;border-radius:2px;background:var(--gold);flex:0 0 auto}
+.agent .watch{font-size:14.5px;color:var(--slate);line-height:1.55;margin-bottom:16px}
+.agent ul{list-style:none;margin:0 0 4px;padding:0;display:flex;flex-direction:column;gap:7px}
+.agent ul li{font-size:14.5px;color:var(--ink);line-height:1.45;display:flex;gap:9px}
+.agent ul li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--gold-deep);
+  flex:0 0 auto;margin-top:8px}
+.agent .anote{margin-top:16px;background:var(--mist);border-radius:9px;padding:13px 15px;font-size:13.5px;
+  line-height:1.55;color:var(--slate)}
+.agent .afoot{margin-top:auto;padding-top:18px;display:flex;align-items:center;gap:14px;
+  border-top:1px solid var(--line);font-family:var(--font-mono);font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--slate-2)}
+.agent .afoot b{margin-left:auto;color:var(--ink);font-weight:500}
+.anote-card{background:var(--wash);border:1px solid rgba(188,138,28,.26);border-radius:16px;padding:24px;min-width:0}
+.anote-card h4{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);
+  font-family:var(--font-body);font-weight:700;margin-bottom:11px}
+.anote-card p{font-size:15px;color:var(--slate);line-height:1.6}
+
+/* ---------- workbook edition pages ---------- */
+.edgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:900px){.edgrid{grid-template-columns:minmax(0,1fr)}}
+.edcard{background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  box-shadow:var(--shadow-sm);display:flex;flex-direction:column;min-width:0}
+.edcard.best{border:2px solid var(--ink)}
+.edshots{display:flex;gap:9px;padding:20px 20px 0;background:var(--mist);align-items:flex-end}
+.edshots img{width:33%;height:auto;border:1px solid var(--line-2);border-radius:5px 5px 0 0;
+  box-shadow:0 -2px 10px rgba(22,38,63,.1)}
+.edshots img:nth-child(2){margin-bottom:10px}
+.edshots img:nth-child(3){margin-bottom:20px}
+.edbody{padding:24px;display:flex;flex-direction:column;flex:1}
+.edbody .tier{font-size:12.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--slate)}
+.edbody h3{font-size:22px;margin:9px 0 6px}
+.edbody .amt{font-family:var(--font-display);font-weight:700;font-size:30px;letter-spacing:-.03em;margin-top:8px}
+.edbody .per{font-size:14px;color:var(--slate);margin-top:5px}
+.edbody p.d{font-size:14.5px;color:var(--slate);line-height:1.55;margin-top:14px}
+.edbody .btns{margin-top:auto;padding-top:20px}
+
+.pagestrip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(18px,2.6vw,34px)}
+@media (max-width:860px){.pagestrip{grid-template-columns:minmax(0,1fr);gap:28px}}
+.psheet figure{margin:0}
+.psheet img{width:100%;height:auto;border:1px solid var(--line-2);border-radius:8px;box-shadow:var(--shadow)}
+.psheet figcaption{margin-top:16px}
+.psheet .pn{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--slate-2)}
+.psheet h3{font-size:19px;margin:8px 0 8px}
+.psheet p{font-size:14.5px;color:var(--slate);line-height:1.58}
+
+/* ---------- build state table ---------- */
+.state{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--paper)}
+.state-row{display:grid;grid-template-columns:150px 1fr;gap:0;border-bottom:1px solid var(--line)}
+.state-row:last-child{border-bottom:0}
+.state-row>div{padding:15px 18px;min-width:0}
+.state-row .lab{display:flex;align-items:center;gap:10px;background:var(--mist);font-weight:700;font-size:13.5px;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+.state-row .lab i{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+.state-row p{font-size:15px;color:var(--slate);line-height:1.55}
+.state-row p b{color:var(--ink);font-weight:600}
+@media (max-width:640px){.state-row{grid-template-columns:1fr}.state-row .lab{border-bottom:1px solid var(--line)}}
+
+/* ---------- free tools ---------- */
+.tool{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);
+  margin-bottom:18px;overflow:hidden;scroll-margin-top:120px}
+.tool>summary{cursor:pointer;padding:24px 26px;list-style:none;display:flex;gap:16px;align-items:flex-start;min-height:64px}
+.tool>summary::-webkit-details-marker{display:none}
+.tool>summary::after{content:"";width:13px;height:13px;flex:0 0 auto;border-right:2.5px solid var(--ink);
+  border-bottom:2.5px solid var(--ink);transform:rotate(45deg);margin:7px 0 0 auto}
+.tool[open]>summary::after{transform:rotate(-135deg);margin-top:14px}
+.tool .tico{width:44px;height:44px;border-radius:12px;background:var(--ink);display:grid;place-items:center;flex:0 0 auto}
+.tool .tico svg{width:21px;height:21px;stroke:var(--gold);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tool h3{font-size:19px;margin-bottom:6px}
+.tool summary p{font-size:14.5px;color:var(--slate);line-height:1.5;max-width:62ch}
+.tool .body{padding:0 26px 26px;border-top:1px solid var(--line);margin-top:4px;padding-top:22px}
+.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:16px}
+.f label{display:block;font-size:12.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--slate);margin-bottom:7px}
+.f input,.f select,.f textarea{width:100%;font-family:var(--font-body);font-size:16px;color:var(--ink);
+  background:var(--paper);border:1.5px solid var(--line-2);border-radius:9px;padding:11px 13px;min-height:46px}
+.f input:focus,.f select:focus,.f textarea:focus{outline:3px solid var(--ink);outline-offset:1px}
+.f textarea{min-height:84px;line-height:1.5;resize:vertical}
+.out{background:var(--wash);border:1px solid rgba(188,138,28,.3);border-radius:12px;padding:20px 22px;margin-top:6px}
+.out .big{font-family:var(--font-display);font-weight:700;font-size:clamp(30px,4vw,44px);line-height:1;
+  letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+.out .cap{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);margin-bottom:9px}
+.out p{font-size:15px;color:var(--ink-soft);line-height:1.6;margin-top:10px}
+.out .sub{font-size:14.5px;color:var(--slate);margin-top:8px}
+.out.verdict{background:var(--mist);border-color:var(--line-2)}
+.out.verdict.no{background:#FBEDEE;border-color:rgba(164,67,78,.35)}
+.out.verdict.yes{background:#EEF6F1;border-color:rgba(62,122,88,.35)}
+.qlist{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:2px}
+.qlist li{display:flex;gap:13px;align-items:flex-start;padding:11px 12px;border-radius:9px;line-height:1.5}
+.qlist li:hover{background:var(--mist)}
+.qlist input[type=checkbox]{width:21px;height:21px;flex:0 0 auto;margin-top:1px;accent-color:#16263F}
+.qlist label{font-size:15.5px;color:var(--ink);cursor:pointer}
+.qlist .core{font-weight:600}
+.qlist .tag2{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--gold-deep);display:block;margin-top:3px}
+.script{background:var(--ink);color:#DCE5F2;border-radius:12px;padding:20px 22px;font-size:15px;line-height:1.7;
+  white-space:pre-wrap;margin-top:6px}
+.script b{color:var(--gold);font-weight:600}
+.toolbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+.page[hidden]{display:none!important}
+.center{text-align:center}
+.center .lede{margin-inline:auto}
+.center .btns{justify-content:center}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/">
+      <img src="/img/mark.webp" alt="" width="28" height="31">
+      <span>Concludo</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/">Home</a>
+      <a href="/workspace/" aria-current="page">Workspace</a>
+      <a href="/ai-agents/">AI agents</a>
+      <a href="/workflow-builder/">Workflows</a>
+      <a href="/meeting-mastery-workbook/">Workbook</a>
+      <a href="/free-tools/">Free tools</a>
+      <a href="/pricing/">Pricing</a>
+      <a href="/about/">About</a>
+    </nav>
+    <a class="btn btn-gold btn-sm nav-cta" href="/free-tools/">Try the free tools</a>
+  </div>
+</header>
+
+
+<main id="main">
+<section class="hero">
+    <div class="wrap">
+      <span class="kicker">The Workspace</span>
+      <h1 style="max-width:16ch">Everything that happens after somebody stops talking</h1>
+      <p class="lede" style="margin-top:20px">One place that takes a transcript and produces the work, holds the customer record, sorts the inbox, runs the routines, and makes a person approve anything that leaves the building.</p>
+      <div class="btns"><a class="btn btn-primary" href="/free-tools/">Try the five free tools</a></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="block">
+        <div class="block-txt">
+          <span class="kicker">Copilot and the home screen</span>
+          <h2 style="font-size:clamp(25px,3vw,34px)">Start from a paste, not a blank page</h2>
+          <p class="muted">Create a project, paste the transcript, and the outputs are drafted against it. Ask the Copilot what was decided, what is overdue and who owns it, and the answer arrives with the records attached. Where the records do not answer, it says so rather than inventing a paragraph.</p>
+          <ul class="checks">
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Transcript archive and saved projects</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Decision memory across sessions, not only within one</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Outputs exported as documents, slides or structured data</li>
+          </ul>
+        </div>
+        <figure class="window" style="margin:0">
+          <div class="window-bar"><span class="dot3"><i></i><i></i><i></i></span><span class="addr">app.concludo.com.au/dashboard</span></div>
+          <img src="/img/shot-dashboard.webp" alt="The Workspace home screen with quick actions for creating a project, pasting a transcript, opening projects and viewing decision memory." width="1100" height="602" loading="eager">
+          <div class="window-foot">Workspace home, demonstration data</div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-mist">
+    <div class="wrap">
+      <div class="block rev">
+        <div class="block-txt">
+          <span class="kicker">Email Command Centre</span>
+          <h2 style="font-size:clamp(25px,3vw,34px)">Mail sorted by what it is asking of you</h2>
+          <p class="muted">Work and personal accounts are isolated and never combined, and one is shown at a time. Threads are grouped by what they need rather than when they arrived: needs attention, reply queue, actions and deadlines, waiting on somebody else, quick wins and the backlog.</p>
+          <ul class="checks">
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Suspicious threads held aside with the reasoning written out, advisory only</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Reply drafts carry no Concludo attribution or footer</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Every dismissal is written to the audit record</li>
+          </ul>
+        </div>
+        <figure class="window" style="margin:0">
+          <div class="window-bar"><span class="dot3"><i></i><i></i><i></i></span><span class="addr">app.concludo.com.au/email</span></div>
+          <img src="/img/shot-email.webp" alt="Email Command Centre with one work account selected, a thread list, the message body, a reply drafted and held for approval, and an intelligence panel with tabs for overview, actions, decisions, deadlines, questions, attachments, draft reply and risks." width="1100" height="888" loading="lazy">
+          <div class="window-foot">Email Command Centre, demonstration data</div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="block">
+        <div class="block-txt">
+          <span class="kicker">CRM and KAM Copilot</span>
+          <h2 style="font-size:clamp(25px,3vw,34px)">The account record, kept honest</h2>
+          <p class="muted">Pipeline, leads, commitments, organisations, people and account plans. The KAM Copilot reads one account through six lenses and separates what is recorded from what it inferred from what nobody has answered, then gives you the question that would close each gap.</p>
+          <ul class="checks">
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Proposed record changes queue for confirmation</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>The buying centre is shown as roles that are filled or empty, never as a judgement about a person</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Promises on both sides, with the date each one was given</li>
+          </ul>
+        </div>
+        <figure class="window" style="margin:0">
+          <div class="window-bar"><span class="dot3"><i></i><i></i><i></i></span><span class="addr">app.concludo.com.au/crm</span></div>
+          <img src="/img/shot-crm.webp" alt="Concludo CRM overview with four headline figures, each stating how much of it is recorded, and three doughnut charts for pipeline by stage, enquiries by source and promises outstanding." width="1100" height="669" loading="lazy">
+          <div class="window-foot">Concludo CRM, demonstration data</div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-mist">
+    <div class="wrap">
+      <div class="block rev">
+        <div class="block-txt">
+          <span class="kicker">Agents and approvals</span>
+          <h2 style="font-size:clamp(25px,3vw,34px)">Nine agents, one door</h2>
+          <p class="muted">Agents draft; the Approvals Centre is where a person decides. Outgoing replies, external invitations, record changes and document releases all pass through the same queue, and the audit record keeps what was read, what was produced and who cleared it.</p>
+          <div class="btns" style="margin-top:24px"><a class="btn btn-line btn-sm" href="/ai-agents/">See the nine agents</a></div>
+        </div>
+        <figure class="window" style="margin:0">
+          <div class="window-bar"><span class="dot3"><i></i><i></i><i></i></span><span class="addr">app.concludo.com.au/ai-agents</span></div>
+          <img src="/img/shot-agents.webp" alt="AI agents page showing the governance principles: approval first, work not people, and on the record." width="1100" height="735" loading="lazy">
+          <div class="window-foot">AI agents, Concludo Workspace</div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="block">
+        <div class="block-txt">
+          <span class="kicker">Concludo Calendar</span>
+          <h2 style="font-size:clamp(25px,3vw,34px)">The day, with the commitments in it</h2>
+          <p class="muted">Home, day and twenty four hour, week, month, agenda and a task board. The meetings sit beside what those meetings created: actions with dates, call backs somebody promised, deadlines a conversation set, and the approvals waiting on you. Day notes stay with the day.</p>
+          <ul class="checks">
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Every item is clickable back to the record it came from</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>Australian time zones, with no second diary to keep in step</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></i>A date reaches your real calendar only after you approve it</li>
+          </ul>
+        </div>
+        <figure class="window" style="margin:0">
+          <div class="window-bar"><span class="dot3"><i></i><i></i><i></i></span><span class="addr">app.concludo.com.au/calendar</span></div>
+          <img src="/img/shot-calendar.webp" alt="Concludo Calendar day view with a twenty four hour overview holding meetings, tasks, call backs, an approval, a deadline and an event, and a day notes panel." width="1100" height="786" loading="lazy">
+          <div class="window-foot">Concludo Calendar, day view, demonstration data</div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-mist">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:38px">
+        <span class="kicker">Connect app</span>
+        <h2>Your tools, connected through their own sign-in</h2>
+        <p class="lede" style="margin-top:16px">You sign in with the provider, approve exactly what Concludo may do, and Concludo checks the connection before it shows as connected. Concludo never sees your password.</p>
+      </div>
+      <div class="tiles">
+        <div class="tile"><h3>Mail and calendar</h3><p>Send the approved follow-up, and put the agreed dates in the diary.</p></div>
+        <div class="tile"><h3>Files and notes</h3><p>File the summary and the deck where the rest of the engagement already lives.</p></div>
+        <div class="tile"><h3>Tasks and projects</h3><p>Push action items with their owners and dates into the tracker your team uses.</p></div>
+        <div class="tile"><h3>CRM, accounting, social</h3><p>Update the customer record, raise what needs raising, schedule what was agreed.</p></div>
+      </div>
+      <div class="center" style="margin-top:32px;margin-bottom:12px">
+        <a class="btn btn-primary" href="https://app.concludo.com.au/integrations">Open Workspace Connections</a>
+      </div>
+      <div class="note" style="margin-top:30px"><p><strong>Independence.</strong> Concludo is an independent product. It is not affiliated with, endorsed by, or partnered with any device maker, meeting platform or note-taking service. It works with transcripts from any AI pen, phone recording or meeting platform. Connections are added progressively and each one shows its own status in the app.</p></div>
+    </div>
+  </section>
+
+  <section class="bg-wash">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:38px">
+        <span class="kicker">Workflow builder</span>
+        <h2>Describe the routine once. It runs the same way every time.</h2>
+      </div>
+      <div class="tiles">
+        <div class="tile"><div class="num">TEMPLATE</div><h3>Meeting follow-up</h3><p>Transcript lands, the outputs are extracted, the actions queue for approval and then go to the tracker with their dates.</p></div>
+        <div class="tile"><div class="num">TEMPLATE</div><h3>Weekly digest</h3><p>What was decided, what is overdue and what is waiting on somebody else, assembled every Friday.</p></div>
+        <div class="tile"><div class="num">TEMPLATE</div><h3>Board briefing</h3><p>Decisions, risks and actions since the last meeting, in the format the board already reads.</p></div>
+        <div class="tile" style="background:var(--ink)"><div class="num" style="color:#9FB0C9">ALWAYS</div><h3 style="color:#fff">An approval step</h3><p style="color:#C3D0E4">Any workflow reaching outside Concludo has one, and it cannot be configured away.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-mist">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:34px">
+        <span class="kicker">Build state, 20 October 2026</span>
+        <h2>What works today, and what does not</h2>
+        <p class="lede" style="margin-top:16px">Everything on this site describes software that exists. This is the part most product pages leave out, so it is written down here instead.</p>
+      </div>
+      <div class="state" style="max-width:940px;margin-inline:auto">
+        <div class="state-row">
+          <div class="lab"><i style="background:#2E7D5B"></i>Working</div>
+          <div><p>Transcript to summary, action plan and decision log. Projects, decision memory, the action tracker, search and insight statistics. Team workspaces, roles, approvals, the audit log, retention and legal hold. Provider sign-in for mail and calendar. <b>All of it rule-based: no language model is called anywhere.</b></p></div>
+        </div>
+        <div class="state-row">
+          <div class="lab"><i style="background:#BC8A1C"></i>Partial</div>
+          <div><p>The Email Command Centre and the Copilot, rule-based, with sending held behind approval. Workflows: storage is real, most execution is simulated. PDF reports produce real files. The free trial and the billing screens exist but are not yet enforced server side.</p></div>
+        </div>
+        <div class="state-row">
+          <div class="lab"><i style="background:#A4434E"></i>Not built</div>
+          <div><p>Branded PowerPoint export and automatic follow-up email drafting. Single sign-on, usage limits and seat enforcement. The Enterprise plan. The CRM and the Communication Hub run on demonstration data only. Privacy, terms and refund pages are in legal review.</p></div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:28px;max-width:940px;margin-inline:auto"><p><strong>The rule this site follows.</strong> Say what the Workspace does today. Do not call anything AI-powered until a language model is live, tested and covered by the contract terms. Name a recorder or a platform only with the independence disclaimer. Every product screen on this site is demonstration data.</p></div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap center">
+      <h2>See it before it opens</h2>
+      <p class="lede" style="margin:18px auto 30px;color:#4A3A10">The Workspace is in build and is not open for sale. The five free tools are live now and need no account at all.</p>
+      <div class="btns">
+        <a class="btn btn-primary" href="/free-tools/">Try the five free tools</a>
+        <a class="btn btn-line" style="border-color:rgba(22,38,63,.4)" href="/pricing/">Pricing</a>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="fgrid">
+      <div class="fcol">
+        <a class="brand" href="/" style="margin-bottom:14px">
+          <img src="/img/mark.webp" alt="" width="28" height="31"><span>Concludo</span>
+        </a>
+        <p class="fine" style="max-width:34ch">Turn every conversation into finished work. Capture on anything, paste it in, and leave with decisions, actions and a plan.</p>
+        <h4 style="margin-top:22px">Questions?</h4>
+        <div class="mailrow">
+          <span class="mail">hello@concludo.au</span>
+          <button class="copybtn" type="button" data-copy="hello@concludo.au">Copy</button>
+        </div>
+      </div>
+      <div class="fcol">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/workspace/">The Workspace</a></li>
+          <li><a href="/ai-agents/">AI agents</a></li>
+          <li><a href="/workflow-builder/">Workflow builder</a></li>
+          <li><a href="/pricing/">Pricing</a></li>
+          <li><a href="mailto:hello@concludo.au?subject=Concludo%20early%20access">Register your interest</a></li>
+        </ul>
+      </div>
+      <div class="fcol">
+        <h4>Learn</h4>
+        <ul>
+          <li><a href="/meeting-mastery-workbook/">Meeting Mastery Workbook</a></li>
+          <li><a href="/meeting-mastery-workbook/starter-edition/">Meeting Starter Kit</a></li>
+          <li><a href="/meeting-mastery-workbook/standard-edition/">The full Workbook</a></li>
+          <li><a href="/meeting-mastery-workbook/pro-edition/">Team and Practice Licences</a></li>
+          <li><a href="/free-tools/">Free tools</a></li>
+          <li><a href="/about/">About Concludo</a></li>
+        </ul>
+      </div>
+      <div class="fcol">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="https://www.concludo.au/privacy-policy">Privacy policy</a></li>
+          <li><a href="https://www.concludo.au/terms-of-service">Terms of service</a></li>
+          <li><a href="https://www.concludo.au/refund-policy">Refund policy</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:38px;background:var(--paper);border-left-color:var(--gold)">
+      <p><strong>Concludo is an independent product.</strong> It is not affiliated with, endorsed by, or partnered with any device maker, meeting platform or note-taking service. It works with transcripts from any AI pen, phone recording or meeting platform.</p>
+    </div>
+
+    <div class="flegal">
+      <div class="llinks">
+        <a href="https://www.concludo.au/privacy-policy">Privacy</a><span>|</span>
+        <a href="https://www.concludo.au/terms-of-service">Terms</a><span>|</span>
+        <a href="https://www.concludo.au/refund-policy">Refunds</a>
+      </div>
+      <p class="fine" style="margin:0">© 2026 Concludo Pty Ltd. All rights reserved. Melbourne, Australia.</p>
+    </div>
+  </div>
+</footer>
+<script>
+document.addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('[data-copy]'):null;
+  if(!b) return;
+  var text=b.getAttribute('data-copy');
+  var done=function(msg){ var old=b.textContent; b.textContent=msg;
+    setTimeout(function(){ b.textContent=old; },1800); };
+  try{
+    navigator.clipboard.writeText(text).then(function(){ done('Copied'); })
+      .catch(function(){ done('Select it'); });
+  }catch(err){ done('Select it'); }
+});
+/* ============================================================
+   The five free tools. Everything runs here, in the browser.
+   Nothing is sent anywhere and nothing is stored.
+   ============================================================ */
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var money = function(n){
+    return 'AU$' + Math.round(n).toLocaleString('en-AU');
+  };
+  var num = function(el, fallback){
+    var v = parseFloat(el && el.value);
+    return (isFinite(v) && v >= 0) ? v : fallback;
+  };
+
+  /* ---------- 1. Meeting Cost Calculator ---------- */
+  function cost(){
+    if(!$('c-one')) return;
+    var n = Math.max(1, num($('c-n'), 1));
+    var r = num($('c-r'), 0);
+    var m = Math.max(0, num($('c-m'), 0));
+    var prep = Math.max(0, num($('c-p'), 0));
+    var f = parseFloat($('c-f').value) || 1;
+    var hours = n * (m + prep) / 60;
+    var one = hours * r;
+    $('c-one').textContent = money(one);
+    $('c-hrs').textContent = (Math.round(hours * 10) / 10).toLocaleString('en-AU') +
+      ' people hours, including ' + prep + ' minutes of preparation each';
+    $('c-yr').textContent = money(one * f);
+  }
+  ['c-n','c-r','c-m','c-p','c-f'].forEach(function(id){
+    var el = $(id); if(el) el.addEventListener('input', cost);
+    if(el) el.addEventListener('change', cost);
+  });
+  cost();
+
+  /* ---------- 2. The Ten Questions ---------- */
+  var TEN = [
+    ['What single decision or outcome must exist by the time we finish?', 1],
+    ['Could a message or a short document do the same job?', 1],
+    ['Who owns the follow through, and do they know it yet?', 1],
+    ['Who in the invitation can actually decide, rather than only comment?', 1],
+    ['What has to be read before we start, and has it been sent?', 0],
+    ['How long does this genuinely need, rather than the default slot?', 0],
+    ['What will be written down, by whom, before anyone leaves?', 0],
+    ['What happens if the decision is not reached today?', 0],
+    ['Who is being invited out of habit rather than need?', 0],
+    ['When and how does the follow-up reach everybody?', 0]
+  ];
+  (function(){
+    var box = $('ten'); if(!box) return;
+    TEN.forEach(function(q, i){
+      var li = document.createElement('li');
+      var id = 'ten-' + i;
+      li.innerHTML = '<input type="checkbox" id="' + id + '" data-core="' + q[1] + '">' +
+        '<label for="' + id + '"' + (q[1] ? ' class="core"' : '') + '>' + q[0] +
+        (q[1] ? '<span class="tag2">One of the first four</span>' : '') + '</label>';
+      box.appendChild(li);
+    });
+    function verdict(){
+      var all = box.querySelectorAll('input');
+      var core = 0, total = 0;
+      all.forEach(function(c){
+        if(c.checked){ total++; if(c.getAttribute('data-core') === '1') core++; }
+      });
+      var out = $('ten-out'), v = $('ten-v');
+      out.className = 'out verdict';
+      if(total === 0){
+        v.textContent = 'Tick what you can answer right now.';
+      } else if(core < 4){
+        out.className = 'out verdict no';
+        var gap = 4 - core;
+        v.innerHTML = '<strong>Not ready.</strong> ' + gap + ' of the first four ' +
+          (gap === 1 ? 'is' : 'are') + ' unanswered. ' +
+          'A meeting that cannot name its decision, its alternative, its owner and the people who can decide ' +
+          'is a topic, not a meeting. Answer those four in writing and see whether you still need the room.';
+      } else if(total < 8){
+        v.innerHTML = '<strong>Ready enough to send.</strong> The four that matter are answered. ' +
+          (10 - total) + ' of the rest are still open, and they are the ones that decide whether the hour runs well.';
+      } else {
+        out.className = 'out verdict yes';
+        v.innerHTML = '<strong>Ready.</strong> ' + total + ' of 10 answered, including all four that matter. ' +
+          'Put the decision in the invitation title, not in the body.';
+      }
+    }
+    box.addEventListener('change', verdict);
+    verdict();
+  })();
+
+  /* ---------- 3. Meeting Audit Scorecard ---------- */
+  var AUDIT = [
+    'The invitation names a decision, not a topic',
+    'An agenda went out before the meeting',
+    'Everyone invited can decide or is needed to decide',
+    'It starts and finishes on time',
+    'Somebody records decisions as they are made',
+    'Every action leaves with one owner and a date',
+    'The follow-up reaches everybody within a day',
+    'It has been reviewed in the last six months'
+  ];
+  (function(){
+    var box = $('audit'); if(!box) return;
+    var html = '<div class="frow f" style="grid-template-columns:1fr">';
+    AUDIT.forEach(function(q, i){
+      html += '<div style="display:grid;grid-template-columns:1fr 210px;gap:12px;align-items:center;' +
+        'padding:10px 0;border-bottom:1px solid var(--line)">' +
+        '<label for="a-' + i + '" style="margin:0;text-transform:none;letter-spacing:0;font-size:15.5px;' +
+        'font-weight:500;color:var(--ink)">' + q + '</label>' +
+        '<select id="a-' + i + '"><option value="0">Never</option><option value="1">Sometimes</option>' +
+        '<option value="2">Usually</option><option value="3">Always</option></select></div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+    function score(){
+      var t = 0;
+      AUDIT.forEach(function(_, i){ t += parseInt($('a-' + i).value, 10) || 0; });
+      $('aud-n').textContent = t;
+      var out = $('aud-out'), v = $('aud-v');
+      out.className = 'out verdict';
+      if(t <= 8){
+        out.className = 'out verdict no';
+        v.innerHTML = '<strong>This meeting is leaking.</strong> At this score the hour is producing goodwill ' +
+          'rather than decisions. Start with the invitation: name the decision it has to reach, and cut the ' +
+          'attendee list to the people who can reach it.';
+      } else if(t <= 16){
+        v.innerHTML = '<strong>Workable, inconsistent.</strong> The meeting works when somebody is paying ' +
+          'attention and drifts when they are not. The fix is usually one habit: capture every decision with ' +
+          'an owner and a date, in the room, every time.';
+      } else {
+        out.className = 'out verdict yes';
+        v.innerHTML = '<strong>This one earns its place.</strong> Keep it, and use it as the standard the ' +
+          'other recurring meetings are measured against. The next thing worth checking is whether it still ' +
+          'needs everybody who is on the invitation.';
+      }
+    }
+    box.addEventListener('change', score);
+    score();
+  })();
+
+  /* ---------- 4. Responsible Capture Checklist ---------- */
+  var CONSENT = [
+    ['k1', 'Everyone on the call will be told before recording starts', 'I am going to record this so the notes are accurate.'],
+    ['k2', 'Anyone can ask for the recording to stop, without having to explain why', 'If you would rather I did not, say so now or at any point and I will stop.'],
+    ['k3', 'I will say what the recording is used for', 'It is used to write up the decisions and actions, and nothing else.'],
+    ['k4', 'I will say who else can see it', 'It stays with me and the people on this call.'],
+    ['k5', 'I will say how long it is kept', 'I delete the recording once the write-up is agreed.'],
+    ['k6', 'Anyone can ask for a copy, or for it to be deleted', 'Ask me at any time for a copy or for it to be deleted and I will do that.']
+  ];
+  (function(){
+    var box = $('consent'); if(!box) return;
+    CONSENT.forEach(function(c){
+      var li = document.createElement('li');
+      li.innerHTML = '<input type="checkbox" id="' + c[0] + '" checked><label for="' + c[0] + '">' + c[1] + '</label>';
+      box.appendChild(li);
+    });
+    function build(){
+      var lines = [];
+      CONSENT.forEach(function(c){ if($(c[0]).checked) lines.push(c[2]); });
+      var el = $('consent-script');
+      if(!lines.length){
+        el.textContent = 'Tick at least one line above. Recording a conversation without telling the people in it is not a position this tool will write a script for.';
+      } else {
+        el.textContent = lines.join(' ') + ' Is everyone happy for me to start?';
+      }
+    }
+    box.addEventListener('change', build);
+    build();
+  })();
+
+  /* ---------- 5. Delegation Script Pack ---------- */
+  (function(){
+    var ids = ['d-who','d-what','d-done','d-due','d-slip','d-why'];
+    if(!$('d-script')) return;
+    function build(){
+      var v = {};
+      ids.forEach(function(id){
+        var el = $(id);
+        v[id] = (el.value || '').trim() || el.getAttribute('placeholder');
+      });
+      $('d-script').textContent =
+        v['d-who'] + ', I would like you to own ' + v['d-what'] + '.\n\n' +
+        'Finished means ' + v['d-done'] + '.\n\n' +
+        'It is due ' + v['d-due'] + '.\n\n' +
+        'If it is going to slip, ' + v['d-slip'] + ', not on the day, because ' + v['d-why'] + '.';
+    }
+    ids.forEach(function(id){ $(id).addEventListener('input', build); });
+    build();
+  })();
+
+  /* copy buttons that read from an element rather than an attribute */
+  document.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-copy-el]') : null;
+    if(!b) return;
+    var src = $(b.getAttribute('data-copy-el'));
+    if(!src) return;
+    var done = function(msg){
+      var old = b.textContent; b.textContent = msg;
+      setTimeout(function(){ b.textContent = old; }, 1800);
+    };
+    try{
+      navigator.clipboard.writeText(src.textContent).then(function(){ done('Copied'); })
+        .catch(function(){ done('Select it'); });
+    }catch(err){ done('Select it'); }
+  });
+})();
+</script>
+</body>
+</html>
