@@ -534,6 +534,11 @@ function sanitizeHtml(html: string, attachments?: readonly Attachment[]): string
           existing + '; max-width: 100% !important; height: auto !important; border-radius: 6px; display: inline-block; margin: 8px 0;'
         );
       }
+
+      if (el.tagName.toLowerCase() === 'table') {
+        const existingStyle = el.getAttribute('style') || '';
+        el.setAttribute('style', existingStyle + '; max-width: 100% !important;');
+      }
     }
 
     return doc.body.innerHTML;

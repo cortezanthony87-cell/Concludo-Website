@@ -4294,23 +4294,71 @@
 
 /* ------------------------------------------------ Full view email mode */
 .ecc-workspace.ecc-workspace-full-view {
-  grid-template-columns: minmax(520px, 2.3fr) minmax(380px, 1.4fr) !important;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
-.ecc-workspace.ecc-workspace-full-view .ecc-col-list {
+.ecc-workspace.ecc-workspace-full-view .ecc-col-list,
+.ecc-workspace.ecc-workspace-full-view .ecc-col-intelligence {
   display: none !important;
 }
 
 .ecc-workspace.ecc-workspace-full-view .ecc-col-conversation {
-  max-height: calc(100vh - 9rem);
-  padding: 24px 28px;
-  overflow-y: auto;
+  max-height: none !important;
+  height: auto !important;
+  min-height: calc(100vh - 14rem);
+  padding: 24px 32px !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.ecc-workspace.ecc-workspace-full-view .ecc-message {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
 }
 
 .ecc-workspace.ecc-workspace-full-view .ecc-message-body {
-  font-size: 0.95rem;
-  line-height: 1.7;
+  font-size: 1rem;
+  line-height: 1.75;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+}
+
+/* ------------------------------------------------ HTML Email Container & Table Safety */
+.ecc-inbox-html-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ecc-inbox-html-content table {
+  max-width: 100% !important;
+  table-layout: auto !important;
+  border-collapse: collapse !important;
+  margin: 0 auto;
+}
+
+.ecc-inbox-html-content img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
+.ecc-inbox-html-content p,
+.ecc-inbox-html-content div,
+.ecc-inbox-html-content td {
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
 }
 
 /* ------------------------------------------------ Ignore email button */
