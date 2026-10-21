@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   Building2,
-  ShieldCheck,
-  ArrowRight,
   Check,
   ChevronRight,
   Download,
@@ -14,7 +12,6 @@ import {
   FolderOpen,
   HardDrive,
   Loader2,
-  RefreshCw,
   Upload,
   X,
 } from 'lucide-react';
@@ -30,16 +27,12 @@ import {
 import { Project } from '../../lib/projects/types';
 import {
   commitParsedDocumentToCrm,
-  DocumentKind,
-  parseDelimitedText,
   parseDocument,
-  parseExcelBuffer,
-  parsePdfBuffer,
-  parseWordBuffer,
   ParsedDocument,
   TargetRecordKind,
 } from '../../lib/crm/documentImporter';
 import { sessionWorkspace } from '../../lib/crm/stage5/session';
+import '../../styles/crm-modals.css';
 
 interface Props {
   isOpen: boolean;
@@ -56,7 +49,7 @@ export const CrmImportModal: React.FC<Props> = ({
   onImportComplete,
   onSwitchToCreate,
 }) => {
-  const [sourceTab, setSourceTab] = useState<'device' | 'project'>('device');
+  const [sourceTab, setSourceTab] = useState<'upload' | 'project'>('upload');
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedRawFile, setSelectedRawFile] = useState<File | null>(null);
@@ -295,40 +288,45 @@ export const CrmImportModal: React.FC<Props> = ({
 
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') return <FileSpreadsheet className="text-emerald-400" size={18} />;
-    if (ext === 'docx' || ext === 'doc') return <FileType className="text-blue-400" size={18} />;
-    if (ext === 'pdf') return <FileText className="text-rose-400" size={18} />;
-    return <FileCode className="text-amber-400" size={18} />;
+    if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') return <FileSpreadsheet style={{ color: '#10b981' }} size={18} />;
+    if (ext === 'docx' || ext === 'doc') return <FileType style={{ color: '#3b82f6' }} size={18} />;
+    if (ext === 'pdf') return <FileText style={{ color: '#f43f5e' }} size={18} />;
+    return <FileCode style={{ color: 'var(--crm-m-gold)' }} size={18} />;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+    <div className="crm-modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="relative w-full max-w-2xl rounded-xl border border-slate-700 bg-[#0D1626] text-white shadow-2xl overflow-hidden"
+        className="crm-modal-shell"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="crm-import-title"
+        aria-labelledby="import-title"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 bg-[#142036]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E2B53C]/20 text-[#E2B53C]">
-              <Download size={20} />
+        <div className="crm-modal-header">
+          <div className="crm-modal-header-left">
+            <div className="crm-modal-icon" aria-hidden="true">
+              {/* upload-cloud icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F4F6FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" />
+                <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
+              </svg>
             </div>
             <div>
-              <h2 id="crm-import-title" className="text-lg font-semibold text-white">
+              <div className="crm-modal-title" id="import-title">
                 CRM Document Importer
-              </h2>
-              <p className="text-xs text-slate-400">
-                Upload contacts, organisations, or pipeline records
-              </p>
+              </div>
+              <div className="crm-modal-sub">
+                Upload contacts, organisations, or pipeline records.
+              </div>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={committing || parsing}
-            className="text-slate-400 hover:text-white p-1 rounded-md transition-colors"
+            className="crm-modal-close-btn"
             aria-label="Close"
           >
             <X size={18} />
@@ -337,11 +335,11 @@ export const CrmImportModal: React.FC<Props> = ({
 
         {/* Modal Switcher Bar */}
         {onSwitchToCreate && !parsedDoc && (
-          <div className="flex border-b border-slate-800 bg-[#0E182A] px-6" role="tablist" aria-label="Modal preview switcher">
+          <div className="crm-modal-switcher" role="tablist" aria-label="Modal preview switcher">
             <button
               type="button"
               onClick={onSwitchToCreate}
-              className="border-b-2 border-transparent py-2.5 px-3 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors min-h-[44px] flex items-center gap-2"
+              className="crm-modal-switcher-btn"
               role="tab"
               aria-selected="false"
             >
@@ -350,7 +348,7 @@ export const CrmImportModal: React.FC<Props> = ({
             </button>
             <button
               type="button"
-              className="border-b-2 border-[#E2B53C] py-2.5 px-3 text-xs font-semibold text-[#E2B53C] min-h-[44px] flex items-center gap-2"
+              className="crm-modal-switcher-btn active"
               role="tab"
               aria-selected="true"
             >
@@ -360,53 +358,68 @@ export const CrmImportModal: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Source Tabs */}
+        {/* Import Source Tabs */}
         {!parsedDoc && (
-          <div className="flex border-b border-slate-800 bg-[#0E182A]">
+          <div className="crm-modal-tab-bar" role="tablist" aria-label="Import source">
             <button
               type="button"
-              onClick={() => setSourceTab('device')}
-              className={`flex-1 py-3 px-4 min-h-[44px] text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
-                sourceTab === 'device'
-                  ? 'border-[#E2B53C] text-[#E2B53C] bg-[#142036]'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              onClick={() => setSourceTab('upload')}
+              className={`crm-modal-tab-btn ${sourceTab === 'upload' ? 'active' : ''}`}
+              role="tab"
+              aria-selected={sourceTab === 'upload'}
             >
-              <HardDrive size={15} />
-              <span>Upload from Device</span>
+              Upload from device
             </button>
             <button
               type="button"
               onClick={() => setSourceTab('project')}
-              className={`flex-1 py-3 px-4 min-h-[44px] text-xs font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
-                sourceTab === 'project'
-                  ? 'border-[#E2B53C] text-[#E2B53C] bg-[#142036]'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`crm-modal-tab-btn ${sourceTab === 'project' ? 'active' : ''}`}
+              role="tab"
+              aria-selected={sourceTab === 'project'}
             >
-              <FolderOpen size={15} />
-              <span>Import from Open Project</span>
+              Import from open project
             </button>
           </div>
         )}
 
-        <div className="p-6 space-y-5">
+        {/* Modal Body */}
+        <div className="crm-modal-body" style={{ gap: '16px' }}>
           {error && (
-            <div className="rounded-lg border border-red-500/30 bg-red-950/40 p-3 text-sm text-red-200 flex items-start gap-2">
-              <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+            <div style={{
+              borderRadius: '8px',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              background: 'rgba(239, 68, 68, 0.1)',
+              padding: '10px 14px',
+              fontSize: '13px',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertCircle size={16} />
               <span>{error}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/40 p-3.5 text-sm text-emerald-200 flex items-center gap-2">
-              <Check size={18} className="text-emerald-400" />
+            <div style={{
+              borderRadius: '8px',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              background: 'rgba(16, 185, 129, 0.1)',
+              padding: '10px 14px',
+              fontSize: '13px',
+              color: '#10b981',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <Check size={16} />
               <span>{successMessage}</span>
             </div>
           )}
 
-          {/* 1. Device Dropzone */}
-          {!parsedDoc && sourceTab === 'device' && (
+          {/* 1. Device Upload Zone */}
+          {!parsedDoc && sourceTab === 'upload' && (
             <div>
               <input
                 type="file"
@@ -417,7 +430,7 @@ export const CrmImportModal: React.FC<Props> = ({
                   }
                 }}
                 accept=".xlsx,.xls,.csv,.tsv,.docx,.doc,.pdf,.txt,.md,.json"
-                className="hidden"
+                style={{ display: 'none' }}
               />
 
               <div
@@ -428,93 +441,104 @@ export const CrmImportModal: React.FC<Props> = ({
                 onDragLeave={() => setDragActive(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                  dragActive
-                    ? 'border-[#E2B53C] bg-[#E2B53C]/10'
-                    : 'border-slate-700 bg-[#121E33] hover:border-slate-500 hover:bg-[#15233C]'
-                }`}
+                className={`crm-modal-upload-zone ${dragActive ? 'active' : ''}`}
+                tabIndex={0}
+                role="button"
+                aria-label="Drop files here or click to browse"
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-800 text-[#E2B53C] mb-3">
-                  <Upload size={26} />
+                {/* cloud-upload icon */}
+                <svg
+                  className="crm-modal-upload-icon"
+                  width="36"
+                  height="36"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" />
+                  <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
+                </svg>
+                <div className="crm-modal-upload-title">Drop a file here</div>
+                <div className="crm-modal-upload-sub">
+                  or <a href="#" onClick={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}>browse your device</a>
                 </div>
-                <h3 className="text-base font-semibold text-white mb-1">
-                  Drop your file here, or browse
-                </h3>
-                <p className="text-xs text-slate-400 max-w-sm mb-4">
-                  Accepts all document types: Excel (.xlsx, .xls), Word (.docx), PDF (.pdf), spreadsheets (.csv, .tsv) and text documents.
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-300">
-                  <span className="rounded bg-slate-800 px-2 py-0.5 border border-slate-700">Excel</span>
-                  <span className="rounded bg-slate-800 px-2 py-0.5 border border-slate-700">PDF</span>
-                  <span className="rounded bg-slate-800 px-2 py-0.5 border border-slate-700">Word</span>
-                  <span className="rounded bg-slate-800 px-2 py-0.5 border border-slate-700">CSV/Spreadsheets</span>
+                <div className="crm-modal-format-chips" aria-label="Supported formats">
+                  <span className="crm-modal-chip">Excel</span>
+                  <span className="crm-modal-chip">CSV</span>
+                  <span className="crm-modal-chip">Word</span>
+                  <span className="crm-modal-chip">PDF</span>
+                  <span className="crm-modal-chip">Spreadsheets</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 2. Open Project Selector */}
+          {/* 2. Open Project Tab */}
           {!parsedDoc && sourceTab === 'project' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Select Open Project on Dashboard
-                </label>
-                {loadingProjects ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
-                    <Loader2 size={16} className="animate-spin text-[#E2B53C]" />
-                    Loading projects...
+            <div>
+              {loadingProjects ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--crm-m-text-2)', padding: '24px 0', justifyContent: 'center' }}>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Loading open projects...</span>
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="crm-modal-empty-state">
+                  <svg className="crm-modal-empty-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                    <line x1="12" y1="11" x2="12" y2="17" /><polyline points="9 14 12 17 15 14" />
+                  </svg>
+                  <div className="crm-modal-empty-title">No open projects found</div>
+                  <div className="crm-modal-empty-sub">
+                    You do not have any projects open in this workspace yet. Create one to import records from it.
                   </div>
-                ) : projects.length === 0 ? (
-                  <p className="text-sm text-slate-400 py-2">No open projects found on your dashboard.</p>
-                ) : (
-                  <select
-                    value={selectedProjectId}
-                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-[#16243D] px-3.5 py-2.5 text-sm text-white focus:border-[#E2B53C] focus:outline-none"
-                  >
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title} {p.client_name ? `• ${p.client_name}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Stored Project Files */}
-              {selectedProjectId && (
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                      Files in this Project
-                    </h4>
-                    {(() => {
-                      const proj = projects.find((p) => p.id === selectedProjectId);
-                      if (proj && (proj.transcript || proj.notes)) {
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => handleImportTranscript(proj)}
-                            className="text-xs text-[#E2B53C] hover:underline flex items-center gap-1 font-medium"
-                          >
-                            <span>Import Meeting Notes / Transcript</span>
-                            <ChevronRight size={13} />
-                          </button>
-                        );
-                      }
-                      return null;
-                    })()}
+                  <div className="crm-modal-empty-actions">
+                    {onSwitchToCreate && (
+                      <button
+                        className="crm-modal-btn crm-modal-btn-gold"
+                        style={{ padding: '7px 16px', fontSize: '13px' }}
+                        type="button"
+                        onClick={onSwitchToCreate}
+                      >
+                        + Create new project
+                      </button>
+                    )}
+                    <button
+                      className="crm-modal-link-btn"
+                      type="button"
+                      onClick={() => setSourceTab('upload')}
+                    >
+                      Upload from device instead
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="crm-modal-field" style={{ gap: '12px' }}>
+                  <label className="crm-modal-label" htmlFor="crm-import-project-select">
+                    Select Open Project
+                  </label>
+                  <div className="crm-modal-select-wrap">
+                    <select
+                      id="crm-import-project-select"
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                      className="crm-modal-select"
+                    >
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} {p.client_name ? `(${p.client_name})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {loadingFiles ? (
-                    <div className="flex items-center gap-2 text-xs text-slate-400 py-4 justify-center">
-                      <Loader2 size={14} className="animate-spin text-[#E2B53C]" />
-                      Loading project files...
-                    </div>
-                  ) : projectFiles.length === 0 ? (
-                    <div className="rounded-lg border border-slate-800 bg-[#121E33] p-6 text-center">
-                      <p className="text-xs text-slate-400 mb-2">No uploaded files stored in this project yet.</p>
+                  {/* Project files listing */}
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span className="crm-modal-label">Stored Files</span>
                       {(() => {
                         const proj = projects.find((p) => p.id === selectedProjectId);
                         if (proj && (proj.transcript || proj.notes)) {
@@ -522,82 +546,141 @@ export const CrmImportModal: React.FC<Props> = ({
                             <button
                               type="button"
                               onClick={() => handleImportTranscript(proj)}
-                              className="rounded-lg bg-[#E2B53C] text-[#0D1626] font-semibold text-xs px-3.5 py-2 hover:bg-[#d4a834]"
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--crm-m-navy-2)',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textDecoration: 'underline'
+                              }}
                             >
-                              Import Project Notes & Transcripts
+                              Import Meeting Notes / Transcript
                             </button>
                           );
                         }
                         return null;
                       })()}
                     </div>
-                  ) : (
-                    <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-[#121E33] overflow-hidden max-h-60 overflow-y-auto">
-                      {projectFiles.map((pf) => (
-                        <li key={pf.id} className="p-3 flex items-center justify-between hover:bg-slate-800/40 transition-colors">
-                          <div className="flex items-center gap-2.5 min-w-0 pr-3">
-                            {getFileIcon(pf.name)}
-                            <div className="truncate">
-                              <p className="text-xs font-medium text-white truncate">{pf.name}</p>
-                              <p className="text-[11px] text-slate-400">
-                                {(pf.file_size_bytes / 1024).toFixed(1)} KB • {pf.file_type}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleProjectFileSelect(pf)}
-                            className="shrink-0 rounded bg-slate-800 hover:bg-[#E2B53C] hover:text-[#0D1626] border border-slate-700 px-3 py-1 min-h-[44px] text-xs font-semibold text-slate-200 transition-colors"
+
+                    {loadingFiles ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--crm-m-text-2)', padding: '16px 0', justifyContent: 'center' }}>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Loading files...</span>
+                      </div>
+                    ) : projectFiles.length === 0 ? (
+                      <div style={{
+                        padding: '20px',
+                        textAlign: 'center',
+                        background: 'var(--crm-m-surface-2)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--crm-m-border)',
+                        fontSize: '12.5px',
+                        color: 'var(--crm-m-text-2)'
+                      }}>
+                        No files uploaded in this project yet.
+                      </div>
+                    ) : (
+                      <div style={{
+                        borderRadius: '8px',
+                        border: '1px solid var(--crm-m-border)',
+                        background: 'var(--crm-m-surface)',
+                        overflow: 'hidden',
+                        maxHeight: '220px',
+                        overflowY: 'auto'
+                      }}>
+                        {projectFiles.map((pf) => (
+                          <div
+                            key={pf.id}
+                            style={{
+                              padding: '10px 14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              borderBottom: '1px solid var(--crm-m-border)'
+                            }}
                           >
-                            Import File
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                              {getFileIcon(pf.name)}
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--crm-m-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {pf.name}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--crm-m-text-3)' }}>
+                                  {(pf.file_size_bytes / 1024).toFixed(1)} KB • {pf.file_type}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleProjectFileSelect(pf)}
+                              className="crm-modal-btn crm-modal-btn-ghost"
+                              style={{ padding: '6px 12px', fontSize: '12px', minHeight: '36px' }}
+                            >
+                              Import
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* 3. Parsed Document Preview & Configuration */}
+          {/* 3. Parsed Document Configuration */}
           {parsedDoc && (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-slate-700 bg-[#142036] p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                background: 'var(--crm-m-surface-2)',
+                border: '1px solid var(--crm-m-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {getFileIcon(parsedDoc.fileName)}
                   <div>
-                    <h4 className="text-sm font-semibold text-white">{parsedDoc.fileName}</h4>
-                    <p className="text-xs text-slate-400">
-                      {parsedDoc.fileType.toUpperCase()} • {parsedDoc.totalRows} {parsedDoc.totalRows === 1 ? 'row' : 'rows'} detected
-                    </p>
+                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--crm-m-text)' }}>
+                      {parsedDoc.fileName}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--crm-m-text-2)' }}>
+                      {parsedDoc.fileType.toUpperCase()} • {parsedDoc.totalRows} {parsedDoc.totalRows === 1 ? 'record' : 'records'} detected
+                    </div>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setParsedDoc(null)}
-                  className="text-xs text-slate-400 hover:text-white underline"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--crm-m-navy-2)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
                 >
                   Change file
                 </button>
               </div>
 
-              {/* Target Kind Selection */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Import As Record Type
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {/* Target Record Kind */}
+              <div className="crm-modal-field">
+                <label className="crm-modal-label">Import As Record Type</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
                   {(['contacts', 'organisations', 'opportunities', 'leads'] as TargetRecordKind[]).map((kind) => (
                     <button
                       key={kind}
                       type="button"
                       onClick={() => setTargetKind(kind)}
-                      className={`rounded-lg border py-2 px-3 min-h-[44px] text-xs font-medium capitalize text-center transition-all ${
-                        targetKind === kind
-                          ? 'border-[#E2B53C] bg-[#E2B53C]/15 text-[#E2B53C]'
-                          : 'border-slate-700 bg-[#121E33] text-slate-300 hover:border-slate-500'
-                      }`}
+                      className={`crm-modal-btn ${targetKind === kind ? 'crm-modal-btn-gold' : 'crm-modal-btn-ghost'}`}
+                      style={{ padding: '8px 12px', fontSize: '12.5px', textTransform: 'capitalize' }}
                     >
                       {kind}
                     </button>
@@ -605,28 +688,32 @@ export const CrmImportModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Preview First Rows */}
+              {/* Data Preview */}
               {parsedDoc.rows.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-300 mb-1.5">
-                    Data Preview (First {Math.min(parsedDoc.rows.length, 4)} records)
-                  </p>
-                  <div className="rounded-lg border border-slate-800 bg-[#0D1626] overflow-x-auto max-h-48 text-xs">
-                    <table className="w-full text-left border-collapse">
+                <div className="crm-modal-field">
+                  <label className="crm-modal-label">Data Preview</label>
+                  <div style={{
+                    borderRadius: '8px',
+                    border: '1px solid var(--crm-m-border)',
+                    background: 'var(--crm-m-surface)',
+                    overflowX: 'auto',
+                    maxHeight: '160px'
+                  }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
-                        <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400">
-                          {parsedDoc.headers.slice(0, 5).map((h) => (
-                            <th key={h} className="p-2 font-medium">
+                        <tr style={{ background: 'var(--crm-m-surface-2)', borderBottom: '1px solid var(--crm-m-border)' }}>
+                          {parsedDoc.headers.slice(0, 4).map((h) => (
+                            <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--crm-m-text-2)' }}>
                               {h}
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                        {parsedDoc.rows.slice(0, 4).map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-800/30">
-                            {parsedDoc.headers.slice(0, 5).map((h) => (
-                              <td key={h} className="p-2 truncate max-w-[150px]">
+                      <tbody>
+                        {parsedDoc.rows.slice(0, 3).map((r, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid var(--crm-m-border)' }}>
+                            {parsedDoc.headers.slice(0, 4).map((h) => (
+                              <td key={h} style={{ padding: '8px 10px', color: 'var(--crm-m-text)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {r[h] || '-'}
                               </td>
                             ))}
@@ -637,59 +724,64 @@ export const CrmImportModal: React.FC<Props> = ({
                   </div>
                 </div>
               )}
-
-              {/* Plain text / Word snippet */}
-              {parsedDoc.rawText && parsedDoc.rows.length === 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-300 mb-1.5">Document Text Summary</p>
-                  <div className="rounded-lg border border-slate-800 bg-[#0D1626] p-3 text-xs text-slate-300 max-h-36 overflow-y-auto whitespace-pre-wrap font-mono">
-                    {parsedDoc.rawText.slice(0, 800)}...
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
           {/* Privacy Note */}
-          <div className="rounded-lg border border-slate-800 bg-[#142036] p-3 text-xs text-slate-400 flex items-start gap-2.5" role="note">
-            <ShieldCheck size={16} className="text-[#E2B53C] shrink-0 mt-0.5" />
+          <div className="crm-modal-privacy-note" role="note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
             <span>
               Nothing you import is sent anywhere, stored externally, or logged. All processing happens inside your workspace.
             </span>
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+        {/* Modal Footer */}
+        <div className="crm-modal-footer">
+          <button
+            className="crm-modal-btn crm-modal-btn-ghost"
+            type="button"
+            onClick={onClose}
+            disabled={committing || parsing}
+          >
+            Cancel
+          </button>
+          {parsedDoc ? (
             <button
+              className="crm-modal-btn crm-modal-btn-primary"
               type="button"
-              onClick={onClose}
+              onClick={handleCommit}
               disabled={committing || parsing}
-              className="rounded-lg border border-slate-700 px-4 py-2 min-h-[44px] text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
             >
-              Cancel
+              {committing ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Importing records...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={16} />
+                  <span>Import records</span>
+                </>
+              )}
             </button>
-
-            {parsedDoc && (
-              <button
-                type="button"
-                onClick={handleCommit}
-                disabled={committing || parsing}
-                className="flex items-center gap-2 rounded-lg bg-[#E2B53C] hover:bg-[#d4a834] px-5 py-2 min-h-[44px] text-sm font-semibold text-[#0D1626] shadow-sm transition-all disabled:opacity-50"
-              >
-                {committing ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin text-[#0D1626]" />
-                    <span>Importing into CRM...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check size={16} />
-                    <span>Commit Import</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              className="crm-modal-btn crm-modal-btn-primary"
+              type="button"
+              onClick={() => {
+                if (sourceTab === 'upload') {
+                  fileInputRef.current?.click();
+                } else if (projectFiles.length > 0) {
+                  handleProjectFileSelect(projectFiles[0]);
+                }
+              }}
+            >
+              Import records
+            </button>
+          )}
         </div>
       </div>
     </div>
