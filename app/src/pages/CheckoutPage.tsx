@@ -292,7 +292,7 @@ export const CheckoutPage: React.FC = () => {
                       </p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>AU$49</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>AU$19</div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>one-off payment</div>
                     </div>
                   </div>
@@ -331,7 +331,7 @@ export const CheckoutPage: React.FC = () => {
                       </p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>AU$199</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>AU$59</div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>one-off payment</div>
                     </div>
                   </div>
@@ -370,7 +370,7 @@ export const CheckoutPage: React.FC = () => {
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>
                         {selectedVariantKey === 'up_to_20'
-                          ? 'AU$950'
+                          ? 'AU$249'
                           : selectedVariantKey === '21_to_100'
                           ? 'AU$2,400'
                           : 'AU$4,800'}
@@ -400,7 +400,7 @@ export const CheckoutPage: React.FC = () => {
                         lineHeight: 1.35,
                       }}
                     >
-                      Up to 20 People<br /><span style={{ color: '#E2B53C' }}>+ 5 Team Seats</span><br />(AU$950/yr)
+                      Up to 20 People<br /><span style={{ color: '#E2B53C' }}>+ 5 Team Seats</span><br />(AU$249/yr)
                     </button>
                     <button
                       type="button"
@@ -510,7 +510,7 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>
-                        {selectedVariantKey === 'annual' ? 'AU$99' : 'AU$12'}
+                        {selectedVariantKey === 'annual' ? 'AU$250' : 'AU$25'}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
                         {selectedVariantKey === 'annual' ? 'per year (annual subscription, renews annually until cancelled)' : 'per month (renews monthly until cancelled)'}
@@ -536,7 +536,7 @@ export const CheckoutPage: React.FC = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      Monthly (AU$12/mo)
+                      Monthly (AU$25/mo)
                     </button>
                     <button
                       type="button"
@@ -555,7 +555,7 @@ export const CheckoutPage: React.FC = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      Annual (AU$99/yr)
+                      Annual (AU$250/yr)
                     </button>
                   </div>
 
@@ -597,7 +597,7 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>
-                        {selectedVariantKey === 'annual' ? 'AU$290' : 'AU$29'}
+                        {selectedVariantKey === 'annual' ? 'AU$590' : 'AU$59'}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
                         {selectedVariantKey === 'annual' ? 'per year (annual subscription, renews annually until cancelled)' : 'per month (renews monthly until cancelled)'}
@@ -623,7 +623,7 @@ export const CheckoutPage: React.FC = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      Monthly (AU$29/mo)
+                      Monthly (AU$59/mo)
                     </button>
                     <button
                       type="button"
@@ -642,7 +642,7 @@ export const CheckoutPage: React.FC = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      Annual (AU$290/yr)
+                      Annual (AU$590/yr)
                     </button>
                   </div>
 
@@ -680,10 +680,10 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>
-                        AU${25 * teamSeats}
+                        AU${49 * teamSeats}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                        per month ({teamSeats} seats @ AU$25/seat)
+                        per month ({teamSeats} seats @ AU$49/seat)
                       </div>
                     </div>
                   </div>
