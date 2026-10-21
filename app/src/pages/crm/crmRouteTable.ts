@@ -1,3 +1,4 @@
+import { OrganisationKnowledgeHubPage } from './OrganisationKnowledgeHubPage';
 /**
  * The route table, derived from the destination list.
  *
@@ -104,6 +105,7 @@ export const CRM_ROUTES: CrmRouteEntry[] = CRM_MODULE_DESTINATIONS.map((destinat
 export const CRM_DETAIL_ROUTES: { segment: string; Component: ComponentType }[] = [
   { segment: 'people/:personId', Component: CrmPersonPage },
   { segment: 'organisations/:organisationId', Component: CrmOrganisationPage },
+  { segment: 'organisations/:organisationId/knowledge', Component: OrganisationKnowledgeHubPage },
   { segment: 'work/:workItemId', Component: CrmWorkItemPage },
 
   /* Stage 6. Five routes, one tab.

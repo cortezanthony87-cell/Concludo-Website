@@ -17,7 +17,7 @@
  */
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BrainCircuit } from 'lucide-react';
 import {
   FlagList,
   SourceTrailList,
@@ -115,6 +115,28 @@ export const CrmOrganisationPage: React.FC = () => {
   return (
     <Stage4Scaffold
       title={organisation.name}
+      toolbar={
+        <Link
+          className="btn btn-primary btn-sm"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            minHeight: '44px',
+            padding: '0 16px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--gold, #E2B53C)',
+            color: 'var(--navy, #0D1626)',
+            fontWeight: 600,
+            textDecoration: 'none',
+            fontSize: '13px',
+          }}
+          to={linkTo(`/crm/organisations/${organisation.id}/knowledge`)}
+        >
+          <BrainCircuit size={16} aria-hidden="true" />
+          Knowledge Hub
+        </Link>
+      }
       description={record.summary}
       loadingLabel="this account"
       emptyTitle="Nothing is recorded against this organisation"
