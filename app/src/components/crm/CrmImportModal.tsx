@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
+  Building2,
+  ShieldCheck,
   ArrowRight,
   Check,
   ChevronRight,
@@ -44,6 +46,7 @@ interface Props {
   onClose: () => void;
   workspaceId: string;
   onImportComplete?: () => void;
+  onSwitchToCreate?: () => void;
 }
 
 export const CrmImportModal: React.FC<Props> = ({
@@ -51,6 +54,7 @@ export const CrmImportModal: React.FC<Props> = ({
   onClose,
   workspaceId,
   onImportComplete,
+  onSwitchToCreate,
 }) => {
   const [sourceTab, setSourceTab] = useState<'device' | 'project'>('device');
   const [dragActive, setDragActive] = useState(false);
@@ -316,7 +320,7 @@ export const CrmImportModal: React.FC<Props> = ({
                 CRM Document Importer
               </h2>
               <p className="text-xs text-slate-400">
-                Import files from your device or open projects into {currentWorkspace.workspace.name}
+                Upload contacts, organisations, or pipeline records
               </p>
             </div>
           </div>
@@ -330,6 +334,31 @@ export const CrmImportModal: React.FC<Props> = ({
             <X size={18} />
           </button>
         </div>
+
+        {/* Modal Switcher Bar */}
+        {onSwitchToCreate && !parsedDoc && (
+          <div className="flex border-b border-slate-800 bg-[#0E182A] px-6" role="tablist" aria-label="Modal preview switcher">
+            <button
+              type="button"
+              onClick={onSwitchToCreate}
+              className="border-b-2 border-transparent py-2.5 px-3 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors min-h-[44px] flex items-center gap-2"
+              role="tab"
+              aria-selected="false"
+            >
+              <Building2 size={14} />
+              Create Organisation CRM
+            </button>
+            <button
+              type="button"
+              className="border-b-2 border-[#E2B53C] py-2.5 px-3 text-xs font-semibold text-[#E2B53C] min-h-[44px] flex items-center gap-2"
+              role="tab"
+              aria-selected="true"
+            >
+              <Download size={14} />
+              CRM Document Importer
+            </button>
+          </div>
+        )}
 
         {/* Source Tabs */}
         {!parsedDoc && (
@@ -620,6 +649,14 @@ export const CrmImportModal: React.FC<Props> = ({
               )}
             </div>
           )}
+
+          {/* Privacy Note */}
+          <div className="rounded-lg border border-slate-800 bg-[#142036] p-3 text-xs text-slate-400 flex items-start gap-2.5" role="note">
+            <ShieldCheck size={16} className="text-[#E2B53C] shrink-0 mt-0.5" />
+            <span>
+              Nothing you import is sent anywhere, stored externally, or logged. All processing happens inside your workspace.
+            </span>
+          </div>
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">

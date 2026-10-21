@@ -350,6 +350,10 @@ export const CrmHeader: React.FC<Props> = ({
           setViewState({ workspaceId: newWorkspaceId });
           onRefresh();
         }}
+        onSwitchToImport={() => {
+          setCreateModalOpen(false);
+          setImportModalOpen(true);
+        }}
       />
 
       <CrmImportModal
@@ -357,6 +361,10 @@ export const CrmHeader: React.FC<Props> = ({
         onClose={() => setImportModalOpen(false)}
         workspaceId={viewState.workspaceId}
         onImportComplete={onRefresh}
+        onSwitchToCreate={() => {
+          setImportModalOpen(false);
+          setCreateModalOpen(true);
+        }}
       />
     </header>
   );

@@ -15,9 +15,26 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onCreated: (workspaceId: string) => void;
+  onSwitchToImport?: () => void;
 }
 
-export const CrmCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
+
+const TERMINOLOGY_PLURALS: Record<WorkItemType, string> = {
+  opportunity: 'Opportunities',
+  project: 'Projects',
+  engagement: 'Engagements',
+  matter: 'Matters',
+  case: 'Cases',
+  job: 'Jobs',
+  mandate: 'Mandates',
+  deal: 'Deals',
+  contract: 'Contracts',
+  assignment: 'Assignments',
+  brief: 'Briefs',
+  service: 'Services',
+};
+
+export const CrmCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated, onSwitchToImport }) => {
   const [organisationName, setOrganisationName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
   const [depth, setDepth] = useState<WorkspaceDepth>('small_team');
@@ -196,7 +213,7 @@ export const CrmCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) 
                 Create Organisation CRM
               </h2>
               <p className="text-xs text-slate-400">
-                Set up a fresh CRM workspace with zero demonstration or example data
+                Set up a dedicated workspace for a client or business
               </p>
             </div>
           </div>
@@ -210,6 +227,31 @@ export const CrmCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) 
             <X size={18} />
           </button>
         </div>
+
+        {/* Modal Switcher Bar */}
+        {onSwitchToImport && (
+          <div className="flex border-b border-slate-800 bg-[#0E182A] px-6" role="tablist" aria-label="Modal preview switcher">
+            <button
+              type="button"
+              className="border-b-2 border-[#E2B53C] py-2.5 px-3 text-xs font-semibold text-[#E2B53C] min-h-[44px] flex items-center gap-2"
+              role="tab"
+              aria-selected="true"
+            >
+              <Building2 size={14} />
+              Create Organisation CRM
+            </button>
+            <button
+              type="button"
+              onClick={onSwitchToImport}
+              className="border-b-2 border-transparent py-2.5 px-3 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors min-h-[44px] flex items-center gap-2"
+              role="tab"
+              aria-selected="false"
+            >
+              <Sparkles size={14} />
+              CRM Document Importer
+            </button>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -269,8 +311,8 @@ export const CrmCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) 
               </select>
             </div>
 
-            <div>
-              <label htmlFor="crm-terminology" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+            <div className="space-y-2">
+              <label htmlFor="crm-terminology" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
                 Work Item Terminology
               </label>
               <select
@@ -292,6 +334,15 @@ export const CrmCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) 
                 <option value="brief">Briefs</option>
                 <option value="service">Services</option>
               </select>
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-[#142036] px-3 py-1 text-xs font-medium text-slate-300">
+                <span className="h-2 w-2 rounded-full bg-[#E2B53C]" aria-hidden="true" />
+                <span>
+                  Pipeline will show{' '}
+                  <strong className="text-white font-semibold">
+                    {TERMINOLOGY_PLURALS[terminology] ?? 'Opportunities'}
+                  </strong>
+                </span>
+              </div>
             </div>
           </div>
 
