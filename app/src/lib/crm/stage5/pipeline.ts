@@ -447,10 +447,17 @@ export function buildCard(
  */
 const TYPE_PLURALS: Record<string, string> = {
   opportunity: 'Opportunities',
-  deal: 'Deals',
-  job: 'Jobs',
+  project: 'Projects',
+  engagement: 'Engagements',
+  matter: 'Matters',
   case: 'Cases',
-  application: 'Applications',
+  job: 'Jobs',
+  mandate: 'Mandates',
+  deal: 'Deals',
+  contract: 'Contracts',
+  assignment: 'Assignments',
+  brief: 'Briefs',
+  service: 'Services',
 };
 
 export function pluralFor(data: CrmWorkspaceData, pipeline: Pipeline): string {

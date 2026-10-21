@@ -50,7 +50,19 @@ export interface Traced<T> extends Traceable {
 
 /* ------------------------------------------------------------- entities */
 
-export type CrmRecordTerminology = 'opportunity' | 'job' | 'case' | 'application';
+export type CrmRecordTerminology =
+  | 'opportunity'
+  | 'project'
+  | 'engagement'
+  | 'matter'
+  | 'case'
+  | 'job'
+  | 'mandate'
+  | 'deal'
+  | 'contract'
+  | 'assignment'
+  | 'brief'
+  | 'service';
 
 export interface CrmOrganisation {
   id: string;

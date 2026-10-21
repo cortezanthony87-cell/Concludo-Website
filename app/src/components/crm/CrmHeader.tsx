@@ -239,9 +239,17 @@ export const CrmHeader: React.FC<Props> = ({
             >
               <option value="all">All types</option>
               <option value="opportunity">Opportunities</option>
-              <option value="job">Jobs</option>
+              <option value="project">Projects</option>
+              <option value="engagement">Engagements</option>
+              <option value="matter">Matters</option>
               <option value="case">Cases</option>
-              <option value="application">Applications</option>
+              <option value="job">Jobs</option>
+              <option value="mandate">Mandates</option>
+              <option value="deal">Deals</option>
+              <option value="contract">Contracts</option>
+              <option value="assignment">Assignments</option>
+              <option value="brief">Briefs</option>
+              <option value="service">Services</option>
             </select>
           </div>
 

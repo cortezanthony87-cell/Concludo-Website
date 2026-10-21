@@ -280,9 +280,17 @@ export const CrmCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) 
                 className="w-full rounded-lg border border-slate-700 bg-[#16243D] px-3 py-2.5 text-sm text-white focus:border-[#E2B53C] focus:outline-none focus:ring-1 focus:ring-[#E2B53C]"
               >
                 <option value="opportunity">Opportunities</option>
+                <option value="project">Projects</option>
+                <option value="engagement">Engagements</option>
+                <option value="matter">Matters</option>
+                <option value="case">Cases</option>
+                <option value="job">Jobs</option>
+                <option value="mandate">Mandates</option>
                 <option value="deal">Deals</option>
-                <option value="job">Jobs / Work Orders</option>
-                <option value="case">Cases / Client Matters</option>
+                <option value="contract">Contracts</option>
+                <option value="assignment">Assignments</option>
+                <option value="brief">Briefs</option>
+                <option value="service">Services</option>
               </select>
             </div>
           </div>

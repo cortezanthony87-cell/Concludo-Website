@@ -32,9 +32,17 @@ const DATE_RANGES: CrmViewState['dateRange'][] = ['last_7', 'last_30', 'last_90'
 const RECORD_TYPES: CrmViewState['recordType'][] = [
   'all',
   'opportunity',
-  'job',
+  'project',
+  'engagement',
+  'matter',
   'case',
-  'application',
+  'job',
+  'mandate',
+  'deal',
+  'contract',
+  'assignment',
+  'brief',
+  'service',
 ];
 
 export const CRM_DATE_RANGE_LABELS: Record<CrmViewState['dateRange'], string> = {

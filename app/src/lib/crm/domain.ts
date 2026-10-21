@@ -53,7 +53,19 @@ export interface Timestamped {
 /* ============================================= 1. workspace configuration */
 
 export type WorkspaceDepth = 'sole_trader' | 'small_team' | 'mid_market' | 'enterprise';
-export type WorkItemType = 'opportunity' | 'deal' | 'job' | 'case' | 'application';
+export type WorkItemType =
+  | 'opportunity'
+  | 'project'
+  | 'engagement'
+  | 'matter'
+  | 'case'
+  | 'job'
+  | 'mandate'
+  | 'deal'
+  | 'contract'
+  | 'assignment'
+  | 'brief'
+  | 'service';
 export type WorkspaceScope = 'work' | 'personal';
 
 export interface CrmWorkspace extends Timestamped, SoftDeletable {
