@@ -1,3 +1,4 @@
+import '../styles/concludo-dashboard-v2.css';
 /**
  * DashboardPage.tsx · Concludo Workspace Work → Dashboard
  * Redesigned v2: Week Forecast, Performance Banner, Stage Chart, Word-doc panels,
@@ -187,14 +188,15 @@ function formatShortDate(d: Date): string {
   return `${d.getDate()} ${d.toLocaleString('en-AU', { month: 'short' })}`;
 }
 
-// ─── Inline styles ────────────────────────────────────────────────────────────
+// ─── Inline styles (Aligned with Concludo Light Dashboard V2) ──────────────────
 
 const wordDocStyle: React.CSSProperties = {
   background: '#ffffff',
   color: '#1e293b',
   borderRadius: '6px',
   padding: '20px 24px',
-  boxShadow: '0 2px 12px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.08)',
+  border: '1px solid #e2e8f0',
+  boxShadow: '0 2px 8px rgba(22,38,63,0.08)',
   fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
   lineHeight: 1.65,
 };
@@ -203,7 +205,7 @@ const wordDocTitleStyle: React.CSSProperties = {
   fontFamily: "'Poppins', Arial, sans-serif",
   fontWeight: 700,
   fontSize: '0.95rem',
-  color: '#0f172a',
+  color: '#16263f',
   marginBottom: '10px',
   display: 'flex',
   alignItems: 'center',
@@ -211,17 +213,17 @@ const wordDocTitleStyle: React.CSSProperties = {
 };
 
 const cutoutStyle: React.CSSProperties = {
-  background: 'rgba(14,23,41,0.85)',
-  border: '1px solid rgba(226,181,60,0.25)',
+  background: '#fafbfd',
+  border: '1px solid #e2e8f0',
   borderLeft: '3px solid #e2b53c',
   borderRadius: '6px',
   padding: '14px 18px',
 };
 
 const sectionHeadStyle: React.CSSProperties = {
-  fontSize: '0.75rem',
+  fontSize: '0.72rem',
   fontWeight: 700,
-  color: '#94a3b8',
+  color: '#21395c',
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   marginBottom: '12px',
@@ -231,10 +233,11 @@ const sectionHeadStyle: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  background: '#0e1729',
-  border: '1px solid rgba(255,255,255,0.07)',
+  background: '#ffffff',
+  border: '1px solid #e2e8f0',
   borderRadius: '12px',
   padding: '20px',
+  boxShadow: '0 1px 4px rgba(22,38,63,0.07)',
 };
 
 // ─── File chip ────────────────────────────────────────────────────────────────
@@ -242,33 +245,10 @@ const cardStyle: React.CSSProperties = {
 function FileChip({ name, type }: { name: string; type?: string }) {
   const ext = type || name.split('.').pop()?.toUpperCase() || 'FILE';
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        background: 'rgba(22,38,63,0.9)',
-        border: '1px solid rgba(226,181,60,0.3)',
-        borderRadius: '6px',
-        padding: '4px 10px',
-        fontSize: '0.78rem',
-        color: '#f3c958',
-        fontWeight: 600,
-      }}
-    >
-      <FileIcon size={12} />
+    <span className="file-chip">
+      <FileIcon size={11} />
       {name}
-      <span
-        style={{
-          background: 'rgba(226,181,60,0.15)',
-          borderRadius: '3px',
-          padding: '1px 4px',
-          fontSize: '0.68rem',
-          color: '#e2b53c',
-        }}
-      >
-        {ext}
-      </span>
+      <span className="file-chip-ext">{ext}</span>
     </span>
   );
 }
@@ -288,96 +268,62 @@ interface StageBarChartItem {
   label: string;
   plannedPct: number;
   actualPct: number;
+  count: number;
 }
 
 function ClusteredBarChart({ data }: { data: StageBarChartItem[] }) {
   return (
-    <div style={{ width: '100%' }}>
+    <div>
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#94a3b8' }}>
-          <span style={{ width: 10, height: 10, background: '#21395c', borderRadius: 2, display: 'inline-block' }} />
+      <div className="chart-legend">
+        <div className="legend-item">
+          <div className="legend-swatch" style={{ background: '#21395c' }} />
           Planned
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#94a3b8', marginLeft: 8 }}>
-          <span style={{ width: 10, height: 10, background: '#e2b53c', borderRadius: 2, display: 'inline-block' }} />
+        </div>
+        <div className="legend-item">
+          <div className="legend-swatch" style={{ background: '#e2b53c' }} />
           Active
-        </span>
+        </div>
       </div>
 
-      {/* Planned pct row · above bars */}
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '8px' }}>
+      {/* Planned pct row — above bars */}
+      <div className="pct-row planned-row">
         {data.map((d) => (
-          <span
-            key={`p-${d.label}`}
-            style={{
-              flex: 1,
-              textAlign: 'center',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: '#21395c',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <span key={`p-${d.label}`} className="pct-cell">
             {d.plannedPct}%
           </span>
         ))}
       </div>
 
-      {/* Bars */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '24px', height: '80px' }}>
+      {/* Bars row */}
+      <div className="chart-bars">
         {data.map((d) => {
           const plannedH = Math.max(Math.round((d.plannedPct / 100) * 72), 4);
           const actualH = Math.max(Math.round((d.actualPct / 100) * 72), 4);
           return (
-            <div
-              key={d.label}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '72px' }}>
+            <div key={d.label} className="bar-group">
+              <div className="bars-pair">
                 <div
+                  className="bar planned"
+                  style={{ height: `${plannedH}px` }}
                   title={`Planned: ${d.plannedPct}%`}
-                  style={{
-                    width: '16px',
-                    height: `${plannedH}px`,
-                    background: '#21395c',
-                    borderRadius: '3px 3px 0 0',
-                    transition: 'height 0.5s ease',
-                  }}
                 />
                 <div
-                  title={`Active: ${d.actualPct}%`}
-                  style={{
-                    width: '16px',
-                    height: `${actualH}px`,
-                    background: '#e2b53c',
-                    borderRadius: '3px 3px 0 0',
-                    transition: 'height 0.5s ease',
-                  }}
+                  className="bar actual"
+                  style={{ height: `${actualH}px` }}
+                  title={`Actual: ${d.actualPct}% (${d.count})`}
                 />
               </div>
-              <span style={{ fontSize: '0.67rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                {d.label}
-              </span>
+              <span className="bar-label">{d.label}</span>
             </div>
           );
         })}
       </div>
 
-      {/* Actual pct row · below bars */}
-      <div style={{ display: 'flex', gap: '24px', marginTop: '8px' }}>
+      {/* Actual pct row — below bars */}
+      <div className="pct-row actual-row">
         {data.map((d) => (
-          <span
-            key={`a-${d.label}`}
-            style={{
-              flex: 1,
-              textAlign: 'center',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: '#bc8a1c',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <span key={`a-${d.label}`} className="pct-cell">
             {d.actualPct}%
           </span>
         ))}
@@ -401,7 +347,7 @@ function ProgressBar({ value, color = '#e2b53c', label }: { value: number; color
         style={{
           width: '100%',
           height: '6px',
-          background: 'rgba(255,255,255,0.06)',
+          background: '#e2e8f0',
           borderRadius: '4px',
           overflow: 'hidden',
         }}
@@ -862,7 +808,7 @@ export const DashboardPage: React.FC = () => {
         ? Math.round((count / totalProjects) * 100)
         : 0;
       const plannedPct = PLANNED_TARGETS[label] ?? 50;
-      return { label, plannedPct, actualPct };
+      return { label, plannedPct, actualPct, count };
     });
   })();
 
@@ -902,10 +848,12 @@ export const DashboardPage: React.FC = () => {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loadingDashboard || authLoading) {
     return (
-      <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '60px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#94a3b8', padding: '40px 0' }}>
-          <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-          <span style={{ fontSize: '0.9rem' }}>Loading your workspace...</span>
+      <div className="dashboard-v2-page">
+        <div className="page">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', padding: '40px 0' }}>
+            <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
+            <span style={{ fontSize: '0.9rem' }}>Loading your workspace...</span>
+          </div>
         </div>
       </div>
     );
@@ -914,7 +862,8 @@ export const DashboardPage: React.FC = () => {
   // ── Empty / unsaved state ──────────────────────────────────────────────────
   if (isEmpty) {
     return (
-      <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '60px' }}>
+      <div className="dashboard-v2-page">
+      <div className="page">
         {/* Minimal header */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -926,7 +875,7 @@ export const DashboardPage: React.FC = () => {
               <Zap size={12} /> {planBadgeText}
             </span>
           </div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 700, color: '#f8fafc', marginBottom: '4px' }}>{welcomeGreeting}</h1>
+          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 700, color: '#16263f', marginBottom: '4px' }}>{welcomeGreeting}</h1>
           <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
             {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
@@ -935,8 +884,9 @@ export const DashboardPage: React.FC = () => {
         {/* Empty prompt */}
         <div
           style={{
-            background: 'rgba(14,23,41,0.6)',
-            border: '1px dashed rgba(226,181,60,0.25)',
+            background: '#ffffff',
+            border: '1px dashed #d1d9e6',
+            boxShadow: '0 1px 4px rgba(22,38,63,0.06)',
             borderRadius: '16px',
             padding: '56px 40px',
             textAlign: 'center',
@@ -946,7 +896,7 @@ export const DashboardPage: React.FC = () => {
           <div style={{ width: '56px', height: '56px', background: 'rgba(226,181,60,0.1)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#f3c958' }}>
             <BookOpen size={26} />
           </div>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.3rem', fontWeight: 700, color: '#f8fafc', marginBottom: '10px' }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.3rem', fontWeight: 700, color: '#16263f', marginBottom: '10px' }}>
             Your workspace is ready
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto 28px', lineHeight: 1.6 }}>
@@ -982,12 +932,14 @@ export const DashboardPage: React.FC = () => {
           ))}
         </div>
       </div>
+</div>
     );
   }
 
   // ── Main dashboard ─────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '60px' }}>
+    <div className="dashboard-v2-page">
+      <div className="page">
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -996,7 +948,7 @@ export const DashboardPage: React.FC = () => {
             <Sparkles size={13} color="#f3c958" />
             <span>CONCLUDO WORKSPACE</span>
           </div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc', marginBottom: '2px' }}>
+          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.75rem', fontWeight: 700, color: '#16263f', marginBottom: '2px' }}>
             {welcomeGreeting}
           </h1>
           <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
@@ -1054,7 +1006,7 @@ export const DashboardPage: React.FC = () => {
             <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, color: perf.color, fontSize: '0.95rem' }}>
               {perf.label}
             </div>
-            <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '2px' }}>{perf.msg}</div>
+            <div style={{ fontSize: '0.82rem', color: '#334155', marginTop: '2px' }}>{perf.msg}</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -1103,11 +1055,11 @@ export const DashboardPage: React.FC = () => {
                   background: isToday
                     ? 'rgba(226,181,60,0.12)'
                     : isPast
-                    ? 'rgba(255,255,255,0.03)'
-                    : 'rgba(255,255,255,0.02)',
+                    ? 'rgba(255,255,255,0.06)'
+                    : 'rgba(255,255,255,0.04)',
                   border: isToday
                     ? '1px solid rgba(226,181,60,0.4)'
-                    : '1px solid rgba(255,255,255,0.05)',
+                    : '1px solid rgba(255,255,255,0.08)',
                   textAlign: 'center',
                   transition: 'all 0.2s',
                 }}
@@ -1115,7 +1067,7 @@ export const DashboardPage: React.FC = () => {
                 <div style={{ fontSize: '0.7rem', fontWeight: 700, color: isToday ? '#f3c958' : '#64748b', marginBottom: '4px', letterSpacing: '0.06em' }}>
                   {day.label.toUpperCase()}
                 </div>
-                <div style={{ fontSize: '0.8rem', color: isToday ? '#f8fafc' : '#475569' }}>{day.date.getDate()}</div>
+                <div style={{ fontSize: '0.8rem', color: isToday ? '#ffffff' : 'rgba(255,255,255,0.8)' }}>{day.date.getDate()}</div>
                 <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'center', gap: '3px' }}>
                   {isPast ? (
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} title="Done" />
@@ -1157,7 +1109,7 @@ export const DashboardPage: React.FC = () => {
                 <li key={p.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                   <span style={{ marginTop: '4px', width: 6, height: 6, borderRadius: '50%', background: '#e2b53c', flexShrink: 0, display: 'inline-block' }} />
                   <div>
-                    <Link to={`/projects/${p.id}`} style={{ fontSize: '0.84rem', color: '#f8fafc', textDecoration: 'none', fontWeight: 500 }}>
+                    <Link to={`/projects/${p.id}`} style={{ fontSize: '0.84rem', color: '#16263f', textDecoration: 'none', fontWeight: 500 }}>
                       {p.title}
                     </Link>
                     {p.client_or_project && (
@@ -1217,7 +1169,7 @@ export const DashboardPage: React.FC = () => {
                       }}
                     />
                     <div>
-                      <Link to={`/actions/${a.id}`} style={{ fontSize: '0.83rem', color: overdue ? '#fca5a5' : '#f8fafc', textDecoration: 'none' }}>
+                      <Link to={`/actions/${a.id}`} style={{ fontSize: '0.83rem', color: overdue ? '#b91c1c' : '#16263f', textDecoration: 'none' }}>
                         {a.action_title || a.action_description?.slice(0, 60)}
                       </Link>
                       {a.due_date && (
@@ -1345,8 +1297,8 @@ export const DashboardPage: React.FC = () => {
             <div
               key={stat.label}
               style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
                 borderRadius: '8px',
                 padding: '12px',
                 textAlign: 'center',
@@ -1377,12 +1329,12 @@ export const DashboardPage: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '8px 0',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  borderBottom: '1px solid #f1f5f9',
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.83rem', color: '#f8fafc', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '0.83rem', color: '#16263f', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {email.sender_name || 'Unknown'}
                     </span>
                     {email.client_or_project && (
@@ -1452,8 +1404,8 @@ export const DashboardPage: React.FC = () => {
                   style={{
                     minWidth: '260px',
                     maxWidth: '260px',
-                    background: '#0e1729',
-                    border: '1px solid rgba(255,255,255,0.07)',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
                     borderRadius: '12px',
                     padding: '16px',
                     textDecoration: 'none',
@@ -1461,12 +1413,13 @@ export const DashboardPage: React.FC = () => {
                     flexDirection: 'column',
                     gap: '10px',
                     flexShrink: 0,
+                    boxShadow: '0 1px 4px rgba(22,38,63,0.06)',
                     transition: 'border-color 0.2s',
                   }}
                 >
                   {/* Project header */}
                   <div>
-                    <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontWeight: 600, color: '#16263f', fontSize: '0.88rem', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {p.title}
                     </div>
                     {p.client_or_project && (
@@ -1486,7 +1439,7 @@ export const DashboardPage: React.FC = () => {
                   </div>
 
                   {/* Meta row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
                     {p.meeting_date ? (
                       <span style={{ fontSize: '0.7rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={11} /> {formatDate(p.meeting_date)}
@@ -1647,7 +1600,7 @@ export const DashboardPage: React.FC = () => {
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 500, marginBottom: '3px' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#16263f', fontWeight: 600, marginBottom: '3px' }}>
                     {d.decision_title || d.decision_summary?.slice(0, 80) || 'Decision'}
                   </div>
                   {d.decision_summary && d.decision_title && (
@@ -1740,9 +1693,10 @@ export const DashboardPage: React.FC = () => {
                 to="/team"
                 style={{
                   padding: '10px 16px',
-                  background: '#0e1729',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
                   borderRadius: '8px',
+                  boxShadow: '0 1px 4px rgba(22,38,63,0.06)',
                   textDecoration: 'none',
                   display: 'flex',
                   alignItems: 'center',
@@ -1750,8 +1704,8 @@ export const DashboardPage: React.FC = () => {
                 }}
               >
                 <Users size={14} color="#e2b53c" />
-                <span style={{ fontSize: '0.84rem', color: '#f8fafc', fontWeight: 500 }}>{team.name}</span>
-                <span style={{ fontSize: '0.7rem', color: '#64748b', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', padding: '2px 6px' }}>{role}</span>
+                <span style={{ fontSize: '0.84rem', color: '#16263f', fontWeight: 500 }}>{team.name}</span>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', background: '#f1f5f9', borderRadius: '4px', padding: '2px 6px' }}>{role}</span>
               </Link>
             ))}
           </div>
@@ -1783,8 +1737,8 @@ export const DashboardPage: React.FC = () => {
                 <div
                   key={f.key}
                   style={{
-                    background: 'rgba(14,23,41,0.5)',
-                    border: '1px solid rgba(255,255,255,0.05)',
+                    background: '#f8fafc',
+                    border: '1px solid #e9eef5',
                     borderRadius: '10px',
                     padding: '14px 16px',
                     display: 'flex',
@@ -1813,10 +1767,11 @@ export const DashboardPage: React.FC = () => {
       {/* ── Quick Actions (compact bottom bar) ── */}
       <div
         style={{
-          background: '#0e1729',
-          border: '1px solid rgba(255,255,255,0.06)',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
           borderRadius: '12px',
           padding: '14px 20px',
+          boxShadow: '0 1px 4px rgba(22,38,63,0.06)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
@@ -1846,6 +1801,7 @@ export const DashboardPage: React.FC = () => {
         ))}
       </div>
 
+    </div>
     </div>
   );
 };
