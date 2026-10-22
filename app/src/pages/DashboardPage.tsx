@@ -1,41 +1,49 @@
-import React, { useEffect, useState, useCallback } from 'react';
+/**
+ * DashboardPage.tsx · Concludo Workspace Work → Dashboard
+ * Redesigned v2: Week Forecast, Performance Banner, Stage Chart, Word-doc panels,
+ * Dopamine-hit design, Empty state. All data clients and route links preserved.
+ */
+
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  PlusCircle,
-  FolderKanban,
-  FileText,
-  CheckCircle2,
-  BrainCircuit,
-  ArrowRight,
-  Sparkles,
-  Settings,
-  Lock,
-  RefreshCw,
   AlertCircle,
-  Loader2,
-  Calendar,
-  Clock,
-  Briefcase,
-  Search,
+  ArrowRight,
   BarChart3,
+  BrainCircuit,
+  Calendar,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  FileText,
+  FolderKanban,
   Lightbulb,
-  FileSpreadsheet,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  Settings,
   Share2,
+  Sparkles,
+  Star,
+  TrendingUp,
   Users,
   Zap,
-  FileBarChart,
-  Award,
-  TrendingUp,
-  ShieldAlert,
-  Layers,
+  FileSpreadsheet,
+  Trophy,
+  Target,
+  Flame,
+  AlertTriangle,
+  FileIcon,
+  Activity,
+  BookOpen,
+  ListChecks,
+  Mail,
 } from 'lucide-react';
+
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS, PlanType } from '../lib/profiles/types';
 import { OutputType, OUTPUT_TYPE_LABELS } from '../lib/outputs/types';
-import {
-  queryBackendPermissions,
-  BackendPermissionsResponse,
-} from '../lib/permissions/backendCheckClient';
+import { queryBackendPermissions, BackendPermissionsResponse } from '../lib/permissions/backendCheckClient';
 import { FeatureKey } from '../lib/permissions/types';
 import { fetchDecisions } from '../lib/decisions/decisionClient';
 import { DecisionRecord } from '../lib/decisions/types';
@@ -48,17 +56,20 @@ import { EndpointReport } from '../lib/reports/types';
 import { fetchUserTeams } from '../lib/teams/teamClient';
 import { Team, TeamRole } from '../lib/teams/types';
 import { getPredictiveAnalysis } from '../lib/predictive/predictiveService';
+import { fetchCalendarItems } from '../lib/calendar/calendarClient';
 import { PredictiveAnalysisResult } from '../lib/predictive/types';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface DashboardProject {
   id: string;
   title: string;
   meeting_type: string | null;
-  client_name?: string | null;
-  project_name?: string | null;
+  client_name: string | null;
+  project_name: string | null;
   client_or_project: string | null;
   meeting_date: string | null;
-  updated_at: string;
+  updated_at: string | null;
 }
 
 interface DashboardOutput {
@@ -66,18 +77,356 @@ interface DashboardOutput {
   project_id: string;
   output_type: OutputType;
   content: string | null;
-  created_at: string;
-  updated_at: string;
-  projects?: {
-    id: string;
-    title: string;
-  } | null;
+  created_at: string | null;
+  updated_at: string | null;
+  projects: { id: string; title: string } | null;
 }
+
+// ─── Performance thresholds ───────────────────────────────────────────────────
+
+type PerformanceState = 'crushing' | 'on_track' | 'behind' | 'critical' | 'no_data';
+
+function getPerformanceState(completed: number, total: number): PerformanceState {
+  if (total === 0) return 'no_data';
+  const pct = completed / total;
+  if (pct >= 0.8) return 'crushing';
+  if (pct >= 0.6) return 'on_track';
+  if (pct >= 0.4) return 'behind';
+  return 'critical';
+}
+
+const PERF_CONFIG: Record<
+  PerformanceState,
+  { label: string; msg: string; color: string; bg: string; border: string; icon: React.ReactNode }
+> = {
+  crushing: {
+    label: 'Crushing it',
+    msg: 'Outstanding work this week. You are ahead of pace · keep the momentum.',
+    color: '#f3c958',
+    bg: 'rgba(226,181,60,0.08)',
+    border: 'rgba(226,181,60,0.35)',
+    icon: <Trophy size={20} />,
+  },
+  on_track: {
+    label: 'On track',
+    msg: 'Solid progress. You are meeting your weekly targets.',
+    color: '#4ade80',
+    bg: 'rgba(74,222,128,0.08)',
+    border: 'rgba(74,222,128,0.3)',
+    icon: <Target size={20} />,
+  },
+  behind: {
+    label: 'Falling behind',
+    msg: 'You are behind pace. At this rate, your remaining workload increases significantly.',
+    color: '#fb923c',
+    bg: 'rgba(251,146,60,0.08)',
+    border: 'rgba(251,146,60,0.3)',
+    icon: <AlertTriangle size={20} />,
+  },
+  critical: {
+    label: 'Critical · action required',
+    msg: 'Your completion rate is critically low. Unfinished work is compounding · act now to avoid a backlog.',
+    color: '#f87171',
+    bg: 'rgba(248,113,113,0.08)',
+    border: 'rgba(248,113,113,0.3)',
+    icon: <Flame size={20} />,
+  },
+  no_data: {
+    label: 'Ready to start',
+    msg: 'No activity recorded yet this week. Create your first project to begin tracking progress.',
+    color: '#94a3b8',
+    bg: 'rgba(148,163,184,0.06)',
+    border: 'rgba(148,163,184,0.2)',
+    icon: <Sparkles size={20} />,
+  },
+};
+
+// ─── Week helpers ─────────────────────────────────────────────────────────────
+
+function getWeekBounds() {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMon = (day === 0 ? -6 : 1 - day);
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMon);
+  monday.setHours(0, 0, 0, 0);
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  friday.setHours(23, 59, 59, 999);
+  return {
+    weekStart: monday.toISOString().slice(0, 10),
+    weekEnd: friday.toISOString().slice(0, 10),
+  };
+}
+
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getWeekDays(): { label: string; date: Date; dateStr: string; isToday: boolean }[] {
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dow + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((label, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const isToday =
+      d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+    return { label, date: d, dateStr: toLocalDateStr(d), isToday };
+  });
+}
+
+function formatShortDate(d: Date): string {
+  return `${d.getDate()} ${d.toLocaleString('en-AU', { month: 'short' })}`;
+}
+
+// ─── Inline styles ────────────────────────────────────────────────────────────
+
+const wordDocStyle: React.CSSProperties = {
+  background: '#ffffff',
+  color: '#1e293b',
+  borderRadius: '6px',
+  padding: '20px 24px',
+  boxShadow: '0 2px 12px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.08)',
+  fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+  lineHeight: 1.65,
+};
+
+const wordDocTitleStyle: React.CSSProperties = {
+  fontFamily: "'Poppins', Arial, sans-serif",
+  fontWeight: 700,
+  fontSize: '0.95rem',
+  color: '#0f172a',
+  marginBottom: '10px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+};
+
+const cutoutStyle: React.CSSProperties = {
+  background: 'rgba(14,23,41,0.85)',
+  border: '1px solid rgba(226,181,60,0.25)',
+  borderLeft: '3px solid #e2b53c',
+  borderRadius: '6px',
+  padding: '14px 18px',
+};
+
+const sectionHeadStyle: React.CSSProperties = {
+  fontSize: '0.75rem',
+  fontWeight: 700,
+  color: '#94a3b8',
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  marginBottom: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+};
+
+const cardStyle: React.CSSProperties = {
+  background: '#0e1729',
+  border: '1px solid rgba(255,255,255,0.07)',
+  borderRadius: '12px',
+  padding: '20px',
+};
+
+// ─── File chip ────────────────────────────────────────────────────────────────
+
+function FileChip({ name, type }: { name: string; type?: string }) {
+  const ext = type || name.split('.').pop()?.toUpperCase() || 'FILE';
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        background: 'rgba(22,38,63,0.9)',
+        border: '1px solid rgba(226,181,60,0.3)',
+        borderRadius: '6px',
+        padding: '4px 10px',
+        fontSize: '0.78rem',
+        color: '#f3c958',
+        fontWeight: 600,
+      }}
+    >
+      <FileIcon size={12} />
+      {name}
+      <span
+        style={{
+          background: 'rgba(226,181,60,0.15)',
+          borderRadius: '3px',
+          padding: '1px 4px',
+          fontSize: '0.68rem',
+          color: '#e2b53c',
+        }}
+      >
+        {ext}
+      </span>
+    </span>
+  );
+}
+
+// ─── Clustered bar chart (V8 · full-width pct rows above/below) ──────────────
+
+/** Planned targets are constants · not from DB */
+const PLANNED_TARGETS: Record<string, number> = {
+  New: 50,
+  'In Progress': 75,
+  Review: 50,
+  Complete: 100,
+};
+const STAGE_ORDER = ['New', 'In Progress', 'Review', 'Complete'] as const;
+
+interface StageBarChartItem {
+  label: string;
+  plannedPct: number;
+  actualPct: number;
+}
+
+function ClusteredBarChart({ data }: { data: StageBarChartItem[] }) {
+  return (
+    <div style={{ width: '100%' }}>
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#94a3b8' }}>
+          <span style={{ width: 10, height: 10, background: '#21395c', borderRadius: 2, display: 'inline-block' }} />
+          Planned
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#94a3b8', marginLeft: 8 }}>
+          <span style={{ width: 10, height: 10, background: '#e2b53c', borderRadius: 2, display: 'inline-block' }} />
+          Active
+        </span>
+      </div>
+
+      {/* Planned pct row · above bars */}
+      <div style={{ display: 'flex', gap: '24px', marginBottom: '8px' }}>
+        {data.map((d) => (
+          <span
+            key={`p-${d.label}`}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: '#21395c',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {d.plannedPct}%
+          </span>
+        ))}
+      </div>
+
+      {/* Bars */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '24px', height: '80px' }}>
+        {data.map((d) => {
+          const plannedH = Math.max(Math.round((d.plannedPct / 100) * 72), 4);
+          const actualH = Math.max(Math.round((d.actualPct / 100) * 72), 4);
+          return (
+            <div
+              key={d.label}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '72px' }}>
+                <div
+                  title={`Planned: ${d.plannedPct}%`}
+                  style={{
+                    width: '16px',
+                    height: `${plannedH}px`,
+                    background: '#21395c',
+                    borderRadius: '3px 3px 0 0',
+                    transition: 'height 0.5s ease',
+                  }}
+                />
+                <div
+                  title={`Active: ${d.actualPct}%`}
+                  style={{
+                    width: '16px',
+                    height: `${actualH}px`,
+                    background: '#e2b53c',
+                    borderRadius: '3px 3px 0 0',
+                    transition: 'height 0.5s ease',
+                  }}
+                />
+              </div>
+              <span style={{ fontSize: '0.67rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                {d.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Actual pct row · below bars */}
+      <div style={{ display: 'flex', gap: '24px', marginTop: '8px' }}>
+        {data.map((d) => (
+          <span
+            key={`a-${d.label}`}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: '#bc8a1c',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {d.actualPct}%
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+function ProgressBar({ value, color = '#e2b53c', label }: { value: number; color?: string; label?: string }) {
+  return (
+    <div style={{ width: '100%' }}>
+      {label && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{label}</span>
+          <span style={{ fontSize: '0.75rem', color, fontWeight: 700 }}>{value}%</span>
+        </div>
+      )}
+      <div
+        style={{
+          width: '100%',
+          height: '6px',
+          background: 'rgba(255,255,255,0.06)',
+          borderRadius: '4px',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.min(value, 100)}%`,
+            height: '100%',
+            background: color,
+            borderRadius: '4px',
+            transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+            boxShadow: value >= 80 ? `0 0 8px ${color}80` : 'none',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export const DashboardPage: React.FC = () => {
   const { supabase, user, profile, loading: authLoading } = useAuth();
 
-  // Data states
+  // ── State ──────────────────────────────────────────────────────────────────
   const [recentProjects, setRecentProjects] = useState<DashboardProject[]>([]);
   const [recentOutputs, setRecentOutputs] = useState<DashboardOutput[]>([]);
   const [recentDecisions, setRecentDecisions] = useState<DecisionRecord[]>([]);
@@ -85,24 +434,61 @@ export const DashboardPage: React.FC = () => {
   const [insights, setInsights] = useState<InsightData | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentReports, setRecentReports] = useState<EndpointReport[]>([]);
-  const [userTeams, setUserTeams] = useState<(Team & { currentRole: TeamRole })[]>([]);
+  const [userTeams, setUserTeams] = useState<Array<{ team: Team; role: TeamRole }>>([]);
   const [backendPerms, setBackendPerms] = useState<BackendPermissionsResponse | null>(null);
-
-  // Loading states
-  const [loadingDashboard, setLoadingDashboard] = useState<boolean>(true);
-  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
-  const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
-  const [loadingOutputs, setLoadingOutputs] = useState<boolean>(true);
-  const [loadingDecisions, setLoadingDecisions] = useState<boolean>(false);
-  const [loadingActions, setLoadingActions] = useState<boolean>(false);
-  const [loadingInsights, setLoadingInsights] = useState<boolean>(false);
-  const [loadingStats, setLoadingStats] = useState<boolean>(false);
-  const [loadingReports, setLoadingReports] = useState<boolean>(false);
-  const [loadingPermissions, setLoadingPermissions] = useState<boolean>(true);
   const [predictiveData, setPredictiveData] = useState<PredictiveAnalysisResult | null>(null);
-  const [loadingPredictive, setLoadingPredictive] = useState<boolean>(false);
 
-  // Error states
+  // ── V8 additions: stage counts, calendar, email ────────────────────────────
+  interface StageCount { stage: string; stage_count: number; }
+  const [stageCounts, setStageCounts] = useState<StageCount[]>([]);
+
+  interface CalendarEvent {
+    id: string;
+    title: string;
+    start_at: string;
+    end_at: string | null;
+    event_type: 'meeting';
+  }
+  interface TaskEvent {
+    id: string;
+    title: string;
+    due_at: string;
+    event_type: 'task' | 'deadline';
+  }
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [taskEvents, setTaskEvents] = useState<TaskEvent[]>([]);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+
+  interface EmailStats {
+    needReply: number;
+    unread: number;
+    flagged: number;
+    processedToday: number;
+  }
+  interface EmailPreviewItem {
+    id: string;
+    sender_name: string | null;
+    subject: string | null;
+    client_or_project: string | null;
+    received_at: string | null;
+    status: string | null;
+  }
+  const [emailStats, setEmailStats] = useState<EmailStats>({
+    needReply: 0, unread: 0, flagged: 0, processedToday: 0,
+  });
+  const [emailPreviews, setEmailPreviews] = useState<EmailPreviewItem[]>([]);
+  const [loadingEmail, setLoadingEmail] = useState(false);
+
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [loadingDecisions, setLoadingDecisions] = useState(false);
+  const [loadingActions, setLoadingActions] = useState(false);
+  const [loadingInsights, setLoadingInsights] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [loadingPredictive, setLoadingPredictive] = useState(false);
+
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -111,14 +497,13 @@ export const DashboardPage: React.FC = () => {
   const [actionsError, setActionsError] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
 
-  // Set document title
-  useEffect(() => {
-    document.title = 'Concludo Workspace';
-  }, []);
-
-  // Fetch all dashboard data
+  // ── Data loading ───────────────────────────────────────────────────────────
   const loadDashboardData = useCallback(async () => {
-    if (!supabase || !user) return;
+    if (authLoading) return;
+    if (!supabase || !user || !profile) {
+      setLoadingDashboard(false);
+      return;
+    }
 
     setLoadingDashboard(true);
     setDashboardError(null);
@@ -129,71 +514,169 @@ export const DashboardPage: React.FC = () => {
     setActionsError(null);
     setPermissionError(null);
 
-    // 1. Profile state
-    setLoadingProfile(true);
+    // 1. Recent projects
     try {
-      if (!profile && !authLoading) {
-        // Double check profile
-        const { error: pErr } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        if (pErr) {
-          setProfileError('Failed to load profile');
-        }
-      }
-    } catch {
-      setProfileError('Failed to load profile');
-    } finally {
-      setLoadingProfile(false);
-    }
-
-    // 2. Fetch Recent Projects (limit 5, sorted by updated_at desc, deleted_at is null)
-    setLoadingProjects(true);
-    try {
-      const { data: projData, error: projErr } = await supabase
+      const { data, error } = await supabase
         .from('projects')
-        .select('id, title, meeting_type, client_name, project_name, client_or_project, meeting_date, updated_at')
+        .select('id,title,meeting_type,client_name,project_name,client_or_project,meeting_date,updated_at')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .limit(5);
-
-      if (projErr) {
-        setProjectsError('Failed to load projects');
-      } else {
-        setRecentProjects(projData || []);
-      }
+      if (error) setProjectsError('Could not load projects');
+      else setRecentProjects(data || []);
     } catch {
-      setProjectsError('Failed to load projects');
-    } finally {
-      setLoadingProjects(false);
+      setProjectsError('Could not load projects');
     }
 
-    // 3. Fetch Recent Outputs (limit 5, sorted by updated_at desc, deleted_at is null)
-    setLoadingOutputs(true);
+    // 2. Recent outputs
     try {
-      const { data: outData, error: outErr } = await supabase
+      const { data, error } = await supabase
         .from('outputs')
-        .select('id, project_id, output_type, content, created_at, updated_at, projects(id, title)')
+        .select('id,project_id,output_type,content,created_at,updated_at,projects(id,title)')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .limit(5);
-
-      if (outErr) {
-        setOutputsError('Failed to load outputs');
-      } else {
-        setRecentOutputs((outData as any) || []);
-      }
+      if (error) setOutputsError('Could not load outputs');
+      else setRecentOutputs((data as any) || []);
     } catch {
-      setOutputsError('Failed to load outputs');
-    } finally {
-      setLoadingOutputs(false);
+      setOutputsError('Could not load outputs');
     }
 
-    // 4. Fetch Authoritative Backend Permissions
-    setLoadingPermissions(true);
+    // 2b. Stage counts for bar chart · reads `stage` column from projects
+    try {
+      const { data: stageRows } = await supabase
+        .from('projects')
+        .select('stage')
+        .eq('user_id', user.id)
+        .is('deleted_at', null)
+        .eq('archived', false);
+
+      const counts: Record<string, number> = {
+        New: 0,
+        'In Progress': 0,
+        Review: 0,
+        Complete: 0,
+      };
+      (stageRows || []).forEach((p: { stage: string | null }) => {
+        if (p.stage && Object.prototype.hasOwnProperty.call(counts, p.stage)) {
+          counts[p.stage]++;
+        } else {
+          counts['New']++;
+        }
+      });
+      setStageCounts(
+        Object.entries(counts).map(([stage, stage_count]) => ({ stage, stage_count }))
+      );
+    } catch {
+      // stageCounts stays at default zeros; chart shows 0% actual bars
+    }
+
+    // 2c. Week Overview Calendar · meetings, tasks and deadlines
+    setLoadingCalendar(true);
+    setCalendarError(null);
+    try {
+      const { weekStart, weekEnd } = getWeekBounds();
+
+      // Query authentic calendar_items scoped to current user
+      const { data: calItems, error: calErr } = await fetchCalendarItems(supabase, user.id);
+
+      if (calErr) {
+        setCalendarError('Calendar unavailable');
+        setCalendarEvents([]);
+        setTaskEvents([]);
+      } else {
+        const items = calItems || [];
+        const meetings: CalendarEvent[] = [];
+        const tasks: TaskEvent[] = [];
+
+        for (const item of items) {
+          const dateStr = item.start_date || item.due_date;
+          if (!dateStr || dateStr < weekStart || dateStr > weekEnd) continue;
+
+          const timeStr = item.due_time
+            ? `${dateStr}T${item.due_time}`
+            : `${dateStr}T09:00:00`;
+
+          if (item.type === 'meeting' || item.type === 'event') {
+            meetings.push({
+              id: item.id,
+              title: item.title,
+              start_at: timeStr,
+              end_at: item.end_date ? `${item.end_date}T10:00:00` : null,
+              event_type: 'meeting',
+            });
+          } else {
+            tasks.push({
+              id: item.id,
+              title: item.title,
+              due_at: timeStr,
+              event_type: (item.type === 'review' || item.review_type) ? 'deadline' : 'task',
+            });
+          }
+        }
+
+        setCalendarEvents(meetings);
+        setTaskEvents(tasks);
+      }
+    } catch {
+      setCalendarError('Calendar unavailable');
+      setCalendarEvents([]);
+      setTaskEvents([]);
+    } finally {
+      setLoadingCalendar(false);
+    }
+
+    // 2d. Email Command Centre snapshot
+    setLoadingEmail(true);
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const [needReplyRes, unreadRes, flaggedRes, processedTodayRes, previewRes] = await Promise.all([
+        supabase
+          .from('email_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'needs_reply'),
+        supabase
+          .from('email_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false),
+        supabase
+          .from('email_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_flagged', true),
+        supabase
+          .from('email_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('processed_at', todayStart.toISOString()),
+        supabase
+          .from('email_items')
+          .select('id,sender_name,subject,client_or_project,received_at,status')
+          .eq('user_id', user.id)
+          .order('received_at', { ascending: false })
+          .limit(4),
+      ]);
+
+      setEmailStats({
+        needReply: needReplyRes.count ?? 0,
+        unread: unreadRes.count ?? 0,
+        flagged: flaggedRes.count ?? 0,
+        processedToday: processedTodayRes.count ?? 0,
+      });
+      setEmailPreviews((previewRes.data || []) as EmailPreviewItem[]);
+    } catch {
+      // Email snapshot is optional · stay at default zeros
+    } finally {
+      setLoadingEmail(false);
+    }
+
+    // 3. Permissions
     let permDataResult: BackendPermissionsResponse | null = null;
+    setLoadingPermissions(true);
     try {
       const { data: permData, error: permErr } = await queryBackendPermissions(supabase);
       if (permErr || !permData) {
@@ -208,16 +691,13 @@ export const DashboardPage: React.FC = () => {
       setLoadingPermissions(false);
     }
 
-    // 5. Fetch Recent Decisions (limit 5) if allowed by plan
+    // 4. Decisions
     if (permDataResult?.allowedFeatures.includes('decision_memory')) {
       setLoadingDecisions(true);
       try {
         const decRes = await fetchDecisions(supabase, { limit: 5 });
-        if (decRes.error) {
-          setDecisionsError('Failed to load decisions');
-        } else {
-          setRecentDecisions(decRes.data || []);
-        }
+        if (decRes.error) setDecisionsError('Failed to load decisions');
+        else setRecentDecisions(decRes.data || []);
       } catch {
         setDecisionsError('Failed to load decisions');
       } finally {
@@ -225,17 +705,14 @@ export const DashboardPage: React.FC = () => {
       }
     }
 
-    // 6. Fetch Recent Open Actions (limit 5) if allowed by plan
+    // 5. Actions
     if (permDataResult?.allowedFeatures.includes('action_tracker')) {
       setLoadingActions(true);
       try {
         const actRes = await fetchActions(supabase);
-        if (actRes.error) {
-          setActionsError('Failed to load actions');
-        } else {
-          const openActions = (actRes.data || [])
-            .filter((a) => a.status !== 'completed')
-            .slice(0, 5);
+        if (actRes.error) setActionsError('Failed to load actions');
+        else {
+          const openActions = (actRes.data || []).filter((a: ActionRecord) => a.status !== 'completed').slice(0, 5);
           setRecentActions(openActions);
         }
       } catch {
@@ -245,7 +722,7 @@ export const DashboardPage: React.FC = () => {
       }
     }
 
-    // 7. Fetch Insights if allowed
+    // 6. Insights
     if (permDataResult?.allowedFeatures.includes('insight')) {
       setLoadingInsights(true);
       try {
@@ -258,7 +735,7 @@ export const DashboardPage: React.FC = () => {
       }
     }
 
-    // 8. Fetch Stats if allowed
+    // 7. Stats
     if (permDataResult?.allowedFeatures.includes('stats')) {
       setLoadingStats(true);
       try {
@@ -271,7 +748,7 @@ export const DashboardPage: React.FC = () => {
       }
     }
 
-    // 9. Fetch Recent Endpoint Reports (limit 3) if allowed
+    // 8. Reports
     if (permDataResult?.allowedFeatures.includes('endpoint_report')) {
       setLoadingReports(true);
       try {
@@ -284,19 +761,17 @@ export const DashboardPage: React.FC = () => {
       }
     }
 
-    // 10. Fetch User Teams if team_workspace is allowed
+    // 9. Teams
     if (permDataResult?.allowedFeatures.includes('team_workspace')) {
       try {
         const teamsRes = await fetchUserTeams(supabase);
-        if (teamsRes.data) {
-          setUserTeams(teamsRes.data);
-        }
+        if (teamsRes.data) setUserTeams(teamsRes.data.map((t) => ({ team: t, role: t.currentRole })));
       } catch (err) {
         console.warn('Could not load user teams:', err);
       }
     }
 
-    // 11. Fetch Predictive Intelligence Snapshot if allowed
+    // 10. Predictive
     if (permDataResult?.allowedFeatures.includes('predictive_intelligence')) {
       setLoadingPredictive(true);
       try {
@@ -316,49 +791,37 @@ export const DashboardPage: React.FC = () => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Date formatters (en-AU)
+  // ── Formatters ─────────────────────────────────────────────────────────────
   const formatDate = (dateStr: string | null | undefined): string => {
-    if (!dateStr) return '—';
+    if (!dateStr) return '';
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
-      return new Intl.DateTimeFormat('en-AU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      }).format(d);
+      return new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
     } catch {
       return dateStr;
     }
   };
 
   const formatDateTime = (dateStr: string | null | undefined): string => {
-    if (!dateStr) return '—';
+    if (!dateStr) return '';
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
       return new Intl.DateTimeFormat('en-AU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
       }).format(d);
     } catch {
       return dateStr;
     }
   };
 
-  // Welcome greeting
+  // ── Derived values ─────────────────────────────────────────────────────────
   const fullName = profile?.full_name?.trim();
-  const welcomeGreeting = fullName ? `Welcome back, ${fullName}` : 'Welcome back';
-
-  // Plan badge text
+  const welcomeGreeting = fullName ? `Good day, ${fullName}` : 'Good day';
   const currentPlan: PlanType = (profile?.plan as PlanType) || 'free_preview';
   const planBadgeText = PLAN_LABELS[currentPlan] || 'Free Preview';
 
-  // Feature permission evaluation from backend
   const isFeatureAllowed = (key: FeatureKey): boolean => {
     if (!backendPerms) return false;
     return backendPerms.allowedFeatures.includes(key);
@@ -366,1449 +829,1025 @@ export const DashboardPage: React.FC = () => {
 
   const isActionTrackerAllowed = isFeatureAllowed('action_tracker');
   const isDecisionMemoryAllowed = isFeatureAllowed('decision_memory');
-  const isInsightAllowed = isFeatureAllowed('insight');
-  const isStatsAllowed = isFeatureAllowed('stats');
-  const isEndpointReportAllowed = isFeatureAllowed('endpoint_report');
-  const isPredictiveAllowed = isFeatureAllowed('predictive_intelligence');
 
-  // Locked features list definitions
-  const lockedFeatureDefinitions: {
-    key: FeatureKey;
-    title: string;
-    description: string;
-    tierBadge: 'Available on Pro' | 'Available on Team';
-    icon: React.ReactNode;
-  }[] = [
-    {
-      key: 'decision_memory',
-      title: 'Decision Memory',
-      description: 'Audit-ready decision logs, context rationale, and stakeholder recall across all workspace meetings.',
-      tierBadge: 'Available on Pro',
-      icon: <BrainCircuit size={20} />,
-    },
-    {
-      key: 'action_tracker',
-      title: 'Action Tracker',
-      description: 'Verifiable accountability matrix mapping owners, agreed deadlines, and execution progress.',
-      tierBadge: 'Available on Pro',
-      icon: <CheckCircle2 size={20} />,
-    },
-    {
-      key: 'keyword_search',
-      title: 'Keyword Search',
-      description: 'Deep indexing across all project transcripts, meeting notes, outputs, and structured decisions.',
-      tierBadge: 'Available on Pro',
-      icon: <Search size={20} />,
-    },
-    {
-      key: 'insight',
-      title: 'Insight',
-      description: 'Continuous synthesis of recurring meeting patterns, executive sentiment, and strategic topics.',
-      tierBadge: 'Available on Pro',
-      icon: <Lightbulb size={20} />,
-    },
-    {
-      key: 'stats',
-      title: 'Stats',
-      description: 'Comprehensive workspace metrics tracking meeting velocity, transcript conversion rate, and output generation.',
-      tierBadge: 'Available on Pro',
-      icon: <BarChart3 size={20} />,
-    },
-    {
-      key: 'endpoint_report',
-      title: 'Endpoint Report',
-      description: 'Automated executive end-of-quarter and milestone summaries formatted for C-suite governance.',
-      tierBadge: 'Available on Pro',
-      icon: <FileSpreadsheet size={20} />,
-    },
-    {
-      key: 'automation_export',
-      title: 'Automation Export',
-      description: 'Export structured outputs directly to downstream workflows, webhooks, and executive distribution lists.',
-      tierBadge: 'Available on Pro',
-      icon: <Share2 size={20} />,
-    },
-    {
-      key: 'team_workspace',
-      title: 'Team Workspace',
-      description: 'Shared organizational workspaces, multi-seat governance, and role-based access for departments.',
-      tierBadge: 'Available on Team',
-      icon: <Users size={20} />,
-    },
-    {
-      key: 'predictive_intelligence',
-      title: 'Predictive Intelligence',
-      description: 'Continuous machine-assisted risk predictions, strategic recommendations, and 30-to-365 day operational trajectory forecasts.',
-      tierBadge: 'Available on Team',
-      icon: <TrendingUp size={20} />,
-    },
-  ];
-
-  // Active locked features (only show features that are locked on the current user's backend plan)
-  const activeLockedFeatures = lockedFeatureDefinitions.filter(
-    (item) => !isFeatureAllowed(item.key)
-  );
-
-  // Overall error presence
   const hasAnyError =
-    dashboardError ||
-    profileError ||
-    projectsError ||
-    outputsError ||
-    decisionsError ||
-    actionsError ||
-    permissionError;
+    dashboardError || profileError || projectsError || outputsError ||
+    decisionsError || actionsError || permissionError;
 
+  // Empty state: no projects and no outputs yet
+  const isEmpty = !loadingDashboard && recentProjects.length === 0 && recentOutputs.length === 0;
+
+  // Performance calculation from open actions
+  const totalActionsThisWeek = recentActions.length + (stats?.completedActions || 0);
+  const completedActionsThisWeek = stats?.completedActions || 0;
+  const perfState = getPerformanceState(completedActionsThisWeek, totalActionsThisWeek);
+  const perfPct = totalActionsThisWeek > 0 ? Math.round((completedActionsThisWeek / totalActionsThisWeek) * 100) : 0;
+  const perf = PERF_CONFIG[perfState];
+
+  // Workload forecast: if behind, remaining work grows
+  const workloadForecast =
+    perfState === 'critical'
+      ? Math.min(Math.round((1 - perfPct / 100) * 120), 999)
+      : perfState === 'behind'
+      ? Math.round((1 - perfPct / 100) * 80)
+      : 0;
+
+  // Stage chart · V8: percentage-based clustered bar chart
+  const stageBarData: StageBarChartItem[] = (() => {
+    const totalProjects = stageCounts.reduce((sum, s) => sum + s.stage_count, 0);
+    return STAGE_ORDER.map((label) => {
+      const row = stageCounts.find((s) => s.stage === label);
+      const count = row?.stage_count ?? 0;
+      const actualPct = totalProjects > 0
+        ? Math.round((count / totalProjects) * 100)
+        : 0;
+      const plannedPct = PLANNED_TARGETS[label] ?? 50;
+      return { label, plannedPct, actualPct };
+    });
+  })();
+
+  // Events for day helper
+  function eventsForDay(dateStr: string): Array<{ id: string; title: string; time: string; type: 'meeting' | 'task' | 'deadline' }> {
+    const meetings = calendarEvents
+      .filter((e) => e.start_at.slice(0, 10) === dateStr)
+      .map((e) => ({
+        id: e.id,
+        title: e.title,
+        time: new Date(e.start_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
+        type: 'meeting' as const,
+      }));
+
+    const tasks = taskEvents
+      .filter((e) => e.due_at.slice(0, 10) === dateStr)
+      .map((e) => ({
+        id: e.id,
+        title: e.title,
+        time: new Date(e.due_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
+        type: e.event_type,
+      }));
+
+    return [...meetings, ...tasks].sort((a, b) => a.time.localeCompare(b.time));
+  }
+
+  // Week forecast
+  const weekDays = getWeekDays();
+  const todayIdx = weekDays.findIndex((d) => d.isToday);
+
+  // Output type panels · find first of each type in recent outputs
+  const execSummary = recentOutputs.find((o) => o.output_type === 'executive_summary');
+  const decisionLog = recentOutputs.find((o) => o.output_type === 'decision_log');
+  const actionPlan = recentOutputs.find((o) => o.output_type === 'action_plan');
+  const transcript = recentOutputs.find((o) => o.output_type === 'transcript');
+
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (loadingDashboard || authLoading) {
+    return (
+      <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '60px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#94a3b8', padding: '40px 0' }}>
+          <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
+          <span style={{ fontSize: '0.9rem' }}>Loading your workspace...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Empty / unsaved state ──────────────────────────────────────────────────
+  if (isEmpty) {
+    return (
+      <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '60px' }}>
+        {/* Minimal header */}
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#f3c958', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <Sparkles size={13} color="#f3c958" />
+              <span>CONCLUDO WORKSPACE</span>
+            </div>
+            <span style={{ padding: '5px 12px', background: 'rgba(226,181,60,0.1)', border: '1px solid rgba(226,181,60,0.3)', borderRadius: '20px', color: '#f3c958', fontSize: '0.78rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Zap size={12} /> {planBadgeText}
+            </span>
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 700, color: '#f8fafc', marginBottom: '4px' }}>{welcomeGreeting}</h1>
+          <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
+            {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+
+        {/* Empty prompt */}
+        <div
+          style={{
+            background: 'rgba(14,23,41,0.6)',
+            border: '1px dashed rgba(226,181,60,0.25)',
+            borderRadius: '16px',
+            padding: '56px 40px',
+            textAlign: 'center',
+            marginBottom: '32px',
+          }}
+        >
+          <div style={{ width: '56px', height: '56px', background: 'rgba(226,181,60,0.1)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#f3c958' }}>
+            <BookOpen size={26} />
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.3rem', fontWeight: 700, color: '#f8fafc', marginBottom: '10px' }}>
+            Your workspace is ready
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto 28px', lineHeight: 1.6 }}>
+            Create your first project by pasting a meeting transcript. Your dashboard will fill with your weekly goals, stage progress, and outputs once work begins.
+          </p>
+          <Link
+            to="/projects/new"
+            className="btn-gold"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
+          >
+            <PlusCircle size={16} />
+            <span>Create Your First Project</span>
+          </Link>
+        </div>
+
+        {/* Quick actions compact */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {[
+            { to: '/projects', icon: <FolderKanban size={15} />, label: 'Projects' },
+            { to: '/actions', icon: <CheckCircle2 size={15} />, label: 'Actions' },
+            { to: '/decision-memory', icon: <BrainCircuit size={15} />, label: 'Decisions' },
+            { to: '/settings', icon: <Settings size={15} />, label: 'Settings' },
+          ].map((a) => (
+            <Link
+              key={a.to}
+              to={a.to}
+              className="btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}
+            >
+              {a.icon}
+              {a.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main dashboard ─────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '60px' }}>
-      {/* Top Welcome Section */}
-      <div className="page-header" style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '8px' }}>
-          <div className="page-eyebrow" style={{ marginBottom: 0 }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#f3c958', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
             <Sparkles size={13} color="#f3c958" />
             <span>CONCLUDO WORKSPACE</span>
           </div>
-
-          {/* Real Plan Badge */}
-          <div
-            className="plan-badge-placeholder"
-            title={`Authoritative Plan: ${planBadgeText}`}
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.8rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(226, 181, 60, 0.12)',
-              border: '1px solid rgba(226, 181, 60, 0.35)',
-              borderRadius: '20px',
-              color: '#f3c958',
-              fontWeight: 600,
-            }}
-          >
-            <span className="plan-badge-dot" style={{ background: '#f3c958', boxShadow: '0 0 8px #f3c958' }} />
-            <Zap size={13} />
-            <span>{planBadgeText}</span>
-          </div>
+          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc', marginBottom: '2px' }}>
+            {welcomeGreeting}
+          </h1>
+          <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
+            {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
         </div>
-
-        <h1 className="page-title" style={{ marginBottom: '8px' }}>
-          {welcomeGreeting}
-        </h1>
-        <p className="page-subtitle" style={{ fontSize: '1.05rem', fontWeight: 600, color: '#cbd5e1' }}>
-          Concludo Workspace is your central command hub for meeting intelligence, structured records, and verifiable outcomes.
-        </p>
-      </div>
-
-      {/* Dashboard Error Alert with Retry Button */}
-      {hasAnyError && (
-        <div
-          className="auth-alert-error"
-          role="alert"
-          style={{
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle size={20} color="#f87171" style={{ flexShrink: 0 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: '#fca5a5' }}>Notice encountered while loading data:</div>
-              <div style={{ fontSize: '0.88rem', color: '#fecaca' }}>
-                {dashboardError || profileError || projectsError || outputsError || permissionError}
-              </div>
-            </div>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ padding: '6px 14px', background: 'rgba(226,181,60,0.1)', border: '1px solid rgba(226,181,60,0.3)', borderRadius: '20px', color: '#f3c958', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Zap size={13} /> {planBadgeText}
+          </span>
           <button
             onClick={loadDashboardData}
             className="btn-secondary"
-            style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             <RefreshCw size={14} />
-            <span>Retry / Refresh Dashboard</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Error ── */}
+      {hasAnyError && (
+        <div className="auth-alert-error" role="alert" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={18} color="#f87171" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '0.85rem', color: '#fecaca' }}>
+              {dashboardError || profileError || projectsError || outputsError || permissionError}
+            </span>
+          </div>
+          <button onClick={loadDashboardData} className="btn-secondary" style={{ padding: '5px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={13} /> Retry
           </button>
         </div>
       )}
 
-      {/* Primary Dashboard Action Buttons */}
+      {/* ── Performance Banner ── */}
       <div
         style={{
+          background: perf.bg,
+          border: `1px solid ${perf.border}`,
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
           display: 'flex',
-          gap: '10px',
-          marginBottom: '36px',
-          flexWrap: 'wrap',
           alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
         }}
       >
-        <Link to="/projects/new" className="btn-gold" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <PlusCircle size={17} />
-          <span>Create New Project</span>
-        </Link>
-        <Link to="/projects" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <FolderKanban size={17} />
-          <span>Open Projects</span>
-        </Link>
-        <Link to="/projects/new" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <FileText size={17} />
-          <span>Paste Transcript</span>
-        </Link>
-        <Link to="/decision-memory" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <BrainCircuit size={17} />
-          <span>View Decision Memory</span>
-        </Link>
-        <Link to="/actions" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <CheckCircle2 size={17} />
-          <span>View Actions</span>
-        </Link>
-        <Link to="/settings" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <Settings size={17} />
-          <span>Open Settings</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ color: perf.color }}>{perf.icon}</span>
+          <div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, color: perf.color, fontSize: '0.95rem' }}>
+              {perf.label}
+            </div>
+            <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '2px' }}>{perf.msg}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {workloadForecast > 0 && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: perf.color, fontFamily: 'var(--font-heading)' }}>
+                +{workloadForecast}%
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>projected workload increase</div>
+            </div>
+          )}
+          {perfState === 'crushing' && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f3c958', fontFamily: 'var(--font-heading)' }}>
+                {perfPct}%
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>completion rate</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Week Forecast Strip ── */}
+      <div style={{ ...cardStyle, marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div style={sectionHeadStyle}>
+            <Calendar size={14} color="#e2b53c" />
+            Week Forecast
+          </div>
+          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+            {formatShortDate(weekDays[0].date)} · {formatShortDate(weekDays[4].date)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {weekDays.map((day, i) => {
+            const isPast = i < todayIdx;
+            const isToday = day.isToday;
+            const isFuture = i > todayIdx;
+            return (
+              <div
+                key={day.label}
+                style={{
+                  flex: 1,
+                  padding: '10px 8px',
+                  borderRadius: '8px',
+                  background: isToday
+                    ? 'rgba(226,181,60,0.12)'
+                    : isPast
+                    ? 'rgba(255,255,255,0.03)'
+                    : 'rgba(255,255,255,0.02)',
+                  border: isToday
+                    ? '1px solid rgba(226,181,60,0.4)'
+                    : '1px solid rgba(255,255,255,0.05)',
+                  textAlign: 'center',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: isToday ? '#f3c958' : '#64748b', marginBottom: '4px', letterSpacing: '0.06em' }}>
+                  {day.label.toUpperCase()}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: isToday ? '#f8fafc' : '#475569' }}>{day.date.getDate()}</div>
+                <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'center', gap: '3px' }}>
+                  {isPast ? (
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} title="Done" />
+                  ) : isToday ? (
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f3c958', display: 'inline-block', boxShadow: '0 0 6px #f3c958' }} title="Today" />
+                  ) : (
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', display: 'inline-block' }} title="Upcoming" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Week progress */}
+        <div style={{ marginTop: '14px' }}>
+          <ProgressBar
+            value={todayIdx >= 0 ? Math.round(((todayIdx + 1) / 5) * 100) : 20}
+            color={perfState === 'crushing' ? '#f3c958' : perfState === 'on_track' ? '#4ade80' : perfState === 'behind' ? '#fb923c' : '#f87171'}
+            label="Week progress"
+          />
+        </div>
+      </div>
+
+      {/* ── 3-Column Row: Goals | Stage Chart | Actions ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+
+        {/* Weekly Goals */}
+        <div style={cardStyle}>
+          <div style={sectionHeadStyle}>
+            <Target size={14} color="#e2b53c" />
+            Weekly Goals
+          </div>
+          {recentProjects.length === 0 ? (
+            <p style={{ color: '#475569', fontSize: '0.82rem' }}>No active projects this week.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {recentProjects.slice(0, 4).map((p) => (
+                <li key={p.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <span style={{ marginTop: '4px', width: 6, height: 6, borderRadius: '50%', background: '#e2b53c', flexShrink: 0, display: 'inline-block' }} />
+                  <div>
+                    <Link to={`/projects/${p.id}`} style={{ fontSize: '0.84rem', color: '#f8fafc', textDecoration: 'none', fontWeight: 500 }}>
+                      {p.title}
+                    </Link>
+                    {p.client_or_project && (
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>{p.client_or_project}</div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link to="/projects" style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
+            All projects <ChevronRight size={13} />
+          </Link>
+        </div>
+
+        {/* Stage Chart */}
+        <div style={cardStyle}>
+          <div style={sectionHeadStyle}>
+            <BarChart3 size={14} color="#e2b53c" />
+            Project Evolution &amp; Stages
+          </div>
+          <ClusteredBarChart data={stageBarData} />
+          <div style={{ marginTop: '12px', fontSize: '0.72rem', color: '#475569' }}>
+            {stageCounts.reduce((s, c) => s + c.stage_count, 0)} active{' '}
+            {stageCounts.reduce((s, c) => s + c.stage_count, 0) === 1 ? 'project' : 'projects'}
+          </div>
+        </div>
+
+        {/* Open Actions */}
+        <div style={cardStyle}>
+          <div style={sectionHeadStyle}>
+            <ListChecks size={14} color="#e2b53c" />
+            Open Actions
+          </div>
+          {!isActionTrackerAllowed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '0.82rem' }}>
+              <Zap size={14} /> Available on Pro
+            </div>
+          ) : recentActions.length === 0 ? (
+            <p style={{ color: '#475569', fontSize: '0.82rem' }}>No open actions.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {recentActions.map((a) => {
+                const overdue = isActionOverdue(a);
+                return (
+                  <li key={a.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <span
+                      style={{
+                        marginTop: '3px',
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: overdue ? '#f87171' : '#f3c958',
+                        flexShrink: 0,
+                        display: 'inline-block',
+                        boxShadow: overdue ? '0 0 6px #f8717180' : 'none',
+                      }}
+                    />
+                    <div>
+                      <Link to={`/actions/${a.id}`} style={{ fontSize: '0.83rem', color: overdue ? '#fca5a5' : '#f8fafc', textDecoration: 'none' }}>
+                        {a.action_title || a.action_description?.slice(0, 60)}
+                      </Link>
+                      {a.due_date && (
+                        <div style={{ fontSize: '0.7rem', color: overdue ? '#f87171' : '#64748b', marginTop: '1px' }}>
+                          Due {formatDate(a.due_date)}{overdue ? ' · overdue' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <Link to="/actions" style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
+            All actions <ChevronRight size={13} />
+          </Link>
+        </div>
+      </div>
+
+            {/* ── Week Calendar Overview ── */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={sectionHeadStyle}>
+          <Calendar size={14} color="#e2b53c" />
+          Week Overview · {formatShortDate(weekDays[0].date)} to {formatShortDate(weekDays[4].date)}
+        </div>
+        {loadingCalendar ? (
+          <div style={{ ...cardStyle, textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+            <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', marginRight: '8px' }} />
+            Loading calendar...
+          </div>
+        ) : calendarError ? (
+          <div style={{ ...cardStyle, color: '#475569', fontSize: '0.82rem' }}>
+            {calendarError}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+            {weekDays.map((day) => {
+              const dayEvents = eventsForDay(day.dateStr);
+              const isToday = day.isToday;
+
+              return (
+                <div
+                  key={day.label}
+                  style={{
+                    background: isToday ? '#fffcf2' : '#ffffff',
+                    border: isToday ? '1px solid #e2b53c' : '1px solid #e2e8f0',
+                    boxShadow: isToday ? '0 0 0 2px rgba(226,181,60,0.18)' : 'none',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    minHeight: '140px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {day.label}
+                    </span>
+                    <span style={{ fontFamily: "'Poppins', Arial, sans-serif", fontSize: '1.05rem', fontWeight: 700, color: isToday ? '#9a6c00' : '#16263f' }}>
+                      {day.date.getDate()}
+                    </span>
+                  </div>
+
+                  {dayEvents.length === 0 ? (
+                    <div style={{ color: '#94a3b8', fontSize: '0.82rem', marginTop: '12px', textAlign: 'center' }}>
+                      -
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {dayEvents.map((ev) => {
+                        const isMeeting = ev.type === 'meeting';
+                        const isDeadline = ev.type === 'deadline';
+                        const bg = isMeeting
+                          ? 'rgba(33,57,92,0.08)'
+                          : isDeadline
+                          ? 'rgba(248,113,113,0.10)'
+                          : 'rgba(226,181,60,0.10)';
+                        const borderCol = isMeeting ? '#21395c' : isDeadline ? '#f87171' : '#e2b53c';
+                        const textCol = isMeeting ? '#21395c' : isDeadline ? '#b91c1c' : '#7a5200';
+
+                        return (
+                          <div
+                            key={ev.id}
+                            style={{
+                              fontSize: '0.68rem',
+                              borderRadius: '4px',
+                              padding: '3px 6px',
+                              background: bg,
+                              borderLeft: `2px solid ${borderCol}`,
+                              color: textCol,
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            <div style={{ fontSize: '0.6rem', color: '#64748b', marginBottom: '1px' }}>
+                              {ev.time}
+                            </div>
+                            <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {ev.title}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Email Command Centre Snapshot ── */}
+      <div style={{ ...cardStyle, marginBottom: '24px' }}>
+        <div style={sectionHeadStyle}>
+          <Activity size={14} color="#e2b53c" />
+          Email Command Centre
+        </div>
+
+        {/* Four stat tiles */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+          {[
+            { label: 'Need reply', value: emailStats.needReply, color: '#f87171' },
+            { label: 'Unread', value: emailStats.unread, color: '#f3c958' },
+            { label: 'Flagged', value: emailStats.flagged, color: '#fb923c' },
+            { label: 'Processed today', value: emailStats.processedToday, color: '#4ade80' },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '8px',
+                padding: '12px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: stat.color, lineHeight: 1 }}>
+                {stat.value}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Email preview rows */}
+        {loadingEmail ? (
+          <div style={{ color: '#475569', fontSize: '0.82rem' }}>Loading...</div>
+        ) : emailPreviews.length === 0 ? (
+          <div style={{ color: '#475569', fontSize: '0.82rem' }}>No recent emails.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            {emailPreviews.map((email) => (
+              <div
+                key={email.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.83rem', color: '#f8fafc', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {email.sender_name || 'Unknown'}
+                    </span>
+                    {email.client_or_project && (
+                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        · {email.client_or_project}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {email.subject || '(no subject)'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '12px' }}>
+                  {email.received_at && (
+                    <span style={{ fontSize: '0.7rem', color: '#475569' }}>
+                      {new Date(email.received_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                  {email.status === 'needs_reply' && (
+                    <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#f87171', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '4px', padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                      Reply
+                    </span>
+                  )}
+                  {email.status === 'flagged' && (
+                    <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#fb923c', background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.3)', borderRadius: '4px', padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                      Flagged
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Link
+          to="/email"
+          style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}
+        >
+          Open Email Centre <ChevronRight size={13} />
         </Link>
       </div>
 
-      {/* SECTION 1: QUICK ACTIONS */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Zap size={18} color="#f3c958" />
-          <span>Quick Actions</span>
-        </h2>
+      {/* ── Active Projects (horizontal scroll with full context) ── */}
+      {recentProjects.length > 0 && (
+        <section style={{ marginBottom: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={sectionHeadStyle}>
+              <FolderKanban size={14} color="#e2b53c" />
+              Active Projects
+            </div>
+            <Link to="/projects" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
+              View all <ChevronRight size={13} />
+            </Link>
+          </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
-          {/* Card 1: Create New Project */}
-          <Link
-            to="/projects/new"
-            className="content-card"
-            style={{
-              padding: '22px',
-              textDecoration: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  background: 'rgba(226, 181, 60, 0.15)',
-                  border: '1px solid rgba(226, 181, 60, 0.35)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#f3c958',
-                  marginBottom: '14px',
-                }}
-              >
-                <PlusCircle size={22} />
-              </div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                Create New Project
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.86rem', lineHeight: 1.5, margin: 0 }}>
-                Start a new meeting record
-              </p>
-            </div>
-            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', color: '#f3c958', fontSize: '0.82rem', fontWeight: 600 }}>
-              <span>Start project</span>
-              <ArrowRight size={14} />
-            </div>
-          </Link>
-
-          {/* Card 2: Paste Transcript */}
-          <Link
-            to="/projects/new"
-            className="content-card"
-            style={{
-              padding: '22px',
-              textDecoration: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  background: 'rgba(33, 57, 92, 0.4)',
-                  border: '1px solid rgba(226, 181, 60, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#f3c958',
-                  marginBottom: '14px',
-                }}
-              >
-                <FileText size={22} />
-              </div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                Paste Transcript
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.86rem', lineHeight: 1.5, margin: 0 }}>
-                Create a project and add transcript text
-              </p>
-            </div>
-            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', color: '#f3c958', fontSize: '0.82rem', fontWeight: 600 }}>
-              <span>Paste now</span>
-              <ArrowRight size={14} />
-            </div>
-          </Link>
-
-          {/* Card 3: Open Projects */}
-          <Link
-            to="/projects"
-            className="content-card"
-            style={{
-              padding: '22px',
-              textDecoration: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  background: 'rgba(33, 57, 92, 0.4)',
-                  border: '1px solid rgba(226, 181, 60, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#f3c958',
-                  marginBottom: '14px',
-                }}
-              >
-                <FolderKanban size={22} />
-              </div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                Open Projects
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.86rem', lineHeight: 1.5, margin: 0 }}>
-                View saved meeting records
-              </p>
-            </div>
-            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', color: '#f3c958', fontSize: '0.82rem', fontWeight: 600 }}>
-              <span>Browse records</span>
-              <ArrowRight size={14} />
-            </div>
-          </Link>
-
-          {/* Card 4: Settings */}
-          <Link
-            to="/settings"
-            className="content-card"
-            style={{
-              padding: '22px',
-              textDecoration: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  background: 'rgba(33, 57, 92, 0.4)',
-                  border: '1px solid rgba(226, 181, 60, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#f3c958',
-                  marginBottom: '14px',
-                }}
-              >
-                <Settings size={22} />
-              </div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                Settings
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.86rem', lineHeight: 1.5, margin: 0 }}>
-                Manage account and workspace settings
-              </p>
-            </div>
-            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', color: '#f3c958', fontSize: '0.82rem', fontWeight: 600 }}>
-              <span>Configure</span>
-              <ArrowRight size={14} />
-            </div>
-          </Link>
-        </div>
-      </section>
-
-      {/* SECTION: TEAM WORKSPACE SNAPSHOT (When on Team / Admin Tier) */}
-      {isFeatureAllowed('team_workspace') && (
-        <section
-          className="content-card"
-          style={{
-            padding: '22px 24px',
-            marginBottom: '32px',
-            background: 'linear-gradient(135deg, #16263f 0%, #1a2f4d 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '8px',
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#38bdf8',
-                }}
-              >
-                <Users size={20} />
-              </div>
-              <div>
-                <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>Team Workspaces</span>
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      background: 'rgba(56, 189, 248, 0.15)',
-                      color: '#38bdf8',
-                    }}
-                  >
-                    TEAM PLAN ACTIVE
-                  </span>
-                </h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: '2px 0 0 0' }}>
-                  {userTeams.length > 0
-                    ? `You are an active member of ${userTeams.length} collaborative workspace${userTeams.length > 1 ? 's' : ''}.`
-                    : 'Set up your shared workspace to collaborate on meeting archives, decisions, and action plans.'}
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              {userTeams.length > 0 ? (
-                <>
-                  <Link
-                    to="/team"
-                    className="btn btn-primary"
-                    style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <span>Open Team Workspace</span>
-                    <ArrowRight size={14} />
-                  </Link>
-                  <Link
-                    to="/team/settings"
-                    className="btn btn-secondary"
-                    style={{ padding: '8px 14px', fontSize: '0.85rem' }}
-                  >
-                    <span>Manage Team</span>
-                  </Link>
-                </>
-              ) : (
+          <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {recentProjects.map((p) => {
+              const projectOutputs = recentOutputs.filter((o) => o.project_id === p.id);
+              const hasTranscript = projectOutputs.some((o) => o.output_type === 'transcript');
+              const hasDecision = projectOutputs.some((o) => o.output_type === 'decision_log');
+              const hasAction = projectOutputs.some((o) => o.output_type === 'action_plan');
+              const hasExec = projectOutputs.some((o) => o.output_type === 'executive_summary');
+              return (
                 <Link
-                  to="/team/create"
-                  className="btn btn-primary"
-                  style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  key={p.id}
+                  to={`/projects/${p.id}`}
+                  style={{
+                    minWidth: '260px',
+                    maxWidth: '260px',
+                    background: '#0e1729',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    flexShrink: 0,
+                    transition: 'border-color 0.2s',
+                  }}
                 >
-                  <PlusCircle size={15} />
-                  <span>Create Team Workspace</span>
+                  {/* Project header */}
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {p.title}
+                    </div>
+                    {p.client_or_project && (
+                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{p.client_or_project}</div>
+                    )}
+                  </div>
+
+                  {/* Output chips */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {hasTranscript && <FileChip name="Transcript" type="TXT" />}
+                    {hasExec && <FileChip name="Summary" type="DOC" />}
+                    {hasDecision && <FileChip name="Decisions" type="LOG" />}
+                    {hasAction && <FileChip name="Actions" type="ACT" />}
+                    {projectOutputs.length === 0 && (
+                      <span style={{ fontSize: '0.72rem', color: '#475569' }}>No outputs yet</span>
+                    )}
+                  </div>
+
+                  {/* Meta row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                    {p.meeting_date ? (
+                      <span style={{ fontSize: '0.7rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={11} /> {formatDate(p.meeting_date)}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.7rem', color: '#475569' }}>{formatDate(p.updated_at)}</span>
+                    )}
+                    <ArrowRight size={13} color="#e2b53c" />
+                  </div>
                 </Link>
-              )}
-            </div>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* TWO-COLUMN GRID: RECENT PROJECTS & RECENT OUTPUTS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px', marginBottom: '32px' }}>
-        {/* SECTION 2: RECENT PROJECTS */}
-        <section className="content-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-            <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FolderKanban size={19} color="#f3c958" />
-              <span>Transcript Archive / Recent Projects</span>
-            </h2>
-            <Link to="/projects" style={{ fontSize: '0.82rem', color: '#f3c958', fontWeight: 600 }}>
-              View all
-            </Link>
+      {/* ── Outputs Section ── */}
+      {recentOutputs.length > 0 && (
+        <section style={{ marginBottom: '28px' }}>
+          <div style={sectionHeadStyle}>
+            <FileText size={14} color="#e2b53c" />
+            Recent Outputs
           </div>
 
-          {loadingProjects ? (
-            <div style={{ padding: '36px 0', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <Loader2 size={24} className="spin-animation" color="#f3c958" />
-              <span style={{ fontSize: '0.88rem' }}>Loading projects</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+
+            {/* Executive Summary · Word doc style */}
+            {execSummary && (
+              <Link to={`/projects/${execSummary.project_id}`} style={{ textDecoration: 'none' }}>
+                <div style={wordDocStyle}>
+                  <div style={wordDocTitleStyle}>
+                    <BookOpen size={15} color="#16263f" />
+                    Executive Summary
+                    {execSummary.projects?.title && (
+                      <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#475569', marginLeft: 'auto' }}>
+                        {execSummary.projects.title}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.65, maxHeight: '120px', overflow: 'hidden', position: 'relative' }}>
+                    {execSummary.content?.slice(0, 360) || 'No content.'}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '32px', background: 'linear-gradient(transparent, #ffffff)' }} />
+                  </div>
+                  <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={11} /> {formatDate(execSummary.updated_at)} &middot; Open full summary
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {/* Decision Log · cutout style */}
+            {decisionLog && isDecisionMemoryAllowed && (
+              <Link to={`/projects/${decisionLog.project_id}`} style={{ textDecoration: 'none' }}>
+                <div style={cutoutStyle}>
+                  <div style={{ ...sectionHeadStyle, marginBottom: '10px' }}>
+                    <BrainCircuit size={13} color="#e2b53c" />
+                    Decision Log
+                    {decisionLog.projects?.title && (
+                      <span style={{ marginLeft: 'auto', color: '#475569', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
+                        {decisionLog.projects.title}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.6, maxHeight: '90px', overflow: 'hidden' }}>
+                    {decisionLog.content?.slice(0, 240) || 'No decisions recorded.'}
+                  </div>
+                  <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <ArrowRight size={11} color="#e2b53c" />
+                    <span style={{ color: '#e2b53c' }}>View full decision log</span>
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {/* Action Plan · bullet style */}
+            {actionPlan && isActionTrackerAllowed && (
+              <Link to={`/projects/${actionPlan.project_id}`} style={{ textDecoration: 'none' }}>
+                <div style={cardStyle}>
+                  <div style={sectionHeadStyle}>
+                    <CheckCircle2 size={13} color="#e2b53c" />
+                    Action Plan
+                    {actionPlan.projects?.title && (
+                      <span style={{ marginLeft: 'auto', color: '#475569', textTransform: 'none', letterSpacing: 0, fontWeight: 400, fontSize: '0.75rem' }}>
+                        {actionPlan.projects.title}
+                      </span>
+                    )}
+                  </div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                    {(actionPlan.content || '')
+                      .split('\n')
+                      .filter((line) => line.trim().length > 0)
+                      .slice(0, 5)
+                      .map((line, i) => (
+                        <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                          <span style={{ marginTop: '5px', width: 5, height: 5, borderRadius: '50%', background: '#e2b53c', flexShrink: 0, display: 'inline-block' }} />
+                          <span>{line.replace(/^[-*•]\s*/, '')}</span>
+                        </li>
+                      ))}
+                  </ul>
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#e2b53c', fontWeight: 600 }}>
+                    <ArrowRight size={11} /> Open full action plan
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {/* Transcript · Word doc style */}
+            {transcript && (
+              <Link to={`/projects/${transcript.project_id}`} style={{ textDecoration: 'none' }}>
+                <div style={wordDocStyle}>
+                  <div style={wordDocTitleStyle}>
+                    <FileText size={15} color="#16263f" />
+                    Meeting Transcript
+                    {transcript.projects?.title && (
+                      <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#475569', marginLeft: 'auto' }}>
+                        {transcript.projects.title}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.65, maxHeight: '110px', overflow: 'hidden', position: 'relative', fontFamily: "'Inter', monospace" }}>
+                    {transcript.content?.slice(0, 360) || 'No transcript content.'}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '32px', background: 'linear-gradient(transparent, #ffffff)' }} />
+                  </div>
+                  <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={11} /> {formatDate(transcript.updated_at)} · Open project
+                  </div>
+                </div>
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── Decision Memory preview ── */}
+      {isDecisionMemoryAllowed && recentDecisions.length > 0 && (
+        <section style={{ marginBottom: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={sectionHeadStyle}>
+              <BrainCircuit size={14} color="#e2b53c" />
+              Decision Memory
             </div>
-          ) : recentProjects.length === 0 ? (
-            /* Empty State */
-            <div style={{ padding: '36px 16px', textAlign: 'center', background: 'rgba(14, 23, 41, 0.4)', borderRadius: '12px', border: '1px dashed rgba(226, 181, 60, 0.2)' }}>
-              <FolderKanban size={32} color="#64748b" style={{ margin: '0 auto 12px' }} />
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                No projects yet
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '16px' }}>
-                Get started by creating your first meeting project record.
-              </p>
-              <Link to="/projects/new" className="btn-gold" style={{ fontSize: '0.84rem', padding: '8px 16px' }}>
-                <PlusCircle size={15} />
-                <span>Create your first project</span>
+            <Link to="/decision-memory" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
+              View all <ChevronRight size={13} />
+            </Link>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {recentDecisions.slice(0, 3).map((d) => (
+              <Link
+                key={d.id}
+                to={`/decision-memory/${d.id}`}
+                style={{
+                  ...cutoutStyle,
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 500, marginBottom: '3px' }}>
+                    {d.decision_title || d.decision_summary?.slice(0, 80) || 'Decision'}
+                  </div>
+                  {d.decision_summary && d.decision_title && (
+                    <div style={{ fontSize: '0.77rem', color: '#64748b', lineHeight: 1.5 }}>
+                      {d.decision_summary.slice(0, 100)}...
+                    </div>
+                  )}
+                </div>
+                <ChevronRight size={14} color="#e2b53c" style={{ marginTop: '3px', flexShrink: 0 }} />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Intelligence Snapshot (Insights + Stats) ── */}
+      {(insights || stats) && (
+        <section style={{ marginBottom: '28px' }}>
+          <div style={sectionHeadStyle}>
+            <Activity size={14} color="#e2b53c" />
+            Workspace Intelligence
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+            {stats?.totalProjects != null && (
+              <div style={cardStyle}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{stats.totalProjects}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Total projects</div>
+              </div>
+            )}
+            {recentOutputs.length > 0 && (
+              <div style={cardStyle}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{recentOutputs.length}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Outputs generated</div>
+              </div>
+            )}
+            {recentDecisions.length > 0 && (
+              <div style={cardStyle}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{recentDecisions.length}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Decisions recorded</div>
+              </div>
+            )}
+            {recentActions.length > 0 && (
+              <div style={cardStyle}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{recentActions.length}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Open actions</div>
+              </div>
+            )}
+          </div>
+          {(insights?.keyThemes?.[0] || insights?.topOpportunities?.[0]) && (
+            <div style={{ ...cardStyle, marginTop: '12px' }}>
+              <div style={sectionHeadStyle}><Lightbulb size={13} color="#e2b53c" /> Insight</div>
+              <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{insights?.keyThemes?.[0] ? insights.keyThemes[0].name + ' · ' + insights.keyThemes[0].relevance + '% relevance' : (insights?.topOpportunities?.[0]?.title || 'Standardised workflows')}</p>
+              <Link to="/insight" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.77rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
+                Full insights <ChevronRight size={12} />
               </Link>
             </div>
-          ) : (
-            /* Project List */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {recentProjects.map((proj) => (
+          )}
+        </section>
+      )}
+
+      {/* ── Predictive Intelligence ── */}
+      {predictiveData && (
+        <section style={{ marginBottom: '28px' }}>
+          <div style={sectionHeadStyle}>
+            <TrendingUp size={14} color="#e2b53c" />
+            Predictive Intelligence
+          </div>
+          <div style={{ ...cutoutStyle }}>
+            {(predictiveData.strategicRecommendations?.[0] || predictiveData.riskPredictions?.[0]) && (
+              <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.65, margin: '0 0 10px' }}>{predictiveData.strategicRecommendations?.[0]?.summary || predictiveData.riskPredictions?.[0]?.explanation || 'Strategic forecasting active.'}</p>
+            )}
+            <Link to="/predictive-intelligence" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
+              Open full forecast <ChevronRight size={12} />
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* ── Team Workspaces ── */}
+      {userTeams.length > 0 && (
+        <section style={{ marginBottom: '28px' }}>
+          <div style={sectionHeadStyle}>
+            <Users size={14} color="#e2b53c" />
+            Team Workspaces
+          </div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {userTeams.map(({ team, role }) => (
+              <Link
+                key={team.id}
+                to="/team"
+                style={{
+                  padding: '10px 16px',
+                  background: '#0e1729',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Users size={14} color="#e2b53c" />
+                <span style={{ fontSize: '0.84rem', color: '#f8fafc', fontWeight: 500 }}>{team.name}</span>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', padding: '2px 6px' }}>{role}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Locked features ── */}
+      {backendPerms && (() => {
+        const locked = [
+          { key: 'decision_memory' as FeatureKey, title: 'Decision Memory', desc: 'Audit-ready decision logs and stakeholder recall.', badge: 'Pro', icon: <BrainCircuit size={16} /> },
+          { key: 'action_tracker' as FeatureKey, title: 'Action Tracker', desc: 'Accountability matrix with owners and deadlines.', badge: 'Pro', icon: <CheckCircle2 size={16} /> },
+          { key: 'insight' as FeatureKey, title: 'Insight', desc: 'Continuous synthesis of recurring meeting patterns.', badge: 'Pro', icon: <Lightbulb size={16} /> },
+          { key: 'stats' as FeatureKey, title: 'Stats', desc: 'Workspace metrics: velocity, conversion rate, and output generation.', badge: 'Pro', icon: <BarChart3 size={16} /> },
+          { key: 'endpoint_report' as FeatureKey, title: 'Endpoint Reports', desc: 'Automated executive milestone summaries.', badge: 'Pro', icon: <FileSpreadsheet size={16} /> },
+          { key: 'team_workspace' as FeatureKey, title: 'Team Workspace', desc: 'Shared workspaces and role-based access.', badge: 'Team', icon: <Users size={16} /> },
+          { key: 'predictive_intelligence' as FeatureKey, title: 'Predictive Intelligence', desc: 'Risk predictions and 30-to-365 day operational forecasts.', badge: 'Team', icon: <TrendingUp size={16} /> },
+        ].filter((f) => !isFeatureAllowed(f.key));
+
+        if (locked.length === 0) return null;
+
+        return (
+          <section style={{ marginBottom: '28px' }}>
+            <div style={sectionHeadStyle}>
+              <Star size={14} color="#e2b53c" />
+              Unlock More Capabilities
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+              {locked.map((f) => (
                 <div
-                  key={proj.id}
+                  key={f.key}
                   style={{
-                    padding: '14px 16px',
+                    background: 'rgba(14,23,41,0.5)',
+                    border: '1px solid rgba(255,255,255,0.05)',
                     borderRadius: '10px',
-                    background: 'rgba(14, 23, 41, 0.5)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    padding: '14px 16px',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    flexWrap: 'wrap',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    opacity: 0.7,
                   }}
                 >
-                  <div style={{ minWidth: '200px', flex: 1 }}>
-                    <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.94rem', marginBottom: '4px' }}>
-                      {proj.title}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem', color: '#94a3b8' }}>
-                      {proj.meeting_type && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Briefcase size={12} color="#f3c958" />
-                          <span>{proj.meeting_type}</span>
-                        </span>
-                      )}
-                      {(proj.client_name || proj.client_or_project) && (
-                        <span>Client: {proj.client_name || proj.client_or_project}</span>
-                      )}
-                      {proj.project_name && (
-                        <span>Project: {proj.project_name}</span>
-                      )}
-                      {proj.meeting_date && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Calendar size={12} />
-                          <span>{formatDate(proj.meeting_date)}</span>
-                        </span>
-                      )}
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#64748b' }}>
-                        <Clock size={12} />
-                        <span>Updated {formatDateTime(proj.updated_at)}</span>
+                  <span style={{ color: '#475569', marginTop: '1px' }}>{f.icon}</span>
+                  <div>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#64748b', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {f.title}
+                      <span style={{ fontSize: '0.68rem', background: 'rgba(226,181,60,0.1)', color: '#e2b53c', border: '1px solid rgba(226,181,60,0.2)', borderRadius: '4px', padding: '1px 5px' }}>
+                        {f.badge}
                       </span>
                     </div>
+                    <div style={{ fontSize: '0.76rem', color: '#334155', lineHeight: 1.5 }}>{f.desc}</div>
                   </div>
-
-                  <Link
-                    to={`/projects/${proj.id}`}
-                    className="btn-secondary"
-                    style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <span>Open</span>
-                    <ArrowRight size={13} />
-                  </Link>
                 </div>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        );
+      })()}
 
-        {/* SECTION 3: RECENT OUTPUTS */}
-        <section className="content-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-            <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileText size={19} color="#f3c958" />
-              <span>Recent Outputs</span>
-            </h2>
-          </div>
-
-          {loadingOutputs ? (
-            <div style={{ padding: '36px 0', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <Loader2 size={24} className="spin-animation" color="#f3c958" />
-              <span style={{ fontSize: '0.88rem' }}>Loading outputs</span>
-            </div>
-          ) : recentOutputs.length === 0 ? (
-            /* Empty State */
-            <div style={{ padding: '36px 16px', textAlign: 'center', background: 'rgba(14, 23, 41, 0.4)', borderRadius: '12px', border: '1px dashed rgba(226, 181, 60, 0.2)' }}>
-              <FileText size={32} color="#64748b" style={{ margin: '0 auto 12px' }} />
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                No outputs yet
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', maxWidth: '340px', margin: '0 auto' }}>
-                Saved outputs will appear here after you create them inside a project.
-              </p>
-            </div>
-          ) : (
-            /* Outputs List */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {recentOutputs.map((out) => {
-                const typeLabel = OUTPUT_TYPE_LABELS[out.output_type] || out.output_type;
-                const projectTitle = out.projects?.title || 'Linked project';
-                const contentPreview = out.content
-                  ? out.content.slice(0, 110) + (out.content.length > 110 ? '...' : '')
-                  : 'No content recorded';
-
-                return (
-                  <div
-                    key={out.id}
-                    style={{
-                      padding: '14px 16px',
-                      borderRadius: '10px',
-                      background: 'rgba(14, 23, 41, 0.5)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span
-                          style={{
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            background: 'rgba(226, 181, 60, 0.15)',
-                            color: '#f3c958',
-                            fontSize: '0.74rem',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em',
-                          }}
-                        >
-                          {typeLabel}
-                        </span>
-                        {out.projects?.title && (
-                          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                            in <strong style={{ color: '#cbd5e1' }}>{projectTitle}</strong>
-                          </span>
-                        )}
-                      </div>
-
-                      <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                        {formatDateTime(out.created_at)}
-                      </span>
-                    </div>
-
-                    <p style={{ color: '#cbd5e1', fontSize: '0.84rem', margin: 0, lineHeight: 1.4, fontFamily: 'var(--font-mono, monospace)', background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: '6px' }}>
-                      {contentPreview}
-                    </p>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
-                      <Link
-                        to={`/projects/${out.project_id}`}
-                        className="btn-secondary"
-                        style={{ padding: '4px 12px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        <span>Open project</span>
-                        <ArrowRight size={12} />
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </div>
-
-      {/* TWO-COLUMN GRID: RECENT ACTIONS & DECISION MEMORY */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px', marginBottom: '32px' }}>
-        {/* SECTION 4: RECENT ACTIONS */}
-        <section className="content-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle2 size={19} color="#f3c958" />
-              <span>Action Tracker / Open Actions</span>
-            </h2>
-
-            {isActionTrackerAllowed ? (
-              <Link to="/actions" style={{ fontSize: '0.82rem', color: '#f3c958', fontWeight: 600 }}>
-                View all
-              </Link>
-            ) : (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  background: 'rgba(226, 181, 60, 0.12)',
-                  border: '1px solid rgba(226, 181, 60, 0.3)',
-                  color: '#f3c958',
-                  fontSize: '0.74rem',
-                  fontWeight: 600,
-                }}
-              >
-                <Lock size={11} />
-                <span>Available on Pro</span>
-              </span>
-            )}
-          </div>
-
-          {!isActionTrackerAllowed ? (
-            <div
-              style={{
-                padding: '28px 18px',
-                textAlign: 'center',
-                background: 'rgba(14, 23, 41, 0.4)',
-                borderRadius: '12px',
-                border: '1px dashed rgba(226, 181, 60, 0.2)',
-              }}
-            >
-              <CheckCircle2 size={30} color="#64748b" style={{ margin: '0 auto 10px' }} />
-              <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                Available on Pro
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.84rem', margin: 0, lineHeight: 1.5 }}>
-                Action Tracker is available on Pro plans. Track owners, deadlines, and execution progress.
-              </p>
-            </div>
-          ) : loadingActions ? (
-            <div style={{ padding: '36px 0', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <Loader2 size={24} className="spin-animation" color="#f3c958" />
-              <span style={{ fontSize: '0.88rem' }}>Loading actions</span>
-            </div>
-          ) : actionsError ? (
-            <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-              <AlertCircle size={24} color="#f87171" style={{ margin: '0 auto 8px' }} />
-              <div style={{ fontSize: '0.88rem', color: '#fca5a5', marginBottom: '10px' }}>Failed to load actions</div>
-              <button onClick={loadDashboardData} className="btn-secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }}>
-                <RefreshCw size={12} />
-                <span>Retry</span>
-              </button>
-            </div>
-          ) : recentActions.length === 0 ? (
-            <div
-              style={{
-                padding: '28px 18px',
-                textAlign: 'center',
-                background: 'rgba(14, 23, 41, 0.4)',
-                borderRadius: '12px',
-                border: '1px dashed rgba(226, 181, 60, 0.2)',
-              }}
-            >
-              <CheckCircle2 size={30} color="#f3c958" style={{ margin: '0 auto 10px' }} />
-              <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                No actions tracked yet
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.84rem', margin: 0, lineHeight: 1.5 }}>
-                Actions saved from meeting outputs will appear here.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {recentActions.map((act) => {
-                const overdue = act.status === 'overdue' || (act.status !== 'completed' && isActionOverdue(act));
-                const statusLabel = overdue ? 'Overdue' : (STATUS_LABELS[act.status] || act.status);
-                const projectTitle = act.projects?.title || 'Linked project';
-
-                return (
-                  <div
-                    key={act.id}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      background: 'rgba(14, 23, 41, 0.5)',
-                      border: overdue ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(255, 255, 255, 0.06)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.9rem' }}>
-                        {act.action_title}
-                      </span>
-                      <span
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          background: overdue ? 'rgba(239, 68, 68, 0.2)' : 'rgba(226, 181, 60, 0.15)',
-                          color: overdue ? '#f87171' : '#f3c958',
-                          border: overdue ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(226, 181, 60, 0.3)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        {overdue && <AlertCircle size={10} />}
-                        <span>{statusLabel}</span>
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', fontSize: '0.78rem', color: '#94a3b8' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        {act.owner_name && <span>Owner: <strong style={{ color: '#cbd5e1' }}>{act.owner_name}</strong></span>}
-                        {act.due_date && <span>Due: <strong style={{ color: overdue ? '#fca5a5' : '#cbd5e1' }}>{formatDate(act.due_date)}</strong></span>}
-                        {act.projects?.title && <span>in <strong style={{ color: '#cbd5e1' }}>{projectTitle}</strong></span>}
-                      </div>
-
-                      <Link
-                        to={`/actions/${act.id}`}
-                        className="btn-secondary"
-                        style={{ padding: '3px 10px', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        <span>Open</span>
-                        <ArrowRight size={11} />
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* SECTION 5: DECISION MEMORY */}
-        <section className="content-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BrainCircuit size={19} color="#f3c958" />
-              <span>Decision Memory / Latest Decisions</span>
-            </h2>
-
-            {isDecisionMemoryAllowed ? (
-              <Link to="/decision-memory" style={{ fontSize: '0.82rem', color: '#f3c958', fontWeight: 600 }}>
-                View all
-              </Link>
-            ) : (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  background: 'rgba(226, 181, 60, 0.12)',
-                  border: '1px solid rgba(226, 181, 60, 0.3)',
-                  color: '#f3c958',
-                  fontSize: '0.74rem',
-                  fontWeight: 600,
-                }}
-              >
-                <Lock size={11} />
-                <span>Available on Pro</span>
-              </span>
-            )}
-          </div>
-
-          {!isDecisionMemoryAllowed ? (
-            <div
-              style={{
-                padding: '28px 18px',
-                textAlign: 'center',
-                background: 'rgba(14, 23, 41, 0.4)',
-                borderRadius: '12px',
-                border: '1px dashed rgba(226, 181, 60, 0.2)',
-              }}
-            >
-              <BrainCircuit size={30} color="#64748b" style={{ margin: '0 auto 10px' }} />
-              <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                Available on Pro
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.84rem', margin: 0, lineHeight: 1.5 }}>
-                Decision Memory is available on Pro plans. Search decisions made, rationale, and owners across meetings.
-              </p>
-            </div>
-          ) : loadingDecisions ? (
-            <div style={{ padding: '36px 0', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <Loader2 size={24} className="spin-animation" color="#f3c958" />
-              <span style={{ fontSize: '0.88rem' }}>Loading decisions</span>
-            </div>
-          ) : decisionsError ? (
-            <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-              <AlertCircle size={24} color="#f87171" style={{ margin: '0 auto 8px' }} />
-              <div style={{ fontSize: '0.88rem', color: '#fca5a5', marginBottom: '10px' }}>Failed to load decisions</div>
-              <button onClick={loadDashboardData} className="btn-secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }}>
-                <RefreshCw size={12} />
-                <span>Retry</span>
-              </button>
-            </div>
-          ) : recentDecisions.length === 0 ? (
-            <div
-              style={{
-                padding: '28px 18px',
-                textAlign: 'center',
-                background: 'rgba(14, 23, 41, 0.4)',
-                borderRadius: '12px',
-                border: '1px dashed rgba(226, 181, 60, 0.2)',
-              }}
-            >
-              <BrainCircuit size={30} color="#f3c958" style={{ margin: '0 auto 10px' }} />
-              <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                No decisions saved yet
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.84rem', margin: 0, lineHeight: 1.5 }}>
-                Saved decisions from Decision Logs will appear here.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {recentDecisions.map((dec) => {
-                const projectTitle = dec.projects?.title || 'Linked project';
-                const summaryText = dec.decision_summary || 'No summary recorded';
-
-                return (
-                  <div
-                    key={dec.id}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      background: 'rgba(14, 23, 41, 0.5)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.9rem' }}>
-                        {dec.decision_title}
-                      </span>
-                      {dec.decision_date && (
-                        <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                          {formatDate(dec.decision_date)}
-                        </span>
-                      )}
-                    </div>
-
-                    <p style={{ color: '#cbd5e1', fontSize: '0.82rem', margin: 0, lineHeight: 1.4 }}>
-                      {summaryText.length > 120 ? summaryText.slice(0, 120) + '...' : summaryText}
-                    </p>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        {dec.decision_owner && <span>Owner: <strong style={{ color: '#cbd5e1' }}>{dec.decision_owner}</strong></span>}
-                        {dec.projects?.title && <span>in <strong style={{ color: '#cbd5e1' }}>{projectTitle}</strong></span>}
-                      </div>
-
-                      <Link
-                        to={`/decision-memory/${dec.id}`}
-                        className="btn-secondary"
-                        style={{ padding: '3px 10px', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        <span>Open</span>
-                        <ArrowRight size={11} />
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </div>
-
-      {/* SECTION 6: CONVERSATION INTELLIGENCE SNAPSHOT */}
-      <section className="content-card" style={{ padding: '24px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-          <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Lightbulb size={19} color="#e2b53c" />
-            <span>Conversation Intelligence Snapshot</span>
-          </h2>
-          {isInsightAllowed ? (
-            <Link to="/insight" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>Explore Insights</span>
-              <ArrowRight size={14} />
-            </Link>
-          ) : (
-            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-              Available on Pro
-            </span>
-          )}
-        </div>
-
-        {!isInsightAllowed ? (
-          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
-              Upgrade to Pro to unlock automated synthesis of recurring themes, risks, and meeting opportunities.
-            </p>
-            <Link to="/insight" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
-              <Lock size={14} color="#e2b53c" />
-              <span>Learn about Conversation Intelligence</span>
-            </Link>
-          </div>
-        ) : loadingInsights ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
-            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
-            <span>Loading intelligence snapshot...</span>
-          </div>
-        ) : insights ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
-            {/* Health Score */}
-            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
-                <Award size={14} color="#e2b53c" />
-                <span>Meeting Health Score</span>
-              </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 700, color: insights.projectIntelligenceSummary.meetingHealthScore >= 75 ? '#4ade80' : '#f59e0b' }}>
-                {insights.projectIntelligenceSummary.meetingHealthScore}%
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>
-                Execution velocity & action reliability
-              </div>
-            </div>
-
-            {/* Key Theme */}
-            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
-                <Layers size={14} color="#e2b53c" />
-                <span>Top Key Theme</span>
-              </div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {insights.keyThemes[0]?.name || 'Baseline Operations'}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>
-                {insights.keyThemes[0]?.relevance ? `${insights.keyThemes[0].relevance}% relevance` : 'Recurring organizational focus'}
-              </div>
-            </div>
-
-            {/* Top Opportunity / Risk */}
-            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
-                <TrendingUp size={14} color="#4ade80" />
-                <span>Top Opportunity</span>
-              </div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {insights.topOpportunities[0]?.title || 'Standardised Automation'}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#4ade80', marginTop: '4px' }}>
-                {insights.topOpportunities[0]?.impact ? `${insights.topOpportunities[0].impact.toUpperCase()} impact` : 'High value'}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '12px 0' }}>
-            Create projects with meeting transcripts to generate conversation intelligence.
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 7: WORKSPACE ANALYTICS & STATS SNAPSHOT */}
-      <section className="content-card" style={{ padding: '24px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-          <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={19} color="#e2b53c" />
-            <span>Workspace Analytics Snapshot</span>
-          </h2>
-          {isStatsAllowed ? (
-            <Link to="/stats" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>View Full Analytics</span>
-              <ArrowRight size={14} />
-            </Link>
-          ) : (
-            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-              Available on Pro
-            </span>
-          )}
-        </div>
-
-        {!isStatsAllowed ? (
-          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
-              Upgrade to Pro to track longitudinal trends, meeting volumes, and action completion rates.
-            </p>
-            <Link to="/stats" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
-              <Lock size={14} color="#e2b53c" />
-              <span>Learn about Workspace Analytics</span>
-            </Link>
-          </div>
-        ) : loadingStats ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
-            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
-            <span>Loading workspace metrics...</span>
-          </div>
-        ) : stats ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Total Projects</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc' }}>{stats.totalProjects}</div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>{stats.totalTranscripts} with transcript</div>
-            </div>
-
-            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Decisions Recorded</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#e2b53c' }}>{stats.totalDecisions}</div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>Audit-ready memory</div>
-            </div>
-
-            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Actions Tracked</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc' }}>{stats.totalActions}</div>
-              <div style={{ fontSize: '0.75rem', color: stats.overdueActions > 0 ? '#f87171' : '#94a3b8', marginTop: '2px' }}>
-                {stats.overdueActions > 0 ? `${stats.overdueActions} overdue` : `${stats.completedActions} completed`}
-              </div>
-            </div>
-
-            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Action Completion</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: stats.actionCompletionRate >= 70 ? '#4ade80' : '#f59e0b' }}>
-                {stats.actionCompletionRate}%
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>Organizational throughput</div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '12px 0' }}>
-            No workspace activity recorded yet.
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 8: RECENT ENDPOINT REPORTS */}
-      <section className="content-card" style={{ padding: '24px', marginBottom: '40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-          <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileBarChart size={19} color="#e2b53c" />
-            <span>Executive Endpoint Reports</span>
-          </h2>
-          {isEndpointReportAllowed ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Link to="/endpoint-report" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>All Reports</span>
-                <ArrowRight size={14} />
-              </Link>
-            </div>
-          ) : (
-            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-              Available on Pro
-            </span>
-          )}
-        </div>
-
-        {!isEndpointReportAllowed ? (
-          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
-              Generate comprehensive executive briefings synthesizing meeting decisions, action throughput, risks, and performance ratings.
-            </p>
-            <Link to="/endpoint-report" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
-              <Lock size={14} color="#e2b53c" />
-              <span>Learn about Endpoint Reports</span>
-            </Link>
-          </div>
-        ) : loadingReports ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
-            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
-            <span>Loading recent reports...</span>
-          </div>
-        ) : recentReports.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {recentReports.map((report) => (
-              <div
-                key={report.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  background: 'rgba(14, 23, 41, 0.5)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>{report.title}</div>
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.78rem', color: '#94a3b8', marginTop: '3px' }}>
-                    <span style={{ color: '#e2b53c', fontWeight: 600 }}>{report.report_period}</span>
-                    <span>Generated {formatDate(report.generated_at || report.created_at)}</span>
-                  </div>
-                </div>
-
-                <Link
-                  to={`/endpoint-report`}
-                  className="btn-secondary"
-                  style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <span>View Report</span>
-                  <ArrowRight size={13} />
-                </Link>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px' }}>
-            <span style={{ color: '#94a3b8', fontSize: '0.88rem' }}>No executive endpoint reports generated yet.</span>
-            <Link to="/endpoint-report" className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.84rem', textDecoration: 'none' }}>
-              + Generate Report
-            </Link>
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 9: PREDICTIVE INTELLIGENCE & STRATEGIC HEALTH SNAPSHOT */}
-      <section className="content-card" style={{ padding: '24px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-          <h2 style={{ fontSize: '1.18rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrendingUp size={19} color="#e2b53c" />
-            <span>Predictive Intelligence & Organizational Health</span>
-          </h2>
-          {isPredictiveAllowed ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Link to="/predictive-intelligence" style={{ color: '#e2b53c', fontSize: '0.84rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>Open Intelligence Hub</span>
-                <ArrowRight size={14} />
-              </Link>
-            </div>
-          ) : (
-            <span style={{ fontSize: '0.75rem', background: 'rgba(226, 181, 60, 0.15)', color: '#e2b53c', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-              Available on Enterprise & Team
-            </span>
-          )}
-        </div>
-
-        {!isPredictiveAllowed ? (
-          <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(226, 181, 60, 0.04)', border: '1px dashed rgba(226, 181, 60, 0.25)', textAlign: 'center' }}>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 12px 0' }}>
-              Unlock machine-assisted risk prediction, 30-to-365 day completion forecasts, and strategic leadership recommendations.
-            </p>
-            <Link to="/predictive-intelligence" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem' }}>
-              <Lock size={14} color="#e2b53c" />
-              <span>Learn about Predictive Intelligence</span>
-            </Link>
-          </div>
-        ) : loadingPredictive ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
-            <Loader2 size={18} className="spin-animation" color="#e2b53c" />
-            <span>Calculating organizational health score and predictive trajectories...</span>
-          </div>
-        ) : predictiveData ? (
-          <div>
-            {/* Top row: Health score + Top Risk + Top Opportunity */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-              {/* Organizational Health Score */}
-              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    <ShieldAlert size={14} color="#e2b53c" />
-                    <span>Health Score</span>
-                  </div>
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      background: predictiveData.healthScore.overallScore >= 75 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                      color: predictiveData.healthScore.overallScore >= 75 ? '#4ade80' : '#facc15',
-                    }}
-                  >
-                    {predictiveData.healthScore.category.replace('_', ' ')}
-                  </span>
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: 700, color: predictiveData.healthScore.overallScore >= 75 ? '#4ade80' : '#facc15' }}>
-                  {predictiveData.healthScore.overallScore}<span style={{ fontSize: '1rem', color: '#94a3b8' }}>/100</span>
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>
-                  Execution: {predictiveData.healthScore.categoryScores.execution}% • Delivery: {predictiveData.healthScore.categoryScores.delivery}%
-                </div>
-              </div>
-
-              {/* Emerging Risk Indicator */}
-              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    <AlertCircle size={14} color="#f87171" />
-                    <span>Top Predicted Risk</span>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>
-                    {predictiveData.riskPredictions[0]?.riskLevel || 'Low'}
-                  </span>
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {predictiveData.riskPredictions[0]?.title || 'No critical risks detected'}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px', lineHeight: 1.4 }}>
-                  {predictiveData.riskPredictions[0]?.explanation || 'All operational workstreams are tracking within delivery windows.'}
-                </div>
-              </div>
-
-              {/* Opportunity Indicator */}
-              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(14, 23, 41, 0.5)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    <Sparkles size={14} color="#38bdf8" />
-                    <span>Top Opportunity</span>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
-                    High Impact
-                  </span>
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {predictiveData.opportunitySignals[0]?.title || 'Cross-Workstream Scaling'}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#38bdf8', marginTop: '4px', lineHeight: 1.4 }}>
-                  {predictiveData.opportunitySignals[0]?.potentialGain || 'Documented rationale drives faster team execution.'}
-                </div>
-              </div>
-            </div>
-
-            {/* Strategic Recommendations Snapshot */}
-            {predictiveData.strategicRecommendations.length > 0 && (
-              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e2b53c', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Lightbulb size={15} />
-                  <span>Strategic Leadership Recommendation</span>
-                </div>
-                <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#f8fafc', marginBottom: '4px' }}>
-                  {predictiveData.strategicRecommendations[0].title}
-                </div>
-                <p style={{ color: '#94a3b8', fontSize: '0.84rem', margin: '0 0 10px 0', lineHeight: 1.5 }}>
-                  {predictiveData.strategicRecommendations[0].summary}
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                  <span style={{ fontSize: '0.76rem', color: '#64748b' }}>
-                    Confidence: <strong>{predictiveData.strategicRecommendations[0].confidenceIndicator.replace(/_/g, ' ')}</strong>
-                  </span>
-                  <Link to="/predictive-intelligence" style={{ color: '#e2b53c', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <span>View all recommendations</span>
-                    <ArrowRight size={12} />
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '12px 0' }}>
-            No predictive data available. Add projects and decisions to generate predictive trajectories.
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 7: LOCKED FEATURES */}
-      <section style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Lock size={18} color="#f3c958" />
-            <span>Locked Features</span>
-          </h2>
-          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-            Tier availability governed strictly by backend permission checks
-          </span>
-        </div>
-
-        {activeLockedFeatures.length === 0 ? (
-          <div
-            className="content-card"
-            style={{
-              padding: '24px',
-              textAlign: 'center',
-              background: 'rgba(226, 181, 60, 0.06)',
-              border: '1px solid rgba(226, 181, 60, 0.3)',
-            }}
+      {/* ── Quick Actions (compact bottom bar) ── */}
+      <div
+        style={{
+          background: '#0e1729',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: '12px',
+          padding: '14px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600, marginRight: '4px' }}>Quick actions:</span>
+        <Link to="/projects/new" className="btn-gold" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}>
+          <PlusCircle size={14} /> New Project
+        </Link>
+        {[
+          { to: '/projects', icon: <FolderKanban size={14} />, label: 'Projects' },
+          { to: '/actions', icon: <CheckCircle2 size={14} />, label: 'Actions' },
+          { to: '/decision-memory', icon: <BrainCircuit size={14} />, label: 'Decisions' },
+          { to: '/insight', icon: <Lightbulb size={14} />, label: 'Insight' },
+          { to: '/stats', icon: <BarChart3 size={14} />, label: 'Stats' },
+          { to: '/settings', icon: <Settings size={14} />, label: 'Settings' },
+        ].map((a) => (
+          <Link
+            key={a.to}
+            to={a.to}
+            className="btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}
           >
-            <Sparkles size={28} color="#f3c958" style={{ margin: '0 auto 10px' }} />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '4px' }}>
-              All Workspace Intelligence Features Unlocked
-            </h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: 0 }}>
-              Your current authoritative plan tier ({planBadgeText}) includes access to all workspace capabilities.
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: '16px' }}>
-            {activeLockedFeatures.map((feat) => (
-              <div
-                key={feat.key}
-                className="content-card"
-                style={{
-                  padding: '20px',
-                  background: 'rgba(14, 23, 41, 0.55)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <div
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        background: 'rgba(33, 57, 92, 0.4)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#94a3b8',
-                      }}
-                    >
-                      {feat.icon}
-                    </div>
+            {a.icon} {a.label}
+          </Link>
+        ))}
+      </div>
 
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        background: feat.tierBadge === 'Available on Team' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(226, 181, 60, 0.12)',
-                        border: `1px solid ${feat.tierBadge === 'Available on Team' ? 'rgba(56, 189, 248, 0.3)' : 'rgba(226, 181, 60, 0.3)'}`,
-                        color: feat.tierBadge === 'Available on Team' ? '#38bdf8' : '#f3c958',
-                        fontSize: '0.74rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      <Lock size={11} />
-                      <span>{feat.tierBadge}</span>
-                    </span>
-                  </div>
-
-                  <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#f8fafc', marginBottom: '6px' }}>
-                    {feat.title}
-                  </h3>
-                  <p style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.5, margin: 0 }}>
-                    {feat.description}
-                  </p>
-                </div>
-
-                <div style={{ paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                    Locked on {planBadgeText}
-                  </span>
-                  <Link
-                    to="/settings"
-                    style={{ fontSize: '0.78rem', color: '#f3c958', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <span>Upgrade required</span>
-                    <ArrowRight size={11} />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 };
+
+export default DashboardPage;
