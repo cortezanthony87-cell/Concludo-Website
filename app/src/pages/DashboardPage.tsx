@@ -1196,7 +1196,7 @@ export const DashboardPage: React.FC = () => {
           Week Overview · {formatShortDate(weekDays[0].date)} to {formatShortDate(weekDays[4].date)}
         </div>
         {loadingCalendar ? (
-          <div style={{ ...cardStyle, textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+          <div style={{ ...cardStyle, textAlign: 'center', padding: '24px', color: '#64748b' }}>
             <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', marginRight: '8px' }} />
             Loading calendar...
           </div>
@@ -1232,7 +1232,7 @@ export const DashboardPage: React.FC = () => {
                   </div>
 
                   {dayEvents.length === 0 ? (
-                    <div style={{ color: '#94a3b8', fontSize: '0.82rem', marginTop: '12px', textAlign: 'center' }}>
+                    <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: '12px', textAlign: 'center' }}>
                       -
                     </div>
                   ) : (
@@ -1483,7 +1483,7 @@ export const DashboardPage: React.FC = () => {
                     {execSummary.content?.slice(0, 360) || 'No content.'}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '32px', background: 'linear-gradient(transparent, #ffffff)' }} />
                   </div>
-                  <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Clock size={11} /> {formatDate(execSummary.updated_at)} &middot; Open full summary
                   </div>
                 </div>
@@ -1563,7 +1563,7 @@ export const DashboardPage: React.FC = () => {
                     {transcript.content?.slice(0, 360) || 'No transcript content.'}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '32px', background: 'linear-gradient(transparent, #ffffff)' }} />
                   </div>
-                  <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Clock size={11} /> {formatDate(transcript.updated_at)} · Open project
                   </div>
                 </div>
@@ -1652,7 +1652,7 @@ export const DashboardPage: React.FC = () => {
           {(insights?.keyThemes?.[0] || insights?.topOpportunities?.[0]) && (
             <div style={{ ...cardStyle, marginTop: '12px' }}>
               <div style={sectionHeadStyle}><Lightbulb size={13} color="#e2b53c" /> Insight</div>
-              <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{insights?.keyThemes?.[0] ? insights.keyThemes[0].name + ' · ' + insights.keyThemes[0].relevance + '% relevance' : (insights?.topOpportunities?.[0]?.title || 'Standardised workflows')}</p>
+              <p style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.65, margin: 0 }}>{insights?.keyThemes?.[0] ? insights.keyThemes[0].name + ' · ' + insights.keyThemes[0].relevance + '% relevance' : (insights?.topOpportunities?.[0]?.title || 'Standardised workflows')}</p>
               <Link to="/insight" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.77rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
                 Full insights <ChevronRight size={12} />
               </Link>
@@ -1670,7 +1670,7 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div style={{ ...cutoutStyle }}>
             {(predictiveData.strategicRecommendations?.[0] || predictiveData.riskPredictions?.[0]) && (
-              <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.65, margin: '0 0 10px' }}>{predictiveData.strategicRecommendations?.[0]?.summary || predictiveData.riskPredictions?.[0]?.explanation || 'Strategic forecasting active.'}</p>
+              <p style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.65, margin: '0 0 10px' }}>{predictiveData.strategicRecommendations?.[0]?.summary || predictiveData.riskPredictions?.[0]?.explanation || 'Strategic forecasting active.'}</p>
             )}
             <Link to="/predictive-intelligence" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}>
               Open full forecast <ChevronRight size={12} />
