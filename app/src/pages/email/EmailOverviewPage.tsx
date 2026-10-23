@@ -2,14 +2,14 @@
  * Email Command Centre - Overview Page Redesign
  *
  * Implements the authentic light-theme design from Concludo-ECC-Redesign-v1.zip / ecc-preview.html
- * - 4 Stat Tiles: Needs Reply (alert), Unread (warn), Flagged (neutral), Processed Today (good)
+ * - 4 Stat Tiles: Needs Reply (alert), Unread (warn), Flagged (neutral), Processed (good)
  * - Priority Inbox list with initials avatar, status tags, snippet, and responsive actions
- * - Inbox Intelligence Recommendations Panel with Backlog Health score & breakdown
- * - Complete Draft Response Panel with Tone Switcher (Concise, Formal, Friendly),
+ * - Inbox Intelligence Recommendations Panel with Triage Progress and authentic PriorityBand breakdown
+ * - Complete Draft Response Panel with Tone Switcher (Concise, Detailed, Warm),
  *   Extracted Figures review, Approval Gate Checklist, and Verification Panel
  * - Strictly grounded in authentic account data, 100% Australian English, no em dashes
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -31,13 +31,11 @@ import { useViewData } from '../../lib/email/useViewData';
 import { composeOverview } from '../../lib/email/overview';
 import { metricCounts } from '../../lib/email/aggregation';
 import { ThreadRecord } from '../../lib/email/filters';
-import { PriorityBand, ThreadStatus } from '../../lib/email/model';
+import { DraftStyle, PriorityBand, ThreadStatus } from '../../lib/email/model';
 import '../../styles/email-overview-redesign.css';
 
-type DraftTone = 'concise' | 'formal' | 'friendly';
-
 export const EmailOverviewPage: React.FC = () => {
-  const { accountId, linkTo, refreshToken } = useOutletContext<EmailModuleContext>();
+  const { accountId, linkTo } = useOutletContext<EmailModuleContext>();
   const { records, accountLabel, accountType, now, state, dataset } = useViewData(accountId);
 
   const page = useMemo(() => composeOverview(records, now), [records, now]);
@@ -45,18 +43,14 @@ export const EmailOverviewPage: React.FC = () => {
 
   // Selected thread in the list for the Draft Response panel
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const [selectedTone, setSelectedTone] = useState<DraftTone>('concise');
+  const [selectedTone, setSelectedTone] = useState<DraftStyle>('concise');
   const [viewFilter, setViewFilter] = useState<'prioritised' | 'chronological' | 'all'>('prioritised');
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    chk1: true,
-    chk2: true,
-    chk3: true,
+    chk1: false,
+    chk2: false,
+    chk3: false,
     chk4: false,
   });
-
-  const toggleCheck = (key: string) => {
-    setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   // Reconcile selected thread: default to lead thread, or first record
   const selectedRecord: ThreadRecord | null = useMemo(() => {
@@ -66,6 +60,20 @@ export const EmailOverviewPage: React.FC = () => {
     }
     return page.lead || records[0] || null;
   }, [selectedThreadId, records, page.lead]);
+
+  // Reset approval checklist when changing thread selection
+  useEffect(() => {
+    setChecklist({
+      chk1: false,
+      chk2: false,
+      chk3: false,
+      chk4: false,
+    });
+  }, [selectedRecord?.thread.id]);
+
+  const toggleCheck = (key: string) => {
+    setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Associated draft from the dataset
   const activeDraft = useMemo(() => {
@@ -132,23 +140,25 @@ export const EmailOverviewPage: React.FC = () => {
     return records.filter((r) => r.analysis.currentStatus === 'resolved').length;
   }, [records]);
 
-  // Backlog health metrics
-  const { healthScore, urgentCount, highCount, routineCount, lowCount } = useMemo(() => {
+  // Priority band breakdown and classification progress
+  const { triagePercentage, analysedCount, totalCount, urgentCount, highCount, soonCount, batchOrLowCount } = useMemo(() => {
     const total = records.length;
-    const critical = records.filter((r) => r.analysis.priorityBand === 'immediate').length;
-    const high = records.filter((r) => r.analysis.priorityBand === 'today').length;
-    const routine = records.filter((r) => r.analysis.priorityBand === 'soon' || r.analysis.priorityBand === 'batch').length;
-    const low = records.filter((r) => r.analysis.priorityBand === 'low').length;
+    const analysed = records.filter((r) => r.analysis.analysed).length;
+    const immediate = records.filter((r) => r.analysis.priorityBand === 'immediate').length;
+    const today = records.filter((r) => r.analysis.priorityBand === 'today').length;
+    const soon = records.filter((r) => r.analysis.priorityBand === 'soon').length;
+    const batchOrLow = records.filter((r) => r.analysis.priorityBand === 'batch' || r.analysis.priorityBand === 'low').length;
 
-    // Health score: 100 max, reduced by critical and high items
-    const score = total > 0 ? Math.max(15, Math.min(100, Math.round(((total - critical * 1.5 - high * 0.8) / total) * 100))) : 100;
+    const percentage = total > 0 ? Math.round((analysed / total) * 100) : 100;
 
     return {
-      healthScore: score,
-      urgentCount: critical,
-      highCount: high,
-      routineCount: routine,
-      lowCount: low,
+      triagePercentage: percentage,
+      analysedCount: analysed,
+      totalCount: total,
+      urgentCount: immediate,
+      highCount: today,
+      soonCount: soon,
+      batchOrLowCount: batchOrLow,
     };
   }, [records]);
 
@@ -243,10 +253,8 @@ export const EmailOverviewPage: React.FC = () => {
 
   // Format draft text according to selected tone
   const draftBodyContent = (() => {
-    if (!selectedRecord) return 'No conversation selected.';
-    if (!activeDraft) {
-      return `Hi ${selectedRecord.counterpartyName.split(' ')[0] || ''},\n\nThank you for your email regarding ${selectedRecord.thread.subject}.\n\nI have noted the details and will follow up shortly.\n\nKind regards,\nAnthony Cortez`;
-    }
+    if (!selectedRecord) return null;
+    if (!activeDraft) return null;
 
     if (activeDraft.status === 'withheld_for_safety') {
       return `Draft withheld for safety: ${activeDraft.statusReason || selectedRecord.analysis.securityAlert?.explanation || 'Sensitive or security-flagged message. Concludo does not draft replies to unverified or sensitive correspondence.'}`;
@@ -258,10 +266,10 @@ export const EmailOverviewPage: React.FC = () => {
 
     if (activeDraft.variants) {
       if (selectedTone === 'concise' && activeDraft.variants.concise) return activeDraft.variants.concise;
-      if (selectedTone === 'formal' && (activeDraft.variants.detailed || activeDraft.variants.concise)) {
+      if (selectedTone === 'detailed' && (activeDraft.variants.detailed || activeDraft.variants.concise)) {
         return activeDraft.variants.detailed || activeDraft.variants.concise;
       }
-      if (selectedTone === 'friendly' && (activeDraft.variants.warm || activeDraft.variants.concise)) {
+      if (selectedTone === 'warm' && (activeDraft.variants.warm || activeDraft.variants.concise)) {
         return activeDraft.variants.warm || activeDraft.variants.concise;
       }
     }
@@ -270,6 +278,12 @@ export const EmailOverviewPage: React.FC = () => {
   })();
 
   const avatarColors = ['av-rose', 'av-blue', 'av-amber', 'av-purple', 'av-teal', 'av-navy'];
+
+  const factsList = (activeDraft?.factsToVerify && activeDraft.factsToVerify.length > 0)
+    ? activeDraft.factsToVerify
+    : (selectedRecord?.analysis.factsToVerify && selectedRecord.analysis.factsToVerify.length > 0)
+    ? selectedRecord.analysis.factsToVerify
+    : [];
 
   return (
     <div className="ecc-overview-v2">
@@ -285,7 +299,7 @@ export const EmailOverviewPage: React.FC = () => {
           </div>
           <div className="stat-value">{needsReplyCount}</div>
           <div className="stat-footer">
-            <span className="stat-delta up">▲ {urgentCount} high priority</span>
+            <span className="stat-delta up">▲ {urgentCount + highCount} high priority</span>
           </div>
         </Link>
 
@@ -318,17 +332,17 @@ export const EmailOverviewPage: React.FC = () => {
           </div>
         </Link>
 
-        {/* Tile 4: Processed Today */}
+        {/* Tile 4: Processed */}
         <Link to={linkTo('/email/all')} className="stat-tile good" style={{ textDecoration: 'none' }}>
           <div className="stat-header">
-            <span className="stat-label">Processed Today</span>
+            <span className="stat-label">Processed</span>
             <svg className="stat-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
           <div className="stat-value">{processedCount}</div>
           <div className="stat-footer">
-            <span className="stat-delta down">Resolved &amp; completed</span>
+            <span className="stat-delta down">{processedCount === 1 ? '1 resolved thread' : `${processedCount} resolved threads`}</span>
           </div>
         </Link>
       </div>
@@ -341,18 +355,21 @@ export const EmailOverviewPage: React.FC = () => {
             <span className="sec-label">Priority inbox</span>
             <div className="view-toggle">
               <button
+                type="button"
                 className={`view-toggle-btn ${viewFilter === 'prioritised' ? 'active' : ''}`}
                 onClick={() => setViewFilter('prioritised')}
               >
                 Prioritised
               </button>
               <button
+                type="button"
                 className={`view-toggle-btn ${viewFilter === 'chronological' ? 'active' : ''}`}
                 onClick={() => setViewFilter('chronological')}
               >
                 Chronological
               </button>
               <button
+                type="button"
                 className={`view-toggle-btn ${viewFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setViewFilter('all')}
               >
@@ -362,165 +379,183 @@ export const EmailOverviewPage: React.FC = () => {
           </div>
 
           <div className="thread-list">
-            {priorityRecords.map((r, idx) => {
-              const isSelected = selectedRecord?.thread.id === r.thread.id;
-              const isUnread = !r.thread.isRead;
-              const initials = r.counterpartyName
-                .split(' ')
-                .map((n) => n[0])
-                .slice(0, 2)
-                .join('')
-                .toUpperCase() || 'EM';
-              const colorClass = avatarColors[idx % avatarColors.length];
-              const timeDisplay = new Date(r.thread.lastMessageAt).toLocaleTimeString('en-AU', {
-                hour: 'numeric',
-                minute: '2-digit',
-              });
+            {priorityRecords.length === 0 ? (
+              <div
+                style={{
+                  padding: '32px 24px',
+                  textAlign: 'center',
+                  background: '#fff',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--r-md)',
+                  color: 'var(--text-3)',
+                }}
+              >
+                No conversations in this view.
+              </div>
+            ) : (
+              priorityRecords.map((rec, index) => {
+                const isSelected = selectedRecord?.thread.id === rec.thread.id;
+                const isLead = rec.thread.id === page.lead?.thread.id;
+                const initials = rec.counterpartyName
+                  .split(' ')
+                  .map((p) => p[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase() || 'EM';
 
-              return (
-                <div
-                  key={r.thread.id}
-                  className={`thread-card ${isUnread ? 'unread' : ''} ${isSelected ? 'selected' : ''}`}
-                  onClick={() => setSelectedThreadId(r.thread.id)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className={`thread-avatar ${colorClass}`}>{initials}</div>
-                  <div className="thread-main">
-                    <div className="thread-row1">
-                      <span className="thread-from">{r.counterpartyName}</span>
-                      <span className="thread-time">{timeDisplay}</span>
-                    </div>
-                    <div className="thread-subject">{r.thread.subject}</div>
-                    <div className="thread-preview">{r.analysis.oneLineSummary}</div>
-                    <div className="thread-tags">
-                      {r.analysis.priorityBand === 'immediate' && (
-                        <span className="tag tag-red">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                          </svg>
-                          Client waiting
-                        </span>
-                      )}
-                      {r.analysis.priorityBand === 'today' && <span className="tag tag-amber">Action today</span>}
-                      {r.nextStatedDeadline && (
-                        <span className="tag tag-amber">
-                          Due: {new Date(r.nextStatedDeadline).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-                        </span>
-                      )}
-                      {r.analysis.replyRequired && <span className="tag tag-blue">Needs reply</span>}
-                      {r.analysis.securityAlert && <span className="tag tag-red">Security flag</span>}
-                    </div>
-                    <div className="thread-actions">
-                      <button
-                        className="act-btn act-btn-gold"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedThreadId(r.thread.id);
-                        }}
-                      >
-                        Review draft
-                      </button>
-                      <Link
-                        className="act-btn act-btn-ghost"
-                        to={linkTo(`/email/thread/${r.thread.id}`)}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Open thread
-                      </Link>
+                const avatarColor = avatarColors[index % avatarColors.length];
+                const dateStr = new Date(rec.thread.lastMessageAt).toLocaleDateString('en-AU', {
+                  day: 'numeric',
+                  month: 'short',
+                });
+
+                return (
+                  <div
+                    key={rec.thread.id}
+                    className={`thread-card ${isSelected ? 'selected' : ''} ${!rec.thread.isRead ? 'unread' : ''}`}
+                    onClick={() => setSelectedThreadId(rec.thread.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setSelectedThreadId(rec.thread.id);
+                      }
+                    }}
+                  >
+                    <div className={`thread-avatar ${avatarColor}`}>{initials}</div>
+                    <div className="thread-main">
+                      <div className="thread-row1">
+                        <span className="thread-from">{rec.counterpartyName}</span>
+                        <span className="thread-time">{dateStr}</span>
+                      </div>
+                      <div className="thread-subject">{rec.thread.subject}</div>
+                      <div className="thread-preview">{rec.analysis.oneLineSummary}</div>
+
+                      {/* Status / Urgency Tags */}
+                      <div className="thread-tags">
+                        {isLead && <span className="tag tag-red">Lead priority</span>}
+                        {rec.analysis.replyRequired && (
+                          <span className="tag tag-amber">Needs reply</span>
+                        )}
+                        {rec.analysis.priorityBand === 'immediate' && (
+                          <span className="tag tag-red">Action today</span>
+                        )}
+                        {rec.nextStatedDeadline && (
+                          <span className="tag tag-blue">
+                            Due {new Date(rec.nextStatedDeadline).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                        {rec.analysis.securityAlert && (
+                          <span className="tag tag-red">Security flag</span>
+                        )}
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="thread-actions" onClick={(e) => e.stopPropagation()}>
+                        <Link
+                          to={linkTo(`/email/thread/${rec.thread.id}`)}
+                          className="act-btn act-btn-gold"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          Review draft
+                        </Link>
+                        <Link
+                          to={linkTo(`/email/thread/${rec.thread.id}`)}
+                          className="act-btn act-btn-ghost"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          Open thread
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
         {/* Right Column: Inbox Intelligence */}
         <div>
           <div className="sec-hdr">
-            <span className="sec-label">Inbox intelligence</span>
+            <span className="sec-label">
+              <Sparkles size={14} /> Inbox intelligence
+            </span>
           </div>
 
           <div className="intel-panel">
             <div className="intel-header">
               <div>
                 <div className="intel-title">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e2b53c" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  Recommendations
+                  <Sparkles size={16} /> Intelligence status
                 </div>
-                <div className="intel-sub">Based on your inbox right now</div>
+                <div className="intel-sub">Evidence-grounded inbox analysis</div>
               </div>
-              <button className="intel-refresh" onClick={() => window.location.reload()}>
-                Refresh
-              </button>
             </div>
 
-            {/* Backlog health score */}
-            <div style={{ padding: '14px 16px 0' }}>
+            <div className="intel-body">
+              {/* Score Meter */}
               <div className="health-bar-wrap">
                 <div className="health-bar-row">
-                  <span className="health-bar-label">Backlog health</span>
-                  <span className="health-bar-score">{healthScore} / 100</span>
+                  <span className="health-bar-label">Analysed and classified</span>
+                  <span className="health-bar-score" style={{ color: triagePercentage >= 80 ? 'var(--green)' : 'var(--amber)' }}>
+                    {triagePercentage}%
+                  </span>
                 </div>
                 <div className="health-bar-track">
-                  <div className="health-bar-fill" style={{ width: `${healthScore}%` }} />
+                  <div
+                    className="health-bar-fill"
+                    style={{
+                      width: `${triagePercentage}%`,
+                      background: triagePercentage >= 80 ? 'var(--green)' : 'linear-gradient(90deg, var(--amber), var(--gold))',
+                    }}
+                  />
                 </div>
                 <div className="health-bar-meta">
-                  <span>{urgentCount > 0 ? `${urgentCount} unresolved critical threads` : 'Backlog under control'}</span>
-                  <span>{healthScore < 70 ? 'Needs attention' : 'Good progress'}</span>
+                  <span>{analysedCount} of {totalCount} threads analysed</span>
+                  <span>{urgentCount + highCount} require timely action</span>
                 </div>
               </div>
 
-              <div className="intel-score-row" style={{ marginTop: '10px' }}>
+              {/* Priority Breakdown */}
+              <div className="intel-score-row">
                 <div className="intel-score-item">
                   <div className="intel-score-val" style={{ color: 'var(--red)' }}>
                     {urgentCount}
                   </div>
-                  <div className="intel-score-lbl">Critical</div>
+                  <div className="intel-score-lbl">Immediate</div>
                 </div>
                 <div className="intel-score-item">
                   <div className="intel-score-val" style={{ color: 'var(--amber)' }}>
                     {highCount}
                   </div>
-                  <div className="intel-score-lbl">High</div>
+                  <div className="intel-score-lbl">Today</div>
                 </div>
                 <div className="intel-score-item">
-                  <div className="intel-score-val" style={{ color: 'var(--blue)' }}>
-                    {routineCount}
+                  <div className="intel-score-val" style={{ color: 'var(--navy2)' }}>
+                    {soonCount}
                   </div>
-                  <div className="intel-score-lbl">Routine</div>
+                  <div className="intel-score-lbl">Soon</div>
                 </div>
                 <div className="intel-score-item">
-                  <div className="intel-score-val" style={{ color: 'var(--text-4)' }}>
-                    {lowCount}
+                  <div className="intel-score-val" style={{ color: 'var(--text-3)' }}>
+                    {batchOrLowCount}
                   </div>
-                  <div className="intel-score-lbl">Low</div>
+                  <div className="intel-score-lbl">Batch / Low</div>
                 </div>
               </div>
-            </div>
 
-            {/* Recommendation cards */}
-            <div className="intel-body">
+              {/* Grounded Recommendation Cards */}
               {recommendations.map((rec) => (
                 <div key={rec.id} className={`rec-card ${rec.type}`}>
                   <div className={`rec-icon ${rec.type}`}>
                     {rec.type === 'critical' ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                      </svg>
+                      <AlertTriangle size={15} color="#ef4444" />
+                    ) : rec.type === 'high' ? (
+                      <Clock size={15} color="#f59e0b" />
                     ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.2">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
+                      <Sparkles size={15} color="#3b82f6" />
                     )}
                   </div>
                   <div className="rec-content">
@@ -542,10 +577,10 @@ export const EmailOverviewPage: React.FC = () => {
         <div className="draft-section">
           <div className="sec-hdr">
             <span className="sec-label">
-              Draft response · {selectedRecord.counterpartyName}
+              <FileText size={14} /> Draft response review
             </span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>
-              {activeDraft?.status === 'available' ? 'Draft ready for review' : 'Advisory guidance'}
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>
+              Target: <strong>{selectedRecord.counterpartyName}</strong>
             </span>
           </div>
 
@@ -554,29 +589,36 @@ export const EmailOverviewPage: React.FC = () => {
             <div className="draft-header">
               <div className="draft-header-left">
                 <div className="draft-header-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e2b53c" strokeWidth="1.8">
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-                  </svg>
+                  <Sparkles size={20} color="var(--gold)" />
                 </div>
                 <div>
-                  <div className="draft-title">Re: {selectedRecord.thread.subject}</div>
+                  <div className="draft-title">
+                    {activeDraft ? 'Response Draft Generated' : 'Conversation Intelligence Review'}
+                  </div>
                   <div className="draft-subtitle">
-                    {selectedRecord.counterpartyName} &nbsp;·&nbsp; {selectedRecord.analysis.whyItMatters}
+                    {activeDraft
+                      ? 'Grounded reply prepared for your explicit review and sign-off'
+                      : 'Structured analysis of active thread'}
                   </div>
                 </div>
               </div>
-              <div className="draft-status-pending">
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#e2b53c' }} />
-                Pending review
-              </div>
+
+              {activeDraft ? (
+                <div className="draft-status-pending">
+                  <Clock size={14} /> Pending Approval
+                </div>
+              ) : (
+                <div className="draft-status-pending" style={{ color: 'var(--text-3)', borderColor: 'var(--border-md)' }}>
+                  Awaiting Draft
+                </div>
+              )}
             </div>
 
-            {/* Draft Body */}
+            {/* Draft Body (2 columns: left envelope & draft, right intelligence) */}
             <div className="draft-body">
               {/* Draft Left Column */}
               <div className="draft-left">
-                {/* Envelope details */}
+                {/* Envelope Grid */}
                 <div className="envelope-grid">
                   <div>
                     <span className="env-label">From</span>
@@ -597,37 +639,67 @@ export const EmailOverviewPage: React.FC = () => {
                   <div>
                     <span className="env-label">Length</span>
                     <span className="env-value">
-                      {draftBodyContent.split(/\s+/).length} words · Standard response
+                      {draftBodyContent
+                        ? `${draftBodyContent.split(/\s+/).filter(Boolean).length} words · Standard response`
+                        : 'No draft generated'}
                     </span>
                   </div>
                 </div>
 
                 {/* Tone Selector */}
-                <div className="tone-label">Select draft tone</div>
-                <div className="tone-selector">
-                  <button
-                    className={`tone-btn ${selectedTone === 'concise' ? 'active' : ''}`}
-                    onClick={() => setSelectedTone('concise')}
-                  >
-                    Concise
-                  </button>
-                  <button
-                    className={`tone-btn ${selectedTone === 'formal' ? 'active' : ''}`}
-                    onClick={() => setSelectedTone('formal')}
-                  >
-                    Formal
-                  </button>
-                  <button
-                    className={`tone-btn ${selectedTone === 'friendly' ? 'active' : ''}`}
-                    onClick={() => setSelectedTone('friendly')}
-                  >
-                    Friendly
-                  </button>
-                </div>
+                {activeDraft && activeDraft.variants && (
+                  <>
+                    <div className="tone-label">Select draft tone</div>
+                    <div className="tone-selector">
+                      <button
+                        type="button"
+                        className={`tone-btn ${selectedTone === 'concise' ? 'active' : ''}`}
+                        onClick={() => setSelectedTone('concise')}
+                      >
+                        Concise
+                      </button>
+                      <button
+                        type="button"
+                        className={`tone-btn ${selectedTone === 'detailed' ? 'active' : ''}`}
+                        onClick={() => setSelectedTone('detailed')}
+                      >
+                        Detailed
+                      </button>
+                      <button
+                        type="button"
+                        className={`tone-btn ${selectedTone === 'warm' ? 'active' : ''}`}
+                        onClick={() => setSelectedTone('warm')}
+                      >
+                        Warm &amp; Professional
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 {/* Draft Content Box */}
-                <div className="tone-label">Response draft — ready for your review</div>
-                <div className="draft-body-text">{draftBodyContent}</div>
+                <div className="tone-label">Response draft</div>
+                {draftBodyContent ? (
+                  <div className="draft-body-text">{draftBodyContent}</div>
+                ) : (
+                  <div
+                    style={{
+                      background: 'var(--bg-raised)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--r-sm)',
+                      padding: '24px 20px',
+                      color: 'var(--text-3)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <Mail size={28} style={{ margin: '0 auto 8px', opacity: 0.6, display: 'block' }} />
+                    <div style={{ fontWeight: 600, color: 'var(--navy)', marginBottom: '4px' }}>
+                      No draft has been generated for this conversation
+                    </div>
+                    <div style={{ fontSize: '0.8rem', maxWidth: '440px', margin: '0 auto' }}>
+                      Concludo proposes; a person disposes. Drafts are generated only when recommended next steps warrant a drafted response. Open the conversation to review details or compose a reply.
+                    </div>
+                  </div>
+                )}
 
                 {/* Extracted Figures / Facts */}
                 <div className="draft-figures">
@@ -655,60 +727,62 @@ export const EmailOverviewPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Approval Gate Checklist */}
-                <div className="approval-gate">
-                  <div className="approval-gate-header">
-                    <div className="figures-title" style={{ color: 'var(--navy)' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      </svg>
-                      Human approval gate
+                {/* Approval Gate Checklist (only shown when an active draft exists) */}
+                {activeDraft && (
+                  <div className="approval-gate">
+                    <div className="approval-gate-header">
+                      <div className="figures-title" style={{ color: 'var(--navy)' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                        Human approval gate
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>
+                        {Object.values(checklist).filter(Boolean).length} / 4 verified
+                      </span>
                     </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>
-                      {Object.values(checklist).filter(Boolean).length} / 4 verified
-                    </span>
-                  </div>
-                  <div className="approval-gate-body">
-                    <div className="approval-checklist">
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={checklist.chk1}
-                          onChange={() => toggleCheck('chk1')}
-                          style={{ accentColor: 'var(--navy)' }}
-                        />
-                        <span>All counterparty questions addressed</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={checklist.chk2}
-                          onChange={() => toggleCheck('chk2')}
-                          style={{ accentColor: 'var(--navy)' }}
-                        />
-                        <span>No unintended legal or commercial concessions made</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={checklist.chk3}
-                          onChange={() => toggleCheck('chk3')}
-                          style={{ accentColor: 'var(--navy)' }}
-                        />
-                        <span>Australian English spelling verified</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={checklist.chk4}
-                          onChange={() => toggleCheck('chk4')}
-                          style={{ accentColor: 'var(--navy)' }}
-                        />
-                        <span>Stated terms confirmed against client agreement</span>
-                      </label>
+                    <div className="approval-gate-body">
+                      <div className="approval-checklist">
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={checklist.chk1}
+                            onChange={() => toggleCheck('chk1')}
+                            style={{ accentColor: 'var(--navy)' }}
+                          />
+                          <span>All counterparty questions addressed</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={checklist.chk2}
+                            onChange={() => toggleCheck('chk2')}
+                            style={{ accentColor: 'var(--navy)' }}
+                          />
+                          <span>No unintended legal or commercial concessions made</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={checklist.chk3}
+                            onChange={() => toggleCheck('chk3')}
+                            style={{ accentColor: 'var(--navy)' }}
+                          />
+                          <span>Australian English spelling verified</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={checklist.chk4}
+                            onChange={() => toggleCheck('chk4')}
+                            style={{ accentColor: 'var(--navy)' }}
+                          />
+                          <span>Stated terms confirmed against client agreement</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Draft Actions */}
                 <div className="draft-actions">
@@ -752,8 +826,8 @@ export const EmailOverviewPage: React.FC = () => {
                     </svg>
                     Facts to verify
                   </div>
-                  {selectedRecord.analysis.factsToVerify && selectedRecord.analysis.factsToVerify.length > 0 ? (
-                    selectedRecord.analysis.factsToVerify.map((f) => (
+                  {factsList.length > 0 ? (
+                    factsList.map((f) => (
                       <div key={f.id} className="verify-item">
                         <div className="verify-dot warn" />
                         <div className="verify-text">
@@ -762,20 +836,12 @@ export const EmailOverviewPage: React.FC = () => {
                       </div>
                     ))
                   ) : (
-                    <>
-                      <div className="verify-item">
-                        <div className="verify-dot info" />
-                        <div className="verify-text">
-                          Sender identity verified as <strong>{selectedRecord.counterpartyName}</strong>.
-                        </div>
+                    <div className="verify-item">
+                      <div className="verify-dot info" />
+                      <div className="verify-text">
+                        No specific factual claims flagged for manual verification in this thread.
                       </div>
-                      <div className="verify-item">
-                        <div className="verify-dot info" />
-                        <div className="verify-text">
-                          Subject verified as <strong>{selectedRecord.thread.subject}</strong>.
-                        </div>
-                      </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
@@ -790,7 +856,24 @@ export const EmailOverviewPage: React.FC = () => {
                     Commitments in this draft
                   </div>
                   <div className="commitments-list">
-                    {selectedRecord.analysis.actions.length > 0 ? (
+                    {activeDraft?.commitmentsInDraft && activeDraft.commitmentsInDraft.length > 0 ? (
+                      activeDraft.commitmentsInDraft.map((c, i) => (
+                        <div key={i} className="commitment-item">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.2"
+                            style={{ flexShrink: 0, marginTop: '2px' }}
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          {c}
+                        </div>
+                      ))
+                    ) : selectedRecord.analysis.actions.length > 0 ? (
                       selectedRecord.analysis.actions.map((act) => (
                         <div key={act.id} className="commitment-item">
                           <svg
@@ -808,19 +891,8 @@ export const EmailOverviewPage: React.FC = () => {
                         </div>
                       ))
                     ) : (
-                      <div className="commitment-item">
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.2"
-                          style={{ flexShrink: 0, marginTop: '2px' }}
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Acknowledging communication and providing timely status update.
+                      <div className="commitment-item" style={{ color: 'var(--text-3)', background: 'var(--bg-raised)', borderColor: 'var(--border)' }}>
+                        No explicit commitments or action promises detected in this thread.
                       </div>
                     )}
                   </div>
