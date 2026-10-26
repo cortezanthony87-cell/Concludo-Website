@@ -56,6 +56,10 @@ export interface WorkspaceSidebarProps {
   /** Drawer state, owned by the layout so the top bar's button can set it. */
   mobileOpen: boolean;
   onMobileClose: () => void;
+  /** Whether the sidebar is collapsed into a hidden state to expand main view */
+  isCollapsed?: boolean;
+  /** Click handler to toggle sidebar visibility */
+  onToggleCollapse?: () => void;
 }
 
 const PHONE = '(max-width: 899px)';
@@ -153,6 +157,8 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
   onOpenSearch,
   mobileOpen,
   onMobileClose,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
   const phone = useMatches(PHONE);
   const rail = useMatches(RAIL);
@@ -212,6 +218,16 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
           {phone ? (
             <button type="button" className="cws-close" onClick={onMobileClose} aria-label="Close the menu">
               <Icon name="X" size={16} />
+            </button>
+          ) : !rail && onToggleCollapse ? (
+            <button
+              type="button"
+              className="cws-collapse-btn"
+              onClick={onToggleCollapse}
+              aria-label="Hide sidebar"
+              title="Hide sidebar (click to collapse)"
+            >
+              <Icon name="ChevronLeft" size={15} />
             </button>
           ) : null}
         </div>
@@ -298,7 +314,17 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
     </div>
   );
 
-  if (!phone) return <nav className="cws-nav" aria-label="Workspace">{body}</nav>;
+  if (!phone) {
+    return (
+      <nav
+        className={`cws-nav${isCollapsed ? ' cws-nav-collapsed' : ''}`}
+        aria-label="Workspace"
+        aria-hidden={isCollapsed ? true : undefined}
+      >
+        {body}
+      </nav>
+    );
+  }
 
   return (
     <>

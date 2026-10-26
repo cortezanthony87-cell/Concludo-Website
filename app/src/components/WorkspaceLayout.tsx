@@ -18,6 +18,8 @@ import {
   Calendar as CalendarIcon,
   Mail,
   Zap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -65,8 +67,27 @@ export const WorkspaceLayout: React.FC = () => {
       };
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem('concludo.sidebar.collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [loggingOut, setLoggingOut] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('concludo.sidebar.collapsed', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   // Reset scroll and close mobile sidebar whenever route changes
   useEffect(() => {
@@ -355,7 +376,20 @@ export const WorkspaceLayout: React.FC = () => {
           onOpenSearch={() => navigate("/search")}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
         />
+
+        {/* Fixed arrow button on border to hide/show sidebar (click only, no hover sensitivity) */}
+        <button
+          type="button"
+          className={`cws-edge-tab${sidebarCollapsed ? ' cws-edge-tab-collapsed' : ''}`}
+          onClick={handleToggleSidebar}
+          aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          title={sidebarCollapsed ? 'Show sidebar (click to expand)' : 'Hide sidebar (click to collapse)'}
+        >
+          {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
 
         {/* Main content area */}
         <main className="main-content-area">
