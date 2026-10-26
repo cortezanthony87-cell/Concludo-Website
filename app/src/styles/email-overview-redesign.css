@@ -1173,3 +1173,31 @@
   .ecc-overview-v2 .main-cols { grid-template-columns: 1fr; }
   .ecc-overview-v2 .draft-body { grid-template-columns: 1fr; }
 }
+
+/* ECC Thread View Full-Bleed Container Integration */
+.main-content-area:has(.ecc-thread-view-container) {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.ecc-thread-view-container {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.module-content-slot {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
