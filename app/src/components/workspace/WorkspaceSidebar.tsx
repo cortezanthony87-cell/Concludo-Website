@@ -224,10 +224,10 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
               type="button"
               className="cws-collapse-btn"
               onClick={onToggleCollapse}
-              aria-label="Hide sidebar"
-              title="Hide sidebar (click to collapse)"
+              aria-label={isCollapsed ? "Show sidebar" : "Hide sidebar"}
+              title={isCollapsed ? "Show sidebar (click to expand)" : "Hide sidebar (click to collapse)"}
             >
-              <Icon name="ChevronLeft" size={15} />
+              <Icon name={isCollapsed ? "ChevronRight" : "ChevronLeft"} size={15} />
             </button>
           ) : null}
         </div>

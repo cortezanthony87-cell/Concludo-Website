@@ -18,8 +18,6 @@ import {
   Calendar as CalendarIcon,
   Mail,
   Zap,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS } from '../lib/profiles/types';
@@ -379,17 +377,6 @@ export const WorkspaceLayout: React.FC = () => {
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleSidebar}
         />
-
-        {/* Fixed arrow button on border to hide/show sidebar (click only, no hover sensitivity) */}
-        <button
-          type="button"
-          className={`cws-edge-tab${sidebarCollapsed ? ' cws-edge-tab-collapsed' : ''}`}
-          onClick={handleToggleSidebar}
-          aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          title={sidebarCollapsed ? 'Show sidebar (click to expand)' : 'Hide sidebar (click to collapse)'}
-        >
-          {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
 
         {/* Main content area */}
         <main className="main-content-area">
