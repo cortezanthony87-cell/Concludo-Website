@@ -76,6 +76,9 @@ const P = {
 const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 const CONN = { connected: 'Connected', needs_reauth: 'Sign in again', permission_required: 'Needs permission', service_issue: 'Service problem', disconnected: 'Not connected' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const appOf = (k) => C.appInfo(k);
+const actOf = (k) => C.actionInfo(k);
+const trigOf = (k) => C.triggerInfo(k);
 const plural = (n, w, p) => `${n} ${n === 1 ? w : p || w + 's'}`;
 const when = (iso) => {
   const d = Date.now() - Date.parse(iso);
@@ -301,11 +304,27 @@ export async function mountAutomation(root, opts = {}) {
     return `<span class="pill ${w.pausedBy === 'you' ? 'warn' : 'bad'}"><i></i>${w.pausedBy === 'workspace_stop' ? 'Stopped' : w.pausedBy === 'quarantine' ? 'Paused after failures' : 'Paused'}</span>`;
   }
   function flowMini(w) {
-    return `<div class="flowmini"><span class="appb">${ic('bolt')}${esc(C.TRIGGERS[w.trigger.type].label)}</span>${w.steps.map((s) => `${ic('arrow', 'arr')}<span class="appb ${s.action === 'ask_approval' ? 'ap' : C.APPS[s.app].external ? 'ext' : ''}">${s.action === 'ask_approval' ? 'Approval' : C.APPS[s.app].external ? esc(C.APPS[s.app].label) : esc(s.label)}</span>`).join('')}</div>`;
+    const trig = trigOf(w.trigger && w.trigger.type);
+    return `<div class="flowmini"><span class="appb">${ic('bolt')}${esc(trig.label)}</span>${(w.steps || []).map((s) => {
+      const app = appOf(s && s.app);
+      const approval = s && s.action === 'ask_approval';
+      const text = approval ? 'Approval' : app.external ? app.label : (s && s.label) || 'Step';
+      return `${ic('arrow', 'arr')}<span class="appb ${approval ? 'ap' : app.external ? 'ext' : ''}">${esc(text)}</span>`;
+    }).join('')}</div>`;
   }
   function wfCard(w, last) {
+    let card = '';
+    try {
+      card = wfCardHtml(w, last);
+    } catch (e) {
+      card = `<article class="wf" data-test="wf-unreadable"><div class="w-h"><div><h3>${esc(w.name || 'Workflow')}</h3><div class="trig">This workflow could not be drawn.</div></div></div><div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Open in builder</a></div></article>`;
+    }
+    return card;
+  }
+  function wfCardHtml(w, last) {
+    const trig = trigOf(w.trigger && w.trigger.type);
     return `<article class="wf" data-act="open-wf" data-id="${w.id}" data-test="wf-${esc(w.name)}" tabindex="0" role="link" aria-label="Open ${esc(w.name)} in the builder">
-      <div class="w-h"><div><h3><a href="${toUrl('#builder/' + w.id)}">${esc(w.name)}</a></h3><div class="trig">${esc(C.TRIGGERS[w.trigger.type].label)}${w.trigger.schedule ? ` · ${esc(w.trigger.schedule)}` : ''}</div></div>${statusPill(w)}</div>
+      <div class="w-h"><div><h3><a href="${toUrl('#builder/' + w.id)}">${esc(w.name)}</a></h3><div class="trig">${esc(trig.label)}${w.trigger && w.trigger.schedule ? ` · ${esc(w.trigger.schedule)}` : ''}</div></div>${statusPill(w)}</div>
       ${flowMini(w)}
       <div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Edit in builder</a>
         <button class="btn sm ${w.status === 'active' ? 'primary' : ''}" data-act="run-open" data-id="${w.id}" ${w.status === 'active' ? '' : 'disabled title="Turn it on first, or use Test run in the builder"'}>${ic('play')}Run now</button>
@@ -344,13 +363,14 @@ export async function mountAutomation(root, opts = {}) {
     const issues = await C.validateWorkflow(wf, store);
     const blocks = issues.filter((i) => i.level === 'block');
     const explain = C.explainWorkflow(wf);
-    const apps = [...new Set(wf.steps.filter((s) => C.APPS[s.app].external).map((s) => s.app))];
+    const apps = [...new Set((wf.steps || []).filter((s) => appOf(s.app).external).map((s) => s.app))];
     const conns = await Promise.all(apps.map(async (a) => [a, await store.connection(a)]));
     const stepIssues = (sid) => issues.filter((i) => i.stepId === sid && i.level === 'block');
     const plan = b.plan;
     return `
       <div class="b-head">
         <a class="btn sm ghost" href="#workflows">${ic('back')}Workflows</a>
+        <a class="btn sm primary" href="${toUrl('#builder/new')}" data-test="create">${ic('plus')}Create workflow</a>
         <label class="sr" for="wfname">Workflow name</label><input id="wfname" class="name" data-bind="wfname" value="${esc(wf.name)}">
         ${statusPill(wf)}<span class="small muted" data-test="saved">Saved</span>
         <span class="grow"></span>
@@ -379,26 +399,29 @@ export async function mountAutomation(root, opts = {}) {
       </div>`;
   }
   function nodeHtml(wf, s, i, issuesFor) {
-    const spec = C.ACTIONS[s.action];
+    const spec = actOf(s.action);
+    const app = appOf(s.app);
     const cls = spec.kind === 'approval' ? 'approval' : spec.kind === 'only_if' ? 'cond' : '';
-    const kind = spec.kind === 'approval' ? 'A person approves' : spec.kind === 'only_if' ? 'Condition' : C.APPS[s.app].external ? `Leaves Concludo · ${C.APPS[s.app].label}` : 'Inside Concludo';
+    const kind = spec.kind === 'approval' ? 'A person approves' : spec.kind === 'only_if' ? 'Condition' : app.external ? `Leaves Concludo · ${app.label}` : 'Inside Concludo';
     const bad = issuesFor(s.id).length;
     return `<button class="node ${cls} ${S.b.sel === s.id ? 'sel' : ''} ${bad ? 'issue' : ''}" data-act="select" data-s="${s.id}" data-test="node-${i}"><span class="n-ic">${ic(STEP_IC(s))}</span><span><span class="kind">${esc(kind)}</span><b>${esc(s.label)}</b><span>${esc(spec.explain(s))}</span></span>${bad ? `<span class="pill bad">${ic('alert')}Fix</span>` : s.autoAdded ? '<span class="pill gold">Added</span>' : ''}</button>`;
   }
   function diagram(wf, issuesFor) {
-    let h = `<button class="node trigger ${S.b.sel === 'trigger' ? 'sel' : ''}" data-act="select" data-s="trigger"><span class="n-ic">${ic('bolt')}</span><span><span class="kind">When</span><b>${esc(C.TRIGGERS[wf.trigger.type].label)}</b><span>${esc(wf.trigger.schedule || C.TRIGGERS[wf.trigger.type].hint)}</span></span></button>`;
+    const trig = trigOf(wf.trigger && wf.trigger.type);
+    let h = `<button class="node trigger ${S.b.sel === 'trigger' ? 'sel' : ''}" data-act="select" data-s="trigger"><span class="n-ic">${ic('bolt')}</span><span><span class="kind">When</span><b>${esc(trig.label)}</b><span>${esc((wf.trigger && wf.trigger.schedule) || trig.hint)}</span></span></button>`;
     wf.steps.forEach((s, i) => { h += `<div class="link"></div><button class="plus" data-act="add-open" data-at="${i}" aria-label="Add a step here">${ic('plus')}</button><div class="link"></div>${nodeHtml(wf, s, i, issuesFor)}`; });
     h += `<div class="link"></div><button class="plus" data-act="add-open" data-at="${wf.steps.length}" aria-label="Add a step at the end">${ic('plus')}</button><div class="end">End</div>`;
     return h;
   }
   function stepsList(wf, issuesFor) {
-    return `<div class="stepsview"><button class="row" data-act="select" data-s="trigger"><span class="no">${ic('bolt')}</span><span><b>${esc(C.TRIGGERS[wf.trigger.type].label)}</b><br><span class="small muted">${esc(wf.trigger.schedule || 'Trigger')}</span></span><span></span></button>${wf.steps.map((s, i) => `<button class="row" data-act="select" data-s="${s.id}"><span class="no">${i + 1}</span><span><b>${esc(s.label)}</b><br><span class="small muted">${esc(C.ACTIONS[s.action].explain(s))}</span></span>${issuesFor(s.id).length ? '<span class="pill bad">Fix</span>' : `<span class="appb ${C.APPS[s.app].external ? 'ext' : ''}">${esc(C.APPS[s.app].label)}</span>`}</button>`).join('')}</div>`;
+    const trig = trigOf(wf.trigger && wf.trigger.type);
+    return `<div class="stepsview"><button class="row" data-act="select" data-s="trigger"><span class="no">${ic('bolt')}</span><span><b>${esc(trig.label)}</b><br><span class="small muted">${esc((wf.trigger && wf.trigger.schedule) || 'Trigger')}</span></span><span></span></button>${(wf.steps || []).map((s, i) => { const spec = actOf(s.action); const app = appOf(s.app); return `<button class="row" data-act="select" data-s="${s.id}"><span class="no">${i + 1}</span><span><b>${esc(s.label)}</b><br><span class="small muted">${esc(spec.explain({ ...s, settings: s.settings || {} }))}</span></span>${issuesFor(s.id).length ? '<span class="pill bad">Fix</span>' : `<span class="appb ${app.external ? 'ext' : ''}">${esc(app.label)}</span>`}</button>`; }).join('')}</div>`;
   }
   function guarding(wf, idx) {
     // An approval is required if removing it leaves an external step unguarded.
     const test = { ...wf, steps: wf.steps.filter((_, i) => i !== idx) };
     let guarded = false;
-    for (const s of test.steps) { if (C.ACTIONS[s.action].kind === 'approval') guarded = true; if (C.ACTIONS[s.action].kind === 'do' && C.APPS[s.app].external && !guarded) return true; }
+    for (const s of test.steps) { const spec = actOf(s.action); const app = appOf(s.app); if (spec.kind === 'approval') guarded = true; if (spec.kind === 'do' && spec.key !== 'unsupported' && app.external && !guarded) return true; }
     return false;
   }
   function inspector(wf) {
@@ -406,18 +429,19 @@ export async function mountAutomation(root, opts = {}) {
       return `<aside class="inspector" aria-label="Trigger"><div class="i-h"><h3>When should it run?</h3><button class="btn ghost sm" data-act="deselect" aria-label="Close">${ic('x')}</button></div><div class="i-b">
         <div class="field"><label for="trig">Trigger</label><select id="trig" data-edit="trigger">${Object.entries(C.TRIGGERS).map(([k, t]) => `<option value="${k}" ${wf.trigger.type === k ? 'selected' : ''}>${esc(t.label)}</option>`).join('')}</select></div>
         ${wf.trigger.type === 'workflow_schedule' ? `<div class="field"><label for="sched">Schedule</label><select id="sched" data-edit="schedule">${['Every Monday', 'Every weekday', 'Every Friday', 'Daily', 'First Monday of the month'].map((x) => `<option ${wf.trigger.schedule === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>` : ''}
-        <div class="note">${esc(C.TRIGGERS[wf.trigger.type].hint)}.</div></div></aside>`;
+        <div class="note">${esc(trigOf(wf.trigger && wf.trigger.type).hint)}.</div></div></aside>`;
     }
     const idx = wf.steps.findIndex((s) => s.id === S.b.sel);
     if (idx < 0) return '';
     const s = wf.steps[idx];
-    const spec = C.ACTIONS[s.action];
+    const spec = actOf(s.action);
+    const app = appOf(s.app);
     const locked = spec.kind === 'approval' && guarding(wf, idx);
     return `<aside class="inspector" aria-label="Step settings"><div class="i-h"><h3>${esc(s.label)}</h3><button class="btn ghost sm" data-act="deselect" aria-label="Close">${ic('x')}</button></div>
       <div class="i-b">
         ${spec.apps.length > 1 ? `<div class="field"><label for="app">App</label><select id="app" data-edit="app">${spec.apps.map((a) => `<option value="${a}" ${s.app === a ? 'selected' : ''}>${esc(C.APPS[a].label)}</option>`).join('')}</select></div>` : ''}
         ${spec.fields.filter((f) => !(f.key === 'address' && s.settings.to !== 'custom')).map((f) => `<div class="field"><label for="f-${f.key}">${esc(f.label)}${f.required ? '' : ' (optional)'}</label>${f.kind === 'select' ? `<select id="f-${f.key}" data-edit="set:${f.key}">${f.options.map((o) => `<option value="${o.value}" ${s.settings[f.key] === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>` : `<input id="f-${f.key}" data-edit="set:${f.key}" value="${esc(s.settings[f.key] || '')}" placeholder="${esc(f.placeholder || '')}">`}</div>`).join('')}
-        <div class="note">${esc(spec.explain(s))}${C.APPS[s.app].external && spec.kind === 'do' ? ' It runs only after a person approves it.' : ''}</div>
+        <div class="note">${esc(spec.explain({ ...s, settings: s.settings || {} }))}${app.external && spec.kind === 'do' && spec.key !== 'unsupported' ? ' It runs only after a person approves it.' : ''}</div>
         ${locked ? '<div class="note" style="margin-top:8px">This approval protects a later step that sends outside Concludo, so it cannot be removed.</div>' : ''}
       </div>
       <div class="i-f"><button class="btn sm" data-act="move" data-d="-1" ${idx === 0 ? 'disabled' : ''}>${ic('up')}Up</button><button class="btn sm" data-act="move" data-d="1" ${idx === wf.steps.length - 1 ? 'disabled' : ''}>${ic('down')}Down</button><span style="flex:1"></span><button class="btn sm" data-act="remove" ${locked ? 'disabled' : ''} data-test="remove-step">${ic('trash')}Remove</button></div></aside>`;
@@ -439,10 +463,11 @@ export async function mountAutomation(root, opts = {}) {
     await render(true);
   }
   function pickerModal(at) {
-    const groups = [...new Set(Object.values(C.ACTIONS).map((a) => a.group))];
+    const visible = Object.values(C.ACTIONS).filter((a) => !a.hidden);
+    const groups = [...new Set(visible.map((a) => a.group))];
     return `<div class="modal-bg" data-act="close-modal"><div class="modal" role="dialog" aria-label="Add a step" data-stop>
       <div class="mh"><h2>Add a step</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
-      <div class="mb"><div class="picker">${groups.map((g) => `<div><h4>${esc(g)}</h4><div class="opts">${Object.values(C.ACTIONS).filter((a) => a.group === g).flatMap((a) => a.apps.length > 1 && a.kind === 'do' ? a.apps.map((app) => ({ a, app })) : [{ a, app: a.apps[0] }]).map(({ a, app }) => `<button class="opt" data-act="add-step" data-k="${a.key}" data-app="${app}" data-at="${at}" data-test="pick-${a.key}-${app}"><b>${esc(a.label)}${a.apps.length > 1 ? ` (${esc(C.APPS[app].label)})` : ''}</b><span>${C.APPS[app].external && a.kind === 'do' ? 'Leaves Concludo: needs approval' : a.kind === 'approval' ? 'Stops until a person approves' : a.kind === 'only_if' ? 'Stops the workflow if the rule is not met' : 'Stays inside Concludo'}</span></button>`).join('')}</div></div>`).join('')}</div></div></div></div>`;
+      <div class="mb"><div class="picker">${groups.map((g) => `<div><h4>${esc(g)}</h4><div class="opts">${visible.filter((a) => a.group === g).flatMap((a) => a.apps.length > 1 && a.kind === 'do' ? a.apps.map((app) => ({ a, app })) : [{ a, app: a.apps[0] }]).map(({ a, app }) => `<button class="opt" data-act="add-step" data-k="${a.key}" data-app="${app}" data-at="${at}" data-test="pick-${a.key}-${app}"><b>${esc(a.label)}${a.apps.length > 1 ? ` (${esc(C.APPS[app].label)})` : ''}</b><span>${C.APPS[app].external && a.kind === 'do' ? 'Leaves Concludo: needs approval' : a.kind === 'approval' ? 'Stops until a person approves' : a.kind === 'only_if' ? 'Stops the workflow if the rule is not met' : 'Stays inside Concludo'}</span></button>`).join('')}</div></div>`).join('')}</div></div></div></div>`;
   }
   async function connectModal() {
     const keys = Object.keys(C.APPS).filter((k) => C.APPS[k].external);

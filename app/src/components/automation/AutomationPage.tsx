@@ -126,6 +126,9 @@ export const AutomationPage: React.FC<AutomationPageProps> = ({ view, paramId })
           }}
         >
           <b>Error loading view:</b> {error}
+          <div style={{ marginTop: 12 }}>
+            <a href="/workflows/builder/new" style={{ color: '#16263F', fontWeight: 700 }}>Create workflow</a>
+          </div>
         </div>
       )}
       <div ref={containerRef} style={{ display: loading ? 'none' : 'block' }} />

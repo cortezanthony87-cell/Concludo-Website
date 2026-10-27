@@ -9,6 +9,7 @@ import type {
   ConnectionState,
   OutgoingItem,
 } from './automationCore';
+import { pickStoredSteps, stepsFromStored, triggerFromStored } from './automationCore';
 import type { WorkspaceData, ConsentBasis } from './agentsCore';
 import { getSupabaseBrowserClient, getSupabaseEnv } from '../supabase/client';
 
@@ -123,11 +124,8 @@ export class SupabaseAutomationStore implements Store {
 
   private mapRowToWorkflow(row: any): Workflow {
     const tc = row.trigger_config || {};
-    const trigger = tc.trigger || {
-      type: row.trigger_type || 'meeting_completed',
-      schedule: tc.schedule,
-    };
-    const steps = Array.isArray(row.actions) ? row.actions : [];
+    const trigger = triggerFromStored(row.trigger_type, tc);
+    const steps = stepsFromStored(pickStoredSteps(row), (i) => `${row.id || 'step'}-${i + 1}`);
 
     return {
       id: row.id,

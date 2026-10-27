@@ -46,6 +46,16 @@ export const TRIGGERS: Record<TriggerType, { label: string; hint: string }> = {
   webhook_event: { label: 'Another app sends an event', hint: 'Runs with the event the app sends' },
 };
 
+/** A trigger saved by an older builder still has a label. It never throws. */
+export function triggerInfo(type: string | null | undefined): { label: string; hint: string } {
+  if (type && Object.prototype.hasOwnProperty.call(TRIGGERS, type)) return TRIGGERS[type as TriggerType];
+  const raw = String(type || 'unknown').replace(/_/g, ' ');
+  return {
+    label: `Older trigger: ${raw}`,
+    hint: 'This trigger is from an older workflow. Choose a current trigger before turning the workflow on',
+  };
+}
+
 export type AppKey =
   | 'concludo'
   | 'outlook'
@@ -69,6 +79,12 @@ export const APPS: Record<AppKey, { label: string; external: boolean }> = {
   google_sheets: { label: 'Google Sheets', external: true },
 };
 
+/** An app name that is not in the catalogue is shown, not crashed on. */
+export function appInfo(app: string | null | undefined): { label: string; external: boolean } {
+  if (app && Object.prototype.hasOwnProperty.call(APPS, app)) return APPS[app as AppKey];
+  return { label: 'Unknown app', external: false };
+}
+
 export type ActionKey =
   | 'summarise_meeting'
   | 'create_actions'
@@ -83,7 +99,8 @@ export type ActionKey =
   | 'add_sheet_row'
   | 'ask_approval'
   | 'only_if'
-  | 'run_agent';
+  | 'run_agent'
+  | 'unsupported';
 
 export type StepKind = 'do' | 'approval' | 'only_if';
 
@@ -103,6 +120,8 @@ export interface ActionSpec {
   group: 'Concludo' | 'Ask a person' | 'Send or notify' | 'Calendar and tasks' | 'Records' | 'Logic';
   apps: AppKey[];
   fields: FieldSpec[];
+  /** Hidden from the add-step list. Used for older steps we can show but not run. */
+  hidden?: boolean;
   /** One plain sentence for the explanation panel. */
   explain: (s: Step) => string;
 }
@@ -147,19 +166,19 @@ export const ACTIONS: Record<ActionKey, ActionSpec> = {
   send_email: {
     key: 'send_email', kind: 'do', label: 'Send an email', group: 'Send or notify', apps: ['outlook', 'gmail'],
     fields: [recipients, { key: 'address', label: 'Address', kind: 'text', placeholder: 'name@company.com.au' }, { key: 'subject', label: 'Subject', kind: 'text', required: true, placeholder: 'Outcomes and actions from today' }],
-    explain: (s) => `An email goes to ${optionLabel(recipients, s.settings.to)?.toLowerCase() || 'the people you choose'} from ${APPS[s.app].label}.`,
+    explain: (s) => `An email goes to ${optionLabel(recipients, s.settings.to)?.toLowerCase() || 'the people you choose'} from ${appInfo(s.app).label}.`,
   },
   post_message: {
     key: 'post_message', kind: 'do', label: 'Post a message', group: 'Send or notify', apps: ['slack', 'teams'],
     fields: [{ key: 'channel', label: 'Channel', kind: 'text', required: true, placeholder: '#project-updates' }],
-    explain: (s) => `A message is posted to ${s.settings.channel || 'a channel'} in ${APPS[s.app].label}.`,
+    explain: (s) => `A message is posted to ${s.settings.channel || 'a channel'} in ${appInfo(s.app).label}.`,
   },
   create_event: {
     key: 'create_event', kind: 'do', label: 'Add deadlines to a calendar', group: 'Calendar and tasks', apps: ['google_calendar', 'outlook'],
     fields: [{ key: 'calendar', label: 'Calendar', kind: 'select', required: true, options: [{ value: 'mine', label: 'My calendar' }, { value: 'owners', label: 'Each action owner’s calendar' }] }],
-    explain: (s) => `Each dated action becomes a calendar entry in ${APPS[s.app].label}.`,
+    explain: (s) => `Each dated action becomes a calendar entry in ${appInfo(s.app).label}.`,
   },
-  create_task: { key: 'create_task', kind: 'do', label: 'Create tasks in a task app', group: 'Calendar and tasks', apps: ['microsoft_todo'], fields: [{ key: 'list', label: 'List', kind: 'text', required: true, placeholder: 'Tasks' }], explain: (s) => `Each action becomes a task in ${APPS[s.app].label}.` },
+  create_task: { key: 'create_task', kind: 'do', label: 'Create tasks in a task app', group: 'Calendar and tasks', apps: ['microsoft_todo'], fields: [{ key: 'list', label: 'List', kind: 'text', required: true, placeholder: 'Tasks' }], explain: (s) => `Each action becomes a task in ${appInfo(s.app).label}.` },
   add_crm_note: { key: 'add_crm_note', kind: 'do', label: 'Add a note to the CRM', group: 'Records', apps: ['hubspot'], fields: [], explain: () => 'The meeting summary is added as a note on the client record in HubSpot.' },
   add_sheet_row: { key: 'add_sheet_row', kind: 'do', label: 'Add rows to a spreadsheet', group: 'Records', apps: ['google_sheets'], fields: [{ key: 'sheet', label: 'Sheet name', kind: 'text', required: true, placeholder: 'Action log' }], explain: (s) => `Each action is added as a row in ${s.settings.sheet || 'a sheet'}.` },
   ask_approval: {
@@ -182,10 +201,20 @@ export const ACTIONS: Record<ActionKey, ActionSpec> = {
     ] }],
     explain: (s) => `The workflow continues only if ${(optionLabel(ACTIONS.only_if.fields[0], s.settings.rule) || 'the rule is met').replace(/^There is|^An|^A|^At/, (m) => m.toLowerCase())}.`,
   },
+  unsupported: {
+    key: 'unsupported', kind: 'do', label: 'Older step', group: 'Concludo', apps: ['concludo'], fields: [], hidden: true,
+    explain: (s) => `This step is from an older workflow (${String(s.settings.legacyType || 'unknown action').replace(/_/g, ' ')}). It is shown so you can replace it. Concludo will not run it.`,
+  },
 };
 
 export function optionLabel(f: FieldSpec, v?: string): string | undefined {
   return f.options?.find((o) => o.value === v)?.label;
+}
+
+/** A step action that is not in the catalogue becomes the older-step placeholder. */
+export function actionInfo(action: string | null | undefined): ActionSpec {
+  if (action && Object.prototype.hasOwnProperty.call(ACTIONS, action)) return ACTIONS[action as ActionKey];
+  return ACTIONS.unsupported;
 }
 
 /* ============================================================== records */
@@ -216,6 +245,142 @@ export interface Workflow {
   consecutiveFailures: number;
   createdAt: string;
   updatedAt: string;
+}
+
+const LEGACY_STEP: Record<string, { action: ActionKey; app: AppKey }> = {
+  generate_summary: { action: 'summarise_meeting', app: 'concludo' },
+  generate_report: { action: 'build_report', app: 'concludo' },
+  create_tasks: { action: 'create_actions', app: 'concludo' },
+  send_teams_message: { action: 'post_message', app: 'teams' },
+  send_slack_message: { action: 'post_message', app: 'slack' },
+  send_outlook_message: { action: 'send_email', app: 'outlook' },
+  create_todo_task: { action: 'create_task', app: 'microsoft_todo' },
+  generate_approval_request: { action: 'ask_approval', app: 'concludo' },
+  append_sheet_row: { action: 'add_sheet_row', app: 'google_sheets' },
+};
+
+function asApp(value: unknown): AppKey | null {
+  if (typeof value !== 'string') return null;
+  const v = value.trim().toLowerCase().replace(/\s+/g, '_');
+  if (Object.prototype.hasOwnProperty.call(APPS, v)) return v as AppKey;
+  if (v === 'gcal' || v === 'google' || v === 'calendar') return 'google_calendar';
+  if (v === 'sheets' || v === 'spreadsheet') return 'google_sheets';
+  if (v === 'todo' || v === 'microsoft_todo' || v === 'to_do') return 'microsoft_todo';
+  return null;
+}
+
+function stringSettings(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') out[k] = String(v);
+  }
+  return out;
+}
+
+function unsupportedStep(id: string, legacyType: string, label?: string): Step {
+  const name = (legacyType || 'unknown').replace(/_/g, ' ');
+  return {
+    id,
+    action: 'unsupported',
+    app: 'concludo',
+    label: label || `Older step: ${name}`,
+    settings: { legacyType: legacyType || 'unknown' },
+  };
+}
+
+/** Turns one saved step, old or new, into a step the builder can draw. Unknown actions stay visible and are not run. */
+export function stepFromStored(raw: unknown, index: number, id: string): Step {
+  if (!raw || typeof raw !== 'object') return unsupportedStep(id, 'unknown');
+  const row = raw as Record<string, unknown>;
+  const legacyType = String(row.action || row.actionType || row.type || row.stepType || row.key || '');
+  const explicitApp = row.app || row.connector || row.application || row.service;
+  const hinted = asApp(explicitApp);
+  const known = legacyType && Object.prototype.hasOwnProperty.call(ACTIONS, legacyType) && legacyType !== 'unsupported'
+    ? legacyType as ActionKey
+    : null;
+  if (known) {
+    const spec = ACTIONS[known];
+    if (explicitApp && !hinted) return unsupportedStep(typeof row.id === 'string' && row.id ? row.id : id, `${legacyType} via ${String(explicitApp)}`, typeof row.label === 'string' ? row.label : undefined);
+    if (hinted && !spec.apps.includes(hinted)) return unsupportedStep(typeof row.id === 'string' && row.id ? row.id : id, `${legacyType} via ${hinted}`, typeof row.label === 'string' ? row.label : undefined);
+    return {
+      id: typeof row.id === 'string' && row.id ? row.id : id,
+      action: known,
+      app: hinted && spec.apps.includes(hinted) ? hinted : spec.apps[0],
+      label: typeof row.label === 'string' && row.label ? row.label : spec.label,
+      settings: stringSettings(row.settings || row.config || row.configuration),
+      ...(row.autoAdded === true ? { autoAdded: true } : {}),
+    };
+  }
+  const mapped = LEGACY_STEP[legacyType];
+  if (mapped) {
+    return {
+      id: typeof row.id === 'string' && row.id ? row.id : id,
+      action: mapped.action,
+      app: mapped.app,
+      label: typeof row.label === 'string' && row.label ? row.label : ACTIONS[mapped.action].label,
+      settings: stringSettings(row.config || row.configuration || row.settings),
+    };
+  }
+  if (legacyType === 'create_calendar_event' || legacyType === 'create_calendar_events') {
+    if (hinted === 'google_calendar' || hinted === 'outlook') {
+      return {
+        id: typeof row.id === 'string' && row.id ? row.id : id,
+        action: 'create_event',
+        app: hinted,
+        label: typeof row.label === 'string' && row.label ? row.label : ACTIONS.create_event.label,
+        settings: { calendar: 'mine', ...stringSettings(row.config || row.settings) },
+      };
+    }
+  }
+  if (legacyType === 'create_crm_note' && hinted === 'hubspot') {
+    return {
+      id: typeof row.id === 'string' && row.id ? row.id : id,
+      action: 'add_crm_note',
+      app: 'hubspot',
+      label: typeof row.label === 'string' && row.label ? row.label : ACTIONS.add_crm_note.label,
+      settings: stringSettings(row.config || row.settings),
+    };
+  }
+  if ((legacyType === 'send_external_email' || legacyType === 'send_completion_notification') && (hinted === 'outlook' || hinted === 'gmail')) {
+    return {
+      id: typeof row.id === 'string' && row.id ? row.id : id,
+      action: 'send_email',
+      app: hinted,
+      label: typeof row.label === 'string' && row.label ? row.label : ACTIONS.send_email.label,
+      settings: { to: 'attendees', ...stringSettings(row.config || row.settings) },
+    };
+  }
+  const stepId = typeof row.id === 'string' && row.id ? row.id : id;
+  return unsupportedStep(stepId, legacyType || 'unknown', typeof row.label === 'string' ? row.label : undefined);
+}
+
+export function stepsFromStored(raw: unknown, idFor: (index: number) => string): Step[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return list.map((item, i) => stepFromStored(item, i, idFor(i)));
+}
+
+/** Reads a trigger from either the new trigger object or the older trigger_type column. */
+export function triggerFromStored(triggerType: unknown, triggerConfig: unknown): { type: TriggerType; schedule?: string } {
+  const tc = triggerConfig && typeof triggerConfig === 'object' ? triggerConfig as Record<string, unknown> : {};
+  const nested = tc.trigger && typeof tc.trigger === 'object' ? tc.trigger as Record<string, unknown> : null;
+  const typeRaw = String(nested?.type || triggerType || tc.type || 'meeting_completed');
+  const schedule = typeof nested?.schedule === 'string' ? nested.schedule : typeof tc.schedule === 'string' ? tc.schedule : undefined;
+  return { type: typeRaw as TriggerType, ...(schedule ? { schedule } : {}) };
+}
+
+/** Prefer steps already saved by this builder. Otherwise use an older definition. */
+export function pickStoredSteps(row: { actions?: unknown; definition_json?: { steps?: unknown } | null }): unknown[] {
+  const actions = Array.isArray(row.actions) ? row.actions : [];
+  const defined = row.definition_json && Array.isArray(row.definition_json.steps) ? row.definition_json.steps : [];
+  const looksCurrent = (list: unknown[]) => list.some((s) => {
+    if (!s || typeof s !== 'object') return false;
+    const step = s as Record<string, unknown>;
+    return typeof step.action === 'string' && typeof step.app === 'string' && Object.prototype.hasOwnProperty.call(ACTIONS, step.action);
+  });
+  if (looksCurrent(actions)) return actions;
+  if (defined.length) return defined;
+  return actions;
 }
 
 export type RunStatus = 'running' | 'requires_approval' | 'completed' | 'failed' | 'rejected' | 'cancelled';
@@ -378,7 +543,12 @@ function clone<T>(x: T): T { return x === null || x === undefined ? x : JSON.par
 
 /* ============================================================== helpers */
 
-const isExternal = (s: Step) => ACTIONS[s.action].kind === 'do' && APPS[s.app].external;
+const isExternal = (s: Step) => {
+  const spec = actionInfo(s.action);
+  if (spec.key === 'unsupported' || spec.kind !== 'do') return false;
+  if (s.app && Object.prototype.hasOwnProperty.call(APPS, s.app)) return APPS[s.app].external;
+  return spec.apps.length > 0 && spec.apps.every((a) => APPS[a].external);
+};
 const usable = (c: ConnectionState) => c === 'connected';
 const CONNECTION_TEXT: Record<ConnectionState, string> = {
   connected: 'connected',
@@ -400,7 +570,7 @@ export function newStep(store: Pick<Store, 'id'>, action: ActionKey, app?: AppKe
 /** The default label for a step. Agent steps name their agent. */
 export function stepLabel(step: Pick<Step, 'action' | 'settings'>): string {
   if (step.action === 'run_agent') return `Run the ${optionLabel(ACTIONS.run_agent.fields[0], step.settings.agent) || 'chosen'} agent`;
-  return ACTIONS[step.action].label;
+  return actionInfo(step.action).label;
 }
 
 async function audit(store: Store, actor: string, event: string, objectType: AuditEvent['objectType'], objectId: string, detail: string) {
@@ -415,7 +585,7 @@ export function ensureApprovals(wf: Workflow, store: Pick<Store, 'id'>): { workf
   const added: string[] = [];
   let guarded = false;
   for (const s of wf.steps) {
-    if (ACTIONS[s.action].kind === 'approval') guarded = true;
+    if (actionInfo(s.action).kind === 'approval') guarded = true;
     if (isExternal(s) && !guarded) {
       const a = newStep(store, 'ask_approval');
       a.autoAdded = true;
@@ -436,27 +606,35 @@ export interface Issue { level: 'block' | 'warn'; text: string; stepId?: string;
 export async function validateWorkflow(wf: Workflow, store: Pick<Store, 'connection'>): Promise<Issue[]> {
   const issues: Issue[] = [];
   if (!wf.name.trim()) issues.push({ level: 'block', text: 'Give the workflow a name.' });
-  if (!wf.steps.some((s) => ACTIONS[s.action].kind === 'do')) issues.push({ level: 'block', text: 'Add at least one step that does something.' });
-  if (SURVEILLANCE.test(`${wf.name} ${wf.description} ${wf.steps.map((s) => `${s.label} ${Object.values(s.settings).join(' ')}`).join(' ')}`)) {
+  if (!Object.prototype.hasOwnProperty.call(TRIGGERS, wf.trigger?.type)) {
+    issues.push({ level: 'block', text: 'This workflow uses an older trigger. Choose a current trigger before turning it on.' });
+  }
+  if (!wf.steps.some((s) => actionInfo(s.action).kind === 'do' && s.action !== 'unsupported')) issues.push({ level: 'block', text: 'Add at least one step that does something.' });
+  if (SURVEILLANCE.test(`${wf.name} ${wf.description} ${wf.steps.map((s) => `${s.label} ${Object.values(s.settings || {}).join(' ')}`).join(' ')}`)) {
     issues.push({ level: 'block', text: 'Concludo measures work, never people. Workflows that score, rank or monitor individuals cannot be built.' });
   }
   let guarded = false;
   for (const s of wf.steps) {
-    const spec = ACTIONS[s.action];
-    if (spec.kind === 'approval') guarded = true;
-    for (const f of spec.fields) {
-      if (f.required && !(s.settings[f.key] || '').trim()) issues.push({ level: 'block', text: `“${s.label}”: add the ${f.label.toLowerCase()}.`, stepId: s.id, fix: 'fill' });
+    const spec = actionInfo(s.action);
+    if (s.action === 'unsupported' || !Object.prototype.hasOwnProperty.call(ACTIONS, s.action)) {
+      issues.push({ level: 'block', text: `“${s.label}” is an older step Concludo does not run. Replace it before turning this workflow on.`, stepId: s.id });
+      continue;
     }
-    if (s.action === 'send_email' && s.settings.to === 'custom' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.settings.address || '')) {
+    if (spec.kind === 'approval') guarded = true;
+    const settings = s.settings || {};
+    for (const f of spec.fields) {
+      if (f.required && !(settings[f.key] || '').trim()) issues.push({ level: 'block', text: `“${s.label}”: add the ${f.label.toLowerCase()}.`, stepId: s.id, fix: 'fill' });
+    }
+    if (s.action === 'send_email' && settings.to === 'custom' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(settings.address || '')) {
       issues.push({ level: 'block', text: `“${s.label}” needs a valid email address.`, stepId: s.id, fix: 'fill' });
     }
     if (isExternal(s)) {
       if (!guarded) issues.push({ level: 'block', text: `“${s.label}” sends something outside Concludo, so a person must approve it first.`, stepId: s.id, fix: 'add_approval' });
       const c = await store.connection(s.app);
-      if (!usable(c)) issues.push({ level: 'block', text: `${APPS[s.app].label} ${CONNECTION_TEXT[c]}. Connect it before turning this workflow on.`, stepId: s.id, fix: 'connect' });
+      if (!usable(c)) issues.push({ level: 'block', text: `${appInfo(s.app).label} ${CONNECTION_TEXT[c] || 'is not connected'}. Connect it before turning this workflow on.`, stepId: s.id, fix: 'connect' });
     }
   }
-  if (wf.steps.length && ACTIONS[wf.steps[wf.steps.length - 1].action].kind === 'approval') {
+  if (wf.steps.length && actionInfo(wf.steps[wf.steps.length - 1].action).kind === 'approval') {
     issues.push({ level: 'warn', text: 'The last step is an approval with nothing after it. Approving it will do nothing.' });
   }
   return issues;
@@ -464,8 +642,9 @@ export async function validateWorkflow(wf: Workflow, store: Pick<Store, 'connect
 
 /** The left-hand explanation in the builder, one sentence per step. */
 export function explainWorkflow(wf: Workflow): string[] {
-  const lines = [`When ${TRIGGERS[wf.trigger.type].label.toLowerCase()}${wf.trigger.type === 'workflow_schedule' && wf.trigger.schedule ? ` (${wf.trigger.schedule})` : ''}:`];
-  wf.steps.forEach((s) => lines.push(ACTIONS[s.action].explain(s)));
+  const trig = triggerInfo(wf.trigger?.type);
+  const lines = [`When ${trig.label.toLowerCase()}${wf.trigger?.type === 'workflow_schedule' && wf.trigger.schedule ? ` (${wf.trigger.schedule})` : ''}:`];
+  wf.steps.forEach((s) => lines.push(actionInfo(s.action).explain({ ...s, settings: s.settings || {} })));
   return lines;
 }
 
@@ -556,8 +735,11 @@ export function planFromDescription(text: string, store: Pick<Store, 'id' | 'now
 }
 
 function nameFor(wf: Workflow): string {
-  const t = { meeting_completed: 'After each meeting', workflow_schedule: wf.trigger.schedule || 'On a schedule', action_created: 'New action', action_completed: 'Action completed', decision_created: 'New decision', project_created: 'New project', report_generated: 'Report generated', webhook_event: 'App event' }[wf.trigger.type];
-  const main = wf.steps.find((s) => isExternal(s)) || wf.steps.find((s) => ACTIONS[s.action].kind === 'do');
+  const known = Object.prototype.hasOwnProperty.call(TRIGGERS, wf.trigger.type)
+    ? { meeting_completed: 'After each meeting', workflow_schedule: wf.trigger.schedule || 'On a schedule', action_created: 'New action', action_completed: 'Action completed', decision_created: 'New decision', project_created: 'New project', report_generated: 'Report generated', webhook_event: 'App event' }[wf.trigger.type]
+    : triggerInfo(wf.trigger.type).label;
+  const t = known || triggerInfo(wf.trigger.type).label;
+  const main = wf.steps.find((s) => isExternal(s)) || wf.steps.find((s) => s.action !== 'unsupported' && actionInfo(s.action).kind === 'do');
   return main ? `${t}: ${main.label.toLowerCase()}` : t;
 }
 
@@ -620,7 +802,7 @@ export function auDate(iso?: string | null): string {
 /** What an external step would send, built only from the input. */
 export function outgoingFor(step: Step, input: RunInput): OutgoingItem {
   const a = input.actions || [];
-  const app = APPS[step.app].label;
+  const app = appInfo(step.app).label;
   const to = step.action === 'send_email'
     ? step.settings.to === 'custom' ? step.settings.address || 'an address' : optionLabel(recipients, step.settings.to) || 'recipients'
     : step.action === 'post_message' ? step.settings.channel || 'a channel'
@@ -640,7 +822,7 @@ export function outgoingFor(step: Step, input: RunInput): OutgoingItem {
     const dated = step.action === 'create_event' ? a.filter((x) => x.due) : a;
     preview = dated.length ? dated.map((x) => `${x.title}${x.due ? ` (${auDate(x.due)})` : ''}${x.owner ? `, ${x.owner}` : ''}`).join('\n') : step.action === 'create_event' ? 'No dated actions in the input. Nothing would be added.' : 'No actions in the input. Nothing would be added.';
   }
-  return { stepId: step.id, app: step.app, what: `${ACTIONS[step.action].label} (${app})`, to, preview };
+  return { stepId: step.id, app: step.app, what: `${actionInfo(step.action).label} (${app})`, to, preview };
 }
 
 export interface RunOptions { input?: RunInput; actor: string; test?: boolean; retryOf?: string }
@@ -685,8 +867,11 @@ async function continueRun(store: Store, wf: Workflow, run: Run, from: number, a
   for (let i = from; i < wf.steps.length; i++) {
     const step = wf.steps[i];
     const sr = run.steps[i];
-    const spec = ACTIONS[step.action];
+    const spec = actionInfo(step.action);
     sr.at = store.now();
+    if (step.action === 'unsupported' || !Object.prototype.hasOwnProperty.call(ACTIONS, step.action)) {
+      return fail(store, wf, run, i, `“${step.label}” is an older step Concludo does not run. Nothing was changed.`, actor, 'medium');
+    }
     if (spec.kind === 'only_if') {
       if (conditionMet(step, run.input)) {
         sr.status = 'done';
@@ -728,7 +913,7 @@ async function continueRun(store: Store, wf: Workflow, run: Run, from: number, a
         continue;
       }
       const c = await store.connection(step.app);
-      if (!usable(c)) return fail(store, wf, run, i, `${APPS[step.app].label} ${CONNECTION_TEXT[c]}. Nothing was sent.`, actor, 'high');
+      if (!usable(c)) return fail(store, wf, run, i, `${appInfo(step.app).label} ${CONNECTION_TEXT[c] || 'is not connected'}. Nothing was sent.`, actor, 'high');
       const res = await store.dispatch(item, run);
       if (!res.ok) return fail(store, wf, run, i, res.note, actor, 'high');
       sr.status = 'done';

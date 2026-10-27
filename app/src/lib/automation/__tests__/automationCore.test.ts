@@ -4,6 +4,7 @@ import {
   MemoryStore, planFromDescription, validateWorkflow, ensureApprovals, runWorkflow, decideApproval, setActive,
   stopEverything, releaseStop, retryRun, health, expireStaleApprovals, resolveIncident, workflowFromTemplate,
   newStep, GovernanceBlock, QUARANTINE_AFTER, Workflow, RunInput, TEMPLATES, explainWorkflow,
+  stepFromStored, stepsFromStored, triggerFromStored, pickStoredSteps, ACTIONS,
 } from '../automationCore';
 
 let passed = 0;
@@ -249,6 +250,48 @@ t('Incidents need a resolution note; the audit log names the real actor', async 
   const log = await s.listAudit();
   assert.ok(log.some((e) => e.event === 'run_failed' && e.actor === 'Tom Nguyen'));
   assert.ok(!log.some((e) => /Anthony Cortez|auth_user_anthony/.test(e.actor)));
+});
+
+t('Older workflow steps are drawn and never crash the builder', async () => {
+  const summary = stepFromStored({ type: 'generate_summary', config: {} }, 0, 's1');
+  assert.equal(summary.action, 'summarise_meeting');
+  assert.equal(summary.app, 'concludo');
+  const planner = stepFromStored({ type: 'create_planner_task', config: {} }, 1, 's2');
+  assert.equal(planner.action, 'unsupported');
+  assert.equal(planner.settings.legacyType, 'create_planner_task');
+  const unknownApp = stepFromStored({ action: 'send_email', app: 'youtube', settings: { to: 'me', subject: 'Hi' } }, 2, 's3');
+  assert.equal(unknownApp.action, 'unsupported');
+  const missingApp = stepFromStored({ action: 'send_email', settings: { to: 'attendees', subject: 'Hi' } }, 3, 's4');
+  assert.equal(missingApp.action, 'send_email');
+  assert.equal(missingApp.app, 'outlook');
+  const steps = stepsFromStored([
+    { type: 'generate_summary', config: {} },
+    { type: 'create_planner_task', config: {} },
+    { action: 'post_message', app: 'not_an_app', settings: {} },
+  ], (i) => `legacy-${i}`);
+  const s = fresh();
+  const wf: Workflow = {
+    id: 'legacy', name: 'Saved follow-up', description: 'Older record', ownerId: 'me', status: 'paused',
+    trigger: triggerFromStored('project_updated', {}),
+    steps, consecutiveFailures: 0, createdAt: s.now(), updatedAt: s.now(),
+  };
+  const issues = await validateWorkflow(wf, s);
+  assert.ok(issues.some((i) => /older step/i.test(i.text)));
+  assert.ok(issues.some((i) => /older trigger/i.test(i.text)));
+  const lines = explainWorkflow(wf);
+  assert.ok(lines[0].toLowerCase().includes('older trigger'));
+  assert.ok(lines.some((l) => /create planner task/i.test(l)));
+  await s.saveWorkflow(wf);
+  const run = await runWorkflow(s, wf.id, { input: MEETING, actor: 'me', test: true });
+  assert.equal(run.status, 'failed');
+  assert.match(run.error || '', /older step/i);
+  assert.equal(s.outbox.length, 0);
+  const picked = pickStoredSteps({
+    actions: [{ id: 'a', action: 'notify_me', app: 'concludo', label: 'Notify me in Concludo', settings: {} }],
+    definition_json: { steps: [{ type: 'create_notion_page', config: {} }] },
+  });
+  assert.equal((picked[0] as { action: string }).action, 'notify_me');
+  assert.equal(ACTIONS.unsupported.hidden, true);
 });
 
 (async () => {
