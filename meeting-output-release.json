@@ -1,27 +1,25 @@
 {
-  "feature": "Meeting Output v2",
-  "sourceCommit": "49bae485a689d9b5f4b108d3f9c7fb1ce771e0d7",
-  "previousDeployment": "9896ec122b2fa7d5914bbfaa693bab9ebc6ca951",
-  "builtAt": "2026-10-27T07:27:35.162Z",
+  "feature": "Meeting Output scrolling correction",
+  "sourceCommit": "e1ea4a8d591bd036b02a6ca87e2149cd2409b6c5",
+  "previousDeployment": "5096ed83151140e126d28dd9ea4d73717536b84b",
+  "builtAt": "2026-10-27T07:41:54.302Z",
   "assets": [
     {
-      "path": "/assets/index-rqbFR0nT.js",
+      "path": "/assets/index-6Wsc2Js_.js",
       "bytes": 8450315,
       "sha256": "d623c5d4c5c80674b4438edb179d58471a1223727bbe5fba5c7c51a73eaa026b"
     },
     {
-      "path": "/assets/index-C-Pp9GAF.css",
-      "bytes": 328028,
-      "sha256": "fd2c92e293f1bb8b3e660c820deb6ac55cf7fa3512ba00f0af69b701daad1201"
+      "path": "/assets/index-BvHYPC4P.css",
+      "bytes": 327900,
+      "sha256": "3cae44dde5f4197937a8f291cc97616985cc0723395f52e9ab149eec78529520"
     }
   ],
   "validation": {
-    "releaseChecks": 489,
-    "appUnitTests": 71,
-    "engineTests": 9,
-    "browserChecks": 28,
-    "boardPages": 7,
-    "executivePages": 1
+    "scrollCases": 9,
+    "newPageExceptions": 0,
+    "typecheckAndBuild": "passed",
+    "cssOnly": true
   },
   "limitation": "Authenticated live save/reopen has not been verified; recording mocks and read-only schema checks passed."
 }
