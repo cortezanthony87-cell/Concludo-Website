@@ -53,6 +53,16 @@ import { ConnectorCentrePage } from './pages/workflows/ConnectorCentrePage';
 import { WorkflowGovernancePage } from './pages/workflows/WorkflowGovernancePage';
 import { WorkflowRunsPage } from './pages/workflows/WorkflowRunsPage';
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
+import { useParams } from 'react-router-dom';
+
+{/* Legacy /workflows/:id redirect to /workflows/builder/:id */}
+function WorkflowLegacyRedirect() {
+  const { id } = useParams<{ id: string }>();
+  if (id === 'builder' || id === 'runs' || id === 'governance') {
+    return <Navigate to={`/workflows/${id}`} replace />;
+  }
+  return <Navigate to={`/workflows/builder/${id}`} replace />;
+}
 
 // Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Pages
 import { PredictiveIntelligencePage } from './pages/predictive/PredictiveIntelligencePage';
@@ -179,13 +189,18 @@ export const App: React.FC = () => {
 
             {/* Tasklet 19 AI Agents, Workflows & Approvals Routes */}
             <Route path="/agents" element={<AgentsPage />} />
-            <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
+            <Route path="/agents/dashboard" element={<Navigate to="/agents" replace />} />
             <Route path="/workflows" element={<WorkflowsPage />} />
-            <Route path="/workflows/builder" element={<WorkflowBuilderPage />} />
+            <Route path="/workflows/builder/new" element={<WorkflowBuilderPage isNew />} />
+            <Route path="/workflows/builder/:id" element={<WorkflowBuilderPage />} />
+            <Route path="/workflows/builder" element={<Navigate to="/workflows/builder/new" replace />} />
             <Route path="/workflows/governance" element={<WorkflowGovernancePage />} />
             <Route path="/workflows/runs" element={<WorkflowRunsPage />} />
+            <Route path="/workflows/runs/:id" element={<WorkflowRunsPage />} />
             <Route path="/connections" element={<ConnectorCentrePage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
+            <Route path="/approvals/:id" element={<ApprovalsPage />} />
+            <Route path="/workflows/:id" element={<WorkflowLegacyRedirect />} />
 
             {/* Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Routes */}
             <Route path="/predictive-intelligence" element={<PredictiveIntelligencePage />} />
