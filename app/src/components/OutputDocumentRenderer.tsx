@@ -15,6 +15,7 @@ import {
 import { renderConcludoReport } from '../lib/reporting/concludoReport';
 import { parseOutputToPayload } from '../lib/reporting/payloadFromOutput';
 import { ConcludoReportPayload } from '../lib/reporting/payloadTypes';
+import { MeetingRecordView, isMeetingRecordV2 } from './MeetingRecordView';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure pdfjs worker if available
@@ -120,7 +121,7 @@ const PDFPageCanvasItem: React.FC<{
   );
 };
 
-export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
+const LegacyOutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
   outputType,
   rawContent,
   jsonPayload,
@@ -578,3 +579,10 @@ export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = ({
     </div>
   );
 };
+/** v2 meeting records use boardroom templates; legacy outputs retain their renderer. */
+export const OutputDocumentRenderer: React.FC<OutputDocumentRendererProps> = (props) =>
+  isMeetingRecordV2(props.jsonPayload) ? (
+    <MeetingRecordView model={props.jsonPayload} outputType={props.outputType} />
+  ) : (
+    <LegacyOutputDocumentRenderer {...props} />
+  );

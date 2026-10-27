@@ -83,13 +83,24 @@ export async function runPhase9Tests(check) {
   // --- Tasklet 9.4: Insight Retrieval for Copilot ---
   {
     const insightCopilot = new CopilotInsightRetrievalService();
-    insightCopilot.indexInsights('m1', 'org_1', '2026-09-10', [
+    // Relative fixtures must stay inside/outside the real rolling query window.
+    // A fixed calendar date silently ages out and used to crash this release gate.
+    const now = Date.now();
+    const daysAgo = (days) => new Date(now - days * 86400000).toISOString();
+    insightCopilot.indexInsights('m1', 'org_1', daysAgo(1), [
       { channel: 'INS-C', text: 'Has the regulatory approval timeline been accounted for', is_absence: true },
       { channel: 'INS-B', text: 'Assumption that team size doubles', is_absence: false },
     ]);
+    insightCopilot.indexInsights('expired', 'org_1', daysAgo(16), [
+      { channel: 'INS-B', text: 'Outside the requested window' },
+    ]);
+    insightCopilot.indexInsights('other-tenant', 'org_2', daysAgo(1), [
+      { channel: 'INS-B', text: 'Another organisation record' },
+    ]);
 
     const res = insightCopilot.queryInsightsAcrossMeetings('org_1', 15, 'pro_subscription');
-    check('Phase 9', '9.4 Copilot insight retrieval ensures absence questions end with ?', res.insights[0].text.endsWith('?'));
+    check('Phase 9', '9.4 Copilot insight retrieval ensures absence questions end with ?', res.insights[0]?.text.endsWith('?') === true);
+    check('Phase 9', '9.4 retrieval excludes stale and other-tenant insights', res.totalInsights === 2 && res.insights.every((insight) => insight.meetingId === 'm1'));
 
     let limitExceeded = false;
     try {
