@@ -343,12 +343,88 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Team Workbook Licence */}
+                <div
+                  onClick={() => handleSelectOffer('workbook_team', 'one_time')}
+                  style={{
+                    backgroundColor: selectedOfferKey === 'workbook_team' ? '#21395C' : 'rgba(33, 57, 92, 0.4)',
+                    border: selectedOfferKey === 'workbook_team' ? '2px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#E2B53C', letterSpacing: '0.05em' }}>
+                        TEAM ROLLOUT
+                      </span>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0', color: '#f8fafc' }}>
+                        Meeting Mastery Workbook | Team Edition
+                      </h3>
+                      <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: 0 }}>
+                        Complete reference, Concludo Team Playbook, Rollout Checklist, and 10-person organisation licence.
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>AU$249</div>
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>one-off payment</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', fontSize: '0.82rem', color: '#cbd5e1', marginTop: '12px' }}>
+                    <div>✓ Full 232-page Workbook (Edition 3.0)</div>
+                    <div>✓ Concludo Team Playbook & Checklist</div>
+                    <div>✓ All 15 Standalone Templates & Cards</div>
+                    <div>✓ Internal Licence for Up to 10 People</div>
+                  </div>
+                </div>
+
+                {/* Practice Licence */}
+                <div
+                  onClick={() => handleSelectOffer('workbook_pro_edition', 'practice_licence')}
+                  style={{
+                    backgroundColor: selectedOfferKey === 'workbook_pro_edition' && selectedVariantKey === 'practice_licence' ? '#21395C' : 'rgba(33, 57, 92, 0.4)',
+                    border: selectedOfferKey === 'workbook_pro_edition' && selectedVariantKey === 'practice_licence' ? '2px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#E2B53C', letterSpacing: '0.05em' }}>
+                        COMMERCIAL PRACTITIONER
+                      </span>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0', color: '#f8fafc' }}>
+                        Meeting Mastery Workbook | Practice Licence
+                      </h3>
+                      <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: 0 }}>
+                        34-page Facilitator Guide, 4 session run sheets, editable presentation deck, and client delivery rights.
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#E2B53C' }}>AU$690</div>
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>per year (annual licence)</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', fontSize: '0.82rem', color: '#cbd5e1', marginTop: '12px' }}>
+                    <div>✓ Complete Workbook & All 15 Templates</div>
+                    <div>✓ 34-page Facilitator Guide & 4 Run Sheets</div>
+                    <div>✓ Editable 19-Slide Workshop Deck</div>
+                    <div>✓ Client Delivery Rights (Up to 3 Staff)</div>
+                  </div>
+                </div>
+
                 {/* Workbook Pro Edition */}
                 <div
                   onClick={() => handleSelectOffer('workbook_pro_edition', (selectedOfferKey === 'workbook_pro_edition' && selectedVariantKey !== 'one_time') ? selectedVariantKey : 'up_to_20')}
                   style={{
-                    backgroundColor: selectedOfferKey === 'workbook_pro_edition' ? '#21395C' : 'rgba(33, 57, 92, 0.4)',
-                    border: selectedOfferKey === 'workbook_pro_edition' ? '2px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.08)',
+                    backgroundColor: (selectedOfferKey === 'workbook_pro_edition' && selectedVariantKey !== 'practice_licence') ? '#21395C' : 'rgba(33, 57, 92, 0.4)',
+                    border: (selectedOfferKey === 'workbook_pro_edition' && selectedVariantKey !== 'practice_licence') ? '2px solid #E2B53C' : '1px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: '12px',
                     padding: '20px',
                     cursor: 'pointer',
