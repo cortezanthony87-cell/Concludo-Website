@@ -430,7 +430,7 @@
 .cmo .dgrid .ns { color: var(--slate); font-style: italic; }
 
 
-@media (max-width: 1100px) {
+@container meeting-output (max-width: 1100px) {
   .cmo .import-grid { grid-template-columns: 1fr; }
   .cmo .review-grid { grid-template-columns: 1fr; }
   .cmo .side { position: static; }
@@ -446,7 +446,7 @@
   .cmo .topbar .stepper { grid-column: 1 / -1; justify-self: start; order: 3; }
   .cmo .brand .crumb { display: none; }
 }
-@media (max-width: 640px) {
+@container meeting-output (max-width: 640px) {
   .cmo .wrap { padding: 18px 16px 48px; }
   .cmo .how { grid-template-columns: 1fr; }
   .cmo .row2 { grid-template-columns: 1fr; }
@@ -497,9 +497,92 @@
 .cmo.cmo-viewer .doc-side { top: 0; height: auto; position: static; }
 .cmo .modal-bg, .cmo .toast { font-family: var(--f-body); }
 
+/* Respond to the available Workspace column, not the browser's full width. */
+.cmo { container: meeting-output / inline-size; min-width: 0; max-width: 100%; }
+.cmo .wrap, .cmo .doc-shell, .cmo .doc-main { width: 100%; min-width: 0; }
+.cmo .review-grid { grid-template-columns: 200px minmax(0, 1fr) 280px; gap: 24px; }
+.cmo .review-grid > *, .cmo .import-grid > *, .cmo .item > *, .cmo .src > *, .cmo .tpl > * { min-width: 0; }
+.cmo .side, .cmo .doc-side, .cmo.cmo-embedded .doc-side { position: static; top: auto; height: auto; overflow: visible; }
+.cmo .doc-shell { grid-template-columns: 260px minmax(0, 1fr); min-height: 0; align-items: start; }
+.cmo .doc-side { align-self: stretch; }
+.cmo.cmo-embedded .topbar { grid-template-columns: auto minmax(0, 1fr) auto; height: auto; min-height: 64px; gap: 16px; }
+.cmo .stepper, .cmo .top-actions, .cmo .doc-bar, .cmo .doc-bar .acts, .cmo .toolbar, .cmo .chipset { flex-wrap: wrap; }
+.cmo .stepper { min-width: 0; }
+.cmo .page-head { flex-wrap: wrap; align-items: flex-start; }
+.cmo .page-head > div { min-width: 0; max-width: 100%; }
+.cmo .page-head > div:last-child { flex-wrap: wrap; }
+.cmo .page-head p, .cmo .answer, .cmo .item .txt, .cmo .quote, .cmo .checks, .cmo .tpl, .cmo .src { overflow-wrap: anywhere; }
+.cmo .item { grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
+.cmo .item .decide { grid-column: 2; flex-wrap: wrap; }
+.cmo .item .edit label { flex: 1 1 150px; min-width: 0; }
+.cmo .item .edit input, .cmo .item .edit select { min-width: 0; width: 100%; max-width: 100%; }
+.cmo .src { grid-template-columns: 34px minmax(0, 1fr) auto auto; }
+.cmo .field input, .cmo .field select { min-width: 0; width: 100%; max-width: 100%; }
+.cmo .row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cmo .quality .card-b { padding: 20px; }
+.cmo .checks { gap: 16px; }
+.cmo .checks li { grid-template-columns: 20px minmax(0, 1fr); align-items: start; line-height: 1.55; }
+.cmo .checks small { margin-top: 4px; line-height: 1.5; }
+.cmo .section > header { flex-wrap: wrap; }
+.cmo .doc-bar { padding: 16px 24px; gap: 12px 20px; }
+.cmo .doc-bar .t { min-width: 0; line-height: 1.5; }
+.cmo .doc-bar .t span { display: inline-block; }
+.cmo .preview-size { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--slate); }
+.cmo .preview-size select { min-height: 36px; max-width: 100%; padding: 6px 8px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--white); }
+.cmo .pages { display: flex; flex-direction: column; align-items: flex-start; gap: 28px; padding: 28px 24px; min-width: 0; max-width: 100%; overflow-x: auto; }
+.cmo .pages > .page-frame { flex: none; margin-inline: auto; }
+.cmo .page-frame > .page { margin: 0; transform-origin: top left; }
+.cmo .item .tag { height: auto; min-height: 22px; max-width: 100%; white-space: normal; padding-block: 3px; line-height: 1.5; }
+/* Workspace mobile tables must not change A4 typesetting or row heights. */
+.cmo table.dt { display: table; overflow: visible; }
+.cmo .email-card { width: 100%; max-width: 794px; min-width: 0; margin-inline: auto; overflow-wrap: anywhere; }
+.cmo .email-card pre { overflow-wrap: anywhere; }
+
+@container meeting-output (max-width: 1280px) {
+  .cmo .review-grid { grid-template-columns: minmax(0, 1fr) 280px; }
+  .cmo .review-grid > .side:first-child { grid-column: 1 / -1; }
+  .cmo .nav { display: flex; flex-wrap: wrap; gap: 6px; overflow: visible; }
+  .cmo .nav a { border-left: 0; border-bottom: 3px solid transparent; }
+  .cmo .nav a.active { border-bottom-color: var(--gold); }
+  .cmo .progress { max-width: 420px; }
+}
+@container meeting-output (max-width: 1180px) {
+  .cmo .doc-shell { grid-template-columns: minmax(0, 1fr); }
+  .cmo .doc-side { border-right: 0; border-bottom: 1px solid var(--line); padding: 20px 24px; }
+  .cmo .tpls { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .cmo .outline { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .cmo.cmo-embedded .topbar { grid-template-columns: minmax(0, 1fr) auto; }
+  .cmo .topbar .stepper { grid-column: 1 / -1; order: 3; justify-self: stretch; }
+}
+@container meeting-output (max-width: 960px) {
+  .cmo .review-grid { grid-template-columns: minmax(0, 1fr); }
+  .cmo .import-grid { grid-template-columns: minmax(0, 1fr); }
+  .cmo .figs { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+}
+@container meeting-output (max-width: 640px) {
+  .cmo .wrap { padding: 20px 16px 48px; }
+  .cmo .row2, .cmo .how, .cmo .item { grid-template-columns: minmax(0, 1fr); }
+  .cmo .item .decide { grid-column: 1; }
+  .cmo .src { grid-template-columns: 34px minmax(0, 1fr); }
+  .cmo .src select { grid-column: 2; width: 100%; min-width: 0; }
+  .cmo .src > button { grid-column: 1; grid-row: 2; }
+  .cmo .stepper { justify-content: space-between; }
+  .cmo .step { min-height: 44px; min-width: 44px; }
+  .cmo .btn, .cmo .btn.sm, .cmo .chip, .cmo .tab { min-height: 44px; height: auto; padding-block: 8px; }
+  .cmo .nav a, .cmo .outline a { min-height: 44px; align-items: center; }
+  .cmo .preview-size select { min-height: 44px; }
+  .cmo .tpls { grid-template-columns: minmax(0, 1fr); }
+  .cmo .doc-side, .cmo .doc-bar { padding: 20px 16px; }
+  .cmo .doc-bar .acts { width: 100%; }
+  .cmo .pages { padding: 20px 12px; gap: 24px; }
+  .cmo .email-card .eh, .cmo .email-card pre, .cmo .email-card .ef { padding: 16px; }
+}
+
 /* ---- print: only the document pages, wherever the studio is mounted ---- */
 .cmo.cmo-print-root { display: none; }
 @media print {
+  html.cmo-printing .cmo .page { transform: none !important; margin: 0; }
+  html.cmo-printing .cmo .page-frame { display: contents !important; width: auto !important; height: auto !important; }
   html.cmo-printing body > :not(.cmo-print-root) { display: none !important; }
   html.cmo-printing body > .cmo-print-root { display: block !important; margin: 0; padding: 0; }
   html.cmo-printing body * { visibility: hidden !important; }

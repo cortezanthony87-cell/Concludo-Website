@@ -14,6 +14,35 @@ export function mountMeetingStudio(root, opts = {}) {
   const A = { lockup: opts.logo || '/brand/Concludo_lockup_horizontal_760w.png', lockupRev: opts.logoReversed || '/brand/Concludo_logo_horizontal_reversed_for_dark.png' };
   const listeners = [];
   let finishPrint = null;
+  let previewMode = 'fit';
+  let previewFrame = 0;
+  const fitPreview = () => {
+    const host = root.querySelector('#pages');
+    if (!host) return;
+    const style = getComputedStyle(host);
+    const width = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    host.querySelectorAll('.page').forEach((page) => {
+      // A transform preserves A4 typesetting exactly. The frame reserves its
+      // scaled footprint, so pages neither overlap nor leave phantom scroll space.
+      let frame = page.parentElement;
+      if (!frame.classList.contains('page-frame')) {
+        frame = document.createElement('div');
+        frame.className = 'page-frame';
+        page.before(frame);
+        frame.appendChild(page);
+      }
+      const scale = previewMode === 'actual' ? 1 : Math.min(1, Math.max(0.1, width / page.offsetWidth));
+      frame.style.width = `${page.offsetWidth * scale}px`;
+      frame.style.height = `${page.offsetHeight * scale}px`;
+      page.style.transform = `scale(${scale})`;
+    });
+  };
+  const schedulePreview = () => {
+    cancelAnimationFrame(previewFrame);
+    previewFrame = requestAnimationFrame(fitPreview);
+  };
+  const previewObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(schedulePreview) : null;
+  previewObserver?.observe(root);
   const on = (target, type, fn) => { target.addEventListener(type, fn); listeners.push([target, type, fn]); };
   const scroller = () => {
     let el = root.parentElement;
@@ -405,6 +434,7 @@ export function mountMeetingStudio(root, opts = {}) {
       </aside>
       <section class="doc-main">
         <div class="doc-bar"><div class="t">${t[1]}<span id="pgcount"></span></div><div class="acts">
+          ${S.template !== 'email' ? `<label class="preview-size">Preview<select data-preview-size aria-label="Document preview size"><option value="fit" ${previewMode === 'fit' ? 'selected' : ''}>Fit width</option><option value="actual" ${previewMode === 'actual' ? 'selected' : ''}>Actual size (100%)</option></select></label>` : ''}
           ${S.template === 'email' ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button>` : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
         </div></div>
         <div class="pages" id="pages"></div>
@@ -693,6 +723,7 @@ export function mountMeetingStudio(root, opts = {}) {
     $('#outline').innerHTML = out.map((o, k) => `<li><a href="#" data-jump="${k}">${esc(o.label)}<span>p. ${o.page}</span></a></li>`).join('');
     S.outline = out;
     $('#pgcount').textContent = `${pages.length} page${pages.length === 1 ? '' : 's'} · A4`;
+    fitPreview();
     break;
     }
   }
@@ -781,6 +812,7 @@ export function mountMeetingStudio(root, opts = {}) {
   }
   on(root, 'change', (ev) => {
     const t = ev.target;
+    if (t.hasAttribute('data-preview-size')) { previewMode = t.value === 'actual' ? 'actual' : 'fit'; fitPreview(); return; }
     if (t.dataset.meta) { S.meta[t.dataset.meta] = t.value; delete S.detected[t.dataset.meta]; }
     if (t.dataset.kind !== undefined && t.dataset.kind !== '') {
       const i = +t.dataset.kind;
@@ -891,6 +923,8 @@ export function mountMeetingStudio(root, opts = {}) {
   const api = { S, render, generate };
   root.__cmo = api;
   return function unmount() {
+    previewObserver?.disconnect();
+    cancelAnimationFrame(previewFrame);
     if (finishPrint) finishPrint();
     listeners.forEach(([t, ty, fn]) => t.removeEventListener(ty, fn));
     if (io) io.disconnect();
