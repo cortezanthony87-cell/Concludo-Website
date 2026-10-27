@@ -11,6 +11,8 @@ describe('Native OAuth Integration ($0 third-party fees)', () => {
     expect(isNativeOAuthProvider({ id: 'gmail', provider_family: 'google' })).toBe(true);
     expect(isNativeOAuthProvider({ id: 'google_calendar', provider_family: 'google' })).toBe(true);
     expect(isNativeOAuthProvider({ id: 'google_drive', provider_family: 'google' })).toBe(true);
+    expect(isNativeOAuthProvider({ id: 'youtube', provider_family: 'google' })).toBe(true);
+    expect(isNativeOAuthProvider({ id: 'youtube' })).toBe(true);
 
     // LinkedIn provider
     expect(isNativeOAuthProvider({ id: 'linkedin', provider_family: 'linkedin' })).toBe(true);

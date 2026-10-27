@@ -590,6 +590,50 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
             </div>
           )}
 
+          {/* YouTube Optional Custom API Key toggle for developers */}
+          {availability === 'available' && step === 'idle' && provider.id === 'youtube' && (
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={() => setShowCustomKey(!showCustomKey)}
+                className="text-[11px] text-slate-400 hover:text-[#E2B53C] transition flex items-center gap-1.5"
+              >
+                <Key className="w-3 h-3 text-slate-400" />
+                <span>{showCustomKey ? 'Use effortless Google sign-in' : 'Have a custom YouTube API Key or Token? (Optional)'}</span>
+              </button>
+              {showCustomKey && (
+                <div className="pt-2.5 space-y-1.5 mt-2 p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <label className="text-[11px] font-medium text-slate-300 flex items-center justify-between">
+                    <span>Custom YouTube API Key or Token</span>
+                    <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" /> Encrypted
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showSecret ? 'text' : 'password'}
+                      value={credential}
+                      onChange={(e) => setCredential(e.target.value)}
+                      placeholder="AIzaSy... or ya29...."
+                      className="w-full px-3 py-1.5 pr-9 bg-slate-900 border border-slate-700/80 focus:border-[#E2B53C] rounded-lg text-xs text-white placeholder-slate-500 font-mono outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSecret(!showSecret)}
+                      className="absolute right-2 top-2 text-slate-400 hover:text-white"
+                      tabIndex={-1}
+                    >
+                      {showSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <p className="text-[10.5px] text-slate-400">
+                    Optional: By default, Concludo connects directly to your YouTube channel via Google sign-in.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Credential input for Direct Key apps or token connections */}
           {availability === 'available' && step === 'idle' && provider.id !== 'anthropic_claude' && (!isNativeOAuthProvider(provider) || isDirectKeyProvider(provider)) && (
             <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
@@ -749,7 +793,13 @@ export const RealConnectionModal: React.FC<RealConnectionModalProps> = ({
                 disabled={step !== 'idle' || isPrefetching}
                 className="btn-connect-gold px-5 py-2 bg-[#E2B53C] hover:bg-[#d4a62f] active:bg-[#bc8a1c] text-[#16263F] font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-sm disabled:opacity-50"
               >
-                {isPrefetching ? 'Preparing sign-in...' : step === 'idle' ? panel.primary || 'Connect' : 'Connecting...'}
+                {isPrefetching
+                  ? 'Preparing sign-in...'
+                  : step === 'idle'
+                  ? showCustomKey && credential.trim().length > 0
+                    ? 'Connect Account'
+                    : panel.primary || 'Connect'
+                  : 'Connecting...'}
               </button>
             </>
           ) : availability === 'coming_soon' ? (

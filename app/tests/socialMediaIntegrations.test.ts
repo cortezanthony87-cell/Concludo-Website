@@ -6,6 +6,7 @@ import {
 import {
   APP_PERMISSIONS_SUMMARY,
   isDirectKeyProvider,
+  isNativeOAuthProvider,
   getCredentialFieldInfo,
   connectPanelCopy,
   independenceLine,
@@ -53,7 +54,6 @@ describe('Social Media App Integrations', () => {
 
   it('should identify social media apps as direct key/token providers ready to connect', () => {
     const directSocialApps = [
-      'youtube',
       'facebook',
       'instagram',
       'twitter',
@@ -69,6 +69,12 @@ describe('Social Media App Integrations', () => {
     for (const appId of directSocialApps) {
       expect(isDirectKeyProvider({ id: appId })).toBe(true);
     }
+  });
+
+  it('should identify YouTube as a native Google OAuth provider for effortless connection', () => {
+    expect(isNativeOAuthProvider({ id: 'youtube', provider_family: 'google' })).toBe(true);
+    expect(isNativeOAuthProvider({ id: 'youtube' })).toBe(true);
+    expect(isDirectKeyProvider({ id: 'youtube' })).toBe(false);
   });
 
   it('should return tailored credential field info for social media apps', () => {

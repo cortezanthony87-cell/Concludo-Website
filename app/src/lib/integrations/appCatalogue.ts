@@ -348,13 +348,14 @@ export function isNativeOAuthProvider(app: { id?: string; provider_family?: stri
   const family = (app.provider_family || '').toLowerCase();
   const id = (app.id || '').toLowerCase();
   return (
-    (family === 'google' && id !== 'youtube') ||
+    family === 'google' ||
     family === 'microsoft' ||
     family === 'linkedin' ||
     id === 'linkedin' ||
     id === 'anthropic_claude' ||
     family === 'anthropic' ||
-    (id.startsWith('google') && id !== 'youtube') ||
+    id.startsWith('google') ||
+    id === 'youtube' ||
     id.startsWith('microsoft') ||
     id === 'onedrive' ||
     id === 'sharepoint'
@@ -372,7 +373,6 @@ export function isDirectKeyProvider(app: { id?: string; authentication_type?: st
     authType === 'bearer' ||
     authType === 'webhook_signature' ||
     authType === 'none' ||
-    id === 'youtube' ||
     id === 'facebook' ||
     id === 'instagram' ||
     id === 'twitter' ||
