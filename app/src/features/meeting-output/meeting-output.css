@@ -63,7 +63,8 @@
 
 /* ------------------------------------------------------------ app shell */
 .cmo .topbar {
-  position: sticky; top: 0; z-index: 50;
+  /* Keep the step bar in normal flow so it never covers scrolled content. */
+  position: static; top: auto; z-index: auto;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   height: 64px; padding: 0 24px;
   background: var(--white); border-bottom: 1px solid var(--line);
@@ -241,7 +242,7 @@
 .cmo .outline a:hover { background: var(--light); }
 .cmo .outline a span { color: var(--slate); font-size: 12px; }
 .cmo .doc-main { background: var(--canvas); padding: 0 0 60px; min-width: 0; }
-.cmo .doc-bar { position: sticky; top: 64px; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 28px; background: rgba(232, 236, 242, .92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line-2); }
+.cmo .doc-bar { position: static; top: auto; z-index: auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 28px; background: rgba(232, 236, 242, .92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line-2); }
 .cmo .doc-bar .t { font-family: var(--f-head); font-weight: 600; font-size: 15px; }
 .cmo .doc-bar .t span { font-family: var(--f-body); font-weight: 500; color: var(--slate); font-size: 13px; margin-left: 8px; }
 .cmo .doc-bar .acts { display: flex; gap: 8px; }
@@ -490,12 +491,10 @@
 
 /* ---- embedded in the Workspace ---- */
 .cmo { min-height: 100%; font-size: 14px; line-height: 1.5; color: var(--navy); background: var(--light); }
-.cmo.cmo-embedded .topbar { position: sticky; top: var(--cmo-top, 0px); grid-template-columns: auto 1fr auto; }
+.cmo.cmo-embedded .topbar { grid-template-columns: auto 1fr auto; }
 .cmo.cmo-embedded .doc-side { top: calc(var(--cmo-top, 0px) + 64px); height: calc(100vh - var(--cmo-top, 0px) - 64px); }
-.cmo.cmo-embedded .doc-bar { top: calc(var(--cmo-top, 0px) + 64px); }
 .cmo.cmo-viewer .topbar, .cmo.cmo-viewer .cmo-hide-viewer { display: none; }
 .cmo.cmo-viewer .doc-side { top: 0; height: auto; position: static; }
-.cmo.cmo-viewer .doc-bar { top: 0; }
 .cmo .modal-bg, .cmo .toast { font-family: var(--f-body); }
 
 /* ---- print: only the document pages, wherever the studio is mounted ---- */
