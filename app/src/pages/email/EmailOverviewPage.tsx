@@ -287,7 +287,8 @@ export const EmailOverviewPage: React.FC = () => {
 
   return (
     <div className="ecc-overview-v2">
-      {/* ── 4 Stat Tiles ── */}
+      <div className="page">
+        {/* ── 4 Stat Tiles ── */}
       <div className="stat-grid">
         {/* Tile 1: Needs Reply */}
         <Link to={linkTo('/email/reply-queue')} className="stat-tile alert" style={{ textDecoration: 'none' }}>
@@ -951,6 +952,7 @@ export const EmailOverviewPage: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

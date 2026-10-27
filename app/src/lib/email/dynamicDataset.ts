@@ -57,6 +57,17 @@ export function decodeHtmlEntities(str?: string): string {
   return prev;
 }
 
+/** Strips raw HTML tags, doctypes, comments, and style/script blocks from email text */
+export function stripHtmlMarkup(raw?: string): string {
+  if (!raw) return "";
+  let s = raw
+    .replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<!DOCTYPE[^>]*>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  return s.replace(/\s+/g, " ").trim();
+}
+
 /** Extracts display name and email address from raw "Name <email@domain>" format */
 function parseSender(raw: string): { displayName: string; address: string } {
   if (!raw) return { displayName: 'Unknown', address: '' };
@@ -345,7 +356,7 @@ export function registerScanDataset(
       accountId,
       accountType: accountSummary.accountType,
       subject: cleanSubject,
-      oneLineSummary: `${lastFromParsed.displayName}: ${decodeHtmlEntities((latestMsg.body || latestMsg.snippet || cleanSubject).slice(0, 110))}`,
+      oneLineSummary: `${lastFromParsed.displayName}: ${decodeHtmlEntities(stripHtmlMarkup(latestMsg.snippet || latestMsg.body || cleanSubject)).slice(0, 110)}`,
       whyItMatters: replyRequired
         ? `Direct live email awaiting your response or decision from ${lastFromParsed.displayName}.`
         : `Live correspondence from ${lastFromParsed.displayName}.`,
