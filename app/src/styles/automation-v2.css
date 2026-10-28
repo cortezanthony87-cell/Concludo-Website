@@ -71,6 +71,9 @@ a { color: var(--navy-2); }
 .btn.navy { background: var(--navy); border-color: var(--navy); color: var(--white); }
 .btn.navy:hover { background: var(--navy-2); }
 .btn.danger { background: var(--bad); border-color: var(--bad); color: var(--white); }
+.btn.danger:hover { background: #8E2F27; border-color: #8E2F27; }
+.btn.danger.ghost { background: transparent; border-color: transparent; color: var(--bad); }
+.btn.danger.ghost:hover { background: var(--bad-tint); border-color: transparent; }
 .btn.ghost { background: transparent; border-color: transparent; }
 .btn.ghost:hover { background: var(--navy-tint); }
 .btn.sm { height: 31px; padding: 0 11px; font-size: 12.5px; border-radius: 7px; }
@@ -458,6 +461,10 @@ html.cma-space, html.cma-space body { background: #060b16; }
 .cma.space-on .btn.primary { background: #E2B53C; border-color: #E2B53C; color: #16263F; }
 .cma.space-on .btn.primary:hover { background: #EBC45A; }
 .cma.space-on .btn.navy { background: var(--ink); border-color: rgba(226, 181, 60, .5); color: #F4F6FA; }
+.cma.space-on .btn.danger { background: rgba(168, 56, 47, .65); border-color: rgba(255, 120, 110, .4); color: #FFD4CF; }
+.cma.space-on .btn.danger:hover { background: rgba(168, 56, 47, .9); border-color: #FF9E94; }
+.cma.space-on .btn.danger.ghost { background: transparent; border-color: transparent; color: #FF9E94; }
+.cma.space-on .btn.danger.ghost:hover { background: rgba(255, 120, 110, .18); border-color: transparent; }
 .cma.space-on .btn.ghost { background: transparent; border-color: transparent; }
 .cma.space-on .btn.ghost:hover { background: rgba(160, 188, 235, .14); }
 .cma.space-on .pill.gold { color: #F3D27A; }

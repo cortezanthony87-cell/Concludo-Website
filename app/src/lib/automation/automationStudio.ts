@@ -439,7 +439,7 @@ export async function mountAutomation(root, opts = {}) {
   function wfCard(w, last) {
     try { return wfCardHtml(w, last); }
     catch (e) {
-      return `<article class="wf" data-test="wf-unreadable"><div class="w-h"><div><h3>${esc(w.name || 'Workflow')}</h3><div class="trig">This workflow could not be drawn.</div></div></div><div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Open in builder</a></div></article>`;
+      return `<article class="wf" data-test="wf-unreadable"><div class="w-h"><div><h3>${esc(w.name || 'Workflow')}</h3><div class="trig">This workflow could not be drawn.</div></div></div><div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Open in builder</a><button class="btn sm danger ghost" data-act="delete-wf" data-id="${w.id}" data-test="delete-wf-${w.id}" title="Delete workflow">${ic('trash')}Delete</button></div></article>`;
     }
   }
   function wfCardHtml(w, last) {
@@ -450,6 +450,7 @@ export async function mountAutomation(root, opts = {}) {
       <div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Edit in builder</a>
         <button class="btn sm ${w.status === 'active' ? 'primary' : ''}" data-act="run-open" data-id="${w.id}" ${w.status === 'active' ? '' : 'disabled title="Turn it on first, or use Test run in the builder"'}>${ic('play')}Run now</button>
         <button class="btn sm ghost" data-act="toggle" data-id="${w.id}">${w.status === 'active' ? `${ic('pause')}Pause` : `${ic('play')}Turn on`}</button>
+        <button class="btn sm danger ghost" data-act="delete-wf" data-id="${w.id}" data-test="delete-wf-${w.id}" title="Delete workflow">${ic('trash')}Delete</button>
         <span class="lastrun">${last ? `Last run: <a href="${toUrl('#runs/' + last.id)}">${esc((pillOf(last) || RUN_PILL[last.status] || ['Unknown'])[0].toLowerCase())}</a>` : 'Not run yet'}</span></div>
     </article>`;
   }
@@ -519,6 +520,7 @@ export async function mountAutomation(root, opts = {}) {
         <button class="btn sm" data-act="undo" ${b.history.length ? '' : 'disabled'}>${ic('undo')}Undo</button>
         <button class="btn sm" data-act="test-open" data-test="test-open">${ic('play')}Test run</button>
         ${wf.status === 'active' ? `<button class="btn sm" data-act="toggle" data-id="${wf.id}">${ic('pause')}Pause</button>` : `<button class="btn sm primary" data-act="toggle" data-id="${wf.id}" data-test="turn-on" ${blocks.length ? `title="${esc(blocks[0].text)}"` : ''}>${ic('play')}Turn on</button>`}
+        <button class="btn sm danger" data-act="delete-wf" data-id="${wf.id}" data-test="delete-wf" title="Delete this workflow">${ic('trash')}Delete workflow</button>
       </div>
       <div class="split">
         <aside class="left">
@@ -728,6 +730,12 @@ export async function mountAutomation(root, opts = {}) {
         </div></div>
       <div class="mf"><button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="run-go" data-id="${wfId}" data-test="run-go">${ic('play')}Run now</button></div></div></div>`;
   }
+  function deleteModal(wfId, name) {
+    return `<div class="modal-bg" data-act="close-modal"><div class="modal narrow" role="dialog" aria-label="Delete workflow" data-stop>
+      <div class="mh"><h2>${ic('trash')} Delete workflow</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
+      <div class="mb"><p style="margin:0;font-size:14px;line-height:1.5;">Are you sure you want to delete <b>“${esc(name)}”</b>? This action permanently removes this saved workflow.</p></div>
+      <div class="mf"><button class="btn" data-act="close-modal">Cancel</button><button class="btn danger" data-act="delete-confirm" data-id="${wfId}" data-test="delete-confirm">${ic('trash')}Delete workflow</button></div></div></div>`;
+  }
   const inputFor = (k) => (k === 'open' ? scheduleInput(ws) : k === 'empty' ? {} : k && k.startsWith('m:') ? meetingInput(ws, k.slice(2)) : meetingInput(ws, [...ws.meetings].sort((a, b) => b.date.localeCompare(a.date))[0].id));
 
   /* ============================================================ RUNS */
@@ -901,6 +909,26 @@ export async function mountAutomation(root, opts = {}) {
         return render(true);
       }
       case 'run-open': { const wf = await wfOf(t.dataset.id); S.modal = runModal(wf.id, wf.name); return render(true); }
+      case 'delete-wf': {
+        const wf = await wfOf(t.dataset.id);
+        if (!wf) return;
+        S.modal = deleteModal(wf.id, wf.name);
+        return render(true);
+      }
+      case 'delete-confirm': {
+        const id = t.dataset.id;
+        S.modal = null;
+        const wf = await wfOf(id);
+        const name = wf ? wf.name : 'Workflow';
+        await store.deleteWorkflow(id);
+        await store.appendAudit({ id: store.id('aud'), at: store.now(), actor: S.actor, event: 'workflow_deleted', objectType: 'workflow', objectId: id, detail: `Deleted workflow “${name}”.` });
+        toast(`“${name}” deleted.`);
+        if (S.b && S.b.id === id) {
+          S.b = null;
+          return go('#workflows');
+        }
+        return render(true);
+      }
       case 'close-modal': if (ev.target === t || t.tagName === 'BUTTON') { S.modal = null; return render(true); } return;
       case 'run-go': {
         const k = root.querySelector('input[name="rin"]:checked')?.value || '';

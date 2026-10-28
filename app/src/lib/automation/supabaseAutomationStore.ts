@@ -119,7 +119,10 @@ export class SupabaseAutomationStore implements Store {
         is_active: false,
       })
       .eq('id', id);
-    if (error) console.error('Failed to delete workflow:', error);
+    if (error) {
+      console.error('Failed to delete workflow:', error);
+      throw new Error(error.message || 'Failed to delete workflow');
+    }
   }
 
   private mapRowToWorkflow(row: any): Workflow {
