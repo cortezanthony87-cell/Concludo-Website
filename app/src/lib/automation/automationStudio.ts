@@ -159,14 +159,7 @@ function createSpace(host) {
       rg.addColorStop(0, light); rg.addColorStop(0.55, mid); rg.addColorStop(1, dark);
       b.fillStyle = rg; b.beginPath(); b.arc(x, y, r, 0, 6.2832); b.fill();
     };
-    // ringed planet (warm, upper right)
-    (() => {
-      const x = W * 0.8, y = H * 0.2, r = 24 * u;
-      b.save(); b.globalAlpha = 0.9; b.translate(x, y); b.rotate(-0.38);
-      const ring = (front) => { b.save(); b.beginPath(); if (front) b.rect(-r * 3, 0, r * 6, r * 3); else b.rect(-r * 3, -r * 3, r * 6, r * 3); b.clip();
-        for (let k = 0; k < 3; k++) { b.strokeStyle = `rgba(${k === 1 ? '120,100,60' : '226,196,120'},${k === 1 ? 0.18 : 0.42 - k * 0.08})`; b.lineWidth = k === 1 ? 2 : 5 - k; b.beginPath(); b.ellipse(0, 0, r * (1.55 + k * 0.28), r * (0.42 + k * 0.08), 0, 0, 6.2832); b.stroke(); } b.restore(); };
-      ring(false); ball(0, 0, r, '#f1d79a', '#a87b2c', '#2a1e0c'); ring(true); b.restore();
-    })();
+    // ringed planet removed per user instruction
     // banded blue planet (lower left)
     (() => {
       const x = W * 0.12, y = H * 0.76, r = 17 * u;
@@ -519,7 +512,10 @@ export async function mountAutomation(root, opts = {}) {
     await loadBuilder(id);
     const b = S.b;
     const bar = await savedBar(id === 'new' ? 'new' : b.wf ? b.wf.id : id);
-    if (!b.wf) return `<div class="space-page">${bar}${createView(b)}</div>`;
+    if (!b.wf) {
+      const checks = await getChecks(false);
+      return `<div class="space-page">${bar}${createView(b)}<div class="dock" style="max-width:960px;margin:0 auto 32px;border-radius:14px;">${appsBar(checks, new Set())}</div></div>`;
+    }
     const wf = b.wf;
     const issues = await C.validateWorkflow(wf, store);
     const blocks = issues.filter((i) => i.level === 'block');
@@ -534,7 +530,7 @@ export async function mountAutomation(root, opts = {}) {
       return i.stepId ? `<div class="fix"><button class="btn sm" data-act="select" data-s="${i.stepId}">Open the step</button></div>` : '';
     };
     const overview = `
-      ${plan ? `<div><h3>From your description</h3>${plan.understood.length ? `<div class="checks">${plan.understood.map((u) => `<div class="check ok"><span class="dot">${ic('check')}</span><span>${esc(u)}</span></div>`).join('')}</div>` : ''}${plan.unclear.length ? `<div class="checks" style="margin-top:8px">${plan.unclear.map((u) => `<div class="check warn" data-test="unclear"><span class="dot">${ic('alert')}</span><span>Not understood: ${esc(u)}. Add a step for it, or leave it out.</span></div>`).join('')}</div>` : ''}${plan.addedApprovals.length ? `<div class="note" style="margin-top:8px">Concludo added an approval before ${esc(plan.addedApprovals.join(', '))}, because ${plan.addedApprovals.length === 1 ? 'it sends' : 'they send'} something outside Concludo.</div>` : ''}</div>` : ''}
+      ${plan ? `<div><h3>From your description (AI agent workflow builder)</h3>${plan.understood.length ? `<div class="checks">${plan.understood.map((u) => `<div class="check ok"><span class="dot">${ic('check')}</span><span>${esc(u)}</span></div>`).join('')}</div>` : ''}${plan.unclear.length ? `<div class="checks" style="margin-top:8px">${plan.unclear.map((u) => `<div class="check warn" data-test="unclear"><span class="dot">${ic('alert')}</span><span>Not understood: ${esc(u)}. Add a step for it, or leave it out.</span></div>`).join('')}</div>` : ''}${plan.addedApprovals.length ? `<div class="note" style="margin-top:8px">Concludo added an approval before ${esc(plan.addedApprovals.join(', '))}, because ${plan.addedApprovals.length === 1 ? 'it sends' : 'they send'} something outside Concludo.</div>` : ''}</div>` : ''}
       <div><h3>How it works</h3><ol class="explain">${explain.map((l, i) => `<li class="${i === 0 ? 'first' : ''}">${esc(l)}</li>`).join('')}</ol></div>`;
     const checksBlock = `<div><h3>Checks</h3><div class="checks" data-test="checks">${issues.length ? issues.map((i) => `<div class="check ${i.level}"><span class="dot">${ic(i.level === 'block' ? 'x' : 'alert')}</span><span>${esc(i.text)}${fixBtn(i)}</span></div>`).join('') : `<div class="check ok"><span class="dot">${ic('check')}</span><span>All checks pass. ${wf.status === 'active' ? 'This workflow is on.' : 'You can turn it on.'}</span></div>`}</div></div>`;
     const palette = `<div class="palette" data-test="palette"><p class="small muted" style="margin:0 0 4px">Click a step to add it${b.sel && b.sel !== 'trigger' ? ' after the selected one' : ' at the end'}, or drag it onto a plus on the diagram.</p>${[...new Set(Object.values(C.ACTIONS).map((a) => a.group))].map((g) => `<div><h4>${esc(g)}</h4>${Object.values(C.ACTIONS).filter((a) => a.group === g && !a.hidden).flatMap((a) => (a.apps.length > 1 && a.kind === 'do' ? a.apps.map((app) => ({ a, app })) : [{ a, app: a.apps[0] }])).map(({ a, app }) => `<button class="pal" draggable="true" data-act="pal-add" data-k="${a.key}" data-app="${app}" data-test="pal-${a.key}-${app}">${ic(STEP_IC({ action: a.key }))}<span><b>${esc(a.label)}${a.apps.length > 1 ? ` (${esc(appOf(app).label)})` : ''}</b><small>${appOf(app).external && a.kind === 'do' ? 'Leaves Concludo, needs approval' : a.kind === 'approval' ? 'Stops until a person approves' : a.kind === 'only_if' ? 'Stops if the rule is not met' : 'Stays inside Concludo'}</small></span></button>`).join('')}</div>`).join('')}</div>`;
@@ -592,7 +588,7 @@ export async function mountAutomation(root, opts = {}) {
     return `<div class="stageA">
       <div class="eyebrow" style="justify-content:center">Create a workflow</div>
       <h1>${manual ? 'Build it step by step' : 'Describe what should happen'}</h1>
-      <p>${manual ? 'Choose when it runs, then add each step yourself from the palette. Concludo still adds an approval before anything leaves Concludo.' : 'Write it the way you would say it. Concludo builds the steps, adds an approval before anything leaves Concludo, and shows you what it did not understand.'}</p>
+      <p>${manual ? 'Choose when it runs, then add each step yourself from the palette. Concludo still adds an approval before anything leaves Concludo.' : 'Write it the way you would say it. The AI agent workflow builder creates your automation using natural language, adds an approval before anything leaves Concludo, and shows you what it did not understand.'}</p>
       <div class="seg modes" role="tablist" aria-label="How to build"><button class="${manual ? '' : 'on'}" data-act="mode" data-m="describe" role="tab" data-test="mode-describe">${ic('spark')}Describe it</button><button class="${manual ? 'on' : ''}" data-act="mode" data-m="manual" role="tab" data-test="mode-manual">${ic('flow')}Build manually</button></div>
       ${manual ? `<div class="describe manual" data-test="manual-form">
           <div class="field"><label for="mname">Workflow name</label><input id="mname" data-bind="mname" data-autofocus value="${esc(b.mname)}" placeholder="For example: Client follow-up"></div>
@@ -600,7 +596,7 @@ export async function mountAutomation(root, opts = {}) {
           ${b.mtrig === 'workflow_schedule' ? `<div class="field"><label for="msched">Schedule</label><select id="msched" data-bind="msched">${['Every Monday', 'Every weekday', 'Every Friday', 'Daily', 'First Monday of the month'].map((x) => `<option ${b.msched === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>` : '<div></div>'}</div>
           <div class="row"><span class="small muted">${esc(trigOf(b.mtrig).hint)}.</span><button class="btn primary" data-act="manual-start" data-test="manual-start">${ic('plus')}Start building</button></div></div>`
       : `<div class="describe"><label class="sr" for="describe">Describe the workflow</label><textarea id="describe" data-bind="draftText" data-autofocus placeholder="After each meeting, summarise it, add the actions to the tracker, then email the attendees">${esc(b.draftText || '')}</textarea>
-          <div class="row"><span class="small muted">Works best as: when this happens, do this, then that.</span><button class="btn primary" data-act="plan" data-test="plan">${ic('spark')}Build it</button></div></div>
+          <div class="row"><span class="small muted">AI agent workflow builder: creates automation from natural language.</span><button class="btn primary" data-act="plan" data-test="plan">${ic('spark')}Build it</button></div></div>
         <div class="examples">${EXAMPLES.map((e, i) => `<button data-act="example" data-i="${i}">${esc(e)}</button>`).join('')}</div>`}
       <div class="eyebrow" style="justify-content:center;margin-top:${manual ? 28 : 0}px">Or start from a template</div>
       <div class="tpls" style="text-align:left;margin-top:10px">${C.TEMPLATES.map((t) => `<button class="tpl" data-act="from-template" data-k="${t.key}"><b>${esc(t.name)}</b><span>${esc(t.summary)}</span></button>`).join('')}</div>
@@ -737,9 +733,11 @@ export async function mountAutomation(root, opts = {}) {
       <div class="mf"><button class="btn" data-act="signin-cancel">Back</button><button class="btn primary" data-act="signin-done" data-app="${app}" data-test="signin-done">Sign in as the sample account</button></div></div></div>`;
   }
   async function runRepair(app, wfId, runId) {
-    const wf = await store.getWorkflow(wfId);
-    if (!wf) throw new Error('That workflow is no longer here.');
-    S.repair = { app, wfId, runId, steps: [], report: null };
+    let wf = wfId && wfId !== 'new' ? await store.getWorkflow(wfId) : null;
+    if (!wf) {
+      wf = C.blankWorkflow(store, S.actor, { type: 'meeting_completed' }, 'Draft workflow');
+    }
+    S.repair = { app, wfId: wf.id, runId, steps: [], report: null };
     S.modal = repairModal(); await render(true);
     await sleep(350);
     const rep = await C.repairConnection(store, wf, app, S.actor, { wait: (ms) => sleep(Math.min(ms, 500)), onStep: (s) => { S.repair.steps.push(s); S.modal = repairModal(); render(true); } });
@@ -964,7 +962,7 @@ export async function mountAutomation(root, opts = {}) {
       case 'connect-open': S.modal = await connectModal(); return render(true);
       case 'conn-toggle': { const k = t.dataset.k; if (typeof store.completeSignIn !== 'function') return; store.connections[k] = store.connections[k] === 'connected' ? 'disconnected' : 'connected'; S.modal = await connectModal(); return render(true); }
       case 'check-apps': { const cs = await getChecks(true); toast(cs.some((c) => c.simulated) ? 'Checked all apps. Checked against the saved connections.' : 'Checked all apps.'); return render(true); }
-      case 'fix-conn': { const wfId = S.b?.wf?.id || S.repair?.wfId; if (!wfId) return toast('Open a workflow first, then fix its connection.', true); return runRepair(t.dataset.app, wfId, S.repair?.runId && S.repair.wfId === wfId ? S.repair.runId : null); }
+      case 'fix-conn': { const wfId = S.b?.wf?.id || S.repair?.wfId || 'new'; return runRepair(t.dataset.app, wfId, S.repair?.runId && S.repair.wfId === wfId ? S.repair.runId : null); }
       case 'fix-run-conn': return runRepair(t.dataset.app, t.dataset.wf, t.dataset.run);
       case 'recheck': return runRepair(S.repair.app, S.repair.wfId, S.repair.runId);
       case 'signin': {

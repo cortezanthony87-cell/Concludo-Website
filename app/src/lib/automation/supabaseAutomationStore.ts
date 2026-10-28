@@ -413,14 +413,13 @@ export class SupabaseAutomationStore implements Store {
     try {
       const { data } = await this.client()
         .from('integration_connections')
-        .select('status, enabled')
-        .eq('provider_id', app)
+        .select('status')
+        .eq('provider_id', this.providerId(app))
         .eq('user_id', this.userId)
         .is('deleted_at', null)
         .maybeSingle();
 
       if (!data) return 'disconnected';
-      if (!data.enabled) return 'disconnected';
       if (data.status === 'active' || data.status === 'connected') return 'connected';
       if (data.status === 'needs_reauth') return 'needs_reauth';
       if (data.status === 'permission_required') return 'permission_required';
@@ -447,13 +446,13 @@ export class SupabaseAutomationStore implements Store {
     try {
       const { data, error } = await this.client()
         .from('integration_connections')
-        .select('id, status, enabled')
+        .select('id, status')
         .eq('provider_id', this.providerId(app))
         .eq('user_id', this.userId)
         .is('deleted_at', null)
         .maybeSingle();
       if (error) return { state: 'service_issue', verified: false, detail: `The check could not read whether ${label} is connected.` };
-      if (!data || data.enabled === false) return { state: 'disconnected', verified: true, detail: `No connection is saved for ${label}.` };
+      if (!data || data.status === 'disconnected') return { state: 'disconnected', verified: true, detail: `No connection is saved for ${label}.` };
       if (data.status === 'needs_reauth' || data.status === 'reauth_required') {
         return { state: 'needs_reauth', verified: true, detail: `The saved sign-in for ${label} has lapsed.` };
       }
