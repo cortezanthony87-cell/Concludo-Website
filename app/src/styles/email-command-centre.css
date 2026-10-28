@@ -2666,18 +2666,21 @@
 .ecc-envelope {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 12px 14px;
+  gap: 9px;
+  padding: 13px 15px;
   background: var(--bg-base);
   border: 1px solid var(--border-subtle);
   border-radius: var(--ecc-radius-control);
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .ecc-envelope-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 10px;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 12px;
   align-items: baseline;
+  min-width: 0;
 }
 
 .ecc-envelope-value {
@@ -2685,9 +2688,19 @@
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+  min-width: 0;
   font-size: 0.8rem;
   line-height: 1.55;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ecc-envelope-account-name {
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ecc-withheld {
@@ -2793,11 +2806,25 @@
   gap: 8px;
   padding-top: 12px;
   border-top: 1px solid var(--border-subtle);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ecc-draft-actions .ecc-action-wrap {
+  display: inline-flex;
+  flex: 1 1 140px;
+  min-width: 0;
 }
 
 .ecc-draft-action {
-  min-height: 40px;
+  width: 100%;
+  justify-content: center;
+  min-height: 38px;
   font-size: 0.78rem;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: var(--ecc-radius-control);
+  box-sizing: border-box;
 }
 
 .ecc-draft-action:disabled {

@@ -337,8 +337,8 @@ export const DraftReview: React.FC<Props> = ({ detail, draft, fromAddress, onSel
         <div className="ecc-envelope-row">
           <span className="ecc-field-label">Sending account</span>
           <span className="ecc-envelope-value">
-            <AccountBadge accountType={detail.accountType} label={detail.accountLabel} />
-            {detail.accountLabel}
+            <AccountBadge accountType={detail.accountType} />
+            <span className="ecc-envelope-account-name">{detail.accountLabel}</span>
           </span>
         </div>
         <div className="ecc-envelope-row">
