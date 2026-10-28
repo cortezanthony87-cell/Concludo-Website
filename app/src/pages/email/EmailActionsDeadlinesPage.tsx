@@ -52,6 +52,9 @@ export const EmailActionsDeadlinesPage: React.FC = () => {
       emptyMessage="Nothing is dated and nothing is outstanding."
       accountLabel={accountLabel}
       accountType={accountType}
+      viewPath="/email/actions-deadlines"
+      topThreadId={groups[0]?.items[0]?.threadId ?? null}
+      backlog="dated"
       controls={
         <p className="ecc-legend-note">
           A date marked <strong>Suggested date, confirm</strong> was worked out from the wording of
@@ -83,7 +86,7 @@ export const EmailActionsDeadlinesPage: React.FC = () => {
 };
 
 const DatedRow: React.FC<{ item: DatedItem }> = ({ item }) => (
-  <li className={`ecc-dated ecc-dated-${item.origin.replace('_', '-')}`}>
+  <li className={`ecc-dated ecc-dated-${item.origin.replace('_', '-')}`} data-thread-id={item.threadId} tabIndex={-1}>
     <div className="ecc-dated-main">
       <p className="ecc-dated-description">{item.description}</p>
       <p className="ecc-dated-thread">

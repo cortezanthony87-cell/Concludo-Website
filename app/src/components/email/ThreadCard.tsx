@@ -34,7 +34,7 @@ export const ThreadCard: React.FC<Props> = ({ item, linkTo }) => {
   const headingId = `ecc-card-${item.threadId}`;
 
   return (
-    <li className="content-card ecc-card" aria-labelledby={headingId}>
+    <li className="content-card ecc-card" aria-labelledby={headingId} data-thread-id={item.threadId} tabIndex={-1}>
       <div className="ecc-card-top">
         <div className="ecc-card-identity">
           <p className="ecc-card-sender">

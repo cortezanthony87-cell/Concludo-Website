@@ -1,0 +1,1046 @@
+/* ==========================================================================
+   Concludo Email Command Centre: bright theme for every view except Overview
+   --------------------------------------------------------------------------
+   SCOPE. Every selector starts with `.ecc-module.ecc-bright`. EmailModuleLayout
+   adds the `ecc-bright` class on every route except `/email`, so the Overview
+   never matches a rule in this file. The Overview, its stylesheet and its page
+   are untouched.
+
+   LANGUAGE. It reuses the Overview's tokens exactly, so moving between the
+   Overview and any other view does not change the look of the product:
+   ground #F4F6FA, surface #FFFFFF, raised #EEF1F7, navy #16263F and #21395C,
+   border #E2E8F0 and #CBD5E1. Poppins headings, Inter body.
+
+   GOLD. Gold is an accent here: rules, borders, fills behind navy text, the
+   active-tab underline and the focus ring. It is never text on a light ground
+   (#E2B53C on white is 1.93 to 1, #BC8A1C on white is 3.09 to 1). Wherever the
+   dark theme used gold as text, this file uses navy.
+
+   STATUS. Amber, red and green are darkened so the text clears 4.5 to 1 on the
+   tinted surface it sits on, and every status still carries a word and an icon.
+   ========================================================================== */
+
+/* ------------------------------------------------------------ page ground */
+
+.main-content-area:has(.ecc-module.ecc-bright) {
+  padding: 0 !important;
+  background: #f4f6fa !important;
+  overflow-y: auto !important;
+}
+
+/* ----------------------------------------------------------------- tokens */
+
+.ecc-module.ecc-bright {
+  --bg-deep: #e8edf5;
+  --bg-base: #f4f6fa;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #ffffff;
+  --bg-raised: #eef1f7;
+  --text-primary: #16263f;
+  --text-secondary: #334155;
+  --text-muted: #5a6478;
+  --text-1: #16263f;
+  --text-2: #334155;
+  --text-3: #5a6478;
+  --text-4: #5a6478;
+  --ecc-text-quiet: #5a6478;
+  --border-subtle: #e2e8f0;
+  --border: #e2e8f0;
+  --border-md: #cbd5e1;
+  --border-glass: #cbd5e1;
+  --border-gold: rgba(188, 138, 28, 0.55);
+
+  /* Gold used as text becomes navy. Gold 500 stays gold: it is only ever a
+     fill, a border or a rule, and the text on those fills is navy. */
+  --gold-300: #16263f;
+  --gold-400: #21395c;
+  --gold-600: #21395c;
+  --gold-700: #bc8a1c;
+  --navy-800: #ffffff;
+
+  --ecc-attention: #8a5300;
+  --ecc-attention-bg: #fffbeb;
+  --ecc-attention-border: #f2d28a;
+  --ecc-alert: #b42318;
+  --ecc-alert-bg: #fef3f2;
+  --ecc-alert-border: #f3b4ae;
+  --emerald-400: #15803d;
+  --ecc-done: #15803d;
+  --ecc-done-bg: #f0fdf4;
+  --ecc-done-border: #b7e4c7;
+
+  --ecc-radius-card: 12px;
+  --ecc-radius-control: 8px;
+  --bright-shadow: 0 1px 3px rgba(22, 38, 63, 0.06);
+  --bright-shadow-lift: 0 4px 14px rgba(22, 38, 63, 0.1);
+
+  color-scheme: light;
+  background: #f4f6fa;
+  color: #16263f;
+  min-height: 100%;
+  padding-top: 0;
+}
+
+.ecc-module.ecc-bright * {
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* ------------------------------------------------------- header and tabs */
+
+.ecc-module.ecc-bright .ecc-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 20px 24px 16px;
+}
+.ecc-module.ecc-bright .page-eyebrow {
+  color: #21395c;
+  font-weight: 600;
+}
+.ecc-module.ecc-bright .page-title {
+  color: #16263f;
+  font-family: var(--font-heading);
+}
+.ecc-module.ecc-bright .page-subtitle {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-control-label {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-select,
+.ecc-module.ecc-bright .ecc-input,
+.ecc-module.ecc-bright .ecc-search-input,
+.ecc-module.ecc-bright select,
+.ecc-module.ecc-bright input[type='text'],
+.ecc-module.ecc-bright input[type='search'],
+.ecc-module.ecc-bright input[type='email'],
+.ecc-module.ecc-bright input[type='date'],
+.ecc-module.ecc-bright input[type='number'],
+.ecc-module.ecc-bright textarea {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright input::placeholder,
+.ecc-module.ecc-bright textarea::placeholder {
+  color: #5a6478;
+  opacity: 1;
+}
+.ecc-module.ecc-bright .ecc-select:hover,
+.ecc-module.ecc-bright .ecc-input:hover {
+  border-color: #21395c;
+}
+
+/* Buttons. The Workspace's own button classes are written for a dark ground, so
+   every button class the module uses is given its bright form here. */
+.ecc-module.ecc-bright .btn-secondary,
+.ecc-module.ecc-bright .ecc-btn-outline,
+.ecc-module.ecc-bright .ecc-icon-button {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+  transition: none;
+}
+.ecc-module.ecc-bright .btn-secondary:hover,
+.ecc-module.ecc-bright .ecc-btn-outline:hover {
+  background: #eef1f7;
+  border-color: #21395c;
+}
+.ecc-module.ecc-bright .btn-gold,
+.ecc-module.ecc-bright .btn-primary,
+.ecc-module.ecc-bright .ecc-scan-emails-btn,
+.ecc-module.ecc-bright .ecc-btn-glowing-gold {
+  background: #e2b53c !important;
+  border: 1px solid #bc8a1c !important;
+  color: #16263f !important;
+  box-shadow: none !important;
+}
+.ecc-module.ecc-bright .btn-gold:hover:not(:disabled),
+.ecc-module.ecc-bright .btn-primary:hover:not(:disabled),
+.ecc-module.ecc-bright .ecc-scan-emails-btn:hover:not(:disabled),
+.ecc-module.ecc-bright .ecc-btn-glowing-gold:hover:not(:disabled) {
+  background: #ecc252 !important;
+  box-shadow: 0 2px 8px rgba(188, 138, 28, 0.35) !important;
+}
+.ecc-module.ecc-bright .btn-gold:disabled,
+.ecc-module.ecc-bright .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ecc-module.ecc-bright .ecc-connect-email-btn {
+  background: #fffbeb;
+  border: 1px solid #bc8a1c;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-connect-email-btn:hover {
+  background: #fdf1cd;
+  color: #16263f;
+  border-color: #bc8a1c;
+}
+
+.ecc-module.ecc-bright .ecc-account-work {
+  color: #16263f;
+  background: #fff6dc;
+  border-color: #bc8a1c;
+}
+.ecc-module.ecc-bright .ecc-account-personal {
+  color: #21395c;
+  background: #eef1f7;
+  border-color: #cbd5e1;
+}
+
+.ecc-module.ecc-bright .ecc-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 24px;
+  box-shadow: 0 1px 0 rgba(22, 38, 63, 0.04);
+}
+.ecc-module.ecc-bright .ecc-tab {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-tab:hover {
+  color: #16263f;
+  background: #eef1f7;
+}
+.ecc-module.ecc-bright .ecc-tab.ecc-tab-active {
+  color: #16263f;
+  font-weight: 600;
+  border-bottom-color: #e2b53c;
+  background: transparent;
+}
+.ecc-module.ecc-bright .ecc-main {
+  max-width: 1280px;
+  width: calc(100% - 48px);
+  margin: 0 auto;
+  padding: 24px 0;
+  box-sizing: border-box;
+}
+.ecc-module.ecc-bright .ecc-foot-note {
+  color: #5a6478;
+  padding: 16px 24px 32px;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.ecc-module.ecc-bright .ecc-substituted {
+  background: #fffbeb;
+  border-color: #f2d28a;
+  color: #8a5300;
+}
+.ecc-module.ecc-bright .ecc-sync,
+.ecc-module.ecc-bright .ecc-control-note {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-sync-dot {
+  background: #5a6478;
+}
+
+/* ------------------------------------------------------------ text and rules */
+
+.ecc-module.ecc-bright :focus-visible {
+  outline: 2px solid #16263f;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(226, 181, 60, 0.55);
+}
+.ecc-module.ecc-bright .ecc-skip-link {
+  background: #e2b53c;
+  color: #16263f;
+}
+
+.ecc-module.ecc-bright .ecc-page-title {
+  font-family: var(--font-heading);
+  color: #16263f;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.ecc-module.ecc-bright .ecc-page-description {
+  color: #334155;
+}
+.ecc-module.ecc-bright .ecc-view-account {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-view-count {
+  color: #334155;
+  font-weight: 600;
+}
+
+/* Gold text in the dark theme becomes navy. */
+.ecc-module.ecc-bright .ecc-text-button,
+.ecc-module.ecc-bright .ecc-inline-link,
+.ecc-module.ecc-bright .ecc-chips-legend,
+.ecc-module.ecc-bright .ecc-field-label,
+.ecc-module.ecc-bright .ecc-sort-button,
+.ecc-module.ecc-bright .ecc-column-title,
+.ecc-module.ecc-bright .ecc-suggestion-kind,
+.ecc-module.ecc-bright .ecc-quoted-toggle,
+.ecc-module.ecc-bright .ecc-approval-diff summary,
+.ecc-module.ecc-bright .ecc-figure-kind,
+.ecc-module.ecc-bright .ecc-lead-kicker,
+.ecc-module.ecc-bright .ecc-inferred-mark,
+.ecc-module.ecc-bright .ecc-extraction-selected,
+.ecc-module.ecc-bright .ecc-scan-metric-val {
+  color: #21395c;
+}
+.ecc-module.ecc-bright .ecc-text-button:hover,
+.ecc-module.ecc-bright .ecc-inline-link:hover {
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-source-link:hover,
+.ecc-module.ecc-bright .ecc-table-subject-link:hover,
+.ecc-module.ecc-bright .ecc-srow:hover .ecc-srow-subject,
+.ecc-module.ecc-bright .ecc-nil-row:hover .ecc-nil-title,
+.ecc-module.ecc-bright .ecc-mode-tab.is-on .ecc-mode-label {
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-field-label {
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------- cards */
+
+.ecc-module.ecc-bright .content-card,
+.ecc-module.ecc-bright .ecc-card,
+.ecc-module.ecc-bright .ecc-table-card,
+.ecc-module.ecc-bright .ecc-category-reference {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: var(--bright-shadow);
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-card-list > .ecc-card {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.ecc-module.ecc-bright .ecc-card-list > .ecc-card:hover {
+  box-shadow: var(--bright-shadow-lift);
+  border-color: #cbd5e1;
+}
+.ecc-module.ecc-bright .ecc-card[data-thread-id]:focus {
+  outline: 2px solid #16263f;
+  outline-offset: 2px;
+  border-color: #e2b53c;
+  box-shadow: 0 0 0 4px rgba(226, 181, 60, 0.45);
+}
+.ecc-module.ecc-bright [data-thread-id]:focus {
+  outline: 2px solid #16263f;
+  outline-offset: 2px;
+}
+.ecc-module.ecc-bright .ecc-card-flagged {
+  border-left: 4px solid #bc8a1c;
+}
+.ecc-module.ecc-bright .ecc-card-security {
+  border-left: 4px solid #b42318;
+}
+.ecc-module.ecc-bright .ecc-card-sender,
+.ecc-module.ecc-bright .ecc-card-address {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-card-subject {
+  color: #16263f;
+  font-family: var(--font-heading);
+}
+.ecc-module.ecc-bright .ecc-card-summary,
+.ecc-module.ecc-bright .ecc-field-value {
+  color: #334155;
+}
+.ecc-module.ecc-bright .ecc-reason-list li::before {
+  background: #bc8a1c;
+}
+.ecc-module.ecc-bright .ecc-row-reasons li::before {
+  background: #bc8a1c;
+}
+
+/* ------------------------------------------------------------ badges, chips */
+
+.ecc-module.ecc-bright .ecc-badge {
+  border: 1px solid #cbd5e1;
+  background: #eef1f7;
+  color: #21395c;
+}
+.ecc-module.ecc-bright .ecc-tone-attention {
+  background: #fffbeb;
+  border-color: #f2d28a;
+  color: #8a5300;
+}
+.ecc-module.ecc-bright .ecc-tone-alert {
+  background: #fef3f2;
+  border-color: #f3b4ae;
+  color: #b42318;
+}
+.ecc-module.ecc-bright .ecc-tone-done {
+  background: #f0fdf4;
+  border-color: #b7e4c7;
+  color: #15803d;
+}
+.ecc-module.ecc-bright .ecc-tone-quiet {
+  background: #eef1f7;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.ecc-module.ecc-bright .ecc-chips,
+.ecc-module.ecc-bright .ecc-style-picker,
+.ecc-module.ecc-bright .ecc-view-controls {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: var(--bright-shadow);
+}
+.ecc-module.ecc-bright .ecc-view-controls .ecc-chips,
+.ecc-module.ecc-bright .ecc-view-controls .ecc-style-picker {
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+}
+.ecc-module.ecc-bright .ecc-chip {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-chip:hover {
+  border-color: #bc8a1c;
+  background: #fffbeb;
+}
+.ecc-module.ecc-bright .ecc-chip-on,
+.ecc-module.ecc-bright .ecc-chip-on:hover {
+  background: #e2b53c;
+  border-color: #bc8a1c;
+  color: #16263f;
+  font-weight: 600;
+}
+.ecc-module.ecc-bright .ecc-chip-count {
+  background: #eef1f7;
+  color: #21395c;
+}
+.ecc-module.ecc-bright .ecc-chip-on .ecc-chip-count {
+  background: rgba(22, 38, 63, 0.14);
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-chips-note,
+.ecc-module.ecc-bright .ecc-legend-note,
+.ecc-module.ecc-bright .ecc-group-note {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-legend-warn {
+  color: #8a5300;
+}
+
+.ecc-module.ecc-bright .ecc-date-chip,
+.ecc-module.ecc-bright .ecc-attach-chip,
+.ecc-module.ecc-bright .ecc-draft-chip,
+.ecc-module.ecc-bright .ecc-confidence {
+  background: #eef1f7;
+  border: 1px solid #cbd5e1;
+  color: #21395c;
+}
+.ecc-module.ecc-bright .ecc-date-suggested {
+  background: #fffbeb;
+  border-color: #f2d28a;
+  color: #8a5300;
+}
+.ecc-module.ecc-bright .ecc-attach-awaiting {
+  background: #fffbeb;
+  border-color: #f2d28a;
+  color: #8a5300;
+}
+.ecc-module.ecc-bright .ecc-draft-available {
+  background: #f0fdf4;
+  border-color: #b7e4c7;
+  color: #15803d;
+}
+.ecc-module.ecc-bright .ecc-draft-withheld-for-safety {
+  background: #fef3f2;
+  border-color: #f3b4ae;
+  color: #b42318;
+}
+.ecc-module.ecc-bright .ecc-draft-clarification-required {
+  background: #fffbeb;
+  border-color: #f2d28a;
+  color: #8a5300;
+}
+
+/* ---------------------------------------------------- warnings and notices */
+
+.ecc-module.ecc-bright .ecc-warning-security {
+  background: #fef3f2;
+  border: 1px solid #f3b4ae;
+  color: #7a1f17;
+}
+.ecc-module.ecc-bright .ecc-warning-sensitive {
+  background: #fffbeb;
+  border: 1px solid #f2d28a;
+  color: #6b4200;
+}
+.ecc-module.ecc-bright .ecc-warning-head {
+  color: inherit;
+  font-weight: 700;
+}
+.ecc-module.ecc-bright .ecc-warning-text,
+.ecc-module.ecc-bright .ecc-warning-check {
+  color: inherit;
+}
+.ecc-module.ecc-bright .ecc-notice,
+.ecc-module.ecc-bright .ecc-disclaimer {
+  background: #f1f5fb;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-notice-caution {
+  background: #fffbeb;
+  border-color: #f2d28a;
+  color: #6b4200;
+}
+.ecc-module.ecc-bright .ecc-notice-head,
+.ecc-module.ecc-bright .ecc-disclaimer-text {
+  color: inherit;
+}
+.ecc-module.ecc-bright .ecc-disclaimer-sub,
+.ecc-module.ecc-bright .ecc-notice-body {
+  color: #334155;
+}
+.ecc-module.ecc-bright .ecc-high-consequence {
+  background: #fffbeb;
+  border: 1px solid #f2d28a;
+  color: #6b4200;
+}
+
+/* ------------------------------------------------------------------ states */
+
+.ecc-module.ecc-bright .ecc-state {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-state-note {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-empty-icon {
+  color: #15803d;
+}
+.ecc-module.ecc-bright .ecc-state-error {
+  background: #fef3f2;
+  border-color: #f3b4ae;
+}
+.ecc-module.ecc-bright .ecc-error-icon {
+  color: #b42318;
+}
+.ecc-module.ecc-bright .ecc-spin {
+  color: #21395c;
+}
+.ecc-module.ecc-bright .ecc-skeleton-row {
+  background: linear-gradient(90deg, #eef1f7, #e2e8f0, #eef1f7);
+}
+
+/* ----------------------------------------------------------------- actions */
+
+.ecc-module.ecc-bright .ecc-action {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-action:hover {
+  border-color: #bc8a1c;
+  background: #fffbeb;
+}
+.ecc-module.ecc-bright .ecc-action-on {
+  background: #e2b53c;
+  border-color: #bc8a1c;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-action-state,
+.ecc-module.ecc-bright .ecc-suggestions {
+  color: #334155;
+}
+.ecc-module.ecc-bright .ecc-suggestions li {
+  background: #f1f5fb;
+  border: 1px solid #e2e8f0;
+}
+
+/* The promoted actions: real links in front of the card. */
+.ecc-module.ecc-bright .ecc-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.ecc-module.ecc-bright .ecc-open-thread,
+.ecc-module.ecc-bright .ecc-open-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ecc-module.ecc-bright .ecc-open-thread {
+  background: #16263f;
+  border: 1px solid #16263f;
+  color: #ffffff;
+}
+.ecc-module.ecc-bright .ecc-open-thread:hover {
+  background: #21395c;
+}
+.ecc-module.ecc-bright .ecc-open-draft {
+  background: #e2b53c;
+  border: 1px solid #bc8a1c;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-open-draft:hover {
+  background: #ecc252;
+}
+
+/* ---------------------------------------------- next step bar and related */
+
+.ecc-module.ecc-bright .ecc-next-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #e2b53c;
+  border-radius: 12px;
+  box-shadow: var(--bright-shadow);
+}
+.ecc-module.ecc-bright .ecc-next-primary,
+.ecc-module.ecc-bright .ecc-next-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ecc-module.ecc-bright .ecc-next-primary {
+  background: #16263f;
+  border: 1px solid #16263f;
+  color: #ffffff;
+}
+.ecc-module.ecc-bright .ecc-next-primary:hover {
+  background: #21395c;
+}
+.ecc-module.ecc-bright .ecc-next-secondary {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-next-secondary:hover {
+  background: #eef1f7;
+  border-color: #21395c;
+}
+.ecc-module.ecc-bright .ecc-key-hint {
+  margin: 0 0 0 auto;
+  font-size: 0.76rem;
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-key-hint kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 6px;
+  margin: 0 2px 0 8px;
+  font: 600 0.72rem var(--font-body);
+  text-align: center;
+  color: #16263f;
+  background: #eef1f7;
+  border: 1px solid #cbd5e1;
+  border-bottom-width: 2px;
+  border-radius: 5px;
+}
+
+.ecc-module.ecc-bright .ecc-related {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0 0 16px;
+}
+.ecc-module.ecc-bright .ecc-related-label {
+  margin: 0;
+  font: 700 0.7rem var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-related-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ecc-module.ecc-bright .ecc-related-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 6px 4px 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #16263f;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.ecc-module.ecc-bright .ecc-related-link:hover {
+  border-color: #21395c;
+  background: #eef1f7;
+}
+.ecc-module.ecc-bright .ecc-related-count {
+  min-width: 24px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #16263f;
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+}
+.ecc-module.ecc-bright .ecc-related-zero .ecc-related-count {
+  background: #eef1f7;
+  color: #334155;
+}
+.ecc-module.ecc-bright .ecc-related-alert {
+  border-color: #f3b4ae;
+  background: #fef3f2;
+}
+.ecc-module.ecc-bright .ecc-related-alert .ecc-related-count {
+  background: #b42318;
+}
+.ecc-module.ecc-bright .ecc-preset-note {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: #fff6dc;
+  border: 1px solid #f2d28a;
+  border-radius: 8px;
+  color: #6b4200;
+  font-size: 0.84rem;
+}
+
+/* ------------------------------------------------------------------ groups */
+
+.ecc-module.ecc-bright .ecc-group-head {
+  color: #16263f;
+  font-family: var(--font-heading);
+}
+.ecc-module.ecc-bright .ecc-group-count {
+  background: #16263f;
+  color: #ffffff;
+}
+.ecc-module.ecc-bright .ecc-group-overdue {
+  color: #b42318;
+}
+.ecc-module.ecc-bright .ecc-dated {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: var(--bright-shadow);
+}
+.ecc-module.ecc-bright .ecc-dated-explicit-email {
+  border-left-color: #bc8a1c;
+}
+.ecc-module.ecc-bright .ecc-dated-suggested {
+  border-left-color: #f2d28a;
+}
+.ecc-module.ecc-bright .ecc-dated-description {
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-dated-thread,
+.ecc-module.ecc-bright .ecc-dated-consequence,
+.ecc-module.ecc-bright .ecc-dated-sender {
+  color: #334155;
+}
+.ecc-module.ecc-bright .ecc-dated-blocked {
+  color: #8a5300;
+}
+.ecc-module.ecc-bright .ecc-draft-block,
+.ecc-module.ecc-bright .ecc-ownership {
+  background: #f8fafd;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.ecc-module.ecc-bright .ecc-draft-body {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-draft-style-note,
+.ecc-module.ecc-bright .ecc-ownership-basis,
+.ecc-module.ecc-bright .ecc-waiting-status {
+  color: #334155;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+.ecc-module.ecc-bright .ecc-table {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-table thead th {
+  background: #eef1f7;
+  color: #21395c;
+  border-bottom: 2px solid #e2b53c;
+}
+.ecc-module.ecc-bright .ecc-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+}
+.ecc-module.ecc-bright .ecc-table tbody tr:hover {
+  background: #f8fafd;
+}
+.ecc-module.ecc-bright .ecc-table td {
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-table-subject-link {
+  color: #16263f;
+  border-bottom: 1px dotted #21395c;
+}
+
+/* ----------------------------------------------------------- thread space */
+
+.ecc-module.ecc-bright .ecc-col,
+.ecc-module.ecc-bright .ecc-thread-item,
+.ecc-module.ecc-bright .ecc-conversation,
+.ecc-module.ecc-bright .ecc-message,
+.ecc-module.ecc-bright .ecc-intelligence {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-thread-item-current {
+  background: #fff9e6;
+  border-left-color: #e2b53c;
+}
+.ecc-module.ecc-bright .ecc-thread-item:hover {
+  border-color: #bc8a1c;
+}
+.ecc-module.ecc-bright .ecc-pane-tab,
+.ecc-module.ecc-bright .ecc-itab {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-pane-tab-active,
+.ecc-module.ecc-bright .ecc-itab-active {
+  background: #e2b53c;
+  border-color: #bc8a1c;
+  color: #16263f;
+  font-weight: 600;
+}
+.ecc-module.ecc-bright .ecc-source-mark {
+  background: #fde9a6;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-message-source {
+  border-left-color: #e2b53c;
+}
+.ecc-module.ecc-bright .ecc-document-frame {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+}
+.ecc-module.ecc-bright .ecc-image-clear-view-card {
+  background: #f8fafd;
+  border: 1px solid #cbd5e1;
+}
+.ecc-module.ecc-bright .ecc-image-clear-view-card img {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+}
+.ecc-module.ecc-bright .ecc-btn-ignore-email {
+  background: #fef3f2 !important;
+  border: 1px solid #f3b4ae !important;
+  color: #b42318 !important;
+}
+.ecc-module.ecc-bright .ecc-btn-ignore-email:hover {
+  background: #fde4e1 !important;
+  border-color: #b42318 !important;
+  color: #7a1f17 !important;
+}
+
+/* ----------------------------------------------------------------- backlog */
+
+.ecc-module.ecc-bright .ecc-resume-card {
+  border-color: #bc8a1c;
+  background: #fffbeb;
+}
+.ecc-module.ecc-bright .ecc-decision-button {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-decision-button:hover {
+  border-color: #bc8a1c;
+  background: #fffbeb;
+}
+.ecc-module.ecc-bright .ecc-checkbox input {
+  accent-color: #21395c;
+}
+
+/* ------------------------------------------------------------------ modals */
+
+.ecc-module.ecc-bright .ecc-modal-overlay {
+  background: rgba(22, 38, 63, 0.55);
+}
+.ecc-module.ecc-bright .ecc-modal-box {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #16263f;
+  box-shadow: 0 24px 48px rgba(22, 38, 63, 0.28);
+}
+.ecc-module.ecc-bright .ecc-modal-title {
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-modal-subtitle {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-modal-close {
+  color: #334155;
+}
+.ecc-module.ecc-bright .ecc-modal-close:hover {
+  background: #eef1f7;
+}
+.ecc-module.ecc-bright .ecc-modal-icon-wrap {
+  background: #fff6dc;
+  border: 1px solid #bc8a1c;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-scan-metric-card,
+.ecc-module.ecc-bright .ecc-scan-action-item {
+  background: #f8fafd;
+  border: 1px solid #e2e8f0;
+  color: #16263f;
+}
+.ecc-module.ecc-bright .ecc-scan-metric-label,
+.ecc-module.ecc-bright .ecc-scan-action-desc {
+  color: #5a6478;
+}
+.ecc-module.ecc-bright .ecc-scan-action-title {
+  color: #16263f;
+}
+
+/* --------------------------------------------------------------- responsive */
+
+@media (max-width: 900px) {
+  .ecc-module.ecc-bright .ecc-header {
+    padding: 16px 16px 12px;
+  }
+  .ecc-module.ecc-bright .ecc-tabs {
+    padding: 0 12px;
+  }
+  .ecc-module.ecc-bright .ecc-main {
+    width: calc(100% - 32px);
+    padding: 16px 0;
+  }
+  .ecc-module.ecc-bright .ecc-key-hint {
+    display: none;
+  }
+  .ecc-module.ecc-bright .ecc-next-primary,
+  .ecc-module.ecc-bright .ecc-next-secondary {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 900px) {
+  /* 44px targets on a phone, the same bar the existing accessibility suite sets. */
+  .ecc-module.ecc-bright :is(.btn-secondary, .btn-gold, .btn-primary, .ecc-open-thread, .ecc-open-draft, .ecc-actions-toggle, .ecc-related-link, .ecc-next-primary, .ecc-next-secondary, .ecc-chip, .ecc-action) {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ecc-module.ecc-bright * {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .ecc-module.ecc-bright .ecc-next-primary,
+  .ecc-module.ecc-bright .ecc-open-thread,
+  .ecc-module.ecc-bright .ecc-related-link,
+  .ecc-module.ecc-bright .ecc-card {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ==========================================================================
+   Inline dark values
+   --------------------------------------------------------------------------
+   ConversationPane, IntelligencePane and the connect modal were written with
+   dark-theme colours as inline styles, which a stylesheet cannot beat without
+   !important. These attribute selectors remap them, inside the bright scope
+   only. The components themselves are unchanged. Browsers serialise inline
+   colours as rgb(), so the selectors match that form.
+   ========================================================================== */
+
+.ecc-module.ecc-bright .ecc-intelligent-actions {
+  background: #f1f5fb !important;
+  border: 1px solid #cbd5e1 !important;
+}
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(255, 255, 255)'],
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(241, 245, 249)'],
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(248, 250, 252)'],
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(226, 232, 240)'],
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(203, 213, 225)'] {
+  color: #16263f !important;
+}
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(148, 163, 184)'],
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(136, 152, 170)'] {
+  color: #5a6478 !important;
+}
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(226, 181, 60)'],
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(212, 175, 55)'] {
+  color: #21395c !important;
+}
+.ecc-module.ecc-bright .ecc-workspace .ecc-message-body[style] {
+  color: #16263f !important;
+}
+.ecc-module.ecc-bright .ecc-workspace button[style*='background: rgba(33, 57, 92'],
+.ecc-module.ecc-bright .ecc-workspace button[style*='background: rgb(14, 23, 38)'],
+.ecc-module.ecc-bright .ecc-modal-box button[style*='background: rgba(33, 57, 92'] {
+  background: #ffffff !important;
+  color: #16263f !important;
+  border: 1px solid #bc8a1c !important;
+}
+.ecc-module.ecc-bright .ecc-workspace button[style*='background: rgba(33, 57, 92']:hover {
+  background: #fffbeb !important;
+}
+.ecc-module.ecc-bright .ecc-workspace button[style*='linear-gradient'] {
+  background: #e2b53c !important;
+  color: #16263f !important;
+  border: 1px solid #bc8a1c !important;
+}
+.ecc-module.ecc-bright .ecc-workspace button :is(svg, span)[style*='color'] {
+  color: inherit !important;
+}
+.ecc-module.ecc-bright .ecc-workspace [style*='border: 1px solid rgb(33, 57, 92)'],
+.ecc-module.ecc-bright .ecc-workspace [style*='border-top: 1px solid rgb(33, 57, 92)'],
+.ecc-module.ecc-bright .ecc-workspace [style*='border: 1px solid rgb(30, 41, 59)'] {
+  border-color: #cbd5e1 !important;
+}
+.ecc-module.ecc-bright .ecc-workspace [style*='background: rgba(33, 57, 92, 0.4)'],
+.ecc-module.ecc-bright .ecc-workspace [style*='background: rgb(14, 23, 38)'],
+.ecc-module.ecc-bright .ecc-workspace [style*='background: rgba(22, 38, 63'] {
+  background: #f1f5fb !important;
+}
+.ecc-module.ecc-bright .ecc-message {
+  background: #ffffff;
+}
+/* Avatars keep gold on navy, which is the one pairing where gold text passes (7.89 to 1). */
+.ecc-module.ecc-bright .ecc-workspace div[style*='border-radius: 50%'][style*='linear-gradient'] {
+  color: #e2b53c !important;
+}

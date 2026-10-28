@@ -6,10 +6,16 @@
  * account it is showing, and cannot show an empty list that looks like a
  * loading list.
  */
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { ArrowRight, ListChecks } from 'lucide-react';
 import { LoadingBlock, EmptyBlock, ErrorBlock } from './StateBlocks';
-import { AsyncState } from '../../lib/email/types';
+import { RelatedViews } from './RelatedViews';
+import type { EmailModuleContext } from './EmailModuleLayout';
+import { AsyncState, EmailModulePath } from '../../lib/email/types';
 import { useLocalActions } from '../../lib/email/localActions';
+import { BacklogPreset, backlogHref, threadHref } from '../../lib/email/viewLinks';
+import { useTriageKeys } from '../../lib/email/useTriageKeys';
 
 interface Props {
   /** The page title. Rendered as the one h2 on the page. */
@@ -36,6 +42,15 @@ interface Props {
   /** Shown above the controls. Used by Security Review for its disclaimer. */
   notice?: React.ReactNode;
   onRetry?: () => void;
+  /** Which destination this is. Lets Back return here and keeps this view out of its own related list. */
+  viewPath?: EmailModulePath;
+  /** The thread to open first. Shown as the primary step when the list has items. */
+  topThreadId?: string | null;
+  /**
+   * Hands these threads to Clear Backlog. `all` uses its defaults, and a preset
+   * ticks the box Clear Backlog already has for that selection.
+   */
+  backlog?: BacklogPreset | 'all' | null;
   children: React.ReactNode;
 }
 
@@ -52,13 +67,26 @@ export const ViewScaffold: React.FC<Props> = ({
   controls,
   notice,
   onRetry,
+  viewPath,
+  topThreadId,
+  backlog,
   children,
 }) => {
-  const { lastAnnouncement } = useLocalActions();
+  const { lastAnnouncement, toggleReviewed } = useLocalActions();
+  const { linkTo } = useOutletContext<EmailModuleContext>();
+  const navigate = useNavigate();
+  const sectionRef = useRef<HTMLElement>(null);
   const headingId = 'ecc-view-heading';
+  const showing = state === 'ready' && count > 0;
+
+  const openThread = useCallback(
+    (id: string) => navigate(threadHref(linkTo, id, { from: viewPath })),
+    [navigate, linkTo, viewPath]
+  );
+  useTriageKeys(sectionRef, showing, { onOpen: openThread, onReview: toggleReviewed });
 
   return (
-    <section className="ecc-page ecc-view" aria-labelledby={headingId}>
+    <section className="ecc-page ecc-view" aria-labelledby={headingId} ref={sectionRef}>
       <header className="ecc-view-head">
         <h2 id={headingId} className="ecc-page-title">
           {title}
@@ -69,6 +97,34 @@ export const ViewScaffold: React.FC<Props> = ({
           never combined.
         </p>
       </header>
+
+      {showing && (topThreadId || backlog) ? (
+        <div className="ecc-next-bar" role="group" aria-label="Where to start">
+          {topThreadId ? (
+            <Link
+              className="ecc-next-primary"
+              to={threadHref(linkTo, topThreadId, { from: viewPath })}
+            >
+              Open the first thread
+              <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          ) : null}
+          {backlog ? (
+            <Link
+              className="ecc-next-secondary"
+              to={backlogHref(linkTo, backlog === 'all' ? undefined : backlog)}
+            >
+              <ListChecks size={15} aria-hidden="true" />
+              Work through these one at a time
+            </Link>
+          ) : null}
+          <p className="ecc-key-hint">
+            <kbd>J</kbd> next <kbd>K</kbd> previous <kbd>O</kbd> open <kbd>R</kbd> mark reviewed
+          </p>
+        </div>
+      ) : null}
+
+      {viewPath ? <RelatedViews current={viewPath} /> : null}
 
       {notice}
 

@@ -110,6 +110,7 @@ export const EmailAllPage: React.FC = () => {
 
   return (
     <ViewScaffold
+      viewPath="/email/all"
       title="All Email"
       description="Every analysed thread on this account, including bulk, duplicates, resolved threads and anything deferred."
       state={state}

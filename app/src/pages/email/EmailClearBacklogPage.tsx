@@ -28,7 +28,7 @@
  * stale summary is worse than no session at all.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -53,6 +53,7 @@ import {
   NoticeBlock,
 } from '../../components/email/viewPrimitives';
 import { useViewData } from '../../lib/email/useViewData';
+import { BACKLOG_PRESETS, parsePreset } from '../../lib/email/viewLinks';
 import {
   BACKLOG_STATES,
   BATCH_SIZE_OPTIONS,
@@ -95,10 +96,15 @@ export const EmailClearBacklogPage: React.FC = () => {
   const { accountId, linkTo } = useOutletContext<EmailModuleContext>();
   const { records, accountLabel, accountType, now, state } = useViewData(accountId);
 
+  // A list can hand its threads here with `?preset=`. The preset only ticks a
+  // box this page already offers, and the box stays visible and changeable.
+  const location = useLocation();
+  const preset = useMemo(() => parsePreset(location.search), [location.search]);
   const [selection, setSelection] = useState<BacklogSelection>({
     ...DEFAULT_BACKLOG_SELECTION,
     accountId,
     accountType,
+    ...(preset ? { [BACKLOG_PRESETS[preset].flag]: true } : {}),
   });
   const [session, setSession] = useState<BacklogSession | null>(null);
   const [storageWorks, setStorageWorks] = useState(true);
@@ -190,6 +196,7 @@ export const EmailClearBacklogPage: React.FC = () => {
   if (!session) {
     return (
       <ViewScaffold
+      viewPath="/email/clear-backlog"
         title="Clear Backlog"
         description="Choose a set of threads and work through them one at a time. You can stop whenever you like and pick it up later."
         state={state}
@@ -235,6 +242,12 @@ export const EmailClearBacklogPage: React.FC = () => {
           }}
         >
           <h3 className="ecc-card-subject">What do you want to work through?</h3>
+          {preset ? (
+            <p className="ecc-preset-note" role="note">
+              Started from <strong>{BACKLOG_PRESETS[preset].label}</strong>. The matching box below
+              is already ticked. Change it if you want a wider set.
+            </p>
+          ) : null}
 
           <div className="ecc-field-grid">
             <label className="ecc-labelled-control">
@@ -427,6 +440,7 @@ export const EmailClearBacklogPage: React.FC = () => {
   if (progress && (progress.status === 'complete' || !current)) {
     return (
       <ViewScaffold
+      viewPath="/email/clear-backlog"
         title="Clear Backlog"
         description="This batch is finished. Here is what you decided."
         state={state}
@@ -497,6 +511,7 @@ export const EmailClearBacklogPage: React.FC = () => {
 
   return (
     <ViewScaffold
+      viewPath="/email/clear-backlog"
       title="Clear Backlog"
       description="One at a time, highest consequence first. Stop whenever you like."
       state={state}

@@ -1,0 +1,6 @@
+5d50d959966487596479161839d15b05d1602d196bb7b36b4161f23e5da96f3a  app/src/pages/email/EmailOverviewPage.tsx
+7a66d96ac23c27ec81ebdb61a200ba992184661db27e173e6d485e703aeef20f  app/src/styles/email-overview-redesign.css
+f2cea96f0e3f3bb34e2fc0ab3cb35e7c55e3f340504fe449e37e945cab2a9424  app/src/lib/email/overview.ts
+19391683ceccad5b2a09ce272ab5342c72df8bb45ccc97c9da2bff18084d1849  app/src/components/email/MetricCard.tsx
+c8f6520714f54fc0f6092cf32ba82ac66b14bd81168e43f3cfe7689899e5c9b4  app/src/components/email/StateBlocks.tsx
+0454edd6493d2f9979d6cc05ba72320b36d6535708a33113455524d6ab8c565f  app/src/components/email/EmailDashboardHeader.tsx

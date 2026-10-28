@@ -363,6 +363,7 @@ export const EmailOutputsPage: React.FC = () => {
   if (mode === 'drafts') {
     return (
       <ViewScaffold
+      viewPath="/email/outputs"
         title="Outputs"
         description="Everything Concludo has prepared from this account. Nothing is sent, and nothing is written to a mailbox."
         state={state}
@@ -438,6 +439,7 @@ export const EmailOutputsPage: React.FC = () => {
 
   return (
     <ViewScaffold
+      viewPath="/email/outputs"
       title="Outputs"
       description="Turn a conversation into finished work. The document is built only from what the thread actually says."
       state={state}

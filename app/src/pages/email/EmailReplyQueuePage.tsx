@@ -66,6 +66,9 @@ export const EmailReplyQueuePage: React.FC = () => {
       emptyNote={active.length > 0 ? 'Clear a filter to widen the list.' : undefined}
       accountLabel={accountLabel}
       accountType={accountType}
+      viewPath="/email/reply-queue"
+      topThreadId={items[0]?.record.thread.id ?? null}
+      backlog="replies"
       controls={
         <>
           <FilterChips
@@ -103,7 +106,7 @@ export const EmailReplyQueuePage: React.FC = () => {
           const r = item.record;
           const headingId = `ecc-reply-${r.thread.id}`;
           return (
-            <li key={r.thread.id} className="content-card ecc-card" aria-labelledby={headingId}>
+            <li key={r.thread.id} className="content-card ecc-card" aria-labelledby={headingId} data-thread-id={r.thread.id} tabIndex={-1}>
               <div className="ecc-card-top">
                 <div className="ecc-card-identity">
                   <p className="ecc-card-sender">{r.counterpartyName}</p>

@@ -5,7 +5,7 @@
  * the sidebar, the top bar or the mobile drawer, and it adds no second layout.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import { Sparkles, X, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { EMAIL_MODULE_DESTINATIONS, destinationForPath } from '../../lib/email/moduleNav';
@@ -20,7 +20,9 @@ import { EmailAccountSummary, EmailViewState } from '../../lib/email/types';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { runAgent } from '../../lib/agents/agentRunner';
 import { AgentRunResult } from '../../lib/agents/types';
+import { noteVisit } from '../../lib/email/lastDestination';
 import '../../styles/email-command-centre.css';
+import '../../styles/email-bright.css';
 
 /** Resolves a lucide icon by name, falling back to a neutral mark. */
 function Icon({ name, size = 15 }: { name: string; size?: number }) {
@@ -40,7 +42,16 @@ export interface EmailModuleContext {
 
 export const EmailModuleLayout: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  // The Overview keeps the layout it has. Every other destination, and the
+  // thread workspace, takes the bright theme. The class is the only thing this
+  // file adds for it, and it is absent on `/email`, so the Overview renders
+  // exactly as before.
+  const isOverview = location.pathname.replace(/\/$/, '') === '/email';
+  useEffect(() => {
+    noteVisit(location.pathname);
+  }, [location.pathname]);
   const { viewState, setViewState, linkTo } = useEmailViewState();
   const scrollRef = useRef<HTMLDivElement>(null);
   useEmailScrollMemory(scrollRef as React.RefObject<HTMLElement>);
@@ -209,7 +220,7 @@ export const EmailModuleLayout: React.FC = () => {
 
   return (
     <LocalActionProvider>
-    <div className="ecc-module">
+    <div className={isOverview ? 'ecc-module' : 'ecc-module ecc-bright'}>
       <a href="#ecc-main" className="ecc-skip-link">
         Skip to the dashboard
       </a>

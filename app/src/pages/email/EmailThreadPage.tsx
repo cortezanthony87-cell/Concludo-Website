@@ -19,6 +19,8 @@ import { IntelligencePane } from '../../components/email/IntelligencePane';
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/email/StateBlocks';
 import { AccountBadge, BandBadge, StatusBadge, formatDay } from '../../components/email/viewPrimitives';
 import { useViewData } from '../../lib/email/useViewData';
+import { parseFrom } from '../../lib/email/viewLinks';
+import { labelForDestination, lastDestination } from '../../lib/email/lastDestination';
 import { DraftSessionProvider } from '../../lib/email/draftSession';
 import {
   INTELLIGENCE_TABS,
@@ -197,15 +199,19 @@ export const EmailThreadPage: React.FC = () => {
   }
 
   const fromAddress = dataset.account.address;
+  // Back goes to where the person came from: an explicit `?from=` first, then
+  // the last destination they were on, and All Email only when neither exists
+  // (a link opened cold). It used to be All Email every time.
+  const origin = parseFrom(location.search) ?? lastDestination() ?? '/email/all';
 
   return (
     <DraftSessionProvider now={now}>
       <section className="ecc-page ecc-workspace-page" aria-labelledby="ecc-thread-heading">
         <header className="ecc-thread-head">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
-            <Link className="ecc-text-button ecc-back-link" to={linkTo('/email/all')}>
+            <Link className="ecc-text-button ecc-back-link" to={linkTo(origin)}>
               <ArrowLeft size={14} aria-hidden="true" />
-              Back to All Email
+              Back to {labelForDestination(origin)}
             </Link>
           </div>
           <h2 id="ecc-thread-heading" className="ecc-page-title">

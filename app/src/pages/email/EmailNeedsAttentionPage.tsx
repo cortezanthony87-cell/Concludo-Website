@@ -34,6 +34,9 @@ export const EmailNeedsAttentionPage: React.FC = () => {
       }
       accountLabel={accountLabel}
       accountType={accountType}
+      viewPath="/email/needs-attention"
+      topThreadId={items[0]?.threadId ?? null}
+      backlog="all"
     >
       <ul className="ecc-card-list">
         {items.map((item) => (

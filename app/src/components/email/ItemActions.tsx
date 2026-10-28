@@ -11,9 +11,11 @@
  * looks like it saved and did not is worse than no control at all.
  */
 import React, { useId, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import { ITEM_ACTIONS, useLocalActions } from '../../lib/email/localActions';
+import { destinationForPath } from '../../lib/email/moduleNav';
+import { threadHref } from '../../lib/email/viewLinks';
 
 function Icon({ name, size = 13 }: { name: string; size?: number }) {
   const Component = (Icons as unknown as Record<string, React.FC<{ size?: number }>>)[name];
@@ -56,7 +58,12 @@ export const ItemActions: React.FC<Props> = ({
   // anything deferred or any draft being reviewed. Inside a single page
   // application the router navigates.
   const navigate = useNavigate();
-  const go = (path: string) => navigate(linkTo(path));
+  const location = useLocation();
+  // Where this card is, so the thread can send the person back to it. The old
+  // code appended `?tab=` to a path and then let linkTo append `?account=`,
+  // which dropped the account. threadHref builds the link in one place.
+  const from = destinationForPath(location.pathname).path;
+  const go = (tab?: string) => navigate(threadHref(linkTo, threadId, { tab, from }));
 
   const run = (kind: string) => {
     switch (kind) {
@@ -86,13 +93,13 @@ export const ItemActions: React.FC<Props> = ({
         });
         break;
       case 'view_thread':
-        go(`/email/thread/${threadId}`);
+        go();
         break;
       case 'view_summary':
-        go(`/email/thread/${threadId}?tab=overview`);
+        go('overview');
         break;
       case 'draft_reply':
-        go(`/email/thread/${threadId}?tab=draft`);
+        go('draft');
         break;
     }
   };
@@ -104,10 +111,38 @@ export const ItemActions: React.FC<Props> = ({
     return undefined;
   };
 
-  const visible = ITEM_ACTIONS.filter((a) => a.kind !== 'draft_reply' || draftAvailable);
+  // "View thread" and "Draft reply" are the two things a person most often wants
+  // from a card, so they are real links in front of the card rather than two of
+  // nine buttons behind a toggle. They are removed from the group so nothing is
+  // offered twice. All eight actions still exist.
+  const PROMOTED = ['view_thread', 'draft_reply'];
+  const visible = ITEM_ACTIONS.filter((a) => !PROMOTED.includes(a.kind));
 
   return (
     <div className="ecc-actions">
+      <div className="ecc-primary-actions">
+        <Link className="ecc-open-thread" to={threadHref(linkTo, threadId, { from })}>
+          <Icons.Mail size={14} aria-hidden="true" />
+          Open thread
+          <span className="ecc-visually-hidden">: {subject}</span>
+        </Link>
+        {draftAvailable ? (
+          <Link
+            className="ecc-open-draft"
+            to={threadHref(linkTo, threadId, { tab: 'draft', from })}
+            aria-describedby={`${groupId}-draft-link`}
+          >
+            <Icons.PenLine size={14} aria-hidden="true" />
+            Review draft
+            <span className="ecc-visually-hidden">: {subject}</span>
+          </Link>
+        ) : null}
+        {draftAvailable ? (
+          <span id={`${groupId}-draft-link`} className="ecc-visually-hidden">
+            Opens the prepared draft for review. Nothing is written to a mailbox and nothing is sent.
+          </span>
+        ) : null}
+      </div>
       <button
         type="button"
         className="btn-secondary ecc-actions-toggle"

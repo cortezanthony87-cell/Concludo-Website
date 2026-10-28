@@ -43,12 +43,14 @@ export const EmailWaitingPage: React.FC = () => {
       emptyMessage="Nothing is outstanding from anyone else."
       accountLabel={accountLabel}
       accountType={accountType}
+      viewPath="/email/waiting"
+      topThreadId={items[0]?.threadId ?? null}
     >
       <ul className="ecc-card-list">
         {items.map((item) => {
           const headingId = `ecc-waiting-${item.threadId}`;
           return (
-            <li key={item.threadId} className="content-card ecc-card" aria-labelledby={headingId}>
+            <li key={item.threadId} className="content-card ecc-card" aria-labelledby={headingId} data-thread-id={item.threadId} tabIndex={-1}>
               <div className="ecc-card-top">
                 <div className="ecc-card-identity">
                   <p className="ecc-card-sender">

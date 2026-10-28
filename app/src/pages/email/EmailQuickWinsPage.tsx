@@ -39,6 +39,9 @@ export const EmailQuickWinsPage: React.FC = () => {
       emptyMessage="No short jobs waiting."
       accountLabel={accountLabel}
       accountType={accountType}
+      viewPath="/email/quick-wins"
+      topThreadId={items[0]?.record.thread.id ?? null}
+      backlog="all"
       controls={
         highConsequence > 0 ? (
           <p className="ecc-legend-note ecc-legend-warn">
@@ -59,6 +62,8 @@ export const EmailQuickWinsPage: React.FC = () => {
               key={r.thread.id}
               className={`content-card ecc-card ${item.highConsequence ? 'ecc-card-flagged' : ''}`}
               aria-labelledby={headingId}
+              data-thread-id={r.thread.id}
+              tabIndex={-1}
             >
               <div className="ecc-card-top">
                 <div className="ecc-card-identity">
