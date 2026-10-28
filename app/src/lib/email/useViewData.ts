@@ -9,7 +9,7 @@
  * without a network: the four states are part of the product, and a state that
  * cannot be reached is a state nobody has ever looked at.
  */
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AsyncState } from './types';
 import { ThreadRecord, recordsFor } from './filters';
@@ -36,8 +36,19 @@ export function useViewData(accountId: string): ViewData {
   const location = useLocation();
   const { deferred, ignored } = useLocalActions();
 
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (!e.detail?.accountId || e.detail.accountId === accountId) {
+        setVersion((v) => v + 1);
+      }
+    };
+    window.addEventListener('concludo:email:dataset-updated', handler);
+    return () => window.removeEventListener('concludo:email:dataset-updated', handler);
+  }, [accountId]);
+
   const forced = new URLSearchParams(location.search).get('demo');
-  const dataset = useMemo(() => getDataset(accountId), [accountId]);
+  const dataset = useMemo(() => getDataset(accountId), [accountId, version]);
 
   const allRecords = useMemo(() => {
     if (!dataset) return [];

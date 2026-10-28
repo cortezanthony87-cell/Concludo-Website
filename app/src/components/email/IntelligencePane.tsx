@@ -541,7 +541,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
       }
       const userId = user.id;
 
-      const res = await createCalendarItem(supabase, {
+      let res = await createCalendarItem(supabase, {
         creator_id: userId,
         title: d.description || detail.record.thread.subject,
         description: `${d.description}${d.consequence ? `\n\nConsequence: ${d.consequence}` : ''}\n\nEmail reference: "${detail.record.thread.subject}" from ${detail.record.counterpartyName}`,
@@ -559,10 +559,33 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
         idempotency_key: `email_dl_${detail.record.thread.id}_${d.id}`,
       });
 
+      if (res.error && res.error.includes('calendar_items_source_type_check')) {
+        res = await createCalendarItem(supabase, {
+          creator_id: userId,
+          title: d.description || detail.record.thread.subject,
+          description: `${d.description}${d.consequence ? `\n\nConsequence: ${d.consequence}` : ''}\n\nEmail reference: "${detail.record.thread.subject}" from ${detail.record.counterpartyName}`,
+          due_date: dueDate,
+          start_date: dueDate,
+          end_date: dueDate,
+          due_time: dueTime,
+          status: 'open',
+          type: 'task',
+          priority: 'high',
+          source_type: 'other',
+          source_title: detail.record.thread.subject,
+          source_reference: detail.record.thread.id,
+          visibility: 'private',
+          idempotency_key: `email_dl_${detail.record.thread.id}_${d.id}`,
+        });
+      }
+
       if (res.error) {
         setActionError(res.error);
       } else {
         setAddedMap((m) => ({ ...m, [d.id]: true }));
+        try {
+          window.dispatchEvent(new CustomEvent('concludo:calendar:item-added', { detail: { id: res.data?.id } }));
+        } catch (_) {}
       }
     } catch (e: any) {
       setActionError(e.message || 'Failed to add to calendar');
@@ -597,7 +620,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
       }
       const userId = user.id;
 
-      const res = await createCalendarItem(supabase, {
+      let res = await createCalendarItem(supabase, {
         creator_id: userId,
         title: editTitle.trim() || d.description,
         description: `${editDesc.trim()}\n\nEmail reference: "${detail.record.thread.subject}" from ${detail.record.counterpartyName}`,
@@ -615,11 +638,34 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
         idempotency_key: `email_dl_edit_${detail.record.thread.id}_${d.id}_${editDate}_${(editTime || '1700').replace(':', '')}`,
       });
 
+      if (res.error && res.error.includes('calendar_items_source_type_check')) {
+        res = await createCalendarItem(supabase, {
+          creator_id: userId,
+          title: editTitle.trim() || d.description,
+          description: `${editDesc.trim()}\n\nEmail reference: "${detail.record.thread.subject}" from ${detail.record.counterpartyName}`,
+          due_date: editDate || new Date().toISOString().split('T')[0],
+          start_date: editDate || new Date().toISOString().split('T')[0],
+          end_date: editDate || new Date().toISOString().split('T')[0],
+          due_time: editTime || '17:00',
+          status: 'open',
+          type: editType,
+          priority: 'high',
+          source_type: 'other',
+          source_title: detail.record.thread.subject,
+          source_reference: detail.record.thread.id,
+          visibility: 'private',
+          idempotency_key: `email_dl_edit_${detail.record.thread.id}_${d.id}_${editDate}_${(editTime || '1700').replace(':', '')}`,
+        });
+      }
+
       if (res.error) {
         setActionError(res.error);
       } else {
         setAddedMap((m) => ({ ...m, [d.id]: true }));
         setEditingDeadlineId(null);
+        try {
+          window.dispatchEvent(new CustomEvent('concludo:calendar:item-added', { detail: { id: res.data?.id } }));
+        } catch (_) {}
       }
     } catch (e: any) {
       setActionError(e.message || 'Failed to add to calendar');
@@ -641,7 +687,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
       }
       const userId = user.id;
 
-      const res = await createCalendarItem(supabase, {
+      let res = await createCalendarItem(supabase, {
         creator_id: userId,
         title: customTitle.trim() || `Review email: ${detail.record.thread.subject}`,
         description: `${customDesc.trim()}\n\nEmail reference: "${detail.record.thread.subject}" from ${detail.record.counterpartyName}`,
@@ -659,10 +705,33 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
         idempotency_key: `email_reminder_${detail.record.thread.id}_${customDate}_${(customTime || '0900').replace(':', '')}`,
       });
 
+      if (res.error && res.error.includes('calendar_items_source_type_check')) {
+        res = await createCalendarItem(supabase, {
+          creator_id: userId,
+          title: customTitle.trim() || `Review email: ${detail.record.thread.subject}`,
+          description: `${customDesc.trim()}\n\nEmail reference: "${detail.record.thread.subject}" from ${detail.record.counterpartyName}`,
+          due_date: customDate || new Date().toISOString().split('T')[0],
+          start_date: customDate || new Date().toISOString().split('T')[0],
+          end_date: customDate || new Date().toISOString().split('T')[0],
+          due_time: customTime || '09:00',
+          status: 'open',
+          type: customType,
+          priority: 'medium',
+          source_type: 'other',
+          source_title: detail.record.thread.subject,
+          source_reference: detail.record.thread.id,
+          visibility: 'private',
+          idempotency_key: `email_reminder_${detail.record.thread.id}_${customDate}_${(customTime || '0900').replace(':', '')}`,
+        });
+      }
+
       if (res.error) {
         setActionError(res.error);
       } else {
         setCustomSaved(true);
+        try {
+          window.dispatchEvent(new CustomEvent('concludo:calendar:item-added', { detail: { id: res.data?.id } }));
+        } catch (_) {}
       }
     } catch (e: any) {
       setActionError(e.message || 'Failed to save review reminder');
@@ -674,7 +743,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
   return (
     <div className="space-y-4">
       {actionError && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '6px', color: '#FCA5A5', fontSize: '11.5px' }}>
+        <div style={{ padding: '10px 12px', background: '#FEF3F2', border: '1px solid #F3B4AE', borderRadius: '6px', color: '#B42318', fontSize: '12px', fontWeight: 500, marginBottom: '10px' }}>
           {actionError}
         </div>
       )}
@@ -718,61 +787,65 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                       </Link>
                     </div>
                   ) : editingDeadlineId === d.id ? (
-                    <div style={{ background: '#16263F', border: '1px solid #E2B53C', borderRadius: '8px', padding: '10px' }}>
-                      <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#E2B53C', marginBottom: '6px' }}>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2B53C', borderRadius: '8px', padding: '12px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#16263F', marginBottom: '8px' }}>
                         Edit Deadline for Calendar
                       </div>
-                      <div style={{ marginBottom: '6px' }}>
-                        <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Title</label>
+                      <div style={{ marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Title</label>
                         <input
                           type="text"
+                          className="ecc-input"
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '4px 8px', color: '#FFF', fontSize: '11.5px' }}
+                          style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
                         />
                       </div>
-                      <div style={{ marginBottom: '6px' }}>
-                        <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Description & Consequence</label>
+                      <div style={{ marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Description & Consequence</label>
                         <textarea
                           rows={2}
+                          className="ecc-textarea"
                           value={editDesc}
                           onChange={(e) => setEditDesc(e.target.value)}
-                          style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '4px 8px', color: '#FFF', fontSize: '11.5px' }}
+                          style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
                         />
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Due Date</label>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Due Date</label>
                           <input
                             type="date"
+                            className="ecc-input"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
-                            style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '4px 6px', color: '#FFF', fontSize: '11px' }}
+                            style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Due Time</label>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Due Time</label>
                           <input
                             type="time"
+                            className="ecc-input"
                             value={editTime}
                             onChange={(e) => setEditTime(e.target.value)}
-                            style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '4px 6px', color: '#FFF', fontSize: '11px' }}
+                            style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
                           />
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                           type="button"
                           onClick={() => handleSaveEditedDeadline(d)}
                           disabled={loadingMap[d.id]}
-                          style={{ flex: 1, padding: '5px 10px', background: 'linear-gradient(135deg, #E2B53C, #BC8A1C)', border: 'none', borderRadius: '4px', color: '#0E1726', fontWeight: 700, fontSize: '11px', cursor: 'pointer' }}
+                          style={{ flex: 1, padding: '7px 12px', background: 'linear-gradient(135deg, #E2B53C, #BC8A1C)', border: 'none', borderRadius: '6px', color: '#16263F', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
                         >
                           {loadingMap[d.id] ? 'Saving...' : 'Save to Calendar'}
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingDeadlineId(null)}
-                          style={{ padding: '5px 8px', background: 'transparent', border: '1px solid #21395C', borderRadius: '4px', color: '#94A3B8', fontSize: '11px', cursor: 'pointer' }}
+                          style={{ padding: '7px 12px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', color: '#334155', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                         >
                           Cancel
                         </button>
@@ -843,65 +916,69 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
       {/* Review Reminder Section (Available for every email) */}
       <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #21395C' }}>
         {customSaved ? (
-          <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '8px', padding: '10px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6EE7B7', fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>
-              <CheckCircle2 size={14} color="#6EE7B7" />
+          <div style={{ background: '#F0FDF4', border: '1px solid #B7E4C7', borderRadius: '8px', padding: '12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#15803D', fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>
+              <CheckCircle2 size={14} color="#15803D" />
               <span>Review Reminder Saved to Calendar</span>
             </div>
-            <p style={{ margin: 0, fontSize: '11px', color: '#CBD5E1', marginBottom: '8px' }}>
+            <p style={{ margin: '0 0 8px', fontSize: '11.5px', color: '#334155' }}>
               Scheduled for {customDate} at {customTime}.
             </p>
-            <Link to="/calendar" style={{ fontSize: '11.5px', color: '#E2B53C', fontWeight: 700, textDecoration: 'underline' }}>
+            <Link to="/calendar" style={{ fontSize: '12px', color: '#16263F', fontWeight: 700, textDecoration: 'underline' }}>
               Open Concludo Calendar →
             </Link>
           </div>
         ) : showAddReminder ? (
-          <div style={{ background: 'rgba(22, 38, 63, 0.9)', border: '1px solid #E2B53C', borderRadius: '8px', padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#E2B53C', marginBottom: '8px' }}>
-              <CalendarIcon size={13} color="#E2B53C" />
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2B53C', borderRadius: '8px', padding: '14px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#16263F', marginBottom: '6px' }}>
+              <CalendarIcon size={14} color="#BC8A1C" />
               <span>Add Review Reminder to Calendar</span>
             </div>
-            <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#94A3B8' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: '#334155' }}>
               Create a review date and reminder on your calendar to follow up on this email.
             </p>
 
             <div style={{ marginBottom: '8px' }}>
-              <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Reminder Title</label>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Reminder Title</label>
               <input
                 type="text"
+                className="ecc-input"
                 value={customTitle}
                 onChange={(e) => setCustomTitle(e.target.value)}
-                style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '5px 8px', color: '#FFF', fontSize: '11.5px' }}
+                style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
               />
             </div>
 
             <div style={{ marginBottom: '8px' }}>
-              <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Notes / Description</label>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Notes / Description</label>
               <textarea
                 rows={2}
+                className="ecc-textarea"
                 value={customDesc}
                 onChange={(e) => setCustomDesc(e.target.value)}
-                style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '5px 8px', color: '#FFF', fontSize: '11.5px' }}
+                style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px', marginBottom: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px', marginBottom: '12px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Review Date</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Review Date</label>
                 <input
                   type="date"
+                  className="ecc-input"
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
-                  style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '5px 8px', color: '#FFF', fontSize: '11.5px' }}
+                  style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '10.5px', color: '#94A3B8', marginBottom: '2px' }}>Time</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1E293B', marginBottom: '3px' }}>Time</label>
                 <input
                   type="time"
+                  className="ecc-input"
                   value={customTime}
                   onChange={(e) => setCustomTime(e.target.value)}
-                  style={{ width: '100%', background: '#0E1726', border: '1px solid #21395C', borderRadius: '4px', padding: '5px 8px', color: '#FFF', fontSize: '11.5px' }}
+                  style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
                 />
               </div>
             </div>
@@ -911,9 +988,16 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                 type="button"
                 onClick={handleSaveCustomReminder}
                 disabled={isSavingCustom}
-                style={{ flex: 1, padding: '7px 12px', background: 'linear-gradient(135deg, #E2B53C, #BC8A1C)', border: 'none', borderRadius: '6px', color: '#0E1726', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+                style={{ flex: 1, padding: '8px 14px', background: 'linear-gradient(135deg, #E2B53C, #BC8A1C)', border: 'none', borderRadius: '6px', color: '#16263F', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
               >
                 {isSavingCustom ? 'Saving Reminder...' : 'Save Reminder to Calendar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddReminder(false)}
+                style={{ padding: '8px 14px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', color: '#334155', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+              >
+                Cancel
               </button>
             </div>
           </div>
@@ -921,9 +1005,9 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
           <button
             type="button"
             onClick={() => setShowAddReminder(true)}
-            style={{ width: '100%', padding: '7px 12px', background: 'rgba(33, 57, 92, 0.4)', border: '1px dashed #E2B53C', borderRadius: '6px', color: '#E2B53C', fontWeight: 600, fontSize: '11.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            style={{ width: '100%', padding: '8px 12px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', color: '#16263F', fontWeight: 600, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
           >
-            <Plus size={13} color="#E2B53C" />
+            <Plus size={14} color="#BC8A1C" />
             <span>+ Add Review Reminder / Date to Calendar</span>
           </button>
         )}

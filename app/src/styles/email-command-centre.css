@@ -142,9 +142,11 @@
 
 .ecc-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px 14px;
   align-items: end;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ecc-control {
@@ -166,7 +168,8 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: 8px;
-  grid-column: span 2;
+  grid-column: 1 / -1;
+  align-items: center;
 }
 
 .ecc-control-label {
@@ -305,12 +308,13 @@
 
 .ecc-tab-list {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 6px;
+  gap: 6px 8px;
   margin: 0;
-  padding: 6px 0;
+  padding: 8px 0;
   list-style: none;
+  width: 100%;
 }
 
 .ecc-tab {
@@ -2043,10 +2047,13 @@
 
 .ecc-workspace {
   display: grid;
-  grid-template-columns: minmax(230px, 1fr) minmax(420px, 1.9fr) minmax(380px, 1.6fr);
+  grid-template-columns: minmax(180px, 0.85fr) minmax(280px, 1.4fr) minmax(260px, 1.25fr);
   gap: var(--ecc-gap);
   align-items: start;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .ecc-col {
@@ -2249,6 +2256,8 @@
   font-size: 0.84rem;
   font-weight: 600;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ecc-message-address,
@@ -2256,6 +2265,13 @@
   font-size: 0.72rem;
   font-weight: 400;
   color: var(--ecc-text-quiet);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ecc-message-address {
+  word-break: break-all;
+  max-width: 100%;
 }
 
 .ecc-message-to {
@@ -2816,7 +2832,7 @@
 
 @media (max-width: 1400px) {
   .ecc-workspace {
-    grid-template-columns: minmax(200px, 0.9fr) minmax(360px, 1.8fr) minmax(340px, 1.6fr);
+    grid-template-columns: minmax(180px, 0.85fr) minmax(280px, 1.4fr) minmax(260px, 1.25fr);
   }
 }
 
@@ -2825,7 +2841,7 @@
   Three columns on a tablet is three columns nobody can read, and the original
   email is the one thing that must never become hard to reach.
 */
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .ecc-pane-switch {
     display: flex;
   }

@@ -21,6 +21,7 @@ import { useAuth } from '../../lib/auth/AuthContext';
 import { runAgent } from '../../lib/agents/agentRunner';
 import { AgentRunResult } from '../../lib/agents/types';
 import { noteVisit } from '../../lib/email/lastDestination';
+import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 import '../../styles/email-command-centre.css';
 import '../../styles/email-bright.css';
 
@@ -62,6 +63,11 @@ export const EmailModuleLayout: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  const [realtimeNotification, setRealtimeNotification] = useState<{
+    id: string;
+    sender: string;
+    summary: string;
+  } | null>(null);
 
   // Scan emails state
   const [isScanning, setIsScanning] = useState(false);
@@ -130,13 +136,74 @@ export const EmailModuleLayout: React.FC = () => {
     };
   }, [account, hasLiveAccounts]);
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    window.setTimeout(() => {
+    try {
+      await fetchAccounts();
+      const activeAccount = account || availableAccounts[0];
+      if (user && hasLiveAccounts && activeAccount?.connected) {
+        try {
+          await runAgent({
+            agentType: 'inbox_command_centre',
+            userId: user.id,
+            parameters: {
+              accountId: activeAccount.id,
+              accountEmail: activeAccount.address,
+            },
+          });
+        } catch (scanErr) {
+          console.warn('Mailbox refresh scan completed with notice:', scanErr);
+        }
+      }
       setRefreshToken((token) => token + 1);
-      setRefreshing(false);
-    }, 450);
-  }, []);
+      try {
+        window.dispatchEvent(
+          new CustomEvent('concludo:email:dataset-updated', {
+            detail: { accountId: activeAccount?.id },
+          })
+        );
+      } catch (_) {}
+    } catch (err) {
+      console.warn('Inbox refresh warning:', err);
+    } finally {
+      window.setTimeout(() => {
+        setRefreshing(false);
+      }, 350);
+    }
+  }, [fetchAccounts, account, availableAccounts, hasLiveAccounts, user]);
+
+  // Realtime subscription to live incoming email webhooks
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = getSupabaseBrowserClient();
+    const channel = supabase
+      .channel('email-realtime-mailbox-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          const row = payload.new;
+          if (row && (row.kind === 'email' || row.kind === 'email_scan')) {
+            setRealtimeNotification({
+              id: row.id,
+              sender: row.sender_name || 'Inbox Mailbox',
+              summary: row.summary || 'New email received and synchronized',
+            });
+            handleRefresh();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, handleRefresh]);
 
   const handlePersonalise = useCallback(() => {
     navigate(linkTo('/email/settings'));
@@ -221,6 +288,48 @@ export const EmailModuleLayout: React.FC = () => {
   return (
     <LocalActionProvider>
     <div className={isOverview ? 'ecc-module' : 'ecc-module ecc-bright'}>
+      {realtimeNotification && (
+        <aside
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            background: 'linear-gradient(135deg, #16263F 0%, #21395C 100%)',
+            borderBottom: '2px solid #E2B53C',
+            color: '#FFFFFF',
+            padding: '10px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Sparkles size={16} color="#E2B53C" />
+            <span style={{ fontSize: '12.5px', fontWeight: 600 }}>
+              New email received from <strong style={{ color: '#E2B53C' }}>{realtimeNotification.sender}</strong>: {realtimeNotification.summary}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRealtimeNotification(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#CBD5E1',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '4px',
+            }}
+            aria-label="Dismiss notification"
+          >
+            <X size={15} />
+          </button>
+        </aside>
+      )}
       <a href="#ecc-main" className="ecc-skip-link">
         Skip to the dashboard
       </a>

@@ -466,8 +466,11 @@ input, select, textarea {
 /* Main Content Area */
 .main-content-area {
   flex: 1;
+  min-width: 0;
   padding: 36px 44px;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Page Headers */

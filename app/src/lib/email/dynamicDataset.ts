@@ -471,6 +471,11 @@ export function registerScanDataset(
   };
 
   DYNAMIC_DATASETS.set(accountId, dataset);
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('concludo:email:dataset-updated', { detail: { accountId } }));
+    }
+  } catch (_) {}
   return dataset;
 }
 

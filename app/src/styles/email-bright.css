@@ -26,6 +26,10 @@
   padding: 0 !important;
   background: #f4f6fa !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* ----------------------------------------------------------------- tokens */
@@ -114,16 +118,26 @@
 .ecc-module.ecc-bright input[type='search'],
 .ecc-module.ecc-bright input[type='email'],
 .ecc-module.ecc-bright input[type='date'],
+.ecc-module.ecc-bright input[type='time'],
 .ecc-module.ecc-bright input[type='number'],
-.ecc-module.ecc-bright textarea {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #16263f;
+.ecc-module.ecc-bright textarea,
+.ecc-module.ecc-bright input {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important; /* dark slate black, maximum contrast and legibility */
+  box-sizing: border-box !important;
+}
+.ecc-module.ecc-bright input[type='date']::-webkit-calendar-picker-indicator,
+.ecc-module.ecc-bright input[type='time']::-webkit-calendar-picker-indicator {
+  filter: none !important;
+  opacity: 0.8 !important;
+  cursor: pointer;
 }
 .ecc-module.ecc-bright input::placeholder,
-.ecc-module.ecc-bright textarea::placeholder {
-  color: #5a6478;
-  opacity: 1;
+.ecc-module.ecc-bright textarea::placeholder,
+.ecc-module.ecc-bright input::-webkit-input-placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
 }
 .ecc-module.ecc-bright .ecc-select:hover,
 .ecc-module.ecc-bright .ecc-input:hover {
@@ -196,6 +210,10 @@
   border-bottom: 1px solid #e2e8f0;
   padding: 0 24px;
   box-shadow: 0 1px 0 rgba(22, 38, 63, 0.04);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .ecc-module.ecc-bright .ecc-tab {
   color: #5a6478;
@@ -991,6 +1009,19 @@
   background: #f1f5fb !important;
   border: 1px solid #cbd5e1 !important;
 }
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) input,
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) textarea,
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) select {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  box-sizing: border-box !important;
+}
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) label,
+.ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) .ecc-control-label {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
 .ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(255, 255, 255)'],
 .ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(241, 245, 249)'],
 .ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :is(p, span, h1, h2, h3, h4, div, li, strong, a):not(button *)[style*='color: rgb(248, 250, 252)'],
@@ -1000,7 +1031,7 @@
 }
 .ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(148, 163, 184)'],
 .ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(136, 152, 170)'] {
-  color: #5a6478 !important;
+  color: #334155 !important;
 }
 .ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(226, 181, 60)'],
 .ecc-module.ecc-bright :is(.ecc-workspace, .ecc-modal-box) :not(button *)[style*='color: rgb(212, 175, 55)'] {
@@ -1008,6 +1039,41 @@
 }
 .ecc-module.ecc-bright .ecc-workspace .ecc-message-body[style] {
   color: #16263f !important;
+}
+.ecc-module.ecc-bright .ecc-message-sender {
+  color: #16263f !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+.ecc-module.ecc-bright .ecc-message-address,
+.ecc-module.ecc-bright .ecc-message-to {
+  color: #475569 !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-all !important;
+}
+.ecc-module.ecc-bright .ecc-message-head {
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  min-width: 0 !important;
+}
+.ecc-module.ecc-bright .ecc-message {
+  background: #ffffff !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.ecc-module.ecc-bright div[style*='rgba(239, 68, 68'],
+.ecc-module.ecc-bright [style*='color: rgb(252, 165, 165)'] {
+  color: #b42318 !important;
+  background: #fef3f2 !important;
+  border-color: #f3b4ae !important;
+}
+.ecc-module.ecc-bright div[style*='rgba(16, 185, 129'],
+.ecc-module.ecc-bright [style*='color: rgb(110, 231, 183)'] {
+  color: #15803d !important;
+  background: #f0fdf4 !important;
+  border-color: #b7e4c7 !important;
 }
 .ecc-module.ecc-bright .ecc-workspace button[style*='background: rgba(33, 57, 92'],
 .ecc-module.ecc-bright .ecc-workspace button[style*='background: rgb(14, 23, 38)'],

@@ -227,7 +227,7 @@ const MessageBlock: React.FC<{
       ) : null}
 
       <div className="ecc-message-head">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
           <div
             style={{
               width: '38px',
@@ -247,14 +247,14 @@ const MessageBlock: React.FC<{
           >
             {message.isFromSelf ? 'ME' : (sender?.displayName || sender?.address || 'U').slice(0, 2)}
           </div>
-          <div>
-            <p className="ecc-message-sender" style={{ fontSize: '15px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
-              {message.isFromSelf ? 'You' : (sender?.displayName ?? 'Unknown sender')}
-              <span className="ecc-message-address" style={{ color: '#94A3B8', fontSize: '12.5px', marginLeft: '6px' }}>
+          <div style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+            <p className="ecc-message-sender" style={{ fontSize: '15px', fontWeight: 600, margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+              <span>{message.isFromSelf ? 'You' : (sender?.displayName ?? 'Unknown sender')}</span>
+              <span className="ecc-message-address" style={{ fontSize: '12.5px', marginLeft: '6px', overflowWrap: 'anywhere', wordBreak: 'break-all', display: 'inline-block', maxWidth: '100%' }}>
                 {message.isFromSelf ? '' : `<${sender?.address ?? ''}>`}
               </span>
             </p>
-            <p className="ecc-message-to" style={{ margin: '3px 0 0', color: '#94A3B8', fontSize: '12px' }}>
+            <p className="ecc-message-to" style={{ margin: '3px 0 0', fontSize: '12px', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
               To: {to.map((p) => (p.isSelf ? 'you' : p.displayName)).join(', ') || 'you'}
               {cc.length > 0
                 ? `, copy to: ${cc.map((p) => (p.isSelf ? 'you' : p.displayName)).join(', ')}`
