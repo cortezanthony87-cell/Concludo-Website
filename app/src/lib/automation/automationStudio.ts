@@ -140,38 +140,7 @@ function createSpace(host) {
     glow(W * 0.85, H * 0.82, Math.max(W, H) * 0.5, '33,57,92', 0.4);
     glow(W * 0.62, H * 0.38, Math.max(W, H) * 0.35, '60,86,130', 0.16);
     glow(W * 0.92, H * 0.1, Math.max(W, H) * 0.28, '226,181,60', 0.05);
-    // spiral galaxy, far away and faint
-    (() => {
-      const rnd = seed(77), cx = W * 0.36, cy = H * 0.15, R = 62 * u;
-      b.save(); b.translate(cx, cy); b.rotate(-0.5); b.scale(1, 0.42);
-      glow(0, 0, R * 1.5, '190,205,255', 0.16); glow(0, 0, R * 0.45, '255,236,200', 0.55);
-      for (let i = 0; i < 900; i++) {
-        const arm = i % 2, t = Math.pow(rnd(), 0.7) * 3.4, rad = t * R / 3.4 * 1.05;
-        const ang = t * 2.1 + arm * Math.PI + (rnd() - 0.5) * 0.55, j = (rnd() - 0.5) * R * 0.16 * (1 - t / 4);
-        const x = Math.cos(ang) * rad + j, y = Math.sin(ang) * rad + j;
-        b.fillStyle = `rgba(${t < 0.8 ? '255,236,205' : '190,208,255'},${0.1 + rnd() * 0.45 * (1 - t / 4)})`;
-        b.fillRect(x, y, 1.2, 1.2);
-      }
-      b.restore();
-    })();
-    const ball = (x, y, r, light, mid, dark) => {
-      const rg = b.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r);
-      rg.addColorStop(0, light); rg.addColorStop(0.55, mid); rg.addColorStop(1, dark);
-      b.fillStyle = rg; b.beginPath(); b.arc(x, y, r, 0, 6.2832); b.fill();
-    };
-    // ringed planet removed per user instruction
-    // banded blue planet (lower left)
-    (() => {
-      const x = W * 0.12, y = H * 0.76, r = 17 * u;
-      ball(x, y, r, '#9db9e8', '#3e5f97', '#0b1428');
-      b.save(); b.beginPath(); b.arc(x, y, r, 0, 6.2832); b.clip();
-      for (let k = -3; k <= 3; k++) { b.fillStyle = `rgba(${k % 2 ? '20,36,70' : '160,190,235'},0.2)`; b.fillRect(x - r, y + k * r * 0.26, r * 2, r * 0.13); }
-      const sh = b.createRadialGradient(x - r * 1.1, y - r * 0.5, r * 0.4, x - r * 0.4, y, r * 1.8); sh.addColorStop(0.55, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(2,6,14,0.78)');
-      b.fillStyle = sh; b.fillRect(x - r, y - r, r * 2, r * 2); b.restore();
-    })();
-    // a small cold rock and its moon (lower right)
-    ball(W * 0.66, H * 0.9, 7 * u, '#cfd6e6', '#6b7690', '#161c2c');
-    ball(W * 0.66 + 17 * u, H * 0.9 - 9 * u, 2.4 * u, '#e2e6ef', '#7d879e', '#252c3e');
+    // planets, galaxies, and celestial artwork removed per user directive
     // vignette keeps the edges calm behind the panels
     const vg = b.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.8);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(2,5,12,0.55)'); b.fillStyle = vg; b.fillRect(0, 0, W, H);

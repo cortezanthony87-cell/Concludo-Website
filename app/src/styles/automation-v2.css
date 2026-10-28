@@ -275,7 +275,7 @@ a { color: var(--navy-2); }
 .prog i.failed { background: var(--bad); }
 .prog i.waiting { background: var(--gold); }
 .prog i.previewed { background: var(--navy-2); }
-.detail { position: sticky; top: 140px; }
+.detail { position: static; top: 140px; }
 .detail .card-b { display: grid; gap: 14px; }
 .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; font-size: 13px; }
 .kv dt { color: var(--slate); }
@@ -499,7 +499,7 @@ html.cma-space, html.cma-space body { background: #060b16; }
 .cma.space-on .tpl b { color: #F4F6FA; }
 
 /* toolbar and layout */
-.cma.space-on .b-head { top: 110px; background: rgba(8, 15, 30, .66); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(160, 188, 235, .14); }
+.cma.space-on .b-head { position: static !important; top: auto; background: rgba(8, 15, 30, .66); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(160, 188, 235, .14); }
 .cma.space-on .b-head .name { color: #F4F6FA; } .cma.space-on .b-head .name:hover { border-color: rgba(160, 188, 235, .35); }
 .cma.space-on .split { min-height: calc(100vh - 170px); }
 .cma.space-on .left { background: rgba(8, 15, 30, .62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-right: 1px solid rgba(160, 188, 235, .14); }
@@ -559,7 +559,7 @@ html.cma-space, html.cma-space body { background: #060b16; }
 .cma.space-on .inspector { background: rgba(10, 19, 38, .9); border-color: rgba(160, 188, 235, .3); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); top: 54px; box-shadow: 0 18px 50px rgba(0, 0, 0, .55); }
 
 /* dock: test run and connected apps */
-.cma.space-on .dock { position: sticky; bottom: 0; z-index: 8; margin-top: auto; background: rgba(6, 11, 22, .86); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid rgba(160, 188, 235, .2); }
+.cma.space-on .dock { position: static !important; bottom: 0; z-index: 8; margin-top: auto; background: rgba(6, 11, 22, .86); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid rgba(160, 188, 235, .2); }
 .cma.space-on .bottom { position: static; background: transparent; box-shadow: none; border-top: 0; border-bottom: 1px solid rgba(160, 188, 235, .14); }
 .cma.space-on .bottom .bb { max-height: 260px; }
 .appsbar { padding: 10px 16px 12px; }
@@ -628,3 +628,5 @@ html.cma-space, html.cma-space body { background: #060b16; }
   .cma.space-on .describe.manual .grid2 { grid-template-columns: 1fr; }
   .cma.space-on .saved { padding: 0 12px; }
 }
+
+.cma-root .cma.space-on .dock { position: static !important; bottom: auto !important; margin-top: 32px; }

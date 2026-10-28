@@ -17,7 +17,8 @@ test('Workflow builder updates: UI text, styles, and connection handling', () =>
   expect(css).toMatch(/\.b-head\s*\{[^}]*position:\s*static;/);
 
   // 3. Ringed planet removed from space backdrop
-  expect(studio).toContain('// ringed planet removed per user instruction');
+  expect(studio).toContain('// planets, galaxies, and celestial artwork removed per user directive');
+  expect(css).toMatch(/\.cma\.space-on \.dock\s*\{[^}]*position:\s*static !important;/);
   expect(studio).not.toContain('ball(0, 0, r, \'#f1d79a\', \'#a87b2c\', \'#2a1e0c\')');
 
   // 4. Mentions AI agent workflow builder and connected trigger
