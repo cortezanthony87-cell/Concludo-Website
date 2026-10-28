@@ -490,6 +490,10 @@ export interface Store {
   listAudit(): Promise<AuditEvent[]>;
   appendAudit(e: AuditEvent): Promise<void>;
   connection(app: AppKey): Promise<ConnectionState>;
+  /** A live check of one app. Absent means the store can only read its saved record, and the UI says so. */
+  probe?(app: AppKey): Promise<{ state: ConnectionState; verified: boolean; simulated?: boolean; detail: string }>;
+  /** Starts the app's own sign-in. Only a person can finish it. Absent means connecting happens elsewhere. */
+  startConnect?(app: AppKey): Promise<{ ok: boolean; needsPerson: boolean; note: string }>;
   /** Hands an approved external step to the real connector. Returns what happened, honestly. */
   dispatch(item: OutgoingItem, run: Run): Promise<{ ok: boolean; note: string }>;
   /** Runs a Concludo agent for a "Run an AI agent" step. Absent means agents are not wired in. */
@@ -530,6 +534,25 @@ export class MemoryStore implements Store {
   async listAudit() { return [...this.audit].reverse(); }
   async appendAudit(e: AuditEvent) { this.audit.push(clone(e)); }
   async connection(app: AppKey) { return this.connections[app] ?? 'disconnected'; }
+  /** Preview only: apps that report a service problem for this many checks, then recover. */
+  recoversAfter: Partial<Record<AppKey, number>> = {};
+  probeLog: AppKey[] = [];
+  async probe(app: AppKey): Promise<{ state: ConnectionState; verified: boolean; simulated?: boolean; detail: string }> {
+    this.probeLog.push(app);
+    const left = this.recoversAfter[app];
+    const label = appInfo(app).label;
+    if (left !== undefined && left > 0) {
+      this.recoversAfter[app] = left - 1;
+      if (left - 1 === 0) { delete this.recoversAfter[app]; this.connections[app] = 'connected'; }
+      else return { state: 'service_issue', verified: true, simulated: true, detail: `${label} did not answer. This is a preview check of the sample record.` };
+    }
+    return { state: await this.connection(app), verified: true, simulated: true, detail: 'Preview check of the sample record. A live Workspace checks the app itself.' };
+  }
+  async startConnect(app: AppKey) {
+    return { ok: false, needsPerson: true, note: `${appInfo(app).label} has to be signed in by a person. In the Workspace this opens the app's own sign-in page.` };
+  }
+  /** Preview only: stands in for the person finishing the app's sign-in. */
+  completeSignIn(app: AppKey) { this.connections[app] = 'connected'; }
   async dispatch(item: OutgoingItem, run: Run) {
     if (this.dispatchImpl) return this.dispatchImpl(item, run);
     this.outbox.push({ item, runId: run.id });
@@ -550,6 +573,16 @@ const isExternal = (s: Step) => {
   return spec.apps.length > 0 && spec.apps.every((a) => APPS[a].external);
 };
 const usable = (c: ConnectionState) => c === 'connected';
+/** The state a workflow can rely on. With a live check, connected must be confirmed, never assumed. */
+async function stateOf(store: Pick<Store, 'connection' | 'probe'>, app: AppKey): Promise<ConnectionState> {
+  if (!app || !Object.prototype.hasOwnProperty.call(APPS, app)) return 'disconnected';
+  if (!store.probe) return store.connection(app);
+  try {
+    const r = await store.probe(app);
+    if (r.state === 'connected' && !r.verified) return 'service_issue';
+    return r.state;
+  } catch { return 'service_issue'; }
+}
 const CONNECTION_TEXT: Record<ConnectionState, string> = {
   connected: 'connected',
   needs_reauth: 'needs signing in again',
@@ -603,7 +636,7 @@ const SURVEILLANCE = /\b(rank|ranking|score|scoring|scorecard|leaderboard|produc
 export interface Issue { level: 'block' | 'warn'; text: string; stepId?: string; fix?: 'add_approval' | 'connect' | 'fill' }
 
 /** Plain-language checks. Anything at level 'block' stops a workflow being turned on. */
-export async function validateWorkflow(wf: Workflow, store: Pick<Store, 'connection'>): Promise<Issue[]> {
+export async function validateWorkflow(wf: Workflow, store: Pick<Store, 'connection' | 'probe'>): Promise<Issue[]> {
   const issues: Issue[] = [];
   if (!wf.name.trim()) issues.push({ level: 'block', text: 'Give the workflow a name.' });
   if (!Object.prototype.hasOwnProperty.call(TRIGGERS, wf.trigger?.type)) {
@@ -630,7 +663,7 @@ export async function validateWorkflow(wf: Workflow, store: Pick<Store, 'connect
     }
     if (isExternal(s)) {
       if (!guarded) issues.push({ level: 'block', text: `“${s.label}” sends something outside Concludo, so a person must approve it first.`, stepId: s.id, fix: 'add_approval' });
-      const c = await store.connection(s.app);
+      const c = await stateOf(store, s.app);
       if (!usable(c)) issues.push({ level: 'block', text: `${appInfo(s.app).label} ${CONNECTION_TEXT[c] || 'is not connected'}. Connect it before turning this workflow on.`, stepId: s.id, fix: 'connect' });
     }
   }
@@ -638,6 +671,125 @@ export async function validateWorkflow(wf: Workflow, store: Pick<Store, 'connect
     issues.push({ level: 'warn', text: 'The last step is an approval with nothing after it. Approving it will do nothing.' });
   }
   return issues;
+}
+
+
+/* ============================================================== connections: honest checks and repair */
+
+export interface ConnectionCheck {
+  app: AppKey;
+  state: ConnectionState;
+  /** True only when a live check confirmed this state just now. A saved record is never verified on its own. */
+  verified: boolean;
+  /** True when the check read sample data, as in the preview. The Workspace must not set this. */
+  simulated: boolean;
+  checkedAt: string;
+  detail: string;
+}
+
+const CONN_WORDS: Record<ConnectionState, string> = {
+  connected: 'Connected',
+  needs_reauth: 'Needs signing in again',
+  permission_required: 'Needs more permission',
+  service_issue: 'Not answering',
+  disconnected: 'Not connected',
+};
+
+export async function checkConnection(store: Store, app: AppKey): Promise<ConnectionCheck> {
+  const checkedAt = store.now();
+  if (!APPS[app].external) return { app, state: 'connected', verified: true, simulated: false, checkedAt, detail: 'Inside Concludo.' };
+  if (store.probe) {
+    try {
+      const r = await store.probe(app);
+      return { app, state: r.state, verified: r.verified, simulated: !!r.simulated, checkedAt, detail: r.detail };
+    } catch (e) {
+      return { app, state: 'service_issue', verified: false, simulated: false, checkedAt, detail: `The check itself failed (${e instanceof Error ? e.message : 'unknown error'}). The real state is not known.` };
+    }
+  }
+  return { app, state: await store.connection(app), verified: false, simulated: false, checkedAt, detail: 'Read from the saved record. It has not been checked against the app.' };
+}
+
+export async function checkAllConnections(store: Store): Promise<ConnectionCheck[]> {
+  const apps = (Object.keys(APPS) as AppKey[]).filter((a) => APPS[a].external);
+  return Promise.all(apps.map((a) => checkConnection(store, a)));
+}
+
+export interface RepairStep { label: string; status: 'done' | 'warn' | 'failed'; note: string }
+export interface RepairReport {
+  app: AppKey;
+  workflowId: string;
+  /** fixed: confirmed connected by a live check. needs_person: only a person can sign in. unverified: nothing could confirm it. unfixable: still failing. */
+  outcome: 'fixed' | 'needs_person' | 'unverified' | 'unfixable';
+  state: ConnectionState;
+  steps: RepairStep[];
+  /** Other apps that can do the same job and are connected right now. Applied only when a person confirms. */
+  alternatives: Array<{ stepId: string; stepLabel: string; app: AppKey; label: string }>;
+  summary: string;
+}
+
+/** The repair agent for a not-connected problem. It re-checks, retries a service problem, starts the sign-in, and offers a connected alternative. It never signs in for a person and never reports fixed unless a check confirms it. */
+export async function repairConnection(store: Store, wf: Workflow, app: AppKey, actor: string, opts: { retries?: number; wait?: (ms: number) => Promise<void>; onStep?: (s: RepairStep) => void } = {}): Promise<RepairReport> {
+  const steps: RepairStep[] = [];
+  const add = (s: RepairStep) => { steps.push(s); opts.onStep?.(s); };
+  const label = appInfo(app).label;
+  const retries = opts.retries ?? 3;
+  const wait = opts.wait ?? (async () => undefined);
+  let c = await checkConnection(store, app);
+  add({ label: `Checked ${label}`, status: c.state === 'connected' && c.verified ? 'done' : 'warn', note: `${CONN_WORDS[c.state]}. ${c.detail}` });
+  if (c.state === 'service_issue') {
+    for (let n = 1; n <= retries && c.state === 'service_issue'; n++) {
+      await wait(600 * n);
+      c = await checkConnection(store, app);
+      add({ label: `Checked ${label} again (${n} of ${retries})`, status: c.state === 'connected' && c.verified ? 'done' : 'warn', note: `${CONN_WORDS[c.state]}.` });
+    }
+  } else if (c.state !== 'connected') {
+    if (store.startConnect) {
+      const r = await store.startConnect(app);
+      add({ label: `Started the ${label} sign-in`, status: r.ok ? 'done' : 'warn', note: r.note });
+      if (r.ok) { c = await checkConnection(store, app); add({ label: `Checked ${label} after sign-in`, status: c.state === 'connected' && c.verified ? 'done' : 'warn', note: `${CONN_WORDS[c.state]}.` }); }
+    } else {
+      add({ label: `Connect ${label}`, status: 'warn', note: 'Connecting happens on the Connect App page. Only a person can sign in to an app.' });
+    }
+  }
+  let outcome: RepairReport['outcome'];
+  if (c.state === 'connected' && c.verified) outcome = 'fixed';
+  else if (c.state === 'connected') outcome = 'unverified';
+  else if (c.state === 'service_issue') outcome = 'unfixable';
+  else outcome = 'needs_person';
+  const alternatives: RepairReport['alternatives'] = [];
+  if (outcome !== 'fixed') {
+    for (const s of wf.steps.filter((x) => x.app === app && actionInfo(x.action).kind === 'do' && x.action !== 'unsupported')) {
+      for (const other of actionInfo(s.action).apps.filter((a) => a !== app && APPS[a].external)) {
+        const o = await checkConnection(store, other);
+        if (o.state === 'connected' && o.verified) alternatives.push({ stepId: s.id, stepLabel: s.label, app: other, label: appInfo(other).label });
+      }
+    }
+  }
+  const summary = outcome === 'fixed' ? `${label} is connected. A live check confirmed it just now.`
+    : outcome === 'needs_person' ? `${label} needs a person to sign in. The agent cannot do that for you.`
+    : outcome === 'unverified' ? `${label} looks connected in the saved record, but nothing could confirm it. It is not counted as fixed.`
+    : `${label} is still having a service problem after ${retries} checks. Nothing was changed.`;
+  await audit(store, actor, 'connection_repair', 'workflow', wf.id, `Workflow repair agent: ${summary}`);
+  return { app, workflowId: wf.id, outcome, state: c.state, steps, alternatives, summary };
+}
+
+/** Swaps one step to another connected app. Called only after a person confirms. */
+export async function applyAlternative(store: Store, wf: Workflow, stepId: string, app: AppKey, actor: string): Promise<Workflow> {
+  const step = wf.steps.find((s) => s.id === stepId);
+  if (!step) throw new Error('That step is no longer in the workflow.');
+  if (!actionInfo(step.action).apps.includes(app)) throw new Error(`${appInfo(app).label} cannot do “${step.label}”.`);
+  const from = appInfo(step.app).label;
+  step.app = app;
+  wf.updatedAt = store.now();
+  await store.saveWorkflow(wf);
+  await audit(store, actor, 'step_app_changed', 'workflow', wf.id, `“${step.label}” now uses ${appInfo(app).label} instead of ${from}.`);
+  return wf;
+}
+
+/** A blank workflow for manual building. It has no steps, so it cannot be turned on until a person adds one. */
+export function blankWorkflow(store: Pick<Store, 'id' | 'now'>, ownerId: string, trigger: Workflow['trigger'] = { type: 'meeting_completed' }, name = 'New workflow'): Workflow {
+  const now = store.now();
+  return { id: store.id('wf'), name, description: '', ownerId, status: 'draft', trigger, steps: [], consecutiveFailures: 0, createdAt: now, updatedAt: now };
 }
 
 /** The left-hand explanation in the builder, one sentence per step. */
@@ -912,7 +1064,7 @@ async function continueRun(store: Store, wf: Workflow, run: Run, from: number, a
         sr.note = `Would send to ${item.to}. Test runs never send.`;
         continue;
       }
-      const c = await store.connection(step.app);
+      const c = await stateOf(store, step.app);
       if (!usable(c)) return fail(store, wf, run, i, `${appInfo(step.app).label} ${CONNECTION_TEXT[c] || 'is not connected'}. Nothing was sent.`, actor, 'high');
       const res = await store.dispatch(item, run);
       if (!res.ok) return fail(store, wf, run, i, res.note, actor, 'high');

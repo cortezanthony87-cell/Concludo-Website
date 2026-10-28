@@ -88,7 +88,7 @@ const when = (iso) => {
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
 };
 const AGENT_IC = { meeting_prep: 'cal', consent_check: 'shield', record_hygiene: 'broom', client_commitments: 'hand', vendor_campaign_update: 'home', board_pack: 'deck', meeting_followup: 'mail', decision_followup: 'gavel', action_accountability: 'list', project_intelligence: 'chart', risk_monitoring: 'flag', report_generation: 'doc', workflow_coordinator: 'flow', document_intelligence: 'doc', inbox_command_centre: 'inbox' };
-const STEP_IC = (s) => (s.action === 'run_agent' ? 'bot' : s.action === 'ask_approval' ? 'stamp' : s.action === 'only_if' ? 'branch' : s.action === 'send_email' ? 'mail' : s.action === 'post_message' ? 'chat' : s.action === 'create_event' ? 'cal' : s.action === 'create_task' ? 'list' : s.action === 'add_crm_note' || s.action === 'add_sheet_row' ? 'db' : 'bolt');
+const STEP_IC = (s) => (s.action === 'run_agent' ? 'bot' : s.action === 'ask_approval' ? 'stamp' : s.action === 'only_if' ? 'branch' : s.action === 'send_email' ? 'mail' : s.action === 'post_message' ? 'chat' : s.action === 'create_event' ? 'cal' : s.action === 'create_task' || s.action === 'create_actions' ? 'list' : s.action === 'summarise_meeting' ? 'doc' : s.action === 'save_decisions' ? 'gavel' : s.action === 'build_report' ? 'chart' : s.action === 'notify_me' ? 'spark' : s.action === 'add_crm_note' || s.action === 'add_sheet_row' ? 'db' : 'bolt');
 const isHeld = (r) => r.status === 'cancelled' && /^Held:/.test(r.error || '');
 const pillOf = (r) => (isHeld(r) ? ['Held for consent', 'warn'] : RUN_PILL[r.status]);
 const RUN_PILL = { running: ['Running', ''], requires_approval: ['Waiting for approval', 'gold'], completed: ['Completed', 'good'], failed: ['Failed', 'bad'], rejected: ['Rejected', 'warn'], cancelled: ['Cancelled', 'line'] };
@@ -100,6 +100,156 @@ const EXAMPLES = [
   'After each meeting, put the deadlines in my calendar',
 ];
 
+/* ------------------------------------------------------------ space backdrop
+   One canvas, created once, fixed behind the builder only. Stars twinkle, a shooting star crosses every few
+   seconds, and a ringed planet, a banded planet and a spiral galaxy sit far away. It honours reduced motion. */
+function createSpace(host) {
+  const cv = document.createElement('canvas');
+  cv.className = 'cma-space-canvas';
+  cv.setAttribute('aria-hidden', 'true');
+  cv.dataset.test = 'space';
+  const g = cv.getContext('2d');
+  const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W = 0, H = 0, dpr = 1, active = false, raf = 0, last = 0, stars = [], shoots = [], nextShoot = 0, bg = null, bgKey = '';
+  const seed = (n) => () => { n |= 0; n = (n + 0x6D2B79F5) | 0; let t = Math.imul(n ^ (n >>> 15), 1 | n); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const stats = { frames: 0, shot: 0 };
+
+  function makeStars() {
+    const rnd = seed(20261028);
+    const n = Math.round(Math.min(420, Math.max(120, (W * H) / 5200)));
+    stars = Array.from({ length: n }, () => {
+      const layer = rnd() < 0.62 ? 0 : rnd() < 0.8 ? 1 : 2;
+      const tint = rnd();
+      return { x: rnd(), y: rnd(), layer, r: layer === 0 ? 0.45 + rnd() * 0.45 : layer === 1 ? 0.8 + rnd() * 0.5 : 1.2 + rnd() * 0.7,
+        a: layer === 0 ? 0.35 + rnd() * 0.35 : 0.55 + rnd() * 0.4, sp: 0.6 + rnd() * 2.2, ph: rnd() * 6.28, drift: (layer + 1) * 0.35,
+        c: tint < 0.12 ? '255,226,170' : tint < 0.3 ? '186,208,255' : '244,246,250', flare: layer === 2 && rnd() < 0.5 };
+    });
+  }
+
+  function paintBackdrop() {
+    const key = `${W}x${H}x${dpr}`;
+    if (bg && bgKey === key) return;
+    bgKey = key;
+    bg = document.createElement('canvas'); bg.width = Math.round(W * dpr); bg.height = Math.round(H * dpr);
+    const b = bg.getContext('2d'); if (!b) return; b.scale(dpr, dpr);
+    const u = Math.max(0.7, Math.min(1.35, Math.min(W, H) / 800));
+    let gr = b.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#060b16'); gr.addColorStop(0.55, '#0a1427'); gr.addColorStop(1, '#101e38');
+    b.fillStyle = gr; b.fillRect(0, 0, W, H);
+    const glow = (x, y, r, rgb, a) => { const rg = b.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `rgba(${rgb},${a})`); rg.addColorStop(1, `rgba(${rgb},0)`); b.fillStyle = rg; b.fillRect(x - r, y - r, r * 2, r * 2); };
+    glow(W * 0.18, H * 0.2, Math.max(W, H) * 0.55, '33,57,92', 0.55);
+    glow(W * 0.85, H * 0.82, Math.max(W, H) * 0.5, '33,57,92', 0.4);
+    glow(W * 0.62, H * 0.38, Math.max(W, H) * 0.35, '60,86,130', 0.16);
+    glow(W * 0.92, H * 0.1, Math.max(W, H) * 0.28, '226,181,60', 0.05);
+    // spiral galaxy, far away and faint
+    (() => {
+      const rnd = seed(77), cx = W * 0.36, cy = H * 0.15, R = 62 * u;
+      b.save(); b.translate(cx, cy); b.rotate(-0.5); b.scale(1, 0.42);
+      glow(0, 0, R * 1.5, '190,205,255', 0.16); glow(0, 0, R * 0.45, '255,236,200', 0.55);
+      for (let i = 0; i < 900; i++) {
+        const arm = i % 2, t = Math.pow(rnd(), 0.7) * 3.4, rad = t * R / 3.4 * 1.05;
+        const ang = t * 2.1 + arm * Math.PI + (rnd() - 0.5) * 0.55, j = (rnd() - 0.5) * R * 0.16 * (1 - t / 4);
+        const x = Math.cos(ang) * rad + j, y = Math.sin(ang) * rad + j;
+        b.fillStyle = `rgba(${t < 0.8 ? '255,236,205' : '190,208,255'},${0.1 + rnd() * 0.45 * (1 - t / 4)})`;
+        b.fillRect(x, y, 1.2, 1.2);
+      }
+      b.restore();
+    })();
+    const ball = (x, y, r, light, mid, dark) => {
+      const rg = b.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r);
+      rg.addColorStop(0, light); rg.addColorStop(0.55, mid); rg.addColorStop(1, dark);
+      b.fillStyle = rg; b.beginPath(); b.arc(x, y, r, 0, 6.2832); b.fill();
+    };
+    // ringed planet (warm, upper right)
+    (() => {
+      const x = W * 0.8, y = H * 0.2, r = 24 * u;
+      b.save(); b.globalAlpha = 0.9; b.translate(x, y); b.rotate(-0.38);
+      const ring = (front) => { b.save(); b.beginPath(); if (front) b.rect(-r * 3, 0, r * 6, r * 3); else b.rect(-r * 3, -r * 3, r * 6, r * 3); b.clip();
+        for (let k = 0; k < 3; k++) { b.strokeStyle = `rgba(${k === 1 ? '120,100,60' : '226,196,120'},${k === 1 ? 0.18 : 0.42 - k * 0.08})`; b.lineWidth = k === 1 ? 2 : 5 - k; b.beginPath(); b.ellipse(0, 0, r * (1.55 + k * 0.28), r * (0.42 + k * 0.08), 0, 0, 6.2832); b.stroke(); } b.restore(); };
+      ring(false); ball(0, 0, r, '#f1d79a', '#a87b2c', '#2a1e0c'); ring(true); b.restore();
+    })();
+    // banded blue planet (lower left)
+    (() => {
+      const x = W * 0.12, y = H * 0.76, r = 17 * u;
+      ball(x, y, r, '#9db9e8', '#3e5f97', '#0b1428');
+      b.save(); b.beginPath(); b.arc(x, y, r, 0, 6.2832); b.clip();
+      for (let k = -3; k <= 3; k++) { b.fillStyle = `rgba(${k % 2 ? '20,36,70' : '160,190,235'},0.2)`; b.fillRect(x - r, y + k * r * 0.26, r * 2, r * 0.13); }
+      const sh = b.createRadialGradient(x - r * 1.1, y - r * 0.5, r * 0.4, x - r * 0.4, y, r * 1.8); sh.addColorStop(0.55, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(2,6,14,0.78)');
+      b.fillStyle = sh; b.fillRect(x - r, y - r, r * 2, r * 2); b.restore();
+    })();
+    // a small cold rock and its moon (lower right)
+    ball(W * 0.66, H * 0.9, 7 * u, '#cfd6e6', '#6b7690', '#161c2c');
+    ball(W * 0.66 + 17 * u, H * 0.9 - 9 * u, 2.4 * u, '#e2e6ef', '#7d879e', '#252c3e');
+    // vignette keeps the edges calm behind the panels
+    const vg = b.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.8);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(2,5,12,0.55)'); b.fillStyle = vg; b.fillRect(0, 0, W, H);
+  }
+
+  function size() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = host ? Math.max(320, host.clientWidth || window.innerWidth) : window.innerWidth;
+    H = host ? Math.max(window.innerHeight, host.scrollHeight || 0, host.clientHeight || 0) : window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    if (!g) return;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    makeStars(); paintBackdrop();
+  }
+
+  function shoot(now) {
+    const rnd = Math.random;
+    const dir = rnd() < 0.7 ? 1 : -1, ang = (18 + rnd() * 20) * Math.PI / 180;
+    const len = 140 + rnd() * 120, sp = 780 + rnd() * 520;
+    shoots.push({ x: dir > 0 ? W * (0.05 + rnd() * 0.55) : W * (0.45 + rnd() * 0.5), y: H * (0.04 + rnd() * 0.42), vx: Math.cos(ang) * sp * dir, vy: Math.sin(ang) * sp, len, born: now, life: 0.9 + rnd() * 0.5 });
+    stats.shot++;
+    nextShoot = now + 3800 + rnd() * 6200;
+  }
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (!g) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (now - last < 33) return; // about 30 frames a second is plenty for a backdrop
+    const dt = Math.min(0.1, (now - last) / 1000); last = now; stats.frames++;
+    g.clearRect(0, 0, W, H);
+    if (bg) g.drawImage(bg, 0, 0, W, H);
+    const t = now / 1000;
+    for (const s of stars) {
+      if (!reduce) { s.x += (s.drift * dt) / W * 14; if (s.x > 1.01) s.x = -0.01; }
+      const tw = reduce ? 1 : 0.62 + 0.38 * Math.sin(t * s.sp + s.ph), a = s.a * tw, x = s.x * W, y = s.y * H;
+      g.fillStyle = `rgba(${s.c},${a.toFixed(3)})`; g.beginPath(); g.arc(x, y, s.r, 0, 6.2832); g.fill();
+      if (s.flare) { g.strokeStyle = `rgba(${s.c},${(a * 0.45).toFixed(3)})`; g.lineWidth = 0.7; g.beginPath(); g.moveTo(x - s.r * 5, y); g.lineTo(x + s.r * 5, y); g.moveTo(x, y - s.r * 5); g.lineTo(x, y + s.r * 5); g.stroke(); }
+    }
+    if (!reduce) {
+      if (!nextShoot) nextShoot = now + 1800;
+      if (now >= nextShoot) shoot(now);
+      shoots = shoots.filter((s) => {
+        const age = (now - s.born) / 1000; if (age > s.life) return false;
+        const hx = s.x + s.vx * age, hy = s.y + s.vy * age, mag = Math.hypot(s.vx, s.vy), tx = hx - (s.vx / mag) * s.len, ty = hy - (s.vy / mag) * s.len;
+        const fade = Math.sin(Math.min(1, age / s.life) * Math.PI);
+        const gr = g.createLinearGradient(tx, ty, hx, hy); gr.addColorStop(0, 'rgba(190,208,255,0)'); gr.addColorStop(1, `rgba(255,250,235,${(0.95 * fade).toFixed(3)})`);
+        g.strokeStyle = gr; g.lineWidth = 1.8; g.lineCap = 'round'; g.beginPath(); g.moveTo(tx, ty); g.lineTo(hx, hy); g.stroke();
+        const hg = g.createRadialGradient(hx, hy, 0, hx, hy, 7); hg.addColorStop(0, `rgba(255,248,225,${(0.9 * fade).toFixed(3)})`); hg.addColorStop(1, 'rgba(255,248,225,0)');
+        g.fillStyle = hg; g.fillRect(hx - 7, hy - 7, 14, 14);
+        return true;
+      });
+    }
+  }
+
+  let attached = false;
+  return {
+    el: cv, stats,
+    shoot: () => shoot(performance.now()),
+    count: () => shoots.length,
+    setActive(on) {
+      if (on && !attached) { (host || document.body).appendChild(cv); attached = true; window.addEventListener('resize', () => { if (active) size(); }); size(); }
+      if (on === active) return;
+      active = on; cv.style.display = on ? 'block' : 'none';
+      cancelAnimationFrame(raf);
+      if (on) { size(); last = 0; nextShoot = 0; raf = requestAnimationFrame(frame); if (reduce) requestAnimationFrame(() => frame(performance.now())); }
+    },
+  };
+}
+
 export async function mountAutomation(root, opts = {}) {
   const store = opts.store || new C.MemoryStore();
   const today = opts.today || new Date().toISOString().slice(0, 10);
@@ -108,7 +258,7 @@ export async function mountAutomation(root, opts = {}) {
     actor: opts.actor || 'Mara Ellis',
     agentResults: {}, agentActivity: [], agentOpen: null,
     agentOpts: {},
-    b: null, runsFilter: 'all', runSel: null, apTab: 'waiting', apSel: null, modal: null,
+    b: null, checks: null, checksAt: 0, repair: null, cols: 0, runsFilter: 'all', runSel: null, apTab: 'waiting', apSel: null, modal: null,
   };
   const logo = opts.logo || 'assets/lockup.png';
   const logoRev = opts.logoRev || logo;
@@ -125,6 +275,11 @@ export async function mountAutomation(root, opts = {}) {
     return res;
   };
   root.classList.add('cma');
+  const view = document.createElement('div');
+  view.className = 'cma-view';
+  root.appendChild(view);
+
+  const space = createSpace(opts.embedded ? root : null);
 
   /* ------------------------------------------------------------ routing */
   const toUrl = (hash) => {
@@ -165,9 +320,7 @@ export async function mountAutomation(root, opts = {}) {
     if (opts.usePathRouting) {
       const url = toUrl(target);
       if (opts.onNavigate) opts.onNavigate(url);
-      else if (window.location.pathname !== url) {
-        window.history.pushState({}, '', url);
-      }
+      else if (window.location.pathname !== url) window.history.pushState({}, '', url);
       return render();
     }
     if (location.hash !== target) location.hash = target;
@@ -191,15 +344,20 @@ export async function mountAutomation(root, opts = {}) {
     else if (r.page === 'governance') body = await vGovernance(h, pending);
     else body = await vWorkflows(h, pending);
     if (mine !== renderSeq) return; // a newer render started while this one was reading records
+    const spaceOn = r.page === 'builder';
+    root.classList.toggle('space-on', spaceOn);
+    document.documentElement.classList.toggle('cma-space', spaceOn && !opts.embedded);
+    space.setActive(spaceOn);
+    const foot = `<footer class="foot">Concludo is independent. Apps named here, such as Outlook, Gmail, Google Calendar, Microsoft To Do, Slack, Microsoft Teams, Google Sheets and HubSpot, are shown only as places a workflow can send to. Concludo is not affiliated with or endorsed by any of them.</footer>`;
     if (opts.embedded) {
-      root.innerHTML = `
+      view.innerHTML = `
         ${body}
-        <footer class="foot">Concludo is independent. Apps named here, such as Outlook, Gmail, Google Calendar, Microsoft To Do, Slack, Microsoft Teams, Google Sheets and HubSpot, are shown only as places a workflow can send to. Concludo is not affiliated with or endorsed by any of them.</footer>
+        ${foot}
         ${S.modal ? S.modal : ''}`;
     } else {
-      root.innerHTML = `
+      view.innerHTML = `
         <header class="top">
-          <img class="logo" src="${esc(logo)}" alt="Concludo">
+          <img class="logo" src="${esc(spaceOn ? logoRev : logo)}" alt="Concludo">
           <nav class="mainnav" aria-label="Automation">
             <a href="${toUrl('#agents')}" aria-label="AI agents" class="${area === 'agents' ? 'on' : ''}">${ic('bot')}<span>AI agents</span></a>
             <a href="${toUrl('#workflows')}" aria-label="Workflows" class="${area === 'workflows' ? 'on' : ''}">${ic('flow')}<span>Workflows</span></a>
@@ -208,7 +366,7 @@ export async function mountAutomation(root, opts = {}) {
             <a class="sys ${h.stopped ? 'stopped' : ''}" href="${toUrl('#governance')}" data-test="sys"><i></i>${h.stopped ? 'All workflows stopped' : 'Workflows running'}</a></div>
         </header>
         ${body}
-        <footer class="foot">Concludo is independent. Apps named here, such as Outlook, Gmail, Google Calendar, Microsoft To Do, Slack, Microsoft Teams, Google Sheets and HubSpot, are shown only as places a workflow can send to. Concludo is not affiliated with or endorsed by any of them.</footer>
+        ${foot}
         ${S.modal ? S.modal : ''}`;
     }
     if (keepScroll) window.scrollTo(0, y);
@@ -250,8 +408,8 @@ export async function mountAutomation(root, opts = {}) {
     return `<div class="wrap">
       <div class="head"><div><div class="eyebrow">Automation</div><h1>AI agents</h1><p>Agents read your Concludo records and prepare work. They never send anything: anything that would leave Concludo goes to the Approval Centre first.</p></div>
         <div class="chips"><span class="pill good"><i></i>${ready} ready</span><span class="pill gold">${fresh} new</span><span class="pill line">${AG.AGENTS.length - ready} need an input or a connection</span></div></div>
-      <nav class="chips agent-jump" aria-label="Agent groups">${groups.map((g) => `<a class="chip" href="#agents" data-act="jump" data-g="${esc(g)}">${esc(g)} <span class="muted">${AG.AGENTS.filter((a) => a.group === g).length}</span></a>`).join('')}</nav>
-      <div class="agent-groups">${groups.map((g) => `<section id="grp-${g.replace(/\W+/g, '-').toLowerCase()}"><div class="group-h"><h2>${esc(g)}</h2><span class="small muted">${esc(GROUP_LINE[g])}</span></div><div class="agents">${AG.AGENTS.filter((a) => a.group === g).map(agentCard).join('')}</div></section>`).join('')}</div>
+      <nav class="chips agent-jump" aria-label="Agent groups">${groups.map((g) => `<a class="chip" href="${toUrl('#agents')}" data-act="jump" data-g="${esc(g)}">${esc(g)} <span class="muted">${AG.AGENTS.filter((a) => a.group === g && !a.hidden).length}</span></a>`).join('')}</nav>
+      <div class="agent-groups">${groups.map((g) => `<section id="grp-${g.replace(/\W+/g, '-').toLowerCase()}"><div class="group-h"><h2>${esc(g)}</h2><span class="small muted">${esc(GROUP_LINE[g])}</span></div><div class="agents">${AG.AGENTS.filter((a) => a.group === g && !a.hidden).map(agentCard).join('')}</div></section>`).join('')}</div>
       <section class="sect"><h2>Recent agent runs</h2><p>Every run is listed with what it read. Nothing here is a score of a person.</p>
         <div class="card"><div class="card-b">${S.agentActivity.length ? `<div class="activity">${S.agentActivity.slice(0, 12).map((x) => `<div><span class="muted small">${esc(when(x.at))}</span><span><b>${esc(x.name)}</b>: ${esc(x.headline)}</span><button class="btn sm ghost" data-act="agent-open" data-k="${x.key}">View</button></div>`).join('')}</div>` : '<div class="empty"><b>No agent runs yet</b>Run an agent above to see its findings here.</div>'}</div></div></section>
     </div>${drawer}`;
@@ -304,22 +462,23 @@ export async function mountAutomation(root, opts = {}) {
     return `<span class="pill ${w.pausedBy === 'you' ? 'warn' : 'bad'}"><i></i>${w.pausedBy === 'workspace_stop' ? 'Stopped' : w.pausedBy === 'quarantine' ? 'Paused after failures' : 'Paused'}</span>`;
   }
   function flowMini(w) {
-    const trig = trigOf(w.trigger && w.trigger.type);
-    return `<div class="flowmini"><span class="appb">${ic('bolt')}${esc(trig.label)}</span>${(w.steps || []).map((s) => {
-      const app = appOf(s && s.app);
-      const approval = s && s.action === 'ask_approval';
-      const text = approval ? 'Approval' : app.external ? app.label : (s && s.label) || 'Step';
-      return `${ic('arrow', 'arr')}<span class="appb ${approval ? 'ap' : app.external ? 'ext' : ''}">${esc(text)}</span>`;
-    }).join('')}</div>`;
+    try {
+      const trig = trigOf(w.trigger && w.trigger.type);
+      return `<div class="flowmini"><span class="appb">${ic('bolt')}${esc(trig.label)}</span>${(w.steps || []).map((s) => {
+        const app = appOf(s && s.app);
+        const approval = s && s.action === 'ask_approval';
+        const text = approval ? 'Approval' : app.external ? app.label : (s && s.label) || 'Step';
+        return `${ic('arrow', 'arr')}<span class="appb ${approval ? 'ap' : app.external ? 'ext' : ''}">${esc(text)}</span>`;
+      }).join('')}</div>`;
+    } catch (e) {
+      return `<div class="flowmini"><span class="appb">This workflow could not be drawn.</span></div>`;
+    }
   }
   function wfCard(w, last) {
-    let card = '';
-    try {
-      card = wfCardHtml(w, last);
-    } catch (e) {
-      card = `<article class="wf" data-test="wf-unreadable"><div class="w-h"><div><h3>${esc(w.name || 'Workflow')}</h3><div class="trig">This workflow could not be drawn.</div></div></div><div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Open in builder</a></div></article>`;
+    try { return wfCardHtml(w, last); }
+    catch (e) {
+      return `<article class="wf" data-test="wf-unreadable"><div class="w-h"><div><h3>${esc(w.name || 'Workflow')}</h3><div class="trig">This workflow could not be drawn.</div></div></div><div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Open in builder</a></div></article>`;
     }
-    return card;
   }
   function wfCardHtml(w, last) {
     const trig = trigOf(w.trigger && w.trigger.type);
@@ -329,47 +488,65 @@ export async function mountAutomation(root, opts = {}) {
       <div class="w-f"><a class="btn sm" href="${toUrl('#builder/' + w.id)}">${ic('flow')}Edit in builder</a>
         <button class="btn sm ${w.status === 'active' ? 'primary' : ''}" data-act="run-open" data-id="${w.id}" ${w.status === 'active' ? '' : 'disabled title="Turn it on first, or use Test run in the builder"'}>${ic('play')}Run now</button>
         <button class="btn sm ghost" data-act="toggle" data-id="${w.id}">${w.status === 'active' ? `${ic('pause')}Pause` : `${ic('play')}Turn on`}</button>
-        <span class="lastrun">${last ? `Last run: <a href="${toUrl('#runs/' + last.id)}">${esc(RUN_PILL[last.status][0].toLowerCase())}</a>` : 'Not run yet'}</span></div>
+        <span class="lastrun">${last ? `Last run: <a href="${toUrl('#runs/' + last.id)}">${esc((pillOf(last) || RUN_PILL[last.status] || ['Unknown'])[0].toLowerCase())}</a>` : 'Not run yet'}</span></div>
     </article>`;
   }
 
+
   /* ============================================================ BUILDER */
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const NODE = 92, GAPX = 64, ROWH = 196, PADX = 46, PADY = 34;
+  const newB = (id) => ({ id, wf: null, history: [], view: 'diagram', sel: null, test: null, plan: null, bottom: false, leftTab: 'overview', mode: S.b?.mode || 'describe', draftText: S.b?.draftText || '', mname: S.b?.mname || '', mtrig: S.b?.mtrig || 'meeting_completed', msched: S.b?.msched || 'Every Monday' });
   async function loadBuilder(id) {
-    if (id === 'new') { if (!S.b || S.b.id !== 'new') S.b = { id: 'new', wf: null, history: [], view: 'diagram', sel: null, test: null, plan: null, bottom: false, draftText: S.b?.draftText || '' }; return; }
-    if (!S.b || S.b.id !== id) {
-      const wf = await store.getWorkflow(id);
-      S.b = { id, wf, history: [], view: 'diagram', sel: null, test: null, plan: S.b?.planFor === id ? S.b.plan : null, bottom: false };
-    } else {
-      const wf = await store.getWorkflow(id);
-      if (wf) S.b.wf = wf;
-    }
+    if (id === 'new') { if (!S.b || S.b.id !== 'new') S.b = newB('new'); return; }
+    const wf = await store.getWorkflow(id);
+    if (!S.b || S.b.id !== id) S.b = { ...newB(id), id, wf, mode: 'describe', plan: S.b?.planFor === id ? S.b.plan : null };
+    else if (wf) S.b.wf = wf;
+    else S.b.wf = null;
+  }
+  async function getChecks(force) {
+    if (force || !S.checks || Date.now() - S.checksAt > 60000) { S.checks = await C.checkAllConnections(store); S.checksAt = Date.now(); }
+    return S.checks;
+  }
+  const dotClass = (c) => (c.state === 'connected' ? (c.verified ? 'ok' : 'unk') : c.state === 'disconnected' ? 'off' : 'warn');
+  const connWords = (c) => (c.state === 'connected' && !c.verified ? 'Connected, not checked' : CONN[c.state]);
+  async function savedBar(cur) {
+    const wfs = (await store.listWorkflows()).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return `<nav class="saved" aria-label="Saved workflows" data-test="saved-bar"><span class="saved-l">${ic('flow')}Saved workflows <span class="n">${wfs.length}</span></span>
+      <div class="saved-s"><a class="sv new ${cur === 'new' ? 'on' : ''}" href="${toUrl('#builder/new')}" data-test="sv-new">${ic('plus')}New workflow</a>${wfs.map((w) => `<a class="sv ${w.id === cur ? 'on' : ''}" href="${toUrl('#builder/' + w.id)}" data-test="sv-${esc(w.name)}" title="${esc(w.name)}"><i class="d ${w.status}"></i><span>${esc(w.name)}</span></a>`).join('')}</div></nav>`;
   }
   async function vBuilder(id) {
     await loadBuilder(id);
     const b = S.b;
-    if (!b.wf) {
-      return `<div class="stageA">
-        <div class="eyebrow" style="justify-content:center">Create a workflow</div>
-        <h1>Describe what should happen</h1>
-        <p>Write it the way you would say it. Concludo builds the steps, adds an approval before anything leaves Concludo, and shows you what it did not understand.</p>
-        <div class="describe"><label class="sr" for="describe">Describe the workflow</label><textarea id="describe" data-bind="draftText" data-autofocus placeholder="After each meeting, summarise it, add the actions to the tracker, then email the attendees">${esc(b.draftText || '')}</textarea>
-          <div class="row"><span class="small muted">Works best as: when this happens, do this, then that.</span><button class="btn primary" data-act="plan" data-test="plan">${ic('spark')}Build it</button></div></div>
-        <div class="examples">${EXAMPLES.map((e, i) => `<button data-act="example" data-i="${i}">${esc(e)}</button>`).join('')}</div>
-        <div class="eyebrow" style="justify-content:center">Or start from a template</div>
-        <div class="tpls" style="text-align:left;margin-top:10px">${C.TEMPLATES.map((t) => `<button class="tpl" data-act="from-template" data-k="${t.key}"><b>${esc(t.name)}</b><span>${esc(t.summary)}</span></button>`).join('')}</div>
-      </div>`;
-    }
+    const bar = await savedBar(id === 'new' ? 'new' : b.wf ? b.wf.id : id);
+    if (!b.wf) return `<div class="space-page">${bar}${createView(b)}</div>`;
     const wf = b.wf;
     const issues = await C.validateWorkflow(wf, store);
     const blocks = issues.filter((i) => i.level === 'block');
     const explain = C.explainWorkflow(wf);
-    const apps = [...new Set((wf.steps || []).filter((s) => appOf(s.app).external).map((s) => s.app))];
-    const conns = await Promise.all(apps.map(async (a) => [a, await store.connection(a)]));
+    const checks = await getChecks(false);
+    const usedApps = new Set(wf.steps.filter((s) => appOf(s.app).external).map((s) => s.app));
     const stepIssues = (sid) => issues.filter((i) => i.stepId === sid && i.level === 'block');
     const plan = b.plan;
-    return `
+    const fixBtn = (i) => {
+      if (i.fix === 'add_approval') return `<div class="fix"><button class="btn sm primary" data-act="fix-approval" data-test="fix-approval">${ic('stamp')}Fix it</button><span class="small muted">Adds the approval step</span></div>`;
+      if (i.fix === 'connect') { const app = wf.steps.find((s) => s.id === i.stepId)?.app; return app ? `<div class="fix"><button class="btn sm primary" data-act="fix-conn" data-app="${app}" data-test="fix-conn">${ic('bot')}Fix it</button><span class="small muted">The repair agent checks ${esc(appOf(app).label)} and reconnects what it can</span></div>` : ''; }
+      return i.stepId ? `<div class="fix"><button class="btn sm" data-act="select" data-s="${i.stepId}">Open the step</button></div>` : '';
+    };
+    const overview = `
+      ${plan ? `<div><h3>From your description</h3>${plan.understood.length ? `<div class="checks">${plan.understood.map((u) => `<div class="check ok"><span class="dot">${ic('check')}</span><span>${esc(u)}</span></div>`).join('')}</div>` : ''}${plan.unclear.length ? `<div class="checks" style="margin-top:8px">${plan.unclear.map((u) => `<div class="check warn" data-test="unclear"><span class="dot">${ic('alert')}</span><span>Not understood: ${esc(u)}. Add a step for it, or leave it out.</span></div>`).join('')}</div>` : ''}${plan.addedApprovals.length ? `<div class="note" style="margin-top:8px">Concludo added an approval before ${esc(plan.addedApprovals.join(', '))}, because ${plan.addedApprovals.length === 1 ? 'it sends' : 'they send'} something outside Concludo.</div>` : ''}</div>` : ''}
+      <div><h3>How it works</h3><ol class="explain">${explain.map((l, i) => `<li class="${i === 0 ? 'first' : ''}">${esc(l)}</li>`).join('')}</ol></div>`;
+    const checksBlock = `<div><h3>Checks</h3><div class="checks" data-test="checks">${issues.length ? issues.map((i) => `<div class="check ${i.level}"><span class="dot">${ic(i.level === 'block' ? 'x' : 'alert')}</span><span>${esc(i.text)}${fixBtn(i)}</span></div>`).join('') : `<div class="check ok"><span class="dot">${ic('check')}</span><span>All checks pass. ${wf.status === 'active' ? 'This workflow is on.' : 'You can turn it on.'}</span></div>`}</div></div>`;
+    const palette = `<div class="palette" data-test="palette"><p class="small muted" style="margin:0 0 4px">Click a step to add it${b.sel && b.sel !== 'trigger' ? ' after the selected one' : ' at the end'}, or drag it onto a plus on the diagram.</p>${[...new Set(Object.values(C.ACTIONS).map((a) => a.group))].map((g) => `<div><h4>${esc(g)}</h4>${Object.values(C.ACTIONS).filter((a) => a.group === g && !a.hidden).flatMap((a) => (a.apps.length > 1 && a.kind === 'do' ? a.apps.map((app) => ({ a, app })) : [{ a, app: a.apps[0] }])).map(({ a, app }) => `<button class="pal" draggable="true" data-act="pal-add" data-k="${a.key}" data-app="${app}" data-test="pal-${a.key}-${app}">${ic(STEP_IC({ action: a.key }))}<span><b>${esc(a.label)}${a.apps.length > 1 ? ` (${esc(appOf(app).label)})` : ''}</b><small>${appOf(app).external && a.kind === 'do' ? 'Leaves Concludo, needs approval' : a.kind === 'approval' ? 'Stops until a person approves' : a.kind === 'only_if' ? 'Stops if the rule is not met' : 'Stays inside Concludo'}</small></span></button>`).join('')}</div>`).join('')}</div>`;
+    const total = root.clientWidth || 1200;
+    const wide = total > 1100;
+    const availW = total - (wide ? 340 : 0) - (b.sel && wide ? 350 : 0);
+    const cols = Math.max(1, Math.min(6, Math.floor((availW - PADX * 2 + GAPX) / (NODE + GAPX))));
+    S.cols = cols;
+    return `<div class="space-page">
+      ${bar}
       <div class="b-head">
-        <a class="btn sm ghost" href="#workflows">${ic('back')}Workflows</a>
+        <a class="btn sm ghost" href="${toUrl('#workflows')}">${ic('back')}Workflows</a>
         <a class="btn sm primary" href="${toUrl('#builder/new')}" data-test="create">${ic('plus')}Create workflow</a>
         <label class="sr" for="wfname">Workflow name</label><input id="wfname" class="name" data-bind="wfname" value="${esc(wf.name)}">
         ${statusPill(wf)}<span class="small muted" data-test="saved">Saved</span>
@@ -380,51 +557,106 @@ export async function mountAutomation(root, opts = {}) {
       </div>
       <div class="split">
         <aside class="left">
-          ${plan ? `<div><h3>From your description</h3>${plan.understood.length ? `<div class="checks">${plan.understood.map((u) => `<div class="check ok"><span class="dot">${ic('check')}</span><span>${esc(u)}</span></div>`).join('')}</div>` : ''}${plan.unclear.length ? `<div class="checks" style="margin-top:8px">${plan.unclear.map((u) => `<div class="check warn" data-test="unclear"><span class="dot">${ic('alert')}</span><span>Not understood: ${esc(u)}. Add a step for it, or leave it out.</span></div>`).join('')}</div>` : ''}${plan.addedApprovals.length ? `<div class="note" style="margin-top:8px">Concludo added an approval before ${esc(plan.addedApprovals.join(', '))}, because ${plan.addedApprovals.length === 1 ? 'it sends' : 'they send'} something outside Concludo.</div>` : ''}</div>` : ''}
-          <div><h3>How it works</h3><ol class="explain">${explain.map((l, i) => `<li class="${i === 0 ? 'first' : ''}">${esc(l)}</li>`).join('')}</ol></div>
-          <div><h3>Checks</h3><div class="checks" data-test="checks">${issues.length ? issues.map((i) => `<div class="check ${i.level}"><span class="dot">${ic(i.level === 'block' ? 'x' : 'alert')}</span><span>${esc(i.text)}${i.fix === 'add_approval' ? `<div class="fix"><button class="btn sm" data-act="fix-approval">${ic('stamp')}Add the approval</button></div>` : i.fix === 'connect' ? `<div class="fix"><button class="btn sm" data-act="connect-open">${ic('link')}Connect apps</button></div>` : i.stepId ? `<div class="fix"><button class="btn sm" data-act="select" data-s="${i.stepId}">Open the step</button></div>` : ''}</span></div>`).join('') : `<div class="check ok"><span class="dot">${ic('check')}</span><span>All checks pass. ${wf.status === 'active' ? 'This workflow is on.' : 'You can turn it on.'}</span></div>`}</div></div>
-          ${apps.length ? `<div><h3>Apps it uses</h3><div class="conns">${conns.map(([a, c]) => `<div><b class="small">${esc(C.APPS[a].label)}</b><span class="pill ${c === 'connected' ? 'good' : 'bad'}">${esc(CONN[c] || c)}</span><span></span></div>`).join('')}</div></div>` : ''}
+          <div class="ltabs" role="tablist"><button class="${b.leftTab === 'palette' ? '' : 'on'}" data-act="ltab" data-t="overview" role="tab">Overview</button><button class="${b.leftTab === 'palette' ? 'on' : ''}" data-act="ltab" data-t="palette" data-test="tab-palette" role="tab">Step palette</button></div>
+          ${b.leftTab === 'palette' ? palette : overview}
+          ${checksBlock}
         </aside>
         <section class="right">
           <div class="ctool"><div class="seg" role="tablist"><button class="${b.view === 'diagram' ? 'on' : ''}" data-act="view" data-v="diagram">Diagram</button><button class="${b.view === 'steps' ? 'on' : ''}" data-act="view" data-v="steps">Steps</button></div>
             <button class="btn sm navy" data-act="add-open" data-at="${wf.steps.length}" data-test="add-step">${ic('plus')}Add step</button></div>
-          <div class="canvas">${b.view === 'diagram' ? diagram(wf, stepIssues) : stepsList(wf, stepIssues)}</div>
-          ${b.sel ? inspector(wf) : ''}
-          <div class="bottom" data-test="bottom"><div class="bh"><b>${ic('play')} Test run ${b.test ? `· ${esc(RUN_PILL[b.test.status][0])}` : ''}</b><div style="display:flex;gap:6px;align-items:center">
-            ${b.bottom ? `<label class="sr" for="testinput">Test input</label><select id="testinput" class="btn sm" data-bind="testInput"><option value="meeting" ${b.testInput !== 'open' && b.testInput !== 'empty' ? 'selected' : ''}>Latest meeting (sample)</option><option value="open" ${b.testInput === 'open' ? 'selected' : ''}>Open work across the workspace</option><option value="empty" ${b.testInput === 'empty' ? 'selected' : ''}>Nothing (empty input)</option></select><button class="btn sm primary" data-act="test-run" data-test="test-run">Run test</button>` : ''}
-            <button class="btn sm ghost" data-act="bottom">${b.bottom ? 'Hide' : 'Open'}</button></div></div>
-            ${b.bottom ? `<div class="bb">${b.test ? `<div class="note" style="margin-bottom:10px">Test runs never send anything and never queue approvals. They show what a live run would do with this input.</div>${timeline(b.test.steps)}` : '<div class="note">Choose an input and run a test. Nothing is sent.</div>'}</div>` : ''}
+          <div class="canvas ${b.sel && wide ? 'has-ins' : ''}" data-test="canvas">${b.view === 'diagram' ? graph(wf, stepIssues, cols) : stepsList(wf, stepIssues)}</div>
+          ${b.sel ? inspector(wf, issues) : ''}
+          <div class="dock">
+            <div class="bottom" data-test="bottom"><div class="bh"><b>${ic('play')} Test run ${b.test ? `· ${esc(RUN_PILL[b.test.status][0])}` : ''}</b><div style="display:flex;gap:6px;align-items:center">
+              ${b.bottom ? `<label class="sr" for="testinput">Test input</label><select id="testinput" class="btn sm" data-bind="testInput"><option value="meeting" ${b.testInput !== 'open' && b.testInput !== 'empty' ? 'selected' : ''}>Latest meeting</option><option value="open" ${b.testInput === 'open' ? 'selected' : ''}>Open work across the workspace</option><option value="empty" ${b.testInput === 'empty' ? 'selected' : ''}>Nothing (empty input)</option></select><button class="btn sm primary" data-act="test-run" data-test="test-run">Run test</button>` : ''}
+              <button class="btn sm ghost" data-act="bottom">${b.bottom ? 'Hide' : 'Open'}</button></div></div>
+              ${b.bottom ? `<div class="bb">${b.test ? `<div class="note" style="margin-bottom:10px">Test runs never send anything and never queue approvals. They show what a live run would do with this input.</div>${timeline(b.test.steps)}` : '<div class="note">Choose an input and run a test. Nothing is sent.</div>'}</div>` : ''}
+            </div>
+            ${appsBar(checks, usedApps)}
           </div>
         </section>
-      </div>`;
+      </div>
+    </div>`;
   }
-  function nodeHtml(wf, s, i, issuesFor) {
+  function appsBar(checks, used) {
+    const sim = checks.some((c) => c.simulated);
+    const live = checks.length ? checks.reduce((a, c) => (c.checkedAt > a ? c.checkedAt : a), '') : '';
+    return `<div class="appsbar" data-test="apps-bar"><div class="ab-h"><b>${ic('link')}Connected apps</b>
+        <span class="small muted" data-test="checked-line">${live ? `Checked ${esc(when(live))}` : 'Not checked yet'}${sim ? '. Preview check: reads the sample record, not the real app.' : checks.some((c) => !c.verified) ? '. Some apps could not be checked.' : ''}</span><span class="grow"></span>
+        <button class="btn sm" data-act="check-apps" data-test="check-apps">${ic('undo')}Check all now</button><button class="btn sm" data-act="connect-open" data-test="manage-apps">Manage</button></div>
+      <div class="ab-list">${checks.map((c) => `<div class="appchip ${dotClass(c)} ${used.has(c.app) ? 'used' : ''}" data-test="app-${c.app}" title="${esc(c.detail)}"><i></i><span class="ac-t"><b>${esc(appOf(c.app).label)}</b><small>${esc(connWords(c))}${used.has(c.app) ? ' · used here' : ''}</small></span>${c.state !== 'connected' || !c.verified ? `<button class="btn sm ${used.has(c.app) ? 'primary' : ''}" data-act="fix-conn" data-app="${c.app}" data-test="fix-${c.app}">${ic(used.has(c.app) ? 'bot' : 'link')}${used.has(c.app) ? 'Fix it' : c.state === 'connected' ? 'Check' : 'Connect'}</button>` : ''}</div>`).join('')}</div>
+      <p class="indep">Concludo is independent. Outlook, Gmail, Google Calendar, Microsoft To Do, Slack, Microsoft Teams, Google Sheets and HubSpot are named only as apps a workflow can send to. Concludo is not affiliated with or endorsed by any of them.</p></div>`;
+  }
+  function createView(b) {
+    const manual = b.mode === 'manual';
+    return `<div class="stageA">
+      <div class="eyebrow" style="justify-content:center">Create a workflow</div>
+      <h1>${manual ? 'Build it step by step' : 'Describe what should happen'}</h1>
+      <p>${manual ? 'Choose when it runs, then add each step yourself from the palette. Concludo still adds an approval before anything leaves Concludo.' : 'Write it the way you would say it. Concludo builds the steps, adds an approval before anything leaves Concludo, and shows you what it did not understand.'}</p>
+      <div class="seg modes" role="tablist" aria-label="How to build"><button class="${manual ? '' : 'on'}" data-act="mode" data-m="describe" role="tab" data-test="mode-describe">${ic('spark')}Describe it</button><button class="${manual ? 'on' : ''}" data-act="mode" data-m="manual" role="tab" data-test="mode-manual">${ic('flow')}Build manually</button></div>
+      ${manual ? `<div class="describe manual" data-test="manual-form">
+          <div class="field"><label for="mname">Workflow name</label><input id="mname" data-bind="mname" data-autofocus value="${esc(b.mname)}" placeholder="For example: Client follow-up"></div>
+          <div class="grid2"><div class="field"><label for="mtrig">When should it run?</label><select id="mtrig" data-bind="mtrig">${Object.entries(C.TRIGGERS).map(([k, t]) => `<option value="${k}" ${b.mtrig === k ? 'selected' : ''}>${esc(t.label)}</option>`).join('')}</select></div>
+          ${b.mtrig === 'workflow_schedule' ? `<div class="field"><label for="msched">Schedule</label><select id="msched" data-bind="msched">${['Every Monday', 'Every weekday', 'Every Friday', 'Daily', 'First Monday of the month'].map((x) => `<option ${b.msched === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>` : '<div></div>'}</div>
+          <div class="row"><span class="small muted">${esc(trigOf(b.mtrig).hint)}.</span><button class="btn primary" data-act="manual-start" data-test="manual-start">${ic('plus')}Start building</button></div></div>`
+      : `<div class="describe"><label class="sr" for="describe">Describe the workflow</label><textarea id="describe" data-bind="draftText" data-autofocus placeholder="After each meeting, summarise it, add the actions to the tracker, then email the attendees">${esc(b.draftText || '')}</textarea>
+          <div class="row"><span class="small muted">Works best as: when this happens, do this, then that.</span><button class="btn primary" data-act="plan" data-test="plan">${ic('spark')}Build it</button></div></div>
+        <div class="examples">${EXAMPLES.map((e, i) => `<button data-act="example" data-i="${i}">${esc(e)}</button>`).join('')}</div>`}
+      <div class="eyebrow" style="justify-content:center;margin-top:${manual ? 28 : 0}px">Or start from a template</div>
+      <div class="tpls" style="text-align:left;margin-top:10px">${C.TEMPLATES.map((t) => `<button class="tpl" data-act="from-template" data-k="${t.key}"><b>${esc(t.name)}</b><span>${esc(t.summary)}</span></button>`).join('')}</div>
+    </div>`;
+  }
+  function nodeHtml(s, i, issuesFor, x, y) {
     const spec = actOf(s.action);
-    const app = appOf(s.app);
-    const cls = spec.kind === 'approval' ? 'approval' : spec.kind === 'only_if' ? 'cond' : '';
-    const kind = spec.kind === 'approval' ? 'A person approves' : spec.kind === 'only_if' ? 'Condition' : app.external ? `Leaves Concludo · ${app.label}` : 'Inside Concludo';
+    const cls = spec.kind === 'approval' ? 'approval' : spec.kind === 'only_if' ? 'cond' : appOf(s.app).external ? 'ext' : '';
+    const kind = spec.kind === 'approval' ? 'A person approves' : spec.kind === 'only_if' ? 'Condition' : appOf(s.app).external ? `Leaves Concludo · ${appOf(s.app).label}` : 'Inside Concludo';
     const bad = issuesFor(s.id).length;
-    return `<button class="node ${cls} ${S.b.sel === s.id ? 'sel' : ''} ${bad ? 'issue' : ''}" data-act="select" data-s="${s.id}" data-test="node-${i}"><span class="n-ic">${ic(STEP_IC(s))}</span><span><span class="kind">${esc(kind)}</span><b>${esc(s.label)}</b><span>${esc(spec.explain(s))}</span></span>${bad ? `<span class="pill bad">${ic('alert')}Fix</span>` : s.autoAdded ? '<span class="pill gold">Added</span>' : ''}</button>`;
+    return `<button class="node ${cls} ${S.b.sel === s.id ? 'sel' : ''} ${bad ? 'issue' : ''}" style="left:${x - 28}px;top:${y}px" data-act="select" data-s="${s.id}" data-test="node-${i}"><span class="n-box"><span class="n-ic">${ic(STEP_IC(s))}</span>${bad ? `<span class="n-bad">${ic('alert')}Fix</span>` : s.autoAdded ? '<span class="n-new">Added</span>' : ''}</span><span class="n-t"><b>${esc(s.label)}</b><span class="kind">${esc(kind)}</span></span></button>`;
   }
-  function diagram(wf, issuesFor) {
-    const trig = trigOf(wf.trigger && wf.trigger.type);
-    let h = `<button class="node trigger ${S.b.sel === 'trigger' ? 'sel' : ''}" data-act="select" data-s="trigger"><span class="n-ic">${ic('bolt')}</span><span><span class="kind">When</span><b>${esc(trig.label)}</b><span>${esc((wf.trigger && wf.trigger.schedule) || trig.hint)}</span></span></button>`;
-    wf.steps.forEach((s, i) => { h += `<div class="link"></div><button class="plus" data-act="add-open" data-at="${i}" aria-label="Add a step here">${ic('plus')}</button><div class="link"></div>${nodeHtml(wf, s, i, issuesFor)}`; });
-    h += `<div class="link"></div><button class="plus" data-act="add-open" data-at="${wf.steps.length}" aria-label="Add a step at the end">${ic('plus')}</button><div class="end">End</div>`;
-    return h;
+  function graph(wf, issuesFor, cols) {
+    const items = [{ t: 'trigger' }, ...wf.steps.map((s, i) => ({ t: 'step', s, i })), { t: 'end' }];
+    const rows = Math.ceil(items.length / cols);
+    const W = PADX * 2 + cols * NODE + (cols - 1) * GAPX;
+    const H = PADY + rows * ROWH - 30;
+    const at = (k) => { const c = k % cols, r = Math.floor(k / cols); return { x: PADX + c * (NODE + GAPX), y: PADY + r * ROWH, r }; };
+    const R = 12;
+    let paths = '', plus = '', nodes = '', ports = '';
+    items.forEach((it, k) => {
+      const p = at(k), yc = p.y + NODE / 2;
+      if (it.t === 'trigger') {
+        nodes += `<button class="node trigger ${S.b.sel === 'trigger' ? 'sel' : ''}" style="left:${p.x - 28}px;top:${p.y}px" data-act="select" data-s="trigger" data-test="node-trigger"><span class="n-box"><span class="n-ic">${ic('bolt')}</span></span><span class="n-t"><b>${esc(trigOf(wf.trigger && wf.trigger.type).label)}</b><span class="kind">When${wf.trigger.schedule ? ` · ${esc(wf.trigger.schedule)}` : ''}</span></span></button>`;
+      } else if (it.t === 'step') nodes += nodeHtml(it.s, it.i, issuesFor, p.x, p.y);
+      else nodes += `<button class="plus end-plus" style="left:${p.x + NODE / 2 - 22}px;top:${yc - 22}px" data-act="add-open" data-at="${wf.steps.length}" data-drop="${wf.steps.length}" aria-label="Add a step at the end" data-test="add-end">${ic('plus')}</button>`;
+      const left = it.t === 'end' ? p.x + NODE / 2 - 22 : p.x, right = p.x + NODE;
+      if (k > 0) ports += `<circle cx="${left}" cy="${yc}" r="5" class="port"/>`;
+      if (k < items.length - 1) ports += `<circle cx="${right}" cy="${yc}" r="5" class="port"/>`;
+      if (k < items.length - 1) {
+        const q = at(k + 1), nyc = q.y + NODE / 2, nIsEnd = items[k + 1].t === 'end';
+        const x2 = nIsEnd ? q.x + NODE / 2 - 22 : q.x;
+        const bad = items[k + 1].t === 'step' && issuesFor(items[k + 1].s.id).length;
+        if (q.r === p.r) {
+          paths += `<path class="wire ${bad ? 'bad' : ''}" d="M${right + 5} ${yc} H${x2 - 7}" marker-end="url(#arr)"/>`;
+          if (!nIsEnd) plus += `<button class="plus" style="left:${(right + x2) / 2 - 11}px;top:${yc - 11}px" data-act="add-open" data-at="${k}" data-drop="${k}" aria-label="Add a step here">${ic('plus')}</button>`;
+        } else {
+          const xa = right + 38, xb = PADX - 26, yr = p.y + NODE + 82;
+          paths += `<path class="wire ${bad ? 'bad' : ''}" d="M${right + 5} ${yc} H${xa - R} Q${xa} ${yc} ${xa} ${yc + R} V${yr - R} Q${xa} ${yr} ${xa - R} ${yr} H${xb + R} Q${xb} ${yr} ${xb} ${yr + R} V${nyc - R} Q${xb} ${nyc} ${xb + R} ${nyc} H${x2 - 7}" marker-end="url(#arr)"/>`;
+          if (!nIsEnd) plus += `<button class="plus" style="left:${(xa + xb) / 2 - 11}px;top:${yr - 11}px" data-act="add-open" data-at="${k}" data-drop="${k}" aria-label="Add a step here">${ic('plus')}</button>`;
+        }
+      }
+    });
+    return `<div class="graph" style="width:${W}px;height:${H}px" data-cols="${cols}" data-test="graph"><svg class="wires" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1.5L8 5 1 8.5z" class="arrowhead"/></marker></defs>${paths}${ports}</svg>${nodes}${plus}</div>`;
   }
   function stepsList(wf, issuesFor) {
-    const trig = trigOf(wf.trigger && wf.trigger.type);
-    return `<div class="stepsview"><button class="row" data-act="select" data-s="trigger"><span class="no">${ic('bolt')}</span><span><b>${esc(trig.label)}</b><br><span class="small muted">${esc((wf.trigger && wf.trigger.schedule) || 'Trigger')}</span></span><span></span></button>${(wf.steps || []).map((s, i) => { const spec = actOf(s.action); const app = appOf(s.app); return `<button class="row" data-act="select" data-s="${s.id}"><span class="no">${i + 1}</span><span><b>${esc(s.label)}</b><br><span class="small muted">${esc(spec.explain({ ...s, settings: s.settings || {} }))}</span></span>${issuesFor(s.id).length ? '<span class="pill bad">Fix</span>' : `<span class="appb ${app.external ? 'ext' : ''}">${esc(app.label)}</span>`}</button>`; }).join('')}</div>`;
+    return `<div class="stepsview"><button class="row" data-act="select" data-s="trigger"><span class="no">${ic('bolt')}</span><span><b>${esc(trigOf(wf.trigger && wf.trigger.type).label)}</b><br><span class="small muted">${esc(wf.trigger.schedule || 'Trigger')}</span></span><span></span></button>${wf.steps.map((s, i) => `<button class="row" data-act="select" data-s="${s.id}"><span class="no">${i + 1}</span><span><b>${esc(s.label)}</b><br><span class="small muted">${esc(actOf(s.action).explain(s))}</span></span>${issuesFor(s.id).length ? '<span class="pill bad">Fix</span>' : `<span class="appb ${appOf(s.app).external ? 'ext' : ''}">${esc(appOf(s.app).label)}</span>`}</button>`).join('')}</div>`;
   }
   function guarding(wf, idx) {
     // An approval is required if removing it leaves an external step unguarded.
     const test = { ...wf, steps: wf.steps.filter((_, i) => i !== idx) };
     let guarded = false;
-    for (const s of test.steps) { const spec = actOf(s.action); const app = appOf(s.app); if (spec.kind === 'approval') guarded = true; if (spec.kind === 'do' && spec.key !== 'unsupported' && app.external && !guarded) return true; }
+    for (const s of test.steps) { if (actOf(s.action).kind === 'approval') guarded = true; if (actOf(s.action).kind === 'do' && appOf(s.app).external && !guarded) return true; }
     return false;
   }
-  function inspector(wf) {
+  function inspector(wf, issues) {
     if (S.b.sel === 'trigger') {
       return `<aside class="inspector" aria-label="Trigger"><div class="i-h"><h3>When should it run?</h3><button class="btn ghost sm" data-act="deselect" aria-label="Close">${ic('x')}</button></div><div class="i-b">
         <div class="field"><label for="trig">Trigger</label><select id="trig" data-edit="trigger">${Object.entries(C.TRIGGERS).map(([k, t]) => `<option value="${k}" ${wf.trigger.type === k ? 'selected' : ''}>${esc(t.label)}</option>`).join('')}</select></div>
@@ -435,13 +667,14 @@ export async function mountAutomation(root, opts = {}) {
     if (idx < 0) return '';
     const s = wf.steps[idx];
     const spec = actOf(s.action);
-    const app = appOf(s.app);
     const locked = spec.kind === 'approval' && guarding(wf, idx);
+    const own = (issues || []).filter((i) => i.stepId === s.id && i.level === 'block');
     return `<aside class="inspector" aria-label="Step settings"><div class="i-h"><h3>${esc(s.label)}</h3><button class="btn ghost sm" data-act="deselect" aria-label="Close">${ic('x')}</button></div>
       <div class="i-b">
-        ${spec.apps.length > 1 ? `<div class="field"><label for="app">App</label><select id="app" data-edit="app">${spec.apps.map((a) => `<option value="${a}" ${s.app === a ? 'selected' : ''}>${esc(C.APPS[a].label)}</option>`).join('')}</select></div>` : ''}
+        ${own.map((i) => `<div class="check block" style="margin-bottom:10px"><span class="dot">${ic('x')}</span><span>${esc(i.text)}${i.fix === 'connect' ? `<div class="fix"><button class="btn sm primary" data-act="fix-conn" data-app="${s.app}" data-test="fix-conn-inspector">${ic('bot')}Fix it</button></div>` : i.fix === 'add_approval' ? `<div class="fix"><button class="btn sm primary" data-act="fix-approval">${ic('stamp')}Fix it</button></div>` : ''}</span></div>`).join('')}
+        ${spec.apps.length > 1 ? `<div class="field"><label for="app">App</label><select id="app" data-edit="app">${spec.apps.map((a) => `<option value="${a}" ${s.app === a ? 'selected' : ''}>${esc(appOf(a).label)}</option>`).join('')}</select></div>` : ''}
         ${spec.fields.filter((f) => !(f.key === 'address' && s.settings.to !== 'custom')).map((f) => `<div class="field"><label for="f-${f.key}">${esc(f.label)}${f.required ? '' : ' (optional)'}</label>${f.kind === 'select' ? `<select id="f-${f.key}" data-edit="set:${f.key}">${f.options.map((o) => `<option value="${o.value}" ${s.settings[f.key] === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>` : `<input id="f-${f.key}" data-edit="set:${f.key}" value="${esc(s.settings[f.key] || '')}" placeholder="${esc(f.placeholder || '')}">`}</div>`).join('')}
-        <div class="note">${esc(spec.explain({ ...s, settings: s.settings || {} }))}${app.external && spec.kind === 'do' && spec.key !== 'unsupported' ? ' It runs only after a person approves it.' : ''}</div>
+        <div class="note">${esc(spec.explain(s))}${appOf(s.app).external && spec.kind === 'do' ? ' It runs only after a person approves it.' : ''}</div>
         ${locked ? '<div class="note" style="margin-top:8px">This approval protects a later step that sends outside Concludo, so it cannot be removed.</div>' : ''}
       </div>
       <div class="i-f"><button class="btn sm" data-act="move" data-d="-1" ${idx === 0 ? 'disabled' : ''}>${ic('up')}Up</button><button class="btn sm" data-act="move" data-d="1" ${idx === wf.steps.length - 1 ? 'disabled' : ''}>${ic('down')}Down</button><span style="flex:1"></span><button class="btn sm" data-act="remove" ${locked ? 'disabled' : ''} data-test="remove-step">${ic('trash')}Remove</button></div></aside>`;
@@ -458,24 +691,62 @@ export async function mountAutomation(root, opts = {}) {
     b.wf = g.workflow;
     b.wf.updatedAt = store.now();
     await store.saveWorkflow(b.wf);
+    S.checks = null;
     if (g.added.length) toast(`Concludo added an approval before “${g.added.join('”, “')}”, because it sends something outside Concludo.`);
     else if (note) toast(note);
     await render(true);
   }
   function pickerModal(at) {
-    const visible = Object.values(C.ACTIONS).filter((a) => !a.hidden);
-    const groups = [...new Set(visible.map((a) => a.group))];
+    const groups = [...new Set(Object.values(C.ACTIONS).map((a) => a.group))];
     return `<div class="modal-bg" data-act="close-modal"><div class="modal" role="dialog" aria-label="Add a step" data-stop>
       <div class="mh"><h2>Add a step</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
-      <div class="mb"><div class="picker">${groups.map((g) => `<div><h4>${esc(g)}</h4><div class="opts">${visible.filter((a) => a.group === g).flatMap((a) => a.apps.length > 1 && a.kind === 'do' ? a.apps.map((app) => ({ a, app })) : [{ a, app: a.apps[0] }]).map(({ a, app }) => `<button class="opt" data-act="add-step" data-k="${a.key}" data-app="${app}" data-at="${at}" data-test="pick-${a.key}-${app}"><b>${esc(a.label)}${a.apps.length > 1 ? ` (${esc(C.APPS[app].label)})` : ''}</b><span>${C.APPS[app].external && a.kind === 'do' ? 'Leaves Concludo: needs approval' : a.kind === 'approval' ? 'Stops until a person approves' : a.kind === 'only_if' ? 'Stops the workflow if the rule is not met' : 'Stays inside Concludo'}</span></button>`).join('')}</div></div>`).join('')}</div></div></div></div>`;
+      <div class="mb"><div class="picker">${groups.map((g) => `<div><h4>${esc(g)}</h4><div class="opts">${Object.values(C.ACTIONS).filter((a) => a.group === g && !a.hidden).flatMap((a) => a.apps.length > 1 && a.kind === 'do' ? a.apps.map((app) => ({ a, app })) : [{ a, app: a.apps[0] }]).map(({ a, app }) => `<button class="opt" data-act="add-step" data-k="${a.key}" data-app="${app}" data-at="${at}" data-test="pick-${a.key}-${app}"><b>${esc(a.label)}${a.apps.length > 1 ? ` (${esc(appOf(app).label)})` : ''}</b><span>${appOf(app).external && a.kind === 'do' ? 'Leaves Concludo: needs approval' : a.kind === 'approval' ? 'Stops until a person approves' : a.kind === 'only_if' ? 'Stops the workflow if the rule is not met' : 'Stays inside Concludo'}</span></button>`).join('')}</div></div>`).join('')}</div></div></div></div>`;
   }
   async function connectModal() {
-    const keys = Object.keys(C.APPS).filter((k) => C.APPS[k].external);
-    const rows = await Promise.all(keys.map(async (k) => [k, await store.connection(k)]));
+    const checks = await getChecks(true);
+    const canSim = typeof store.completeSignIn === 'function';
     return `<div class="modal-bg" data-act="close-modal"><div class="modal narrow" role="dialog" aria-label="Connect apps" data-stop>
-      <div class="mh"><h2>Connect apps</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
-      <div class="mb"><div class="note">In the Workspace this opens each app’s own sign-in. In this preview, “Mark connected” only changes the preview’s record.</div>
-      <div class="conns">${rows.map(([k, c]) => `<div><b class="small">${esc(C.APPS[k].label)}</b><span class="pill ${c === 'connected' ? 'good' : 'bad'}">${esc(CONN[c] || c)}</span><button class="btn sm" data-act="conn-toggle" data-k="${k}">${c === 'connected' ? 'Disconnect' : 'Mark connected'}</button></div>`).join('')}</div></div></div></div>`;
+      <div class="mh"><h2>Connected apps</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
+      <div class="mb"><div class="note">Each app is checked, not assumed. ${checks.some((c) => c.simulated) ? 'In this preview the check reads the sample record. In the Workspace it asks the app itself.' : ''} Only a person can sign in to an app.</div>
+      <div class="conns">${checks.map((c) => `<div><span><b class="small">${esc(appOf(c.app).label)}</b><br><span class="small muted">${esc(c.detail)}</span></span><span class="pill ${c.state === 'connected' && c.verified ? 'good' : c.state === 'connected' ? 'line' : 'bad'}">${esc(connWords(c))}</span>${c.state === 'connected' && c.verified ? (canSim ? `<button class="btn sm" data-act="conn-toggle" data-k="${c.app}" title="Preview only">Preview: disconnect</button>` : '<span></span>') : `<button class="btn sm primary" data-act="fix-conn" data-app="${c.app}">${ic('bot')}${c.state === 'connected' ? 'Check' : 'Fix it'}</button>`}</div>`).join('')}</div></div></div></div>`;
+  }
+  /* The workflow repair agent: checks, retries, starts the sign-in, offers a connected alternative. It never signs in for a person and never sends anything. */
+  function repairModal() {
+    const R = S.repair, label = appOf(R.app).label, rep = R.report;
+    const steps = R.steps.map((s) => `<li class="${s.status === 'done' ? 'done' : s.status === 'failed' ? 'failed' : 'previewed'}"><span class="st">${ic(s.status === 'done' ? 'check' : s.status === 'failed' ? 'x' : 'alert')}</span><div><b>${esc(s.label)}</b><span>${esc(s.note)}</span></div></li>`).join('');
+    let head, foot;
+    if (!rep) { head = `<div class="agentline"><span class="spin" aria-hidden="true"></span><span><b>Workflow repair agent is working</b><small>Checking ${esc(label)}. This takes a few seconds.</small></span></div>`; foot = ''; }
+    else {
+      const tone = rep.outcome === 'fixed' ? 'good' : rep.outcome === 'needs_person' ? 'warn' : 'bad';
+      head = `<div class="banner ${tone}" data-test="repair-outcome" data-outcome="${rep.outcome}" style="margin:0">${ic(rep.outcome === 'fixed' ? 'check' : 'alert')}<span><b>${rep.outcome === 'fixed' ? 'Fixed' : rep.outcome === 'needs_person' ? 'Needs you' : 'Not fixed'}.</b> ${esc(rep.summary)}</span></div>`;
+      const alts = rep.alternatives.map((a) => `<button class="btn sm" data-act="use-alt" data-step="${a.stepId}" data-app="${a.app}" data-test="use-alt-${a.app}">${ic('arrow')}Use ${esc(a.label)} for “${esc(a.stepLabel)}”</button>`).join('');
+      foot = rep.outcome === 'fixed'
+        ? `${R.runId ? `<button class="btn primary" data-act="repair-retry" data-test="repair-retry">${ic('undo')}Retry the run</button>` : ''}<button class="btn" data-act="close-modal">Close</button>`
+        : `<div class="alts">${rep.outcome === 'needs_person' ? `<button class="btn primary" data-act="signin" data-app="${R.app}" data-test="signin">${ic('link')}Sign in to ${esc(label)}</button>` : ''}<button class="btn" data-act="recheck" data-test="recheck">${ic('undo')}Check again</button>${alts ? `<div class="alt-h small muted">Or change this workflow only. You can undo it.</div>${alts}` : ''}</div><button class="btn" data-act="close-modal">Close</button>`;
+    }
+    return `<div class="modal-bg" data-act="close-modal"><div class="modal narrow" role="dialog" aria-label="Fix the ${esc(label)} connection" data-stop>
+      <div class="mh"><h2>${ic('bot')} Fix the ${esc(label)} connection</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
+      <div class="mb">${head}<ol class="tl rtl">${steps}</ol><div class="note">The repair agent checks the app, retries a service problem and starts the sign-in. It cannot sign in for you, it never sends anything, and it says Fixed only when a check confirms it.</div></div>
+      ${foot ? `<div class="mf">${foot}</div>` : ''}</div></div>`;
+  }
+  function signinModal(app) {
+    const label = appOf(app).label;
+    return `<div class="modal-bg" data-act="close-modal"><div class="modal narrow" role="dialog" aria-label="Sign in to ${esc(label)}" data-stop>
+      <div class="mh"><h2>Sign in to ${esc(label)}</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
+      <div class="mb"><div class="note">Preview sign-in. In the Workspace this opens ${esc(label)}'s own sign-in page, and Concludo never sees your password. Here it only stands in for that page.</div></div>
+      <div class="mf"><button class="btn" data-act="signin-cancel">Back</button><button class="btn primary" data-act="signin-done" data-app="${app}" data-test="signin-done">Sign in as the sample account</button></div></div></div>`;
+  }
+  async function runRepair(app, wfId, runId) {
+    const wf = await store.getWorkflow(wfId);
+    if (!wf) throw new Error('That workflow is no longer here.');
+    S.repair = { app, wfId, runId, steps: [], report: null };
+    S.modal = repairModal(); await render(true);
+    await sleep(350);
+    const rep = await C.repairConnection(store, wf, app, S.actor, { wait: (ms) => sleep(Math.min(ms, 500)), onStep: (s) => { S.repair.steps.push(s); S.modal = repairModal(); render(true); } });
+    S.repair.report = rep;
+    S.checks = null;
+    S.modal = repairModal();
+    await render(true);
   }
 
   /* ============================================================ RUN DIALOG */
@@ -484,13 +755,13 @@ export async function mountAutomation(root, opts = {}) {
       <div class="mh"><h2>Run “${esc(name)}”</h2><button class="btn ghost sm" data-act="close-modal" aria-label="Close">${ic('x')}</button></div>
       <div class="mb"><p class="small muted" style="margin:0">A live run uses real records. Anything that would leave Concludo stops at the approval step for you to check.</p>
         <div class="radio">
-          ${[...(ws.meetings || [])].sort((a, b) => b.date.localeCompare(a.date)).map((m, i) => `<label><input type="radio" name="rin" value="m:${m.id}" ${i === 0 ? 'checked' : ''} data-test="rin-${m.id}"><span><b>${i === 0 ? 'The latest meeting' : 'Meeting'}: ${esc(m.title)}</b><span>${esc(C.auDate(m.date))}${!m.consent || m.consent === 'not_recorded' ? ' · No consent recorded: the run will be held' : ''}</span></span></label>`).join('')}
+          ${[...ws.meetings].sort((a, b) => b.date.localeCompare(a.date)).map((m, i) => `<label><input type="radio" name="rin" value="m:${m.id}" ${i === 0 ? 'checked' : ''} data-test="rin-${m.id}"><span><b>${i === 0 ? 'The latest meeting' : 'Meeting'}: ${esc(m.title)}</b><span>${esc(C.auDate(m.date))} (sample)${!m.consent || m.consent === 'not_recorded' ? ' · No consent recorded: the run will be held' : ''}</span></span></label>`).join('')}
           <label><input type="radio" name="rin" value="open"><span><b>Open work across the workspace</b><span>${ws.actions.length} actions, ${ws.decisions.length} decisions, ${ws.risks.length} risks (sample)</span></span></label>
           <label><input type="radio" name="rin" value="empty"><span><b>Nothing</b><span>Shows what the workflow does with an empty input</span></span></label>
         </div></div>
       <div class="mf"><button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="run-go" data-id="${wfId}" data-test="run-go">${ic('play')}Run now</button></div></div></div>`;
   }
-  const inputFor = (k) => (k === 'open' ? scheduleInput(ws) : k === 'empty' ? {} : k && k.startsWith('m:') ? meetingInput(ws, k.slice(2)) : (ws.meetings && ws.meetings.length ? meetingInput(ws, [...ws.meetings].sort((a, b) => b.date.localeCompare(a.date))[0].id) : {}));
+  const inputFor = (k) => (k === 'open' ? scheduleInput(ws) : k === 'empty' ? {} : k && k.startsWith('m:') ? meetingInput(ws, k.slice(2)) : meetingInput(ws, [...ws.meetings].sort((a, b) => b.date.localeCompare(a.date))[0].id));
 
   /* ============================================================ RUNS */
   async function vRuns(id, h, pending) {
@@ -509,15 +780,23 @@ export async function mountAutomation(root, opts = {}) {
         ${sel ? await runDetail(sel) : '<div></div>'}</div>
     </div>`;
   }
+  /* A run that failed because an app was not connected offers the same repair agent. */
+  function connFix(r, wf) {
+    if (r.test || r.status !== 'failed' || !wf) return '';
+    const bad = r.steps.find((x) => x.status === 'failed');
+    const st = bad && wf.steps.find((x) => x.id === bad.stepId);
+    if (!st || !appOf(st.app).external || !/(not connected|signing in again|more permission|service problem)/.test(r.error || '')) return '';
+    return `<button class="btn sm primary" data-act="fix-run-conn" data-app="${st.app}" data-wf="${wf.id}" data-run="${r.id}" data-test="fix-run-conn">${ic('bot')}Fix the ${esc(appOf(st.app).label)} connection</button>`;
+  }
   async function runDetail(r) {
     const wf = await store.getWorkflow(r.workflowId);
     const inp = r.input || {};
     const inputLine = inp.meeting ? `Meeting: ${inp.meeting.title}` : (inp.actions || []).length ? `${plural(inp.actions.length, 'action')}, ${plural((inp.decisions || []).length, 'decision')}, ${plural((inp.risks || []).length, 'risk')}` : 'Empty input';
     return `<aside class="card detail" data-test="run-detail"><div class="card-h"><h2>${esc(r.workflowName)}</h2><span class="pill ${pillOf(r)[1]}">${esc(pillOf(r)[0])}</span></div><div class="card-b">
       ${r.error ? `<div class="banner bad" style="margin:0">${ic('alert')}<span>${esc(r.error)}</span></div>` : ''}
-      <dl class="kv"><dt>Started</dt><dd>${esc(new Date(r.startedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' }))} by ${esc(r.startedBy)}</dd><dt>Input</dt><dd>${esc(inputLine)}</dd>${r.test ? '<dt>Type</dt><dd>Test run. Nothing was sent.</dd>' : ''}${r.retryOf ? '<dt>Retry of</dt><dd><a href="#runs/' + r.retryOf + '">earlier run</a></dd>' : ''}</dl>
+      <dl class="kv"><dt>Started</dt><dd>${esc(new Date(r.startedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' }))} by ${esc(r.startedBy)}</dd><dt>Input</dt><dd>${esc(inputLine)}</dd>${r.test ? '<dt>Type</dt><dd>Test run. Nothing was sent.</dd>' : ''}${r.retryOf ? '<dt>Retry of</dt><dd><a href="' + toUrl('#runs/' + r.retryOf) + '">earlier run</a></dd>' : ''}</dl>
       ${timeline(r.steps)}
-      <div style="display:flex;gap:8px;flex-wrap:wrap">${r.status === 'requires_approval' && r.approvalId ? `<a class="btn primary sm" href="#approvals/${r.approvalId}" data-test="open-approval">${ic('stamp')}Open the approval</a>` : ''}${(r.status === 'failed' || r.status === 'cancelled') && !r.test ? `<button class="btn sm primary" data-act="retry" data-id="${r.id}" ${wf && wf.status === 'active' ? '' : 'disabled title="Resume the workflow first"'}>${ic('undo')}Retry</button>` : ''}${wf ? `<a class="btn sm" href="#builder/${wf.id}">Open workflow</a>` : ''}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${r.status === 'requires_approval' && r.approvalId ? `<a class="btn primary sm" href="${toUrl('#approvals/' + r.approvalId)}" data-test="open-approval">${ic('stamp')}Open the approval</a>` : ''}${(r.status === 'failed' || r.status === 'cancelled') && !r.test ? `<button class="btn sm primary" data-act="retry" data-id="${r.id}" ${wf && wf.status === 'active' ? '' : 'disabled title="Resume the workflow first"'}>${ic('undo')}Retry</button>` : ''}${wf ? `<a class="btn sm" href="${toUrl('#builder/' + wf.id)}">Open workflow</a>` : ''}${connFix(r, wf)}</div>
     </div></aside>`;
   }
 
@@ -540,7 +819,7 @@ export async function mountAutomation(root, opts = {}) {
     const blocked = a.status === 'pending' && wf && wf.status === 'paused';
     const run = a.runId ? await store.getRun(a.runId) : null;
     return `<section class="card ap-detail" data-test="ap-detail"><div class="card-h"><div><div class="eyebrow">${a.kind === 'agent_draft' ? 'Agent draft' : 'Workflow approval'}</div><h2>${esc(a.title)}</h2></div><span class="pill ${a.status === 'pending' ? 'gold' : a.status === 'approved' ? 'good' : a.status === 'rejected' ? 'warn' : 'line'}">${esc(a.status === 'pending' ? 'Waiting' : a.status[0].toUpperCase() + a.status.slice(1))}</span></div><div class="card-b">
-      <dl class="kv"><dt>Source</dt><dd>${esc(a.source)}</dd><dt>Requested</dt><dd>${esc(when(a.requestedAt))} by ${esc(a.requestedBy)}</dd>${run ? `<dt>Run</dt><dd><a href="#runs/${run.id}">${esc(RUN_PILL[run.status][0])}</a></dd>` : ''}${a.decidedBy ? `<dt>Decided</dt><dd>${esc(a.status)} by ${esc(a.decidedBy)}${a.note ? `: “${esc(a.note)}”` : ''}</dd>` : ''}</dl>
+      <dl class="kv"><dt>Source</dt><dd>${esc(a.source)}</dd><dt>Requested</dt><dd>${esc(when(a.requestedAt))} by ${esc(a.requestedBy)}</dd>${run ? `<dt>Run</dt><dd><a href="${toUrl('#runs/' + run.id)}">${esc(RUN_PILL[run.status][0])}</a></dd>` : ''}${a.decidedBy ? `<dt>Decided</dt><dd>${esc(a.status)} by ${esc(a.decidedBy)}${a.note ? `: “${esc(a.note)}”` : ''}</dd>` : ''}</dl>
       ${blocked ? `<div class="banner bad" style="margin:0">${ic('alert')}<span><b>${wf.pausedBy === 'workspace_stop' ? 'All workflows are stopped.' : 'This workflow is paused.'}</b> Resume it in the <a href="${toUrl('#governance')}">Governance Centre</a> before approving. This request keeps waiting.</span></div>` : ''}
       <div><div class="eyebrow">${a.status === 'pending' ? 'If you approve' : 'What was approved'}</div><div class="outgoing">${a.outgoing.length ? a.outgoing.map((o) => `<div class="og"><div class="oh"><b>${esc(o.what)}</b><span class="muted">To: ${esc(o.to)}</span></div><pre>${esc(o.preview)}</pre></div>`).join('') : '<div class="note">Nothing would leave Concludo.</div>'}</div></div>
       ${a.kind === 'agent_draft' ? '<div class="note">Approving marks the draft ready. Concludo never sends agent drafts: copy it into your mail app.</div>' : ''}
@@ -607,14 +886,6 @@ export async function mountAutomation(root, opts = {}) {
   }
 
   root.addEventListener('click', (ev) => guarded(async () => {
-    const link = ev.target.closest('a');
-    if (link && link.getAttribute('href')) {
-      const href = link.getAttribute('href');
-      if (href.startsWith('/workflows') || href.startsWith('/approvals') || href.startsWith('/agents') || (href.startsWith('#') && !href.startsWith('#grp-'))) {
-        ev.preventDefault();
-        return go(href);
-      }
-    }
     const t = ev.target.closest('[data-act]');
     if (!t) return;
     if (t.matches('.modal-bg') && ev.target.closest('[data-stop]')) return;
@@ -691,7 +962,51 @@ export async function mountAutomation(root, opts = {}) {
       case 'undo': { const prev = S.b.history.pop(); if (prev) { S.b.wf = prev; await store.saveWorkflow(prev); toast('Undone.'); } return render(true); }
       case 'fix-approval': return editWf(() => {}, 'Approval added.');
       case 'connect-open': S.modal = await connectModal(); return render(true);
-      case 'conn-toggle': { const k = t.dataset.k; store.connections[k] = store.connections[k] === 'connected' ? 'disconnected' : 'connected'; S.modal = await connectModal(); return render(true); }
+      case 'conn-toggle': { const k = t.dataset.k; if (typeof store.completeSignIn !== 'function') return; store.connections[k] = store.connections[k] === 'connected' ? 'disconnected' : 'connected'; S.modal = await connectModal(); return render(true); }
+      case 'check-apps': { const cs = await getChecks(true); toast(cs.some((c) => c.simulated) ? 'Checked all apps. Checked against the saved connections.' : 'Checked all apps.'); return render(true); }
+      case 'fix-conn': { const wfId = S.b?.wf?.id || S.repair?.wfId; if (!wfId) return toast('Open a workflow first, then fix its connection.', true); return runRepair(t.dataset.app, wfId, S.repair?.runId && S.repair.wfId === wfId ? S.repair.runId : null); }
+      case 'fix-run-conn': return runRepair(t.dataset.app, t.dataset.wf, t.dataset.run);
+      case 'recheck': return runRepair(S.repair.app, S.repair.wfId, S.repair.runId);
+      case 'signin': {
+        const app = t.dataset.app;
+        if (opts.onSignIn) { const done = await opts.onSignIn(app); return runRepair(app, S.repair.wfId, S.repair.runId); }
+        if (typeof store.completeSignIn !== 'function') { toast('Open Connect App in the Workspace to sign in, then press Check again.', true); return; }
+        S.modal = signinModal(app); return render(true);
+      }
+      case 'signin-cancel': S.modal = repairModal(); return render(true);
+      case 'signin-done': { if (typeof store.completeSignIn === 'function') store.completeSignIn(t.dataset.app); return runRepair(t.dataset.app, S.repair.wfId, S.repair.runId); }
+      case 'use-alt': {
+        const wf = await store.getWorkflow(S.repair.wfId);
+        const before = JSON.parse(JSON.stringify(wf));
+        await C.applyAlternative(store, wf, t.dataset.step, t.dataset.app, S.actor);
+        if (S.b && S.b.wf && S.b.wf.id === wf.id) S.b.history.push(before);
+        S.modal = null; S.checks = null;
+        toast(`That step now uses ${appOf(t.dataset.app).label}. Undo puts it back.`);
+        return render(true);
+      }
+      case 'repair-retry': {
+        const run = await C.retryRun(store, S.repair.runId, S.actor);
+        S.modal = null;
+        toast('Retried as a new run.');
+        return go(`#runs/${run.id}`);
+      }
+      case 'ltab': S.b.leftTab = t.dataset.t; return render(true);
+      case 'mode': S.b = { ...(S.b || newB('new')), id: 'new', wf: null, mode: t.dataset.m }; return render(true);
+      case 'manual-start': {
+        const name = (S.b.mname || '').trim() || 'New workflow';
+        const wf = C.blankWorkflow(store, S.actor, { type: S.b.mtrig, ...(S.b.mtrig === 'workflow_schedule' ? { schedule: S.b.msched } : {}) }, name);
+        await store.saveWorkflow(wf);
+        await store.appendAudit({ id: store.id('aud'), at: store.now(), actor: S.actor, event: 'workflow_created', objectType: 'workflow', objectId: wf.id, detail: `Started building “${name}” step by step.` });
+        S.b = { ...newB(wf.id), id: wf.id, wf, leftTab: 'palette', mode: 'manual' };
+        return go(`#builder/${wf.id}`);
+      }
+      case 'pal-add': {
+        const wf = S.b.wf;
+        const i = wf.steps.findIndex((x) => x.id === S.b.sel);
+        const step = C.newStep(store, t.dataset.k, t.dataset.app);
+        S.b.sel = step.id;
+        return editWf((w) => w.steps.splice(i >= 0 ? i + 1 : w.steps.length, 0, step), `${step.label} added.`);
+      }
       case 'test-open': S.b.bottom = true; return render(true);
       case 'bottom': S.b.bottom = !S.b.bottom; return render(true);
       case 'test-run': {
@@ -754,12 +1069,15 @@ export async function mountAutomation(root, opts = {}) {
   root.addEventListener('input', (ev) => {
     const t = ev.target;
     if (t.dataset.bind === 'draftText') S.b.draftText = t.value;
+    if (t.dataset.bind === 'mname') S.b.mname = t.value;
     if (t.dataset.bind === 'apNote') S.apNote = t.value;
     if (t.dataset.bind === 'stopReason') S.stopReason = t.value;
   });
   root.addEventListener('change', (ev) => guarded(async () => {
     const t = ev.target;
     if (t.dataset.bind === 'testInput') { S.b.testInput = t.value; return; }
+    if (t.dataset.bind === 'mtrig') { S.b.mtrig = t.value; return render(true); }
+    if (t.dataset.bind === 'msched') { S.b.msched = t.value; return; }
     if (t.dataset.agentOpt) { const k = t.dataset.k; S.agentOpts[k] = { ...(S.agentOpts[k] || {}), [t.dataset.agentOpt]: t.dataset.agentOpt === 'periodDays' ? +t.value : t.value || undefined }; await runAgentNow(k); return render(true); }
     if (t.dataset.bind === 'wfname') return editWf((wf) => { wf.name = t.value.trim() || wf.name; }, 'Name saved.');
     const e = t.dataset.edit;
@@ -769,9 +1087,24 @@ export async function mountAutomation(root, opts = {}) {
     if (e === 'app') return editWf((wf) => { wf.steps.find((s) => s.id === S.b.sel).app = t.value; });
     if (e.startsWith('set:')) return editWf((wf) => { const st = wf.steps.find((s) => s.id === S.b.sel); const wasDefault = st.label === C.stepLabel(st); st.settings[e.slice(4)] = t.value; if (wasDefault) st.label = C.stepLabel(st); });
   }));
-  window.addEventListener('hashchange', () => { S.modal = null; S.agentOpen = null; render().then(() => window.scrollTo(0, 0)); });
-  window.addEventListener('popstate', () => { S.modal = null; S.agentOpen = null; render().then(() => window.scrollTo(0, 0)); });
-  root.__cma = { store, S, render, get ws() { return ws; } };
+  const dropAt = (el) => { const d = el.closest('[data-drop]'); if (d) return +d.dataset.drop; return el.closest('.graph') ? S.b.wf.steps.length : null; };
+  root.addEventListener('dragstart', (ev) => { const p = ev.target.closest && ev.target.closest('.pal'); if (!p) return; ev.dataTransfer.setData('text/plain', `${p.dataset.k}|${p.dataset.app}`); ev.dataTransfer.effectAllowed = 'copy'; root.classList.add('dragging'); });
+  root.addEventListener('dragend', () => { root.classList.remove('dragging'); root.querySelectorAll('.drop').forEach((x) => x.classList.remove('drop')); });
+  root.addEventListener('dragover', (ev) => { if (!ev.target.closest || dropAt(ev.target) === null) return; ev.preventDefault(); root.querySelectorAll('.drop').forEach((x) => x.classList.remove('drop')); ev.target.closest('[data-drop]')?.classList.add('drop'); });
+  root.addEventListener('drop', (ev) => guarded(async () => {
+    const at = ev.target.closest ? dropAt(ev.target) : null;
+    const [k, app] = (ev.dataTransfer.getData('text/plain') || '').split('|');
+    if (at === null || !Object.prototype.hasOwnProperty.call(C.ACTIONS, k) || actOf(k).hidden) return;
+    ev.preventDefault();
+    root.classList.remove('dragging');
+    const step = C.newStep(store, k, app);
+    S.b.sel = step.id;
+    return editWf((w) => w.steps.splice(at, 0, step), `${step.label} added.`);
+  }));
+  let rzT = 0;
+  window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if (route().page !== 'builder' || !S.b?.wf) return; const w = root.clientWidth || 1200; const wide = w > 1100; const a = w - (wide ? 340 : 0) - (S.b.sel && wide ? 350 : 0); const c = Math.max(1, Math.min(6, Math.floor((a - PADX * 2 + GAPX) / (NODE + GAPX)))); if (c !== S.cols) render(true); }, 150); });
+  if (!opts.usePathRouting) window.addEventListener('hashchange', () => { S.modal = null; S.agentOpen = null; render().then(() => window.scrollTo(0, 0)); });
+  root.__cma = { store, S, render, space, get ws() { return ws; } };
   await render();
   return { store, render };
 }

@@ -5,6 +5,7 @@ import {
   stopEverything, releaseStop, retryRun, health, expireStaleApprovals, resolveIncident, workflowFromTemplate,
   newStep, GovernanceBlock, QUARANTINE_AFTER, Workflow, RunInput, TEMPLATES, explainWorkflow,
   stepFromStored, stepsFromStored, triggerFromStored, pickStoredSteps, ACTIONS,
+  checkConnection, checkAllConnections, repairConnection, applyAlternative, blankWorkflow,
 } from '../automationCore';
 
 let passed = 0;
@@ -292,6 +293,127 @@ t('Older workflow steps are drawn and never crash the builder', async () => {
   });
   assert.equal((picked[0] as { action: string }).action, 'notify_me');
   assert.equal(ACTIONS.unsupported.hidden, true);
+});
+
+
+/* ---------- honest connections and the repair agent ---------- */
+const dashes = /[\u2013\u2014]/;
+
+t('a live check never calls an app connected unless it confirmed it', async () => {
+  const s = fresh({ outlook: 'connected' });
+  s.probe = async () => ({ state: 'connected', verified: false, detail: 'Could not reach the app.' });
+  const wf = workflowFromTemplate(s, 'meeting-follow-through', 'Mara Ellis');
+  const issues = await validateWorkflow(wf, s);
+  assert.ok(issues.some((i) => i.fix === 'connect' && /Outlook/.test(i.text)), 'unverified connected blocks');
+  s.probe = async () => { throw new Error('timeout'); };
+  const c = await checkConnection(s, 'outlook');
+  assert.equal(c.verified, false);
+  assert.equal(c.state, 'service_issue');
+});
+
+t('a saved record is reported as unverified, not as a live check', async () => {
+  const s = fresh();
+  const recordOnly = { now: () => s.now(), connection: (a: never) => s.connection(a) };
+  const c = await checkConnection(recordOnly as never, 'outlook');
+  assert.equal(c.state, 'connected');
+  assert.equal(c.verified, false);
+  assert.match(c.detail, /not been checked/);
+});
+
+t('checking all apps lists every outside app and nothing else', async () => {
+  const s = fresh({ outlook: 'connected', slack: 'needs_reauth' });
+  const all = await checkAllConnections(s);
+  assert.equal(all.length, 8);
+  assert.ok(!all.some((c) => c.app === 'concludo'));
+  assert.equal(all.find((c) => c.app === 'slack')!.state, 'needs_reauth');
+  assert.equal(all.find((c) => c.app === 'gmail')!.state, 'disconnected');
+  assert.ok(all.every((c) => c.simulated && c.verified));
+});
+
+t('repair: a service problem that recovers is fixed only after a check confirms it', async () => {
+  const s = fresh({ outlook: 'service_issue' });
+  s.recoversAfter.outlook = 3;
+  const wf = workflowFromTemplate(s, 'meeting-follow-through', 'Mara Ellis');
+  const r = await repairConnection(s, wf, 'outlook', 'Mara Ellis');
+  assert.equal(r.outcome, 'fixed');
+  assert.ok(r.steps.length >= 3);
+  assert.equal(await s.connection('outlook'), 'connected');
+  assert.ok((await s.listAudit()).some((e) => e.event === 'connection_repair' && e.actor === 'Mara Ellis'));
+});
+
+t('repair: a service problem that does not recover is reported as unfixed', async () => {
+  const s = fresh({ outlook: 'service_issue' });
+  s.recoversAfter.outlook = 99;
+  const wf = workflowFromTemplate(s, 'meeting-follow-through', 'Mara Ellis');
+  const r = await repairConnection(s, wf, 'outlook', 'Mara Ellis', { retries: 2 });
+  assert.equal(r.outcome, 'unfixable');
+  assert.match(r.summary, /Nothing was changed/);
+});
+
+t('repair: a lapsed sign-in needs a person, and the agent says so', async () => {
+  const s = fresh({ outlook: 'needs_reauth', gmail: 'connected' });
+  const wf = workflowFromTemplate(s, 'meeting-follow-through', 'Mara Ellis');
+  const r = await repairConnection(s, wf, 'outlook', 'Mara Ellis');
+  assert.equal(r.outcome, 'needs_person');
+  assert.match(r.summary, /person to sign in/);
+  assert.ok(r.alternatives.some((a) => a.app === 'gmail'), 'offers the connected alternative');
+  assert.equal(await s.connection('outlook'), 'needs_reauth', 'nothing was changed on its own');
+  s.completeSignIn('outlook');
+  const again = await repairConnection(s, wf, 'outlook', 'Mara Ellis');
+  assert.equal(again.outcome, 'fixed');
+});
+
+t('repair: a saved record that cannot be checked is not called fixed', async () => {
+  const s = fresh({ outlook: 'connected' });
+  s.probe = async () => ({ state: 'connected', verified: false, detail: 'No answer.' });
+  const wf = workflowFromTemplate(s, 'meeting-follow-through', 'Mara Ellis');
+  const r = await repairConnection(s, wf, 'outlook', 'Mara Ellis', { retries: 0 });
+  assert.equal(r.outcome, 'unverified');
+});
+
+t('alternative: swapping the app changes only that step, then the workflow can be turned on', async () => {
+  const s = fresh({ outlook: 'needs_reauth', gmail: 'connected' });
+  const wf = workflowFromTemplate(s, 'meeting-follow-through', 'Mara Ellis');
+  await s.saveWorkflow(wf);
+  const email = wf.steps.find((x) => x.action === 'send_email')!;
+  assert.ok((await validateWorkflow(wf, s)).some((i) => i.fix === 'connect'));
+  await applyAlternative(s, wf, email.id, 'gmail', 'Mara Ellis');
+  const saved = (await s.getWorkflow(wf.id))!;
+  assert.equal(saved.steps.find((x) => x.id === email.id)!.app, 'gmail');
+  assert.equal(saved.steps.length, wf.steps.length);
+  assert.equal((await validateWorkflow(saved, s)).filter((i) => i.level === 'block').length, 0);
+  await assert.rejects(applyAlternative(s, saved, email.id, 'hubspot', 'Mara Ellis'), /cannot do/);
+});
+
+t('a live run fails honestly when the live check finds the app down', async () => {
+  const s = fresh();
+  const wf = await liveWorkflow(s, 'high-risk-issue-escalation');
+  const run = await runWorkflow(s, wf.id, { input: MEETING, actor: 'Mara Ellis' });
+  s.connections.slack = 'service_issue';
+  s.recoversAfter.slack = 50;
+  const a = (await s.listApprovals()).find((x) => x.runId === run.id)!;
+  await decideApproval(s, a.id, 'approve', 'Mara Ellis');
+  const after = (await s.getRun(run.id))!;
+  assert.equal(after.status, 'failed');
+  assert.equal(s.outbox.length, 0);
+});
+
+t('manual building starts blank, cannot be turned on empty, and keeps the approval rule', async () => {
+  const s = fresh();
+  const wf = blankWorkflow(s, 'Mara Ellis', { type: 'workflow_schedule', schedule: 'Every Friday' }, 'My own workflow');
+  assert.equal(wf.steps.length, 0);
+  assert.ok((await validateWorkflow(wf, s)).some((i) => /at least one step/.test(i.text)));
+  wf.steps.push(newStep(s, 'send_email', 'outlook', { to: 'me', subject: 'Hello' }));
+  const g = ensureApprovals(wf, s);
+  assert.equal(g.added.length, 1);
+  assert.equal(g.workflow.steps[0].action, 'ask_approval');
+});
+
+t('repair text has no dashes', async () => {
+  const s = fresh({ outlook: 'needs_reauth' });
+  const wf = workflowFromTemplate(s, 'meeting-follow-through', 'Mara Ellis');
+  const r = await repairConnection(s, wf, 'outlook', 'Mara Ellis');
+  assert.ok(!dashes.test(JSON.stringify(r)));
 });
 
 (async () => {

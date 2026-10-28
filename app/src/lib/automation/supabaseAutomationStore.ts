@@ -9,7 +9,7 @@ import type {
   ConnectionState,
   OutgoingItem,
 } from './automationCore';
-import { pickStoredSteps, stepsFromStored, triggerFromStored } from './automationCore';
+import { pickStoredSteps, stepsFromStored, triggerFromStored, appInfo } from './automationCore';
 import type { WorkspaceData, ConsentBasis } from './agentsCore';
 import { getSupabaseBrowserClient, getSupabaseEnv } from '../supabase/client';
 
@@ -428,6 +428,75 @@ export class SupabaseAutomationStore implements Store {
     } catch {
       return 'disconnected';
     }
+  }
+
+  private providerId(app: AppKey): string {
+    const map: Partial<Record<AppKey, string>> = {
+      outlook: 'microsoft_outlook',
+      teams: 'microsoft_teams',
+    };
+    return map[app] || app;
+  }
+
+  /** A real read-only check. Never sends, creates or changes anything in the app, and never logs a token. */
+  async probe(app: AppKey): Promise<{ state: ConnectionState; verified: boolean; detail: string }> {
+    if (app === 'concludo' || !appInfo(app).external) {
+      return { state: 'connected', verified: true, detail: 'Inside Concludo.' };
+    }
+    const label = appInfo(app).label;
+    try {
+      const { data, error } = await this.client()
+        .from('integration_connections')
+        .select('id, status, enabled')
+        .eq('provider_id', this.providerId(app))
+        .eq('user_id', this.userId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (error) return { state: 'service_issue', verified: false, detail: `The check could not read whether ${label} is connected.` };
+      if (!data || data.enabled === false) return { state: 'disconnected', verified: true, detail: `No connection is saved for ${label}.` };
+      if (data.status === 'needs_reauth' || data.status === 'reauth_required') {
+        return { state: 'needs_reauth', verified: true, detail: `The saved sign-in for ${label} has lapsed.` };
+      }
+      if (data.status === 'permission_required') {
+        return { state: 'permission_required', verified: true, detail: `${label} is missing a permission.` };
+      }
+      const { data: tested, error: testErr } = await this.client().functions.invoke('connection-test', {
+        body: { connection_id: data.id },
+      });
+      if (testErr) {
+        const msg = String(testErr.message || '');
+        if (/timeout|timed out|429|rate|503|502|500/i.test(msg)) {
+          return { state: 'service_issue', verified: true, detail: `${label} did not answer.` };
+        }
+        return { state: 'service_issue', verified: false, detail: `The check itself failed for ${label}. The real state is not known.` };
+      }
+      const status = String(tested?.status || '');
+      const err = String(tested?.error || tested?.status_reason || '');
+      if (tested?.success === true || status === 'connected') {
+        return { state: 'connected', verified: true, detail: `A live check confirmed ${label} just now.` };
+      }
+      if (status === 'reauth_required' || status === 'needs_reauth' || /401|unauthor/i.test(err)) {
+        return { state: 'needs_reauth', verified: true, detail: `The sign-in for ${label} has lapsed.` };
+      }
+      if (/403|permission|scope|insufficient/i.test(`${status} ${err}`)) {
+        return { state: 'permission_required', verified: true, detail: `${label} is missing a permission.` };
+      }
+      if (/429|5\d\d|timeout|unavailable|rate/i.test(`${status} ${err}`)) {
+        return { state: 'service_issue', verified: true, detail: `${label} did not answer.` };
+      }
+      return { state: 'disconnected', verified: true, detail: `The live check did not confirm ${label}.` };
+    } catch {
+      return { state: 'service_issue', verified: false, detail: `The check itself failed for ${label}. The real state is not known.` };
+    }
+  }
+
+  async startConnect(app: AppKey): Promise<{ ok: boolean; needsPerson: boolean; note: string }> {
+    const label = appInfo(app).label;
+    return {
+      ok: false,
+      needsPerson: true,
+      note: `${label} has to be signed in by a person. Concludo cannot sign in for you.`,
+    };
   }
 
   /* ========================================================== DISPATCH */

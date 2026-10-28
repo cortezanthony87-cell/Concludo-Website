@@ -86,6 +86,32 @@ export const AutomationPage: React.FC<AutomationPageProps> = ({ view, paramId })
               status,
             });
           },
+          onSignIn: async (app: string) => {
+            const providers: Record<string, string> = {
+              outlook: 'microsoft_outlook',
+              teams: 'microsoft_teams',
+            };
+            const providerId = providers[app] || app;
+            const url = `/integrations/connect/${providerId}`;
+            const opened = window.open(url, 'concludo-connect');
+            if (!opened) {
+              navigate(url);
+              return false;
+            }
+            await new Promise<void>((resolve) => {
+              const timer = window.setInterval(() => {
+                if (opened.closed) {
+                  window.clearInterval(timer);
+                  resolve();
+                }
+              }, 600);
+              window.setTimeout(() => {
+                window.clearInterval(timer);
+                resolve();
+              }, 10 * 60 * 1000);
+            });
+            return true;
+          },
         });
 
         if (!cancelled) {
@@ -104,6 +130,13 @@ export const AutomationPage: React.FC<AutomationPageProps> = ({ view, paramId })
 
     return () => {
       cancelled = true;
+      const root = containerRef.current as (HTMLDivElement & { __cma?: { space?: { setActive: (on: boolean) => void; el?: HTMLElement } } }) | null;
+      const space = root?.__cma?.space;
+      if (space) {
+        space.setActive(false);
+        space.el?.remove();
+      }
+      document.documentElement.classList.remove('cma-space');
     };
   }, [view, effectiveId, user?.id]);
 
