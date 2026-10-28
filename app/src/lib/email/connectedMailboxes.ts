@@ -33,7 +33,7 @@ export async function loadUserEmailAccounts(): Promise<{
     const { data, error } = await supabase
       .from('integration_connections')
       .select('id, provider_id, external_account_reference, account_label, created_at, status')
-      .in('provider_id', ['gmail', 'microsoft_outlook'])
+      .eq('user_id', user.id).in('provider_id', ['gmail', 'microsoft_outlook'])
       .eq('status', 'connected')
       .is('deleted_at', null)
       .order('created_at', { ascending: false });

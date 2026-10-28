@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as Icons from 'lucide-react';
-import { Sparkles, X, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Sparkles, X, ArrowRight, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { EMAIL_MODULE_DESTINATIONS, destinationForPath } from '../../lib/email/moduleNav';
 import { useEmailViewState, useEmailScrollMemory } from '../../lib/email/useEmailViewState';
 import { resolveAccount } from '../../lib/email/viewState';
@@ -67,6 +67,10 @@ export const EmailModuleLayout: React.FC = () => {
     id: string;
     sender: string;
     summary: string;
+  } | null>(null);
+  const [refreshNotice, setRefreshNotice] = useState<{
+    type: 'success' | 'warning';
+    message: string;
   } | null>(null);
 
   // Scan emails state
@@ -138,6 +142,7 @@ export const EmailModuleLayout: React.FC = () => {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    let notice: { type: 'success' | 'warning'; message: string } | null = null;
     try {
       await fetchAccounts();
       const activeAccount = account || availableAccounts[0];
@@ -151,9 +156,22 @@ export const EmailModuleLayout: React.FC = () => {
               accountEmail: activeAccount.address,
             },
           });
-        } catch (scanErr) {
-          console.warn('Mailbox refresh scan completed with notice:', scanErr);
+          notice = {
+            type: 'success',
+            message: `Mailbox synchronized for ${activeAccount.address}. Latest emails and threads are up to date.`,
+          };
+        } catch (scanErr: any) {
+          console.warn('Mailbox refresh scan notice:', scanErr);
+          notice = {
+            type: 'warning',
+            message: scanErr?.message || 'Mailbox refresh completed with a provider notice.',
+          };
         }
+      } else {
+        notice = {
+          type: 'success',
+          message: 'Inbox Command Centre views, actions, and thread statuses refreshed.',
+        };
       }
       setRefreshToken((token) => token + 1);
       try {
@@ -163,8 +181,21 @@ export const EmailModuleLayout: React.FC = () => {
           })
         );
       } catch (_) {}
-    } catch (err) {
+      if (notice) {
+        setRefreshNotice(notice);
+        window.setTimeout(() => {
+          setRefreshNotice(null);
+        }, 5000);
+      }
+    } catch (err: any) {
       console.warn('Inbox refresh warning:', err);
+      setRefreshNotice({
+        type: 'warning',
+        message: err?.message || 'Could not complete mailbox refresh.',
+      });
+      window.setTimeout(() => {
+        setRefreshNotice(null);
+      }, 6000);
     } finally {
       window.setTimeout(() => {
         setRefreshing(false);
@@ -288,6 +319,52 @@ export const EmailModuleLayout: React.FC = () => {
   return (
     <LocalActionProvider>
     <div className={isOverview ? 'ecc-module' : 'ecc-module ecc-bright'}>
+      {refreshNotice && (
+        <aside
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            background: refreshNotice.type === 'success' ? '#065F46' : '#92400E',
+            borderBottom: '2px solid #E2B53C',
+            color: '#FFFFFF',
+            padding: '10px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {refreshNotice.type === 'success' ? (
+              <CheckCircle2 size={16} color="#34D399" />
+            ) : (
+              <AlertCircle size={16} color="#FBBF24" />
+            )}
+            <span style={{ fontSize: '12.5px', fontWeight: 600 }}>
+              {refreshNotice.message}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRefreshNotice(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#CBD5E1',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '4px',
+            }}
+            aria-label="Dismiss refresh notice"
+          >
+            <X size={15} />
+          </button>
+        </aside>
+      )}
       {realtimeNotification && (
         <aside
           role="status"

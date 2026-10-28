@@ -111,9 +111,10 @@ export const IntelligencePane: React.FC<Props> = ({
           gap: '8px',
           margin: '10px 0 14px',
           padding: '8px 10px',
-          background: 'rgba(22, 38, 63, 0.7)',
-          border: '1px solid rgba(226, 181, 60, 0.25)',
+          background: '#FFFFFF',
+          border: '1px solid #CBD5E1',
           borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
         }}
       >
         {onIgnoreEmail && (
@@ -749,8 +750,8 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
       )}
 
       {stated.length === 0 && suggested.length === 0 && !showAddReminder && !customSaved && (
-        <div style={{ padding: '12px', background: 'rgba(33, 57, 92, 0.4)', borderRadius: '8px', border: '1px solid #21395C', marginBottom: '12px' }}>
-          <p style={{ margin: 0, fontSize: '12px', color: '#94A3B8' }}>
+        <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0', marginBottom: '12px' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: '#334155' }}>
             No explicit due dates were read from this email. You can add a review reminder to your Concludo calendar below.
           </p>
         </div>
@@ -763,7 +764,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
           </h4>
           <ul className="ecc-evidence-list">
             {stated.map((d) => (
-              <li key={d.id} style={{ marginBottom: '14px', background: 'rgba(22, 38, 63, 0.7)', border: '1px solid #21395C', borderRadius: '8px', padding: '12px' }}>
+              <li key={d.id} style={{ marginBottom: '14px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
                 <SourceButton id={d.id} label={decodeHtmlEntities(d.description)} selectedId={selectedId} onSelect={onSelectSource}>
                   {decodeHtmlEntities(d.description)}
                 </SourceButton>
@@ -776,7 +777,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                 </div>
 
                 {/* Calendar Action Controls for this deadline */}
-                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #21395C' }}>
+                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #E2E8F0' }}>
                   {addedMap[d.id] ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '6px', padding: '6px 10px' }}>
                       <span style={{ fontSize: '11.5px', color: '#6EE7B7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -798,7 +799,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                           className="ecc-input"
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                          style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
                         />
                       </div>
                       <div style={{ marginBottom: '8px' }}>
@@ -808,7 +809,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                           className="ecc-textarea"
                           value={editDesc}
                           onChange={(e) => setEditDesc(e.target.value)}
-                          style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                          style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
                         />
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
@@ -819,7 +820,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                             className="ecc-input"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
-                            style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                            style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
                           />
                         </div>
                         <div>
@@ -829,7 +830,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                             className="ecc-input"
                             value={editTime}
                             onChange={(e) => setEditTime(e.target.value)}
-                            style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                            style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
                           />
                         </div>
                       </div>
@@ -879,7 +880,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                       <button
                         type="button"
                         onClick={() => handleStartEdit(d)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '5px 8px', background: 'rgba(33, 57, 92, 0.6)', border: '1px solid #E2B53C', borderRadius: '6px', color: '#E2B53C', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '5px 8px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', color: '#16263F', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}
                         title="Edit date, description, or reminder before adding"
                       >
                         <Edit2 size={11} />
@@ -914,7 +915,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
       ) : null}
 
       {/* Review Reminder Section (Available for every email) */}
-      <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #21395C' }}>
+      <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
         {customSaved ? (
           <div style={{ background: '#F0FDF4', border: '1px solid #B7E4C7', borderRadius: '8px', padding: '12px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#15803D', fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>
@@ -945,7 +946,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                 className="ecc-input"
                 value={customTitle}
                 onChange={(e) => setCustomTitle(e.target.value)}
-                style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
               />
             </div>
 
@@ -956,7 +957,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                 className="ecc-textarea"
                 value={customDesc}
                 onChange={(e) => setCustomDesc(e.target.value)}
-                style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 10px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
               />
             </div>
 
@@ -968,7 +969,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                   className="ecc-input"
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
-                  style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
@@ -978,7 +979,7 @@ const DeadlinesTab: React.FC<TabProps> = ({ detail, onSelectSource, selectedId }
                   className="ecc-input"
                   value={customTime}
                   onChange={(e) => setCustomTime(e.target.value)}
-                  style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', fontSize: '12px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', padding: '6px 8px', color: '#0F172A', WebkitTextFillColor: '#0F172A', colorScheme: 'light', fontSize: '12px', boxSizing: 'border-box' }}
                 />
               </div>
             </div>

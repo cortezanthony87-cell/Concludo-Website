@@ -1110,3 +1110,36 @@
 .ecc-module.ecc-bright .ecc-workspace div[style*='border-radius: 50%'][style*='linear-gradient'] {
   color: #e2b53c !important;
 }
+
+/* Ensure all inputs and textareas have high-contrast dark text and light color-scheme */
+.ecc-module.ecc-bright input,
+.ecc-module.ecc-bright textarea,
+.ecc-module.ecc-bright select {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  color-scheme: light !important;
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.ecc-module.ecc-bright input::placeholder,
+.ecc-module.ecc-bright textarea::placeholder,
+.ecc-module.ecc-bright input::-webkit-input-placeholder,
+.ecc-module.ecc-bright textarea::-webkit-input-placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  opacity: 1 !important;
+}
+
+.ecc-module.ecc-bright input::-webkit-datetime-edit,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-fields-wrapper,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-text,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-month-field,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-day-field,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-year-field,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-hour-field,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-minute-field,
+.ecc-module.ecc-bright input::-webkit-datetime-edit-ampm-field {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}

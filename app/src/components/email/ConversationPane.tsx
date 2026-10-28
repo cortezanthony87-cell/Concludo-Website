@@ -103,9 +103,10 @@ export const ConversationPane: React.FC<Props> = ({
           gap: '8px',
           margin: '0 0 14px',
           padding: '8px 10px',
-          background: 'rgba(22, 38, 63, 0.7)',
-          border: '1px solid rgba(226, 181, 60, 0.25)',
+          background: '#FFFFFF',
+          border: '1px solid #CBD5E1',
           borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -130,9 +131,9 @@ export const ConversationPane: React.FC<Props> = ({
                 alignItems: 'center',
                 gap: '6px',
                 padding: '5px 12px',
-                background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : 'rgba(33, 57, 92, 0.8)',
-                border: '1px solid #E2B53C',
-                color: isFullView ? '#0E1726' : '#E2B53C',
+                background: isFullView ? 'linear-gradient(135deg, #E2B53C, #BC8A1C)' : '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                color: isFullView ? '#0E1726' : '#16263F',
                 borderRadius: '6px',
                 fontSize: '11.5px',
                 fontWeight: 700,
