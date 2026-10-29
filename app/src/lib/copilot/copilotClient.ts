@@ -22,6 +22,70 @@ import {
   updateConversation,
 } from './copilotService';
 import { recordAuditLog } from '../enterprise/auditService';
+import type { CopilotExecutionDraft, CopilotScopeSelection } from './types';
+import type { CopilotStage, ScopeOptions } from './copilotEngine';
+
+/** Stable key: the same request on the same day with the same scope queues once, however many clicks or retries. */
+export function draftIdempotencyKey(userId: string, draft: CopilotExecutionDraft, day: string): string {
+  const scope = JSON.stringify(draft.payload?.scope || {});
+  const raw = `${userId}|${draft.actionType}|${scope}|${draft.payload?.sourceQuery || ''}|${day}`.toLowerCase();
+  let h = 5381;
+  for (let i = 0; i < raw.length; i++) h = ((h << 5) + h + raw.charCodeAt(i)) | 0;
+  return `copilot:${draft.actionType}:${(h >>> 0).toString(36)}`;
+}
+
+/**
+ * Queue a Copilot draft in workflow_approvals so it appears in Approvals. Returns the real state:
+ * 'pending_approval' with an approvalId only if the row exists. On any failure the draft stays 'draft'
+ * and carries the error, so the interface never claims something was queued when it was not.
+ */
+export async function persistExecutionDraft(
+  supabase: SupabaseClient,
+  userId: string,
+  draft: CopilotExecutionDraft,
+  requestedBy: string
+): Promise<CopilotExecutionDraft> {
+  const key = draftIdempotencyKey(userId, draft, new Date().toISOString().slice(0, 10));
+  try {
+    const { data: existing } = await supabase
+      .from('workflow_approvals')
+      .select('id, status')
+      .eq('requester_id', userId)
+      .eq('action_type', 'agent_draft')
+      .contains('action_payload', { idempotencyKey: key })
+      .is('deleted_at', null)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return { ...draft, idempotencyKey: key, approvalId: existing[0].id, status: 'pending_approval', persistError: null };
+    }
+    const { data, error } = await supabase
+      .from('workflow_approvals')
+      .insert({
+        requester_id: userId,
+        status: 'pending',
+        action_type: 'agent_draft',
+        action_payload: {
+          title: draft.title,
+          kind: 'agent_draft',
+          source: 'Copilot',
+          requestedBy,
+          requestedAt: new Date().toISOString(),
+          outgoing: [],
+          idempotencyKey: key,
+          copilot: { actionType: draft.actionType, payload: draft.payload, preview: draft.preview || [] },
+        },
+        notes: null,
+      })
+      .select('id')
+      .single();
+    if (error || !data) {
+      return { ...draft, idempotencyKey: key, status: 'draft', approvalId: null, persistError: error?.message || 'The approval could not be saved.' };
+    }
+    return { ...draft, idempotencyKey: key, approvalId: data.id, status: 'pending_approval', persistError: null };
+  } catch (e: any) {
+    return { ...draft, idempotencyKey: key, status: 'draft', approvalId: null, persistError: e?.message || 'The approval could not be saved.' };
+  }
+}
 
 export interface CopilotClientOptions {
   supabase: SupabaseClient;
@@ -56,21 +120,26 @@ export class CopilotClient {
     conversationId?: string | null;
     assistantType?: AssistantType;
     sessionId?: string | null;
+    scope?: CopilotScopeSelection;
+    requestedBy?: string;
+    onProgress?: (stage: CopilotStage) => void;
+    dataMode?: 'live' | 'sample';
   }): Promise<{
     conversation: CopilotConversation;
     userMessage: CopilotMessage;
     assistantMessage: CopilotMessage;
     response: CopilotResponse;
   }> {
-    const { query, assistantType, sessionId } = params;
+    const { query, assistantType, sessionId, scope } = params;
 
     // 1. Log audit event: question_asked
     await recordAuditLog({
       action: 'question_asked',
       entityType: 'copilot_query',
-      details: { query, assistantType },
+      // The question text is not logged: it can contain client names or other sensitive detail.
+      details: { queryLength: query.length, assistantType: assistantType || 'copilot', scoped: !!(scope && (scope.projectKey || scope.client || scope.documentId || scope.period)) },
       userId: this.userId,
-      admin: true,
+      organizationId: this.organizationId,
     });
 
     // 2. Resolve or create conversation
@@ -110,7 +179,15 @@ export class CopilotClient {
       assistantType,
       history,
       sessionId,
+      scope,
+      onProgress: params.onProgress,
+      dataMode: params.dataMode,
     });
+
+    // 5b. A draft that needs sign-off is queued for real, or reported as not queued.
+    if (response.executionDraft) {
+      response.executionDraft = await persistExecutionDraft(this.supabase, this.userId, response.executionDraft, params.requestedBy || 'Copilot user');
+    }
 
     // 6. Record assistant message
     const assistantMessage = await createMessage(this.supabase, {
@@ -129,10 +206,11 @@ export class CopilotClient {
         intent: response.intent,
         confidence: response.confidence,
         confidenceScore: response.confidenceScore,
+        evidenceStatus: response.evidenceStatus,
         sourceRecordsCount: response.sourceRecords.length,
       },
       userId: this.userId,
-      admin: true,
+      organizationId: this.organizationId,
     });
 
     // 8. Log knowledge search if knowledge connections or discovery occurred
@@ -140,9 +218,9 @@ export class CopilotClient {
       await recordAuditLog({
         action: 'knowledge_search',
         entityType: 'copilot_knowledge',
-        details: { query, intent: response.intent },
+        details: { intent: response.intent },
         userId: this.userId,
-        admin: true,
+        organizationId: this.organizationId,
       });
     }
 
@@ -154,9 +232,11 @@ export class CopilotClient {
         details: {
           draftAction: response.executionDraft.actionType,
           title: response.executionDraft.title,
+          approvalId: response.executionDraft.approvalId || null,
+          queued: response.executionDraft.status === 'pending_approval',
         },
         userId: this.userId,
-        admin: true,
+        organizationId: this.organizationId,
       });
     }
 
@@ -166,6 +246,15 @@ export class CopilotClient {
       assistantMessage,
       response,
     };
+  }
+
+  // Scope pickers
+  async listScopeOptions(): Promise<ScopeOptions> {
+    return this.engine.listScopeOptions();
+  }
+
+  async listDocuments(projectKey: string) {
+    return this.engine.listDocuments(projectKey);
   }
 
   // Conversation Helpers

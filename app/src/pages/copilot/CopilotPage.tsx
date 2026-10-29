@@ -1,1325 +1,469 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  Sparkles,
-  Send,
-  Search,
-  Plus,
-  Trash2,
-  Edit2,
-  Bookmark,
-  BookmarkPlus,
-  BrainCircuit,
-  FolderKanban,
-  CheckSquare,
-  AlertTriangle,
-  Compass,
-  Database,
-  Shield,
-  HelpCircle,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  RotateCw,
-  Archive,
-  RefreshCw,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  SlidersHorizontal,
-  Bot,
-  Layers,
-  FileText,
-} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bookmark, BookmarkPlus, Edit2, Menu, Plus, RotateCw, Search, Send, Sparkles, Trash2 } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
   AssistantType,
-  CopilotConfidenceLevel,
   CopilotConversation,
   CopilotMessage,
   CopilotPrompt,
   CopilotResponse,
+  CopilotScopeSelection,
   PromptCategory,
   PromptScope,
 } from '../../lib/copilot/types';
 import { CopilotClient } from '../../lib/copilot/copilotClient';
-import { Link } from 'react-router-dom';
+import type { CopilotStage, ScopeOptions } from '../../lib/copilot/copilotEngine';
+import { addDays, melbourneToday, formatAuDate } from '../../lib/copilot/dates';
+import { CopilotResponseView } from './CopilotResponseView';
+import '../../styles/copilot-bright.css';
 
-const ASSISTANT_OPTIONS: Array<{
-  id: AssistantType;
-  label: string;
-  icon: any;
-  description: string;
-}> = [
-  { id: 'copilot', label: 'All Assistants', icon: Sparkles, description: 'Unified intelligence query across all organizational domains.' },
-  { id: 'decision_assistant', label: 'Decision Assistant', icon: BrainCircuit, description: 'Trace decision lineage, approvals, rationale, and impact.' },
-  { id: 'project_assistant', label: 'Project Assistant', icon: FolderKanban, description: 'Monitor deliverables, milestones, and connected initiatives.' },
-  { id: 'action_assistant', label: 'Action Assistant', icon: CheckSquare, description: 'Track overdue actions, blockers, workloads, and accountability.' },
-  { id: 'risk_assistant', label: 'Risk Assistant', icon: AlertTriangle, description: 'Detect recurring risks, delivery bottlenecks, and project drift.' },
-  { id: 'executive_assistant', label: 'Executive Assistant', icon: Compass, description: 'Strategic overview, board briefings, and organizational health.' },
-  { id: 'knowledge_assistant', label: 'Knowledge Assistant', icon: Database, description: 'Explore organizational memory, lessons learned, and knowledge graph.' },
+const ASSISTANTS: Array<{ id: AssistantType; label: string }> = [
+  { id: 'copilot', label: 'All' },
+  { id: 'decision_assistant', label: 'Decisions' },
+  { id: 'project_assistant', label: 'Projects' },
+  { id: 'action_assistant', label: 'Actions' },
+  { id: 'risk_assistant', label: 'Risks' },
+  { id: 'executive_assistant', label: 'Executive' },
+  { id: 'knowledge_assistant', label: 'Knowledge' },
 ];
 
-const SUGGESTED_QUESTIONS = [
-  {
-    category: 'Decisions',
-    query: 'What decisions did we make about Project Atlas and who approved them?',
-    assistant: 'decision_assistant' as AssistantType,
-  },
-  {
-    category: 'Actions',
-    query: 'What actions are overdue across the workspace and who owns them?',
-    assistant: 'action_assistant' as AssistantType,
-  },
-  {
-    category: 'Risks',
-    query: 'Which projects have recurring delivery risks and timeline bottlenecks?',
-    assistant: 'risk_assistant' as AssistantType,
-  },
-  {
-    category: 'Strategy',
-    query: 'Summarize organizational health and key leadership focus areas.',
-    assistant: 'executive_assistant' as AssistantType,
-  },
-  {
-    category: 'Memory',
-    query: 'What lessons have we learned from past transformation initiatives?',
-    assistant: 'knowledge_assistant' as AssistantType,
-  },
-  {
-    category: 'Timeline',
-    query: 'What chronological progression of events occurred between January and March?',
-    assistant: 'copilot' as AssistantType,
-  },
+const STARTERS = [
+  { k: 'Project history', t: 'Show me everything recorded for this project', d: 'Meetings, decisions, actions and risks, in date order.', q: 'Summarise the history of this project: meetings, decisions, actions and risks.' },
+  { k: 'Owed to a client', t: 'What do we owe this client?', d: 'Open actions committed to the client, with due dates.', q: 'What actions are we still owed to deliver to this client?' },
+  { k: 'A period', t: 'What happened in a period?', d: 'Set the period above, then ask.', q: 'What was decided and what is still open in this period?' },
+  { k: 'Workflow health', t: 'Anything waiting on me?', d: 'Pending approvals, failed runs and open incidents.', q: 'What approvals are pending and which workflow runs failed recently?' },
 ];
+
+const STAGES: Array<{ id: CopilotStage; label: string }> = [
+  { id: 'understanding', label: 'Understanding the question' },
+  { id: 'reading', label: 'Reading your records' },
+  { id: 'checking', label: 'Checking scope, dates and consent' },
+  { id: 'writing', label: 'Writing the answer with sources' },
+];
+
+type PeriodPreset = 'any' | '30' | 'quarter' | 'custom';
+
+function quarterRange(today: string): { from: string; to: string } {
+  const [y, m] = today.split('-').map(Number);
+  const q = Math.floor((m - 1) / 3);
+  const from = `${y}-${String(q * 3 + 1).padStart(2, '0')}-01`;
+  const endM = q * 3 + 3;
+  const to = `${y}-${String(endM).padStart(2, '0')}-${endM === 6 || endM === 9 ? '30' : '31'}`;
+  return { from, to };
+}
 
 export const CopilotPage: React.FC = () => {
-  const { user, profile, supabase } = useAuth();
+  const { user, profile, supabase } = useAuth() as any;
 
-  // State
   const [client, setClient] = useState<CopilotClient | null>(null);
   const [conversations, setConversations] = useState<CopilotConversation[]>([]);
-  const [activeConversation, setActiveConversation] = useState<CopilotConversation | null>(null);
+  const [active, setActive] = useState<CopilotConversation | null>(null);
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [prompts, setPrompts] = useState<CopilotPrompt[]>([]);
-  const [selectedAssistant, setSelectedAssistant] = useState<AssistantType>('copilot');
+  const [assistant, setAssistant] = useState<AssistantType>('copilot');
+  const [input, setInput] = useState('');
+  const [convSearch, setConvSearch] = useState('');
+  const [railOpen, setRailOpen] = useState(false);
 
-  // Input & search
-  const [inputQuery, setInputQuery] = useState('');
-  const [conversationSearch, setConversationSearch] = useState('');
-  const [selectedPromptCategory, setSelectedPromptCategory] = useState<string>('all');
+  const [loadingConvs, setLoadingConvs] = useState(true);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [stage, setStage] = useState<CopilotStage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastQuery, setLastQuery] = useState<string | null>(null);
 
-  // Loading & error states
-  const [loadingConversations, setLoadingConversations] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [processingState, setProcessingState] = useState<string | null>(null); // 'Thinking', 'Searching Knowledge', etc.
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
+  const [scopeOpts, setScopeOpts] = useState<ScopeOptions | null>(null);
+  const [scopeError, setScopeError] = useState<string | null>(null);
+  const [projectKey, setProjectKey] = useState('');
+  const [clientKey, setClientKey] = useState('');
+  const [docs, setDocs] = useState<Array<{ id: string; name: string; version: number | string | null }>>([]);
+  const [docId, setDocId] = useState('');
+  const [preset, setPreset] = useState<PeriodPreset>('any');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
-  // Modals & explainability toggles
-  const [expandedExplainMap, setExpandedExplainMap] = useState<Record<string, boolean>>({});
-  const [savePromptModalOpen, setSavePromptModalOpen] = useState(false);
-  const [promptTitle, setPromptTitle] = useState('');
-  const [promptText, setPromptText] = useState('');
-  const [promptCategory, setPromptCategory] = useState<PromptCategory>('general');
-  const [promptScope, setPromptScope] = useState<PromptScope>('personal');
-  const [renamingConvId, setRenamingConvId] = useState<string | null>(null);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [citeOpen, setCiteOpen] = useState<string | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [pTitle, setPTitle] = useState('');
+  const [pText, setPText] = useState('');
+  const [pCat, setPCat] = useState<PromptCategory>('general');
+  const [pScope, setPScope] = useState<PromptScope>('personal');
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState('');
+  const [deleting, setDeleting] = useState<CopilotConversation | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const today = useMemo(() => melbourneToday(), []);
+  const dataMode: 'live' | 'sample' = (typeof window !== 'undefined' && (window as any).__CONCLUDO_COPILOT_SAMPLE__) ? 'sample' : 'live';
 
-  // Initialize Client
   useEffect(() => {
     if (!user || !supabase) return;
-    const copilotClient = new CopilotClient({
-      supabase,
-      userId: user.id,
-      organizationId: (profile as any)?.organization_id || null,
-      teamId: (profile as any)?.team_id || null,
-    });
-    setClient(copilotClient);
+    setClient(new CopilotClient({ supabase, userId: user.id, organizationId: profile?.organization_id || null, teamId: profile?.team_id || null }));
   }, [user, profile, supabase]);
 
-  // Load Conversations and Prompts
-  useEffect(() => {
-    if (!client) return;
-    loadConversations();
-    loadPrompts();
-  }, [client]);
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, processingState]);
-
-  const loadConversations = async () => {
-    if (!client) return;
+  const loadConversations = useCallback(async (c: CopilotClient) => {
     try {
-      setLoadingConversations(true);
-      const data = await client.listConversations();
+      setLoadingConvs(true);
+      const data = await c.listConversations();
       setConversations(data);
-      if (data.length > 0 && !activeConversation) {
-        selectConversation(data[0]);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to load conversations');
+    } catch (e: any) {
+      setError(e?.message || 'Could not load conversations.');
     } finally {
-      setLoadingConversations(false);
+      setLoadingConvs(false);
     }
-  };
+  }, []);
 
-  const loadPrompts = async () => {
+  useEffect(() => {
+    if (!client) return;
+    loadConversations(client);
+    client.listPrompts().then(setPrompts).catch(() => undefined);
+    client.listScopeOptions().then(setScopeOpts).catch((e: any) => setScopeError(e?.message || 'Could not load projects and clients.'));
+  }, [client, loadConversations]);
+
+  useEffect(() => {
+    // Show the start of the newest answer, not its end, so the reader begins at the top.
+    if (stage) { endRef.current?.scrollIntoView({ block: 'end' }); return; }
+    const answers = document.querySelectorAll('.cp-thread .cp-a');
+    const last = answers[answers.length - 1] as HTMLElement | undefined;
+    if (last) last.scrollIntoView({ block: 'start' });
+  }, [messages, stage]);
+
+  // documents follow the chosen project
+  useEffect(() => {
+    setDocId('');
+    setDocs([]);
+    if (!client || !projectKey) return;
+    client.listDocuments(projectKey).then((d: any[]) => setDocs(d.map((x) => ({ id: x.id, name: x.name, version: x.version })))).catch(() => setDocs([]));
+  }, [client, projectKey]);
+
+  const period = useMemo(() => {
+    if (preset === 'any') return null;
+    if (preset === '30') return { from: addDays(today, -29), to: today };
+    if (preset === 'quarter') return quarterRange(today);
+    if (from && to && from <= to) return { from, to };
+    return null;
+  }, [preset, from, to, today]);
+
+  const selection = useCallback((overrides?: Partial<CopilotScopeSelection>): CopilotScopeSelection => {
+    const s: CopilotScopeSelection = {};
+    if (projectKey) s.projectKey = projectKey;
+    else if (clientKey) s.client = clientKey;
+    if (docId) s.documentId = docId;
+    if (period) s.period = period;
+    return { ...s, ...overrides };
+  }, [projectKey, clientKey, docId, period]);
+
+  const selectConversation = async (c: CopilotConversation) => {
     if (!client) return;
     try {
-      const data = await client.listPrompts();
-      setPrompts(data);
-    } catch (err: any) {
-      console.error('Failed to load prompts:', err);
-    }
-  };
-
-  const selectConversation = async (conv: CopilotConversation) => {
-    if (!client) return;
-    try {
-      setActiveConversation(conv);
-      setLoadingMessages(true);
-      setErrorMessage(null);
-      const msgs = await client.getMessages(conv.id);
-      setMessages(msgs);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to load conversation messages');
+      setActive(c); setLoadingMsgs(true); setError(null); setRailOpen(false);
+      setMessages(await client.getMessages(c.id));
+    } catch (e: any) {
+      setError(e?.message || 'Could not load this conversation.');
     } finally {
-      setLoadingMessages(false);
+      setLoadingMsgs(false);
     }
   };
 
-  const handleStartNewConversation = async () => {
-    if (!client) return;
+  const newConversation = () => { setActive(null); setMessages([]); setError(null); setRailOpen(false); };
+
+  const send = async (text?: string, scopeOverride?: CopilotScopeSelection) => {
+    const q = (text ?? input).trim();
+    if (!q || !client || stage) return;
+    setInput(''); setError(null); setLastQuery(q); setStage('understanding');
     try {
-      setActiveConversation(null);
-      setMessages([]);
-      setErrorMessage(null);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to start new conversation');
-    }
-  };
-
-  const handleSendMessage = async (queryToSend?: string) => {
-    const text = (queryToSend || inputQuery).trim();
-    if (!text || !client || processingState) return;
-
-    setInputQuery('');
-    setErrorMessage(null);
-    setLastFailedQuery(text);
-
-    // Progressive loading states
-    setProcessingState('Thinking...');
-    const t1 = setTimeout(() => setProcessingState('Searching Knowledge...'), 600);
-    const t2 = setTimeout(() => setProcessingState('Analyzing Decisions & Retrieving Evidence...'), 1200);
-    const t3 = setTimeout(() => setProcessingState('Generating Grounded Answer...'), 1800);
-
-    try {
-      const result = await client.ask({
-        query: text,
-        conversationId: activeConversation?.id || null,
-        assistantType: selectedAssistant !== 'copilot' ? selectedAssistant : undefined,
+      const res = await client.ask({
+        query: q,
+        conversationId: active?.id || null,
+        assistantType: assistant !== 'copilot' ? assistant : undefined,
+        scope: scopeOverride || selection(),
+        requestedBy: profile?.full_name || user?.email || 'Copilot user',
+        onProgress: (s) => setStage(s),
+        dataMode,
       });
-
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-
-      if (!activeConversation) {
-        setActiveConversation(result.conversation);
-        setConversations((prev) => [result.conversation, ...prev]);
-      }
-
-      setMessages((prev) => [...prev, result.userMessage, result.assistantMessage]);
-      setLastFailedQuery(null);
-    } catch (err: any) {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      setErrorMessage(err.message || 'Failed to generate answer. Please try again.');
+      if (!active) { setActive(res.conversation); setConversations((p) => [res.conversation, ...p]); }
+      setMessages((p) => [...p, res.userMessage, res.assistantMessage]);
+      setLastQuery(null);
+    } catch (e: any) {
+      setError(e?.message || 'Copilot could not answer. Nothing was changed.');
     } finally {
-      setProcessingState(null);
+      setStage(null);
     }
   };
 
-  const handleRetry = () => {
-    if (lastFailedQuery) {
-      handleSendMessage(lastFailedQuery);
-    }
+  const choose = (optionId: string) => {
+    // the last user question is asked again with the chosen name as an explicit scope
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    const [kind, ...rest] = optionId.split(':');
+    const key = rest.join(':');
+    if (kind === 'project') { setProjectKey(key); setClientKey(''); } else { setClientKey(key); setProjectKey(''); }
+    if (lastUser) send(lastUser.message, { ...selection({}), ...(kind === 'project' ? { projectKey: key, client: undefined } : { client: key, projectKey: undefined }) });
   };
 
-  const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!client) return;
-    if (!confirm('Are you sure you want to delete this conversation? (Retained for 30 days under retention policy)')) {
-      return;
-    }
+  const del = async () => {
+    if (!client || !deleting) return;
     try {
-      await client.deleteConversation(id);
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (activeConversation?.id === id) {
-        setActiveConversation(null);
-        setMessages([]);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to delete conversation');
-    }
+      await client.deleteConversation(deleting.id);
+      setConversations((p) => p.filter((c) => c.id !== deleting.id));
+      if (active?.id === deleting.id) newConversation();
+    } catch (e: any) { setError(e?.message || 'Could not delete the conversation.'); }
+    setDeleting(null);
   };
 
-  const handleSavePrompt = async () => {
-    if (!client || !promptTitle.trim() || !promptText.trim()) return;
-    try {
-      setProcessingState('Saving Prompt...');
-      const newPrompt = await client.savePrompt(promptTitle.trim(), promptText.trim(), promptCategory, promptScope);
-      setPrompts((prev) => [newPrompt, ...prev]);
-      setSavePromptModalOpen(false);
-      setPromptTitle('');
-      setPromptText('');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to save prompt');
-    } finally {
-      setProcessingState(null);
-    }
-  };
-
-  const handleDeletePrompt = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!client) return;
-    try {
-      await client.deletePrompt(id);
-      setPrompts((prev) => prev.filter((p) => p.id !== id));
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to delete prompt');
-    }
-  };
-
-  const handleRenameConversation = async (id: string) => {
+  const rename = async (id: string) => {
     if (!client || !renameTitle.trim()) return;
     try {
-      const updated = await client.renameConversation(id, renameTitle.trim());
-      setConversations((prev) => prev.map((c) => (c.id === id ? updated : c)));
-      if (activeConversation?.id === id) {
-        setActiveConversation(updated);
-      }
-      setRenamingConvId(null);
-      setRenameTitle('');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to rename conversation');
-    }
+      const u = await client.renameConversation(id, renameTitle.trim());
+      setConversations((p) => p.map((c) => (c.id === id ? u : c)));
+      if (active?.id === id) setActive(u);
+      setRenaming(null); setRenameTitle('');
+    } catch (e: any) { setError(e?.message || 'Could not rename.'); }
   };
 
-  const filteredConversations = conversations.filter((c) =>
-    c.title.toLowerCase().includes(conversationSearch.toLowerCase())
-  );
-
-  const filteredPrompts = prompts.filter((p) => {
-    if (selectedPromptCategory !== 'all' && p.category !== selectedPromptCategory) return false;
-    return true;
-  });
-
-  const getConfidenceBadgeColor = (level: CopilotConfidenceLevel) => {
-    switch (level) {
-      case 'very_high':
-        return { bg: 'rgba(34, 197, 94, 0.15)', text: '#22c55e', border: '#22c55e' };
-      case 'high':
-        return { bg: 'rgba(59, 130, 246, 0.15)', text: '#3b82f6', border: '#3b82f6' };
-      case 'moderate':
-        return { bg: 'rgba(234, 179, 8, 0.15)', text: '#eab308', border: '#eab308' };
-      case 'low':
-      default:
-        return { bg: 'rgba(239, 68, 68, 0.15)', text: '#ef4444', border: '#ef4444' };
-    }
+  const savePrompt = async () => {
+    if (!client || !pTitle.trim() || !pText.trim()) return;
+    try {
+      const np = await client.savePrompt(pTitle.trim(), pText.trim(), pCat, pScope);
+      setPrompts((p) => [np, ...p]);
+      setSaveOpen(false); setPTitle(''); setPText('');
+    } catch (e: any) { setError(e?.message || 'Could not save the prompt.'); }
   };
 
-  const formatConfidenceLabel = (level: CopilotConfidenceLevel) => {
-    switch (level) {
-      case 'very_high':
-        return 'Very High Confidence';
-      case 'high':
-        return 'High Confidence';
-      case 'moderate':
-        return 'Moderate Confidence';
-      case 'low':
-      default:
-        return 'Low Confidence';
-    }
+  const delPrompt = async (id: string) => {
+    if (!client) return;
+    try { await client.deletePrompt(id); setPrompts((p) => p.filter((x) => x.id !== id)); }
+    catch (e: any) { setError(e?.message || 'Could not delete the prompt.'); }
   };
+
+  const filtered = conversations.filter((c) => c.title.toLowerCase().includes(convSearch.toLowerCase()));
+  const lastAssistantIdx = (() => { for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === 'assistant') return i; return -1; })();
+  const stageIdx = stage ? STAGES.findIndex((s) => s.id === stage) : -1;
+  const asOfLabel = formatAuDate(today);
+
+  const scopeText = (() => {
+    const bits: string[] = [];
+    const p = scopeOpts?.projects.find((x) => x.key === projectKey);
+    const c = scopeOpts?.clients.find((x) => x.key === clientKey);
+    if (p) bits.push(`Project: ${p.name}`);
+    if (c) bits.push(`Client: ${c.name}`);
+    if (docId) bits.push(`Document: ${docs.find((d) => d.id === docId)?.name || 'selected'}`);
+    if (period) bits.push(`Period: ${formatAuDate(period.from)} to ${formatAuDate(period.to)}, inclusive`);
+    return bits.length ? bits.join('  |  ') : 'Whole workspace you can access. Choose a project, client, document or period to narrow it.';
+  })();
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 60px)', background: '#0a0f1d', color: '#f8fafc', overflow: 'hidden' }}>
-      {/* LEFT SIDEBAR: Conversations & Saved Prompts */}
-      <div
-        style={{
-          width: '320px',
-          background: '#0d1527',
-          borderRight: '1px solid #1e293b',
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-        }}
-      >
-        {/* Sidebar Header */}
-        <div style={{ padding: '16px', borderBottom: '1px solid #1e293b' }}>
-          <button
-            onClick={handleStartNewConversation}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              background: 'linear-gradient(135deg, #e2b53c 0%, #bc8a1c 100%)',
-              color: '#0f172a',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(226, 181, 60, 0.25)',
-            }}
-          >
-            <Plus size={16} />
-            <span>New Conversation</span>
+    <div className="cp" data-rail={railOpen ? 'open' : 'closed'}>
+      {/* ------------------------------ rail */}
+      <aside className="cp-rail" aria-label="Conversations and saved prompts">
+        <div className="cp-rail-top">
+          <div className="cp-brand">
+            <div className="cp-mark" aria-hidden><Sparkles size={18} /></div>
+            <div><h1>Copilot</h1><small>Answers from your records</small></div>
+          </div>
+          <button type="button" className="cp-btn cp-btn-primary" onClick={newConversation}><Plus size={16} aria-hidden /> New conversation</button>
+          <div style={{ position: 'relative' }}>
+            <label className="cp-sr" htmlFor="cp-conv-search">Search conversations</label>
+            <Search size={15} aria-hidden style={{ position: 'absolute', left: 12, top: 15, color: 'var(--cp-muted)' }} />
+            <input id="cp-conv-search" className="cp-input" style={{ paddingLeft: 34 }} placeholder="Search conversations" value={convSearch} onChange={(e) => setConvSearch(e.target.value)} />
+          </div>
+        </div>
+        <div className="cp-rail-scroll">
+          <div className="cp-rail-label">Recent</div>
+          {loadingConvs ? (
+            <div className="cp-empty-note" role="status"><RotateCw size={14} aria-hidden /> Loading conversations</div>
+          ) : filtered.length === 0 ? (
+            <div className="cp-empty-note">{convSearch ? 'No conversation matches that search.' : 'No conversations yet. Ask your first question.'}</div>
+          ) : filtered.map((c) => (
+            <div key={c.id}>
+              {renaming === c.id ? (
+                <div style={{ display: 'flex', gap: 6, padding: 4 }}>
+                  <input className="cp-input" aria-label="New conversation title" autoFocus value={renameTitle} onChange={(e) => setRenameTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') rename(c.id); if (e.key === 'Escape') setRenaming(null); }} />
+                  <button type="button" className="cp-btn" onClick={() => rename(c.id)}>Save</button>
+                </div>
+              ) : (
+                <div className="cp-conv" role="button" tabIndex={0} aria-current={active?.id === c.id} onClick={() => selectConversation(c)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectConversation(c); } }}>
+                  <span className="cp-conv-title">{c.title}</span>
+                  <span className="cp-conv-actions">
+                    <button type="button" className="cp-icon-btn" aria-label={`Rename ${c.title}`} onClick={(e) => { e.stopPropagation(); setRenaming(c.id); setRenameTitle(c.title); }}><Edit2 size={14} aria-hidden /></button>
+                    <button type="button" className="cp-icon-btn" aria-label={`Delete ${c.title}`} onClick={(e) => { e.stopPropagation(); setDeleting(c); }}><Trash2 size={14} aria-hidden /></button>
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="cp-rail-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>Saved prompts</span>
+            <button type="button" className="cp-icon-btn" aria-label="Save a prompt" onClick={() => { setPText(input); setSaveOpen(true); }}><BookmarkPlus size={16} aria-hidden /></button>
+          </div>
+          {prompts.length === 0 ? <div className="cp-empty-note">No saved prompts yet.</div> : prompts.map((p) => (
+            <div key={p.id} className="cp-conv" role="button" tabIndex={0} onClick={() => { setInput(p.prompt_text); setRailOpen(false); }} onKeyDown={(e) => { if (e.key === 'Enter') setInput(p.prompt_text); }}>
+              <Bookmark size={14} aria-hidden style={{ color: 'var(--cp-cyan-ink)' }} />
+              <span className="cp-conv-title">{p.title}</span>
+              <button type="button" className="cp-icon-btn" aria-label={`Delete saved prompt ${p.title}`} onClick={(e) => { e.stopPropagation(); delPrompt(p.id); }}><Trash2 size={14} aria-hidden /></button>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      {/* ------------------------------ main */}
+      <main className="cp-main">
+        <header className="cp-head">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" className="cp-icon-btn cp-rail-toggle" aria-label="Open conversations" aria-expanded={railOpen} onClick={() => setRailOpen((v) => !v)}><Menu size={20} aria-hidden /></button>
+            <h2>{active?.title || 'New conversation'}</h2>
+          </div>
+          <div className="cp-head-meta">
+            {dataMode === 'sample'
+              ? <span className="cp-pill cp-pill-sample"><span className="dot" />Sample records (preview)</span>
+              : <span className="cp-pill cp-pill-live"><span className="dot" />Your live records</span>}
+            <span className="cp-pill">As at {asOfLabel}</span>
+          </div>
+        </header>
+
+        <section className="cp-scope" aria-label="Scope of the question" data-open={scopeOpen ? 'true' : 'false'}>
+          <button type="button" className="cp-btn cp-scope-toggle" aria-expanded={scopeOpen} aria-controls="cp-scope-fields" onClick={() => setScopeOpen((v) => !v)}>
+            {scopeOpen ? 'Hide scope' : 'Change scope'}
           </button>
-
-          {/* Search Conversations */}
-          <div style={{ marginTop: '12px', position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: '#64748b' }} />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={conversationSearch}
-              onChange={(e) => setConversationSearch(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px 8px 32px',
-                background: '#162238',
-                border: '1px solid #27354f',
-                borderRadius: '6px',
-                color: '#f8fafc',
-                fontSize: '0.82rem',
-                outline: 'none',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Conversations List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 8px' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', padding: '0 8px 8px' }}>
-            Recent Conversations
-          </div>
-
-          {loadingConversations ? (
-            <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
-              <RotateCw size={16} className="spin-animation" style={{ marginBottom: '6px' }} />
-              <div>Loading Conversations...</div>
+          <div className="cp-scope-row" id="cp-scope-fields">
+            <div className="cp-field">
+              <label htmlFor="cp-project">Project or meeting series</label>
+              <select id="cp-project" value={projectKey} onChange={(e) => { setProjectKey(e.target.value); if (e.target.value) setClientKey(''); }} disabled={!scopeOpts}>
+                <option value="">Any project</option>
+                {scopeOpts?.projects.map((p) => <option key={p.key} value={p.key}>{p.name}{p.client ? ` (${p.client})` : ''}, {p.meetings} {p.meetings === 1 ? 'meeting' : 'meetings'}</option>)}
+              </select>
             </div>
-          ) : filteredConversations.length === 0 ? (
-            <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '0.82rem' }}>
-              No conversations found.
+            <div className="cp-field">
+              <label htmlFor="cp-client">Client</label>
+              <select id="cp-client" value={clientKey} onChange={(e) => { setClientKey(e.target.value); if (e.target.value) setProjectKey(''); }} disabled={!scopeOpts || !!projectKey}>
+                <option value="">Any client</option>
+                {scopeOpts?.clients.map((c) => <option key={c.key} value={c.key}>{c.name}, {c.meetings} {c.meetings === 1 ? 'meeting' : 'meetings'}</option>)}
+              </select>
             </div>
-          ) : (
-            filteredConversations.map((conv) => {
-              const isActive = activeConversation?.id === conv.id;
-              const isRenaming = renamingConvId === conv.id;
+            <div className="cp-field">
+              <label htmlFor="cp-doc">Document</label>
+              <select id="cp-doc" value={docId} onChange={(e) => setDocId(e.target.value)} disabled={!projectKey || docs.length === 0}>
+                <option value="">{projectKey ? (docs.length ? 'No document' : 'No documents in this project') : 'Choose a project first'}</option>
+                {docs.map((d) => <option key={d.id} value={d.id}>{d.name}{d.version ? ` (version ${d.version})` : ''}</option>)}
+              </select>
+            </div>
+            <div className="cp-field">
+              <label htmlFor="cp-period">Period</label>
+              <select id="cp-period" value={preset} onChange={(e) => setPreset(e.target.value as PeriodPreset)}>
+                <option value="any">Any time</option>
+                <option value="30">Last 30 days</option>
+                <option value="quarter">This quarter</option>
+                <option value="custom">Choose dates</option>
+              </select>
+            </div>
+            {preset === 'custom' && (
+              <>
+                <div className="cp-field" style={{ minWidth: 150 }}><label htmlFor="cp-from">From</label><input id="cp-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+                <div className="cp-field" style={{ minWidth: 150 }}><label htmlFor="cp-to">To</label><input id="cp-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+              </>
+            )}
+          </div>
+          <div className="cp-scope-now" aria-live="polite"><strong>Reading:</strong> <span>{scopeText}</span></div>
+          {scopeError && <div className="cp-notice" data-kind="error" role="alert">{scopeError} You can still ask, and Copilot will read the whole workspace you can access.</div>}
+          {scopeOpts?.truncated && <div className="cp-scope-note">Only the most recent projects are listed here. Type a name in your question to reach older ones.</div>}
+        </section>
 
-              return (
-                <div
-                  key={conv.id}
-                  onClick={() => selectConversation(conv)}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: '6px',
-                    marginBottom: '4px',
-                    cursor: 'pointer',
-                    background: isActive ? '#1e293b' : 'transparent',
-                    border: isActive ? '1px solid #334155' : '1px solid transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {isRenaming ? (
-                    <div style={{ display: 'flex', width: '100%', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="text"
-                        value={renameTitle}
-                        onChange={(e) => setRenameTitle(e.target.value)}
-                        autoFocus
-                        style={{
-                          flex: 1,
-                          background: '#0f172a',
-                          border: '1px solid #e2b53c',
-                          color: '#fff',
-                          borderRadius: '4px',
-                          padding: '2px 6px',
-                          fontSize: '0.82rem',
-                        }}
-                      />
-                      <button
-                        onClick={() => handleRenameConversation(conv.id)}
-                        style={{ background: '#e2b53c', color: '#000', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer' }}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: isActive ? 600 : 500, color: isActive ? '#f8fafc' : '#cbd5e1' }}>
-                          {conv.title}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                          {new Date(conv.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px' }}>
-                        <button
-                          title="Rename"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRenamingConvId(conv.id);
-                            setRenameTitle(conv.title);
-                          }}
-                          style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          title="Delete"
-                          onClick={(e) => handleDeleteConversation(conv.id, e)}
-                          style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </>
-                  )}
+        <div className="cp-thread" aria-live="polite" aria-busy={!!stage}>
+          <div className="cp-thread-inner">
+            {loadingMsgs ? (
+              <div className="cp-activity" role="status">Loading this conversation</div>
+            ) : messages.length === 0 && !stage ? (
+              <div className="cp-welcome">
+                <div className="cp-hero">
+                  <h2>Ask about your own records</h2>
+                  <p>Copilot reads your saved meetings, decisions, actions, risks and workflow records. Every statement says how it was reached and where it came from. If nothing is recorded, it says so.</p>
                 </div>
-              );
-            })
-          )}
-
-          {/* Saved Prompts Section */}
-          <div style={{ marginTop: '20px', borderTop: '1px solid #1e293b', paddingTop: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 8px' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>
-                Saved Prompts
-              </span>
-              <button
-                onClick={() => {
-                  setPromptText(inputQuery);
-                  setSavePromptModalOpen(true);
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#e2b53c',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                }}
-              >
-                <BookmarkPlus size={13} />
-                <span>Save</span>
-              </button>
-            </div>
-
-            {filteredPrompts.slice(0, 5).map((p) => (
-              <div
-                key={p.id}
-                onClick={() => {
-                  setInputQuery(p.prompt_text);
-                }}
-                style={{
-                  padding: '8px 10px',
-                  background: '#162238',
-                  borderRadius: '6px',
-                  marginBottom: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  border: '1px solid #23334f',
-                }}
-              >
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#e2b53c' }}>{p.title}</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {p.prompt_text}
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => handleDeletePrompt(p.id, e)}
-                  style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer info */}
-        <div style={{ padding: '12px 16px', borderTop: '1px solid #1e293b', fontSize: '0.72rem', color: '#64748b' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#e2b53c', fontWeight: 600, marginBottom: '2px' }}>
-            <Shield size={12} />
-            <span>Governed AI Intelligence</span>
-          </div>
-          <div>Human approval required for executions. Australian English.</div>
-        </div>
-      </div>
-
-      {/* MAIN COPILOT CHAT AREA */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: '#0a0f1d' }}>
-        {/* Top Bar: Assistant Selector and Header */}
-        <div
-          style={{
-            padding: '12px 24px',
-            borderBottom: '1px solid #1e293b',
-            background: '#0d1527',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #16263F 0%, #21395C 100%)',
-                border: '1px solid #e2b53c',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#e2b53c',
-              }}
-            >
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Concludo Copilot
-                <span
-                  style={{
-                    fontSize: '0.65rem',
-                    background: 'rgba(226, 181, 60, 0.15)',
-                    color: '#e2b53c',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(226, 181, 60, 0.3)',
-                    fontWeight: 600,
-                  }}
-                >
-                  ENTERPRISE
-                </span>
-              </div>
-              <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#cbd5e1' }}>
-                Natural Language Intelligence & Enterprise Decision Assistant
-              </div>
-            </div>
-          </div>
-
-          {/* Assistant Selector Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Mode:</span>
-            <select
-              value={selectedAssistant}
-              onChange={(e) => setSelectedAssistant(e.target.value as AssistantType)}
-              style={{
-                padding: '6px 12px',
-                background: '#162238',
-                border: '1px solid #2a3c5d',
-                borderRadius: '6px',
-                color: '#f8fafc',
-                fontSize: '0.82rem',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {ASSISTANT_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Chat Feed */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Welcome Screen when no messages */}
-          {messages.length === 0 && !processingState && (
-            <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%' }}>
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '36px 20px',
-                  background: 'linear-gradient(180deg, rgba(22, 38, 63, 0.4) 0%, rgba(13, 21, 39, 0.2) 100%)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(226, 181, 60, 0.2)',
-                  marginBottom: '28px',
-                }}
-              >
-                <div
-                  style={{
-                    width: '56px',
-                    height: '56px',
-                    borderRadius: '12px',
-                    background: '#16263F',
-                    border: '2px solid #e2b53c',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                    color: '#e2b53c',
-                    boxShadow: '0 4px 16px rgba(226, 181, 60, 0.2)',
-                  }}
-                >
-                  <Sparkles size={28} />
-                </div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '0 0 8px', color: '#f8fafc' }}>
-                  Ask Concludo Anything About Your Organization
-                </h2>
-                <p style={{ fontSize: '0.98rem', fontWeight: 600, color: '#cbd5e1', maxWidth: '640px', margin: '0 auto', lineHeight: '1.5' }}>
-                  Concludo Copilot answers questions with evidence-based facts drawn directly from your projects, decisions, action tracker, transcripts, and organizational memory graph.
-                </p>
-              </div>
-
-              {/* Suggested Questions Grid */}
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#e2b53c', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>
-                  Suggested Questions & Insights
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-                  {SUGGESTED_QUESTIONS.map((item, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        setSelectedAssistant(item.assistant);
-                        handleSendMessage(item.query);
-                      }}
-                      style={{
-                        padding: '14px',
-                        background: '#0d1527',
-                        border: '1px solid #1e293b',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#e2b53c';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#1e293b';
-                        e.currentTarget.style.transform = 'none';
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '0.72rem', color: '#e2b53c', fontWeight: 600 }}>{item.category}</span>
-                        <ArrowRight size={13} color="#64748b" />
-                      </div>
-                      <div style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: '1.4' }}>{item.query}</div>
-                    </div>
+                <div className="cp-cards">
+                  {STARTERS.map((s) => (
+                    <button key={s.k} type="button" className="cp-card" onClick={() => setInput(s.q)}>
+                      <span className="cp-card-k">{s.k}</span><strong>{s.t}</strong><span>{s.d}</span>
+                    </button>
                   ))}
                 </div>
               </div>
+            ) : messages.map((m, i) => m.role === 'user'
+              ? <div key={m.id} className="cp-q">{m.message}</div>
+              : <CopilotResponseView key={m.id} message={m} citeOpenId={citeOpen} onCite={setCiteOpen} onFollowUp={(q) => send(q)} onChoose={choose} isLatest={i === lastAssistantIdx} />)}
 
-              {/* Capability highlights */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontWeight: 600, fontSize: '0.82rem', marginBottom: '4px' }}>
-                    <BrainCircuit size={16} />
-                    <span>Decision Memory</span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                    Trace why decisions were approved and what outcomes resulted.
-                  </div>
-                </div>
-
-                <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontWeight: 600, fontSize: '0.82rem', marginBottom: '4px' }}>
-                    <AlertTriangle size={16} />
-                    <span>Risk Detection</span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                    Analyze repeated project delays and delivery bottlenecks.
-                  </div>
-                </div>
-
-                <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a855f7', fontWeight: 600, fontSize: '0.82rem', marginBottom: '4px' }}>
-                    <Database size={16} />
-                    <span>Knowledge Graph</span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                    Explore relationships and learned lessons across initiatives.
-                  </div>
-                </div>
+            {stage && (
+              <div className="cp-activity" role="status" aria-label="Copilot is working">
+                <strong>Working on it</strong>
+                <ol className="cp-steps">
+                  {STAGES.map((s, i) => (
+                    <li key={s.id} className="cp-step" data-state={i < stageIdx ? 'done' : i === stageIdx ? 'active' : 'todo'}>
+                      <i aria-hidden /><span>{s.label}</span>
+                    </li>
+                  ))}
+                </ol>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Render Conversation Turn Items */}
-          {messages.map((msg, idx) => {
-            const isUser = msg.role === 'user';
-            const resp = (msg.response || {}) as CopilotResponse;
-            const isExplainExpanded = expandedExplainMap[msg.id] || false;
-
-            if (isUser) {
-              return (
-                <div
-                  key={msg.id || idx}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    maxWidth: '850px',
-                    margin: '0 auto',
-                    width: '100%',
-                  }}
-                >
-                  <div
-                    style={{
-                      background: 'linear-gradient(135deg, #16263F 0%, #21395C 100%)',
-                      border: '1px solid #334d75',
-                      padding: '12px 18px',
-                      borderRadius: '12px 12px 2px 12px',
-                      color: '#f8fafc',
-                      fontSize: '0.92rem',
-                      maxWidth: '75%',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                    }}
-                  >
-                    {msg.message}
-                  </div>
-                </div>
-              );
-            }
-
-            // Assistant Response
-            const badgeStyle = getConfidenceBadgeColor(resp.confidence || 'high');
-
-            return (
-              <div
-                key={msg.id || idx}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  maxWidth: '850px',
-                  margin: '0 auto',
-                  width: '100%',
-                }}
-              >
-                {/* Main Answer Bubble */}
-                <div
-                  style={{
-                    background: '#0d1527',
-                    border: '1px solid #1e293b',
-                    borderRadius: '12px 12px 12px 2px',
-                    padding: '20px',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-                  }}
-                >
-                  {/* Assistant Header / Confidence Row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid #1a253a', paddingBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Sparkles size={16} color="#e2b53c" />
-                      <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#e2b53c' }}>
-                        {resp.assistantType ? resp.assistantType.replace(/_/g, ' ').toUpperCase() : 'CONCLUDO COPILOT'}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          background: badgeStyle.bg,
-                          color: badgeStyle.text,
-                          border: `1px solid ${badgeStyle.border}`,
-                        }}
-                      >
-                        {formatConfidenceLabel(resp.confidence || 'high')} ({resp.confidenceScore || 85}%)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Grounded Answer Content */}
-                  <div
-                    style={{
-                      fontSize: '0.92rem',
-                      lineHeight: '1.65',
-                      color: '#f8fafc',
-                      whiteSpace: 'pre-line',
-                      marginBottom: '16px',
-                    }}
-                  >
-                    {msg.message || resp.answer}
-                  </div>
-
-                  {/* Supporting Evidence Pills */}
-                  {resp.supportingEvidence && resp.supportingEvidence.length > 0 && (
-                    <div style={{ background: '#121c32', borderRadius: '8px', padding: '12px', marginBottom: '16px', border: '1px solid #1e2b45' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
-                        Supporting Evidence
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {resp.supportingEvidence.map((ev, eIdx) => (
-                          <div key={eIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '0.8rem', color: '#cbd5e1' }}>
-                            <CheckCircle2 size={13} color="#22c55e" style={{ marginTop: '3px', flexShrink: 0 }} />
-                            <span>{ev}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Source Records Attribution */}
-                  {resp.sourceRecords && resp.sourceRecords.length > 0 && (
-                    <div style={{ marginBottom: '14px' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
-                        Retrieved Sources ({resp.sourceRecords.length})
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {resp.sourceRecords.map((rec, rIdx) => (
-                          <div
-                            key={rIdx}
-                            style={{
-                              padding: '4px 10px',
-                              background: '#162238',
-                              border: '1px solid #233452',
-                              borderRadius: '6px',
-                              fontSize: '0.75rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                            }}
-                            title={rec.snippet}
-                          >
-                            <span style={{ color: '#e2b53c', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                              {rec.type}
-                            </span>
-                            <span style={{ color: '#e2e8f0' }}>{rec.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Execution Draft Card (If Requested) */}
-                  {resp.executionDraft && (
-                    <div
-                      style={{
-                        padding: '14px',
-                        background: 'rgba(226, 181, 60, 0.08)',
-                        border: '1px solid #e2b53c',
-                        borderRadius: '8px',
-                        marginBottom: '14px',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#e2b53c', fontSize: '0.85rem' }}>
-                          <Shield size={16} />
-                          <span>Action Staged: {resp.executionDraft.title}</span>
-                        </div>
-                        <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#e2b53c', color: '#000', borderRadius: '4px', fontWeight: 700 }}>
-                          APPROVAL REQUIRED
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '10px' }}>
-                        Autonomous execution without human oversight is prohibited. This draft is staged under governance controls.
-                      </div>
-                      <Link
-                        to="/approvals"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          background: '#e2b53c',
-                          color: '#0f172a',
-                          borderRadius: '6px',
-                          fontWeight: 600,
-                          fontSize: '0.78rem',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <span>Review in Approval Center (/approvals)</span>
-                        <ArrowRight size={13} />
-                      </Link>
-                    </div>
-                  )}
-
-                  {/* Answer Explainability Toggle ("Why This Answer?") */}
-                  <div style={{ borderTop: '1px solid #1a253a', paddingTop: '10px', marginTop: '10px' }}>
-                    <button
-                      onClick={() =>
-                        setExpandedExplainMap((prev) => ({
-                          ...prev,
-                          [msg.id]: !prev[msg.id],
-                        }))
-                      }
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <HelpCircle size={13} color="#e2b53c" />
-                      <span>Why This Answer? (Explainability & Reasoning Path)</span>
-                      {isExplainExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                    </button>
-
-                    {isExplainExpanded && (
-                      <div style={{ marginTop: '10px', padding: '12px', background: '#0a0f1d', borderRadius: '6px', border: '1px solid #1e293b' }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#e2b53c', marginBottom: '6px' }}>
-                          Reasoning Path:
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
-                          {(resp.reasoningPath || []).map((step, sIdx) => (
-                            <div key={sIdx} style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                              • {step}
-                            </div>
-                          ))}
-                        </div>
-
-                        {resp.knowledgeGraphConnections && resp.knowledgeGraphConnections.length > 0 && (
-                          <>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#e2b53c', marginBottom: '6px' }}>
-                              Knowledge Graph Connections:
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              {resp.knowledgeGraphConnections.map((conn, cIdx) => (
-                                <div key={cIdx} style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>
-                                  <span style={{ color: '#38bdf8' }}>{conn.from}</span>
-                                  <span style={{ color: '#94a3b8', margin: '0 6px' }}>—[{conn.relationship}]→</span>
-                                  <span style={{ color: '#38bdf8' }}>{conn.to}</span>
-                                  <span style={{ color: '#64748b', marginLeft: '6px' }}>({conn.confidence}%)</span>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Suggested Follow-Ups Pills */}
-                {resp.suggestedFollowUps && resp.suggestedFollowUps.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingLeft: '8px' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', alignSelf: 'center' }}>Suggested:</span>
-                    {resp.suggestedFollowUps.map((followUp, fIdx) => (
-                      <button
-                        key={fIdx}
-                        onClick={() => handleSendMessage(followUp)}
-                        style={{
-                          background: 'rgba(22, 34, 56, 0.7)',
-                          border: '1px solid #233452',
-                          borderRadius: '14px',
-                          padding: '4px 12px',
-                          fontSize: '0.75rem',
-                          color: '#cbd5e1',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          transition: 'all 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = '#e2b53c';
-                          e.currentTarget.style.color = '#fff';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = '#233452';
-                          e.currentTarget.style.color = '#cbd5e1';
-                        }}
-                      >
-                        <span>{followUp}</span>
-                        <ArrowRight size={10} color="#e2b53c" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {error && (
+              <div className="cp-error" role="alert">
+                <span>{error}</span>
+                {lastQuery && <button type="button" className="cp-btn" onClick={() => send(lastQuery)}><RotateCw size={14} aria-hidden /> Try again</button>}
               </div>
-            );
-          })}
-
-          {/* Processing / Loading State */}
-          {processingState && (
-            <div
-              style={{
-                maxWidth: '850px',
-                margin: '0 auto',
-                width: '100%',
-                padding: '16px',
-                background: '#0d1527',
-                border: '1px solid #1e293b',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-              }}
-            >
-              <RotateCw size={18} className="spin-animation" color="#e2b53c" />
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#e2b53c' }}>{processingState}</div>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                  Auditing workspace records without fabrication.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Error Banner with Retry */}
-          {errorMessage && (
-            <div
-              style={{
-                maxWidth: '850px',
-                margin: '0 auto',
-                width: '100%',
-                padding: '14px 18px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid #ef4444',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fca5a5', fontSize: '0.85rem' }}>
-                <AlertTriangle size={16} color="#ef4444" />
-                <span>{errorMessage}</span>
-              </div>
-              <button
-                onClick={handleRetry}
-                style={{
-                  background: '#ef4444',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <RefreshCw size={12} />
-                <span>Retry</span>
-              </button>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
+            )}
+            <div ref={endRef} />
+          </div>
         </div>
 
-        {/* Input Bar */}
-        <div style={{ padding: '16px 24px', background: '#0d1527', borderTop: '1px solid #1e293b' }}>
-          <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%' }}>
-            <div
-              style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                background: '#162238',
-                border: '1px solid #2a3c5d',
-                borderRadius: '10px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              }}
-            >
-              <input
-                type="text"
-                placeholder={
-                  selectedAssistant === 'copilot'
-                    ? 'Ask Concludo about decisions, projects, actions, or risks...'
-                    : `Ask ${ASSISTANT_OPTIONS.find((a) => a.id === selectedAssistant)?.label}...`
-                }
-                value={inputQuery}
-                onChange={(e) => setInputQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                disabled={Boolean(processingState)}
-                style={{
-                  flex: 1,
-                  padding: '14px 18px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#f8fafc',
-                  fontSize: '0.9rem',
-                  outline: 'none',
-                }}
-              />
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '12px' }}>
-                {inputQuery.trim() && (
-                  <button
-                    type="button"
-                    title="Bookmark this prompt"
-                    onClick={() => {
-                      setPromptText(inputQuery);
-                      setSavePromptModalOpen(true);
-                    }}
-                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-                  >
-                    <Bookmark size={16} />
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => handleSendMessage()}
-                  disabled={!inputQuery.trim() || Boolean(processingState)}
-                  style={{
-                    padding: '8px 14px',
-                    background: inputQuery.trim() && !processingState ? '#e2b53c' : '#334155',
-                    color: inputQuery.trim() && !processingState ? '#0f172a' : '#64748b',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontWeight: 700,
-                    cursor: inputQuery.trim() && !processingState ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  <span>Send</span>
-                  <Send size={14} />
-                </button>
-              </div>
+        <footer className="cp-composer">
+          <div className="cp-composer-inner">
+            <div className="cp-assist" role="group" aria-label="Focus">
+              {ASSISTANTS.map((a) => (
+                <button key={a.id} type="button" aria-pressed={assistant === a.id} onClick={() => setAssistant(a.id)}>{a.label}</button>
+              ))}
             </div>
+            <div className="cp-compose-row">
+              <label className="cp-sr" htmlFor="cp-input">Ask Copilot</label>
+              <textarea id="cp-input" rows={2} placeholder="Ask about a project, client or period" value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
+              <button type="button" className="cp-btn cp-btn-primary" onClick={() => send()} disabled={!input.trim() || !!stage} aria-label="Send question"><Send size={16} aria-hidden /> Ask</button>
+            </div>
+            <div className="cp-hint">Enter to send, Shift and Enter for a new line. Copilot proposes. A person approves. It never sends or runs anything itself.</div>
+          </div>
+        </footer>
+      </main>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px', fontSize: '0.72rem', color: '#64748b' }}>
-              <span>Strictly grounded in workspace archives. No hallucinated records.</span>
-              <span>Press Enter to send</span>
+      {deleting && (
+        <div className="cp-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="cp-del-t">
+          <div className="cp-modal">
+            <h2 id="cp-del-t">Delete this conversation?</h2>
+            <p style={{ margin: 0 }}>"{deleting.title}" will be removed from your list. It is kept for 30 days under the retention policy.</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="cp-btn" autoFocus onClick={() => setDeleting(null)}>Keep it</button>
+              <button type="button" className="cp-btn cp-btn-primary" onClick={del}>Delete</button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* SAVE PROMPT MODAL */}
-      {savePromptModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-          }}
-          onClick={() => setSavePromptModalOpen(false)}
-        >
-          <div
-            style={{
-              width: '450px',
-              background: '#0d1527',
-              border: '1px solid #27354f',
-              borderRadius: '10px',
-              padding: '20px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#f8fafc', marginBottom: '14px' }}>
-              Save Custom Prompt
+      {saveOpen && (
+        <div className="cp-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="cp-save-t">
+          <div className="cp-modal">
+            <h2 id="cp-save-t">Save a prompt</h2>
+            <div className="cp-field" style={{ maxWidth: 'none' }}><label htmlFor="cp-pt">Title</label><input id="cp-pt" value={pTitle} onChange={(e) => setPTitle(e.target.value)} /></div>
+            <div className="cp-field" style={{ maxWidth: 'none' }}><label htmlFor="cp-px">Prompt</label><textarea id="cp-px" rows={3} value={pText} onChange={(e) => setPText(e.target.value)} style={{ borderRadius: 12, border: '1px solid var(--cp-line-strong)', padding: 10 }} /></div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div className="cp-field" style={{ maxWidth: 'none' }}><label htmlFor="cp-pc">Category</label>
+                <select id="cp-pc" value={pCat} onChange={(e) => setPCat(e.target.value as PromptCategory)}>
+                  {['general', 'decisions', 'projects', 'actions', 'risks', 'executive', 'reports'].map((c) => <option key={c} value={c}>{c}</option>)}
+                </select></div>
+              <div className="cp-field" style={{ maxWidth: 'none' }}><label htmlFor="cp-ps">Who can use it</label>
+                <select id="cp-ps" value={pScope} onChange={(e) => setPScope(e.target.value as PromptScope)}>
+                  {['personal', 'team', 'organization'].map((c) => <option key={c} value={c}>{c}</option>)}
+                </select></div>
             </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Title</label>
-              <input
-                type="text"
-                placeholder="e.g. Atlas Decision Lineage"
-                value={promptTitle}
-                onChange={(e) => setPromptTitle(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', background: '#162238', border: '1px solid #27354f', borderRadius: '6px', color: '#fff', fontSize: '0.85rem' }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Prompt Text</label>
-              <textarea
-                rows={3}
-                value={promptText}
-                onChange={(e) => setPromptText(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', background: '#162238', border: '1px solid #27354f', borderRadius: '6px', color: '#fff', fontSize: '0.85rem' }}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Category</label>
-                <select
-                  value={promptCategory}
-                  onChange={(e) => setPromptCategory(e.target.value as PromptCategory)}
-                  style={{ width: '100%', padding: '8px', background: '#162238', border: '1px solid #27354f', borderRadius: '6px', color: '#fff', fontSize: '0.82rem' }}
-                >
-                  <option value="general">General</option>
-                  <option value="decisions">Decisions</option>
-                  <option value="projects">Projects</option>
-                  <option value="actions">Actions</option>
-                  <option value="risks">Risks</option>
-                  <option value="executive">Executive</option>
-                  <option value="reports">Reports</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Scope</label>
-                <select
-                  value={promptScope}
-                  onChange={(e) => setPromptScope(e.target.value as PromptScope)}
-                  style={{ width: '100%', padding: '8px', background: '#162238', border: '1px solid #27354f', borderRadius: '6px', color: '#fff', fontSize: '0.82rem' }}
-                >
-                  <option value="personal">Personal</option>
-                  <option value="team">Team</option>
-                  <option value="organization">Organization</option>
-                  <option value="executive">Executive</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                onClick={() => setSavePromptModalOpen(false)}
-                style={{ padding: '6px 12px', background: 'transparent', border: '1px solid #334155', color: '#94a3b8', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSavePrompt}
-                disabled={!promptTitle.trim() || !promptText.trim()}
-                style={{ padding: '6px 14px', background: '#e2b53c', border: 'none', color: '#0f172a', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
-              >
-                Save Prompt
-              </button>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="cp-btn" onClick={() => setSaveOpen(false)}>Cancel</button>
+              <button type="button" className="cp-btn cp-btn-primary" onClick={savePrompt} disabled={!pTitle.trim() || !pText.trim()}>Save prompt</button>
             </div>
           </div>
         </div>
@@ -1327,4 +471,5 @@ export const CopilotPage: React.FC = () => {
     </div>
   );
 };
+
 export default CopilotPage;
