@@ -1,7 +1,7 @@
-import React from 'react';
-import { AlertTriangle, CheckCircle2, ExternalLink, Info, ShieldAlert, Lock, Layers, Maximize2, Copy, Check, X } from 'lucide-react';
-import type { AnswerItem, CopilotMessage, CopilotNotice, CopilotResponse, SourceRecord, StatementBasis } from '../../lib/copilot/types';
+import React, { useState } from 'react';
+import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Info, Lock, Printer, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import type { AnswerItem, AnswerSection, CopilotMessage, CopilotNotice, CopilotResponse, SourceRecord, StatementBasis } from '../../lib/copilot/types';
 
 export const BASIS_LABEL: Record<StatementBasis, string> = {
   recorded: 'Recorded',
@@ -17,6 +17,17 @@ const BASIS_HELP: Record<StatementBasis, string> = {
   recommended: 'A suggestion. Not a recorded fact.',
   modelled: 'A simulation or estimate. Not an observed result.',
 };
+const STATUS_COPY: Record<string, string> = {
+  grounded: 'Answered from your records',
+  partial: 'Answered with limits. See the notes below',
+  none: 'Nothing recorded for this question',
+  ambiguous: 'Needs your choice before reading any records',
+  refused: 'Not answered. This is outside what Concludo does',
+};
+
+export function levelOf(score: number): 'low' | 'moderate' | 'high' {
+  return score >= 70 ? 'high' : score >= 50 ? 'moderate' : 'low';
+}
 
 function NoticeIcon({ kind }: { kind: CopilotNotice['kind'] }) {
   if (kind === 'consent') return <Lock size={16} aria-hidden />;
@@ -26,17 +37,28 @@ function NoticeIcon({ kind }: { kind: CopilotNotice['kind'] }) {
   return <AlertTriangle size={16} aria-hidden />;
 }
 
-export function levelOf(score: number): 'low' | 'moderate' | 'high' {
-  return score >= 70 ? 'high' : score >= 50 ? 'moderate' : 'low';
+export function headline(r: CopilotResponse): string {
+  const lede = r.sections?.find((s) => s.kind === 'summary')?.items?.[0]?.text;
+  if (lede) return lede;
+  const first = r.sections?.[0]?.items?.[0]?.text;
+  return first || (r.answer || '').split('\n')[0] || 'Answer';
 }
 
-const STATUS_COPY: Record<string, string> = {
-  grounded: 'Answered from your records',
-  partial: 'Answered with limits. See the notes below',
-  none: 'Nothing recorded for this question',
-  ambiguous: 'Needs your choice before reading any records',
-  refused: 'Not answered. This is outside what Concludo does',
-};
+function plainText(r: CopilotResponse, sources: SourceRecord[]): string {
+  const n = new Map(sources.map((s, i) => [s.id, i + 1]));
+  const out: string[] = [];
+  if (r.scope?.label) out.push(`Scope: ${r.scope.label}`);
+  (r.notices || []).forEach((x) => out.push(`Note: ${x.text}`));
+  (r.sections || []).forEach((s) => {
+    out.push('', s.title);
+    s.items.forEach((i) => out.push(`- [${BASIS_LABEL[i.basis]}] ${i.date ? i.date + ': ' : ''}${i.text}${(i.sourceIds || []).map((id) => (n.get(id) ? ` [${n.get(id)}]` : '')).join('')}`));
+  });
+  if (sources.length) {
+    out.push('', 'Sources');
+    sources.forEach((s, i) => out.push(`[${i + 1}] ${s.title}${s.recordDate ? `, ${s.recordDate}` : ''}`));
+  }
+  return out.join('\n');
+}
 
 interface Props {
   message: CopilotMessage;
@@ -47,278 +69,190 @@ interface Props {
   isLatest: boolean;
 }
 
-function SourceChip({ n, src, onClick }: { n: number; src: SourceRecord; onClick: () => void }) {
-  return (
-    <button type="button" className="cp-src" onClick={onClick} aria-label={`Source ${n}: ${src.title}`}>
-      [{n}]
-    </button>
-  );
-}
-
 export const CopilotResponseView: React.FC<Props> = ({ message, citeOpenId, onCite, onFollowUp, onChoose, isLatest }) => {
-  const [fullView, setFullView] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
   const r = message.response as CopilotResponse;
   const sources: SourceRecord[] = r.sourceRecords || [];
   const numberOf = new Map(sources.map((s, i) => [s.id, i + 1]));
   const status = r.evidenceStatus || 'grounded';
-  const hasSections = Array.isArray(r.sections) && r.sections.length > 0;
+  const draft = r.executionDraft;
   const score = r.confidenceScore ?? 0;
   const level = levelOf(score);
   const showStrength = status !== 'refused' && status !== 'ambiguous' && typeof r.confidenceScore === 'number';
-  const draft = r.executionDraft;
+  const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    const textToCopy = r.answer || (r.sections ? r.sections.map(s => `${s.title}\n${s.items.map(i => `- ${i.text}`).join('\n')}`).join('\n\n') : '');
-    if (!textToCopy) return;
-    navigator.clipboard?.writeText(textToCopy).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => undefined);
+  const allSections: AnswerSection[] = Array.isArray(r.sections) ? r.sections : [];
+  const sections = r.clarification
+    ? []
+    : allSections.filter((sec) => !(draft && draft.preview && sec.items.length === draft.preview.length && sec.items.every((it, k) => it.text === draft.preview![k])));
+  const ledeSections = sections.filter((s, i) => s.kind === 'summary' && i === 0);
+  const bodySections = sections.filter((s) => !ledeSections.includes(s));
+  const uid = message.id;
+  const sid = (i: number) => `cp-${uid}-s${i}`;
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(plainText(r, sources)); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* clipboard blocked: nothing to do */ }
   };
 
+  const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const chips = (it: AnswerItem) =>
+    (it.sourceIds || []).map((id) => {
+      const n = numberOf.get(id);
+      const s = sources.find((x) => x.id === id);
+      return n && s ? (
+        <button key={id} type="button" className="cp-src" aria-label={`Source ${n}: ${s.title}`} onClick={() => { onCite(id); jump(`cp-${uid}-src-${id}`); }}>[{n}]</button>
+      ) : null;
+    });
+
+  const row = (it: AnswerItem, k: number) => (
+    <li key={k} className="cp-row" data-tone={it.tone || 'normal'}>
+      <span className="cp-row-date">{it.date || ''}</span>
+      <span className="cp-row-text">{it.text}</span>
+      <span className="cp-row-side">
+        <span className="cp-tag" data-basis={it.basis} title={BASIS_HELP[it.basis]}>{BASIS_LABEL[it.basis]}</span>
+        {chips(it)}
+      </span>
+    </li>
+  );
+
   return (
-    <article className="cp-a" data-status={status} aria-label="Copilot answer">
-      <div className="cp-a-head">
-        <span className="cp-pill">{STATUS_COPY[status] || 'Answer'}</span>
-        <span className="grow" />
-        {r.scope?.dataMode === 'sample' && <span className="cp-pill cp-pill-sample"><span className="dot" />Sample records</span>}
-        <button
-          type="button"
-          className="cp-expand-btn"
-          onClick={() => setFullView(true)}
-          title="Expand output to full view"
-          aria-label="Expand output to full view"
-        >
-          <Maximize2 size={13} aria-hidden />
-          <span>Full view</span>
-        </button>
-      </div>
-      {r.scope && r.scope.label && <div className="cp-a-scope">Scope: {r.scope.label}</div>}
-
-      {r.notices && r.notices.length > 0 && (
-        <div className="cp-notices" role="list">
-          {r.notices.map((n, i) => (
-            <div key={i} className="cp-notice" data-kind={n.kind} role="listitem">
-              <NoticeIcon kind={n.kind} />
-              <span>{n.text}</span>
-            </div>
-          ))}
+    <article className="cp-report" data-status={status} aria-label="Copilot answer">
+      <header className="cp-rep-head">
+        <div className="cp-rep-state">
+          <span className="cp-pill">{STATUS_COPY[status] || 'Answer'}</span>
+          {r.scope?.dataMode === 'sample' && <span className="cp-pill cp-pill-sample"><span className="dot" />Sample records</span>}
         </div>
-      )}
+        <div className="cp-rep-actions">
+          <button type="button" className="cp-btn cp-btn-quiet" onClick={copy}><Copy size={14} aria-hidden /> {copied ? 'Copied' : 'Copy'}</button>
+          <button type="button" className="cp-btn cp-btn-quiet" onClick={() => window.print()}><Printer size={14} aria-hidden /> Print or save as PDF</button>
+        </div>
+      </header>
+      {r.scope?.label && <div className="cp-a-scope">Scope: {r.scope.label}</div>}
 
-      <div className="cp-a-body">
-        {r.clarification && (
-          <div className="cp-sec">
-            <h3>Which one do you mean?</h3>
-            <p style={{ margin: '0 0 10px' }}>{r.clarification.question}</p>
-            <div className="cp-choices">
-              {r.clarification.options.map((o) => (
-                <button key={o.id} type="button" className="cp-choice" disabled={!isLatest} onClick={() => onChoose(o.id)}>
-                  <strong>{o.label}</strong>
-                  <span>{o.detail}</span>
-                </button>
+      <div className="cp-rep-grid">
+        <div className="cp-rep-main">
+          {r.notices && r.notices.length > 0 && (
+            <div className="cp-notices" role="list">
+              {r.notices.map((n, i) => (
+                <div key={i} className="cp-notice" data-kind={n.kind} role="listitem"><NoticeIcon kind={n.kind} /><span>{n.text}</span></div>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {hasSections && !r.clarification
-          ? r.sections!.filter((sec) => !(draft && draft.preview && sec.items.length === draft.preview.length && sec.items.every((it, k) => it.text === draft.preview![k]))).map((sec, si) => (
-              <section key={si} className="cp-sec">
-                <h3>{sec.title}</h3>
-                <ul className="cp-items">
-                  {sec.items.map((it: AnswerItem, ii: number) => (
-                    <li key={ii} className="cp-item" data-tone={it.tone || 'normal'}>
-                      <span className="cp-tag" data-basis={it.basis} title={BASIS_HELP[it.basis]}>{BASIS_LABEL[it.basis]}</span>
-                      <span className="cp-item-text">{it.text}</span>
-                      {((it.sourceIds && it.sourceIds.length > 0) || it.date) && (
-                        <span className="cp-item-meta">
-                          {it.date && <span>{it.date}</span>}
-                          {(it.sourceIds || []).map((sid) => {
-                            const n = numberOf.get(sid);
-                            const s = sources.find((x) => x.id === sid);
-                            return n && s ? <SourceChip key={sid} n={n} src={s} onClick={() => onCite(citeOpenId === sid ? null : sid)} /> : null;
-                          })}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
-          : !hasSections && r.answer && !r.clarification && (
-              <div className="cp-sec" style={{ whiteSpace: 'pre-wrap' }}>{r.answer}</div>
-            )}
+          {ledeSections.map((s, i) => (
+            <section key={i} className="cp-lede" id={sid(-1)}>
+              {s.items.map((it, k) => (
+                <p key={k} data-tone={it.tone || 'normal'}>
+                  {it.text} <span className="cp-tag" data-basis={it.basis} title={BASIS_HELP[it.basis]}>{BASIS_LABEL[it.basis]}</span> {chips(it)}
+                </p>
+              ))}
+            </section>
+          ))}
 
-        {draft && (
-          <div className="cp-approval" aria-label="Approval request">
-            <header>
-              <strong>{draft.title}</strong>
-              {draft.status === 'pending_approval' && draft.approvalId ? (
-                <span className="cp-state" data-state="queued"><CheckCircle2 size={14} aria-hidden /> Queued for approval</span>
-              ) : (
-                <span className="cp-state" data-state="not-queued"><AlertTriangle size={14} aria-hidden /> Not queued</span>
-              )}
-            </header>
-            {draft.preview && draft.preview.length > 0 && (
-              <ul>{draft.preview.map((p, i) => <li key={i}>{p}</li>)}</ul>
-            )}
-            <footer>
-              {draft.status === 'pending_approval' && draft.approvalId ? (
-                <>
-                  <Link className="cp-btn cp-btn-primary" to={`/approvals/${draft.approvalId}`}>Open in Approvals</Link>
-                  <span className="cp-hint">Nothing has been sent or run. A person must approve it.</span>
-                </>
-              ) : (
-                <span className="cp-hint">{draft.persistError ? `Not saved: ${draft.persistError}. ` : ''}Nothing has been sent or run. Ask again to retry.</span>
-              )}
-            </footer>
-          </div>
-        )}
-      </div>
+          {r.clarification && (
+            <section className="cp-sec">
+              <h3>Which one do you mean?</h3>
+              <p className="cp-lede-q">{r.clarification.question}</p>
+              <div className="cp-choices">
+                {r.clarification.options.map((o) => (
+                  <button key={o.id} type="button" className="cp-choice" disabled={!isLatest} onClick={() => onChoose(o.id)}>
+                    <strong>{o.label}</strong><span>{o.detail}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
-      {(showStrength || sources.length > 0 || (r.suggestedFollowUps || []).length > 0) && (
-        <div className="cp-foot">
+          {sections.length === 0 && !r.clarification && r.answer && <div className="cp-lede"><p style={{ whiteSpace: 'pre-wrap' }}>{r.answer}</p></div>}
+
+          {bodySections.map((sec, si) => (
+            <section key={si} className="cp-sec" id={sid(si)}>
+              <h3><span>{sec.title}</span><em>{sec.items.length}</em></h3>
+              <ul className="cp-rows">{sec.items.map(row)}</ul>
+            </section>
+          ))}
+
+          {draft && (
+            <section className="cp-approval" aria-label="Approval request">
+              <header>
+                <strong>{draft.title}</strong>
+                {draft.status === 'pending_approval' && draft.approvalId
+                  ? <span className="cp-state" data-state="queued"><CheckCircle2 size={14} aria-hidden /> Queued for approval</span>
+                  : <span className="cp-state" data-state="not-queued"><AlertTriangle size={14} aria-hidden /> Not queued</span>}
+              </header>
+              {draft.preview && draft.preview.length > 0 && <ul>{draft.preview.map((p, i) => <li key={i}>{p}</li>)}</ul>}
+              <footer>
+                {draft.status === 'pending_approval' && draft.approvalId ? (
+                  <>
+                    <Link className="cp-btn cp-btn-primary" to={`/approvals/${draft.approvalId}`}>Open in Approvals</Link>
+                    <span className="cp-hint">Nothing has been sent or run. A person must approve it.</span>
+                  </>
+                ) : (
+                  <span className="cp-hint">{draft.persistError ? `Not saved: ${draft.persistError}. ` : ''}Nothing has been sent or run. Ask again to retry.</span>
+                )}
+              </footer>
+            </section>
+          )}
+
+          {sources.length > 0 && (
+            <section className="cp-sec" id={`cp-${uid}-sources`}>
+              <h3><span>Sources</span><em>{sources.length}</em></h3>
+              <ol className="cp-srcs">
+                {sources.map((s, i) => (
+                  <li key={s.id} id={`cp-${uid}-src-${s.id}`} className="cp-srcrow" data-hit={citeOpenId === s.id ? 'true' : 'false'}>
+                    <span className="cp-src-num">[{i + 1}]</span>
+                    <span className="cp-srcrow-main">
+                      <span className="cp-src-type">{s.type.replace('_', ' ')}{s.recordDate ? ` | ${s.recordDate}` : ''}{s.status ? ` | ${s.status}` : ''}</span>
+                      <strong>{s.title}</strong>
+                      {s.snippet && <span className="cp-srcrow-snip">{s.snippet}</span>}
+                    </span>
+                    {s.href ? <Link className="cp-src" to={s.href} aria-label={`Open ${s.title}`}>Open <ExternalLink size={12} aria-hidden style={{ marginLeft: 4 }} /></Link> : <span />}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          {isLatest && (r.suggestedFollowUps || []).length > 0 && (
+            <section className="cp-follow-wrap">
+              <h3><span>Ask next</span></h3>
+              <div className="cp-follow">{r.suggestedFollowUps.slice(0, 4).map((q, i) => <button key={i} type="button" className="cp-chip" onClick={() => onFollowUp(q)}>{q}</button>)}</div>
+            </section>
+          )}
+        </div>
+
+        <aside className="cp-rep-side" aria-label="On this answer">
+          {(bodySections.length > 0 || sources.length > 0) && (
+            <nav className="cp-toc" aria-label="Sections in this answer">
+              <div className="cp-side-h">On this page</div>
+              {ledeSections.length > 0 && <button type="button" onClick={() => jump(sid(-1))}>Summary</button>}
+              {bodySections.map((s, i) => <button key={i} type="button" onClick={() => jump(sid(i))}><span>{s.title}</span><em>{s.items.length}</em></button>)}
+              {sources.length > 0 && <button type="button" onClick={() => jump(`cp-${uid}-sources`)}><span>Sources</span><em>{sources.length}</em></button>}
+            </nav>
+          )}
           {showStrength && (
-            <div className="cp-strength">
-              <strong>Evidence strength</strong>
+            <div className="cp-side-card">
+              <div className="cp-side-h">Evidence strength</div>
+              <div className="cp-strength-big"><strong>{score}</strong><span>of 100, {level}</span></div>
               <div className="cp-meter" data-level={level} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={score} aria-label={`Evidence strength ${score} out of 100`}>
                 <i style={{ width: `${Math.max(4, Math.min(100, score))}%` }} />
               </div>
-              <span>{score} of 100, {level}</span>
-            </div>
-          )}
-          <details className="cp-disc" open={!!citeOpenId || undefined}>
-            <summary><Layers size={15} aria-hidden /> How this was built{sources.length ? ` and ${sources.length} ${sources.length === 1 ? 'source' : 'sources'}` : ''}</summary>
-            <div className="cp-disc-body">
-              <p style={{ margin: 0 }}>
-                Evidence strength shows how much recorded support the answer had. It is not a chance of being right. It is built from these named factors:
-              </p>
+              <p className="cp-side-note">How much recorded support the answer had. Not a chance of being right.</p>
               {r.strengthFactors && r.strengthFactors.length > 0 && (
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
-                  {r.strengthFactors.map((f, i) => <li key={i}>{f.label}: {f.points > 0 ? '+' : ''}{f.points}</li>)}
-                </ul>
+                <ul className="cp-factors">{r.strengthFactors.map((f, i) => <li key={i}><span>{f.label}</span><b>{f.points > 0 ? '+' : ''}{f.points}</b></li>)}</ul>
               )}
-              {r.reasoningPath && r.reasoningPath.length > 0 && (
-                <ol style={{ margin: 0, paddingLeft: 18 }}>{r.reasoningPath.map((s, i) => <li key={i}>{s}</li>)}</ol>
-              )}
-              {sources.length > 0 && (
-                <div className="cp-src-list">
-                  {sources.map((s, i) => (
-                    <div key={s.id} className="cp-src-row" style={citeOpenId === s.id ? { borderColor: 'var(--cp-blue)', boxShadow: 'var(--cp-glow)' } : undefined}>
-                      <span className="cp-src-num">[{i + 1}]</span>
-                      <div>
-                        <div className="cp-src-type">{s.type.replace('_', ' ')}{s.recordDate ? ` | ${s.recordDate}` : ''}{s.status ? ` | ${s.status}` : ''}</div>
-                        <div style={{ fontWeight: 600 }}>{s.title}</div>
-                        {s.snippet && <div style={{ color: 'var(--cp-muted)' }}>{s.snippet}</div>}
-                      </div>
-                      {s.href ? <Link className="cp-src" to={s.href} aria-label={`Open ${s.title}`}>Open <ExternalLink size={12} aria-hidden style={{ marginLeft: 4 }} /></Link> : <span />}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="cp-hint">Labels: {Object.entries(BASIS_LABEL).map(([k, v]) => `${v} (${BASIS_HELP[k as StatementBasis].toLowerCase()})`).join(' ')}</div>
-            </div>
-          </details>
-          {isLatest && (r.suggestedFollowUps || []).length > 0 && (
-            <div className="cp-follow" aria-label="Suggested follow-up questions">
-              {r.suggestedFollowUps.slice(0, 4).map((q, i) => (
-                <button key={i} type="button" className="cp-chip" onClick={() => onFollowUp(q)}>{q}</button>
-              ))}
             </div>
           )}
-        </div>
-      )}
-
-      {fullView && (
-        <div className="cp-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="cp-modal-t">
-          <div className="cp-modal-full">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--cp-line)', paddingBottom: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="cp-pill">{STATUS_COPY[status] || 'Answer'}</span>
-                  {r.scope?.label && <span style={{ fontSize: '13px', color: 'var(--cp-muted)' }}>Scope: {r.scope.label}</span>}
-                </div>
-                <h2 id="cp-modal-t" style={{ fontSize: '18px', marginTop: '6px' }}>{message.role === 'user' ? message.message : 'Full Answer View'}</h2>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button type="button" className="cp-btn" onClick={handleCopy} title="Copy answer text">
-                  {copied ? <Check size={14} color="var(--cp-ok-ink)" /> : <Copy size={14} />}
-                  <span>{copied ? 'Copied' : 'Copy'}</span>
-                </button>
-                <button type="button" className="cp-icon-btn" onClick={() => setFullView(false)} aria-label="Close full view">
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div className="cp-modal-full-body">
-              {r.notices && r.notices.length > 0 && (
-                <div className="cp-notices" role="list" style={{ padding: 0 }}>
-                  {r.notices.map((n, i) => (
-                    <div key={i} className="cp-notice" data-kind={n.kind} role="listitem">
-                      <NoticeIcon kind={n.kind} />
-                      <span>{n.text}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {hasSections && !r.clarification ? (
-                r.sections!.map((sec, si) => (
-                  <section key={si} className="cp-sec">
-                    <h3>{sec.title}</h3>
-                    <ul className="cp-items">
-                      {sec.items.map((it: AnswerItem, ii: number) => (
-                        <li key={ii} className="cp-item" data-tone={it.tone || 'normal'}>
-                          <span className="cp-tag" data-basis={it.basis} title={BASIS_HELP[it.basis]}>{BASIS_LABEL[it.basis]}</span>
-                          <span className="cp-item-text">{it.text}</span>
-                          {((it.sourceIds && it.sourceIds.length > 0) || it.date) && (
-                            <span className="cp-item-meta">
-                              {it.date && <span>{it.date}</span>}
-                              {(it.sourceIds || []).map((sid) => {
-                                const n = numberOf.get(sid);
-                                const s = sources.find((x) => x.id === sid);
-                                return n && s ? <SourceChip key={sid} n={n} src={s} onClick={() => onCite(sid)} /> : null;
-                              })}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))
-              ) : (
-                <div className="cp-sec" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{r.answer}</div>
-              )}
-
-              {sources.length > 0 && (
-                <div style={{ marginTop: '16px', borderTop: '1px solid var(--cp-line)', paddingTop: '16px' }}>
-                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '10px' }}>Sources ({sources.length})</strong>
-                  <div className="cp-src-list">
-                    {sources.map((s, i) => (
-                      <div key={s.id} className="cp-src-row">
-                        <span className="cp-src-num">[{i + 1}]</span>
-                        <div>
-                          <div className="cp-src-type">{s.type.replace('_', ' ')}{s.recordDate ? ` | ${s.recordDate}` : ''}</div>
-                          <div style={{ fontWeight: 600 }}>{s.title}</div>
-                          {s.snippet && <div style={{ color: 'var(--cp-muted)' }}>{s.snippet}</div>}
-                        </div>
-                        {s.href ? <Link className="cp-src" to={s.href}>Open <ExternalLink size={12} style={{ marginLeft: 4 }} /></Link> : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--cp-line)', paddingTop: '12px' }}>
-              <button type="button" className="cp-btn cp-btn-primary" onClick={() => setFullView(false)}>Close</button>
-            </div>
+          <div className="cp-side-card">
+            <div className="cp-side-h">What the labels mean</div>
+            <ul className="cp-legend">
+              {(Object.keys(BASIS_LABEL) as StatementBasis[]).map((k) => (
+                <li key={k}><span className="cp-tag" data-basis={k}>{BASIS_LABEL[k]}</span><span>{BASIS_HELP[k]}</span></li>
+              ))}
+            </ul>
           </div>
-        </div>
-      )}
+        </aside>
+      </div>
     </article>
   );
 };
