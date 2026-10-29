@@ -92,6 +92,7 @@ export const CopilotPage: React.FC = () => {
   const [renameTitle, setRenameTitle] = useState('');
   const [deleting, setDeleting] = useState<CopilotConversation | null>(null);
 
+  const threadRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const today = useMemo(() => melbourneToday(), []);
   const dataMode: 'live' | 'sample' = (typeof window !== 'undefined' && (window as any).__CONCLUDO_COPILOT_SAMPLE__) ? 'sample' : 'live';
@@ -121,11 +122,18 @@ export const CopilotPage: React.FC = () => {
   }, [client, loadConversations]);
 
   useEffect(() => {
-    // Show the start of the newest answer, not its end, so the reader begins at the top.
-    if (stage) { endRef.current?.scrollIntoView({ block: 'end' }); return; }
-    const answers = document.querySelectorAll('.cp-thread .cp-a');
-    const last = answers[answers.length - 1] as HTMLElement | undefined;
-    if (last) last.scrollIntoView({ block: 'start' });
+    if (!threadRef.current) return;
+    if (stage) {
+      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      return;
+    }
+    const answers = threadRef.current.querySelectorAll<HTMLElement>('.cp-a');
+    const last = answers[answers.length - 1];
+    if (last) {
+      const container = threadRef.current;
+      const targetTop = last.offsetTop - 16;
+      container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+    }
   }, [messages, stage]);
 
   // documents follow the chosen project
@@ -310,7 +318,16 @@ export const CopilotPage: React.FC = () => {
       <main className="cp-main">
         <header className="cp-head">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button type="button" className="cp-icon-btn cp-rail-toggle" aria-label="Open conversations" aria-expanded={railOpen} onClick={() => setRailOpen((v) => !v)}><Menu size={20} aria-hidden /></button>
+            <button
+              type="button"
+              className="cp-icon-btn cp-rail-toggle"
+              aria-label={railOpen ? 'Collapse sidebar' : 'Show conversations'}
+              title={railOpen ? 'Collapse sidebar (expand reading view)' : 'Show conversations'}
+              aria-expanded={railOpen}
+              onClick={() => setRailOpen((v) => !v)}
+            >
+              <Menu size={20} aria-hidden />
+            </button>
             <h2>{active?.title || 'New conversation'}</h2>
           </div>
           <div className="cp-head-meta">
@@ -322,53 +339,63 @@ export const CopilotPage: React.FC = () => {
         </header>
 
         <section className="cp-scope" aria-label="Scope of the question" data-open={scopeOpen ? 'true' : 'false'}>
-          <button type="button" className="cp-btn cp-scope-toggle" aria-expanded={scopeOpen} aria-controls="cp-scope-fields" onClick={() => setScopeOpen((v) => !v)}>
-            {scopeOpen ? 'Hide scope' : 'Change scope'}
-          </button>
-          <div className="cp-scope-row" id="cp-scope-fields">
-            <div className="cp-field">
-              <label htmlFor="cp-project">Project or meeting series</label>
-              <select id="cp-project" value={projectKey} onChange={(e) => { setProjectKey(e.target.value); if (e.target.value) setClientKey(''); }} disabled={!scopeOpts}>
-                <option value="">Any project</option>
-                {scopeOpts?.projects.map((p) => <option key={p.key} value={p.key}>{p.name}{p.client ? ` (${p.client})` : ''}, {p.meetings} {p.meetings === 1 ? 'meeting' : 'meetings'}</option>)}
-              </select>
-            </div>
-            <div className="cp-field">
-              <label htmlFor="cp-client">Client</label>
-              <select id="cp-client" value={clientKey} onChange={(e) => { setClientKey(e.target.value); if (e.target.value) setProjectKey(''); }} disabled={!scopeOpts || !!projectKey}>
-                <option value="">Any client</option>
-                {scopeOpts?.clients.map((c) => <option key={c.key} value={c.key}>{c.name}, {c.meetings} {c.meetings === 1 ? 'meeting' : 'meetings'}</option>)}
-              </select>
-            </div>
-            <div className="cp-field">
-              <label htmlFor="cp-doc">Document</label>
-              <select id="cp-doc" value={docId} onChange={(e) => setDocId(e.target.value)} disabled={!projectKey || docs.length === 0}>
-                <option value="">{projectKey ? (docs.length ? 'No document' : 'No documents in this project') : 'Choose a project first'}</option>
-                {docs.map((d) => <option key={d.id} value={d.id}>{d.name}{d.version ? ` (version ${d.version})` : ''}</option>)}
-              </select>
-            </div>
-            <div className="cp-field">
-              <label htmlFor="cp-period">Period</label>
-              <select id="cp-period" value={preset} onChange={(e) => setPreset(e.target.value as PeriodPreset)}>
-                <option value="any">Any time</option>
-                <option value="30">Last 30 days</option>
-                <option value="quarter">This quarter</option>
-                <option value="custom">Choose dates</option>
-              </select>
-            </div>
-            {preset === 'custom' && (
-              <>
-                <div className="cp-field" style={{ minWidth: 150 }}><label htmlFor="cp-from">From</label><input id="cp-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-                <div className="cp-field" style={{ minWidth: 150 }}><label htmlFor="cp-to">To</label><input id="cp-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
-              </>
-            )}
+          <div className="cp-scope-bar">
+            <div className="cp-scope-now" aria-live="polite"><strong>Reading:</strong> <span>{scopeText}</span></div>
+            <button
+              type="button"
+              className="cp-btn cp-scope-toggle"
+              aria-expanded={scopeOpen}
+              aria-controls="cp-scope-fields"
+              onClick={() => setScopeOpen((v) => !v)}
+            >
+              {scopeOpen ? 'Hide filters' : 'Change scope'}
+            </button>
           </div>
-          <div className="cp-scope-now" aria-live="polite"><strong>Reading:</strong> <span>{scopeText}</span></div>
+          {scopeOpen && (
+            <div className="cp-scope-row" id="cp-scope-fields">
+              <div className="cp-field">
+                <label htmlFor="cp-project">Project or meeting series</label>
+                <select id="cp-project" value={projectKey} onChange={(e) => { setProjectKey(e.target.value); if (e.target.value) setClientKey(''); }} disabled={!scopeOpts}>
+                  <option value="">Any project</option>
+                  {scopeOpts?.projects.map((p) => <option key={p.key} value={p.key}>{p.name}{p.client ? ` (${p.client})` : ''}, {p.meetings} {p.meetings === 1 ? 'meeting' : 'meetings'}</option>)}
+                </select>
+              </div>
+              <div className="cp-field">
+                <label htmlFor="cp-client">Client</label>
+                <select id="cp-client" value={clientKey} onChange={(e) => { setClientKey(e.target.value); if (e.target.value) setProjectKey(''); }} disabled={!scopeOpts || !!projectKey}>
+                  <option value="">Any client</option>
+                  {scopeOpts?.clients.map((c) => <option key={c.key} value={c.key}>{c.name}, {c.meetings} {c.meetings === 1 ? 'meeting' : 'meetings'}</option>)}
+                </select>
+              </div>
+              <div className="cp-field">
+                <label htmlFor="cp-doc">Document</label>
+                <select id="cp-doc" value={docId} onChange={(e) => setDocId(e.target.value)} disabled={!projectKey || docs.length === 0}>
+                  <option value="">{projectKey ? (docs.length ? 'No document' : 'No documents in this project') : 'Choose a project first'}</option>
+                  {docs.map((d) => <option key={d.id} value={d.id}>{d.name}{d.version ? ` (version ${d.version})` : ''}</option>)}
+                </select>
+              </div>
+              <div className="cp-field">
+                <label htmlFor="cp-period">Period</label>
+                <select id="cp-period" value={preset} onChange={(e) => setPreset(e.target.value as PeriodPreset)}>
+                  <option value="any">Any time</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="quarter">This quarter</option>
+                  <option value="custom">Choose dates</option>
+                </select>
+              </div>
+              {preset === 'custom' && (
+                <>
+                  <div className="cp-field" style={{ minWidth: 150 }}><label htmlFor="cp-from">From</label><input id="cp-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+                  <div className="cp-field" style={{ minWidth: 150 }}><label htmlFor="cp-to">To</label><input id="cp-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+                </>
+              )}
+            </div>
+          )}
           {scopeError && <div className="cp-notice" data-kind="error" role="alert">{scopeError} You can still ask, and Copilot will read the whole workspace you can access.</div>}
           {scopeOpts?.truncated && <div className="cp-scope-note">Only the most recent projects are listed here. Type a name in your question to reach older ones.</div>}
         </section>
 
-        <div className="cp-thread" aria-live="polite" aria-busy={!!stage}>
+        <div className="cp-thread" ref={threadRef} aria-live="polite" aria-busy={!!stage}>
           <div className="cp-thread-inner">
             {loadingMsgs ? (
               <div className="cp-activity" role="status">Loading this conversation</div>

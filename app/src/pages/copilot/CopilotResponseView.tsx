@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, ExternalLink, Info, ShieldAlert, Lock, Layers } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ExternalLink, Info, ShieldAlert, Lock, Layers, Maximize2, Copy, Check, X } from 'lucide-react';
 import type { AnswerItem, CopilotMessage, CopilotNotice, CopilotResponse, SourceRecord, StatementBasis } from '../../lib/copilot/types';
 import { Link } from 'react-router-dom';
 
@@ -56,6 +56,8 @@ function SourceChip({ n, src, onClick }: { n: number; src: SourceRecord; onClick
 }
 
 export const CopilotResponseView: React.FC<Props> = ({ message, citeOpenId, onCite, onFollowUp, onChoose, isLatest }) => {
+  const [fullView, setFullView] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
   const r = message.response as CopilotResponse;
   const sources: SourceRecord[] = r.sourceRecords || [];
   const numberOf = new Map(sources.map((s, i) => [s.id, i + 1]));
@@ -66,12 +68,31 @@ export const CopilotResponseView: React.FC<Props> = ({ message, citeOpenId, onCi
   const showStrength = status !== 'refused' && status !== 'ambiguous' && typeof r.confidenceScore === 'number';
   const draft = r.executionDraft;
 
+  const handleCopy = () => {
+    const textToCopy = r.answer || (r.sections ? r.sections.map(s => `${s.title}\n${s.items.map(i => `- ${i.text}`).join('\n')}`).join('\n\n') : '');
+    if (!textToCopy) return;
+    navigator.clipboard?.writeText(textToCopy).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => undefined);
+  };
+
   return (
     <article className="cp-a" data-status={status} aria-label="Copilot answer">
       <div className="cp-a-head">
         <span className="cp-pill">{STATUS_COPY[status] || 'Answer'}</span>
         <span className="grow" />
         {r.scope?.dataMode === 'sample' && <span className="cp-pill cp-pill-sample"><span className="dot" />Sample records</span>}
+        <button
+          type="button"
+          className="cp-expand-btn"
+          onClick={() => setFullView(true)}
+          title="Expand output to full view"
+          aria-label="Expand output to full view"
+        >
+          <Maximize2 size={13} aria-hidden />
+          <span>Full view</span>
+        </button>
       </div>
       {r.scope && r.scope.label && <div className="cp-a-scope">Scope: {r.scope.label}</div>}
 
@@ -207,6 +228,95 @@ export const CopilotResponseView: React.FC<Props> = ({ message, citeOpenId, onCi
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {fullView && (
+        <div className="cp-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="cp-modal-t">
+          <div className="cp-modal-full">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--cp-line)', paddingBottom: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="cp-pill">{STATUS_COPY[status] || 'Answer'}</span>
+                  {r.scope?.label && <span style={{ fontSize: '13px', color: 'var(--cp-muted)' }}>Scope: {r.scope.label}</span>}
+                </div>
+                <h2 id="cp-modal-t" style={{ fontSize: '18px', marginTop: '6px' }}>{message.role === 'user' ? message.message : 'Full Answer View'}</h2>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button type="button" className="cp-btn" onClick={handleCopy} title="Copy answer text">
+                  {copied ? <Check size={14} color="var(--cp-ok-ink)" /> : <Copy size={14} />}
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                </button>
+                <button type="button" className="cp-icon-btn" onClick={() => setFullView(false)} aria-label="Close full view">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="cp-modal-full-body">
+              {r.notices && r.notices.length > 0 && (
+                <div className="cp-notices" role="list" style={{ padding: 0 }}>
+                  {r.notices.map((n, i) => (
+                    <div key={i} className="cp-notice" data-kind={n.kind} role="listitem">
+                      <NoticeIcon kind={n.kind} />
+                      <span>{n.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {hasSections && !r.clarification ? (
+                r.sections!.map((sec, si) => (
+                  <section key={si} className="cp-sec">
+                    <h3>{sec.title}</h3>
+                    <ul className="cp-items">
+                      {sec.items.map((it: AnswerItem, ii: number) => (
+                        <li key={ii} className="cp-item" data-tone={it.tone || 'normal'}>
+                          <span className="cp-tag" data-basis={it.basis} title={BASIS_HELP[it.basis]}>{BASIS_LABEL[it.basis]}</span>
+                          <span className="cp-item-text">{it.text}</span>
+                          {((it.sourceIds && it.sourceIds.length > 0) || it.date) && (
+                            <span className="cp-item-meta">
+                              {it.date && <span>{it.date}</span>}
+                              {(it.sourceIds || []).map((sid) => {
+                                const n = numberOf.get(sid);
+                                const s = sources.find((x) => x.id === sid);
+                                return n && s ? <SourceChip key={sid} n={n} src={s} onClick={() => onCite(sid)} /> : null;
+                              })}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))
+              ) : (
+                <div className="cp-sec" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{r.answer}</div>
+              )}
+
+              {sources.length > 0 && (
+                <div style={{ marginTop: '16px', borderTop: '1px solid var(--cp-line)', paddingTop: '16px' }}>
+                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '10px' }}>Sources ({sources.length})</strong>
+                  <div className="cp-src-list">
+                    {sources.map((s, i) => (
+                      <div key={s.id} className="cp-src-row">
+                        <span className="cp-src-num">[{i + 1}]</span>
+                        <div>
+                          <div className="cp-src-type">{s.type.replace('_', ' ')}{s.recordDate ? ` | ${s.recordDate}` : ''}</div>
+                          <div style={{ fontWeight: 600 }}>{s.title}</div>
+                          {s.snippet && <div style={{ color: 'var(--cp-muted)' }}>{s.snippet}</div>}
+                        </div>
+                        {s.href ? <Link className="cp-src" to={s.href}>Open <ExternalLink size={12} style={{ marginLeft: 4 }} /></Link> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--cp-line)', paddingTop: '12px' }}>
+              <button type="button" className="cp-btn cp-btn-primary" onClick={() => setFullView(false)}>Close</button>
+            </div>
+          </div>
         </div>
       )}
     </article>
