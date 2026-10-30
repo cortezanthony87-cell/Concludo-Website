@@ -467,7 +467,7 @@ input, select, textarea {
 .main-content-area {
   flex: 1;
   min-width: 0;
-  padding: 36px 44px;
+  padding: 0;
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;

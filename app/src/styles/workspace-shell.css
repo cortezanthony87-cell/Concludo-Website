@@ -221,13 +221,52 @@
 
 .main-content-area {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 24px;
-  background-color: var(--bg-base, #090e1a);
+  padding: 0;
+  background-color: var(--dusk-bg, #F4F6FA);
   position: relative;
-  /* the page sits inside the navy frame */
-  border-top-left-radius: var(--dusk-radius, 18px);
+  border-top-left-radius: 0;
+  box-sizing: border-box;
+}
+
+/* Ensure all full-bleed templates sit 100% flush with the sidebar, top bar, and footer */
+.concludo-calendar-app,
+.cmo,
+.ccrm-module,
+.cma-root,
+.dashboard-v2-page,
+.cp,
+.ecc-module,
+.ecc-overview-v2,
+.wb-app,
+.agents-page-root {
+  width: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.main-content-area:has(.concludo-calendar-app),
+.main-content-area:has(.cmo),
+.main-content-area:has(.ccrm-module),
+.main-content-area:has(.cma-root),
+.main-content-area:has(.dashboard-v2-page),
+.main-content-area:has(.cp),
+.main-content-area:has(.ecc-module),
+.main-content-area:has(.ecc-overview-v2),
+.main-content-area:has(.wb-app),
+.main-content-area:has(.agents-page-root) {
+  padding: 0 !important;
+  border-top-left-radius: 0 !important;
+  background-color: transparent !important;
+}
+
+/* Standard administrative and list views (with .page-header) retain comfortable reading padding */
+.main-content-area:has(.page-header) {
+  padding: 32px 40px;
+  background-color: var(--bg-base, #090e1a);
 }
 
 /* ============================================ Mobile Bottom Navigation */
@@ -239,7 +278,13 @@
   .user-display-name { display: none; }
   .account-menu-button { padding: 0 6px; }
   .plan-badge-placeholder { display: none; }
-  .main-content-area { border-top-left-radius: 0; padding-bottom: calc(24px + 62px + env(safe-area-inset-bottom, 0px)); }
+  .main-content-area {
+    border-top-left-radius: 0;
+    padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+  .main-content-area:has(.page-header) {
+    padding: 20px 16px calc(62px + env(safe-area-inset-bottom, 0px));
+  }
 
   .mobile-bottom-bar {
     display: flex;
