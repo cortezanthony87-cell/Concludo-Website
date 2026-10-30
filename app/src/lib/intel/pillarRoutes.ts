@@ -32,6 +32,19 @@ export const BRIEFINGS_PILLAR: Pillar = {
   ],
 };
 
+export const INSIGHT_PILLAR: Pillar = {
+  path: '/insight',
+  title: 'Insight',
+  purpose: 'What the saved records say about the work and the knowledge.',
+  defaultTab: '/insight/overview',
+  tabs: [
+    { id: 'overview', label: 'Insight', to: '/insight/overview', feature: 'insight' },
+    { id: 'stats', label: 'Stats', to: '/insight/stats', feature: 'stats' },
+    { id: 'knowledge', label: 'Knowledge', to: '/insight/knowledge', feature: 'knowledge_analytics' },
+    { id: 'performance', label: 'Performance', to: '/insight/performance', feature: 'insight' },
+  ],
+};
+
 export const FORECASTS_PILLAR: Pillar = {
   path: '/forecasts',
   title: 'Forecasts',
@@ -60,7 +73,9 @@ export const LEGACY_REDIRECTS: LegacyRedirect[] = [
   { from: '/predictive-intelligence', to: '/forecasts/predictive', ready: true },
   { from: '/scenario-modeling', to: '/forecasts/scenarios', ready: true },
   { from: '/digital-twin', to: '/forecasts/twin', ready: true },
-  { from: '/performance', to: '/insight', ready: false, note: 'Insight pillar not built yet.' },
+  { from: '/stats', to: '/insight/stats', ready: true },
+  { from: '/knowledge-analytics', to: '/insight/knowledge', ready: true },
+  { from: '/performance', to: '/insight/performance', ready: true },
 ];
 
 export function activeRedirects(): LegacyRedirect[] { return LEGACY_REDIRECTS.filter((r) => r.ready); }

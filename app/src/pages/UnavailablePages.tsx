@@ -86,6 +86,17 @@ const SPECS: Record<string, Spec> = {
     ],
     today: [{ label: 'Decision Memory', to: '/decision-memory' }, { label: 'Lessons', to: '/memory/lessons' }],
   },
+  knowledgeAnalytics: {
+    title: 'Knowledge Analytics',
+    crumbs: ['Insight', 'Knowledge'],
+    purpose: 'How the recorded knowledge is growing and being used.',
+    why: 'The earlier version asked a server route that does not exist and showed a fixed growth figure when nothing came back, so the number on screen was not measured.',
+    needs: [
+      'Counts taken from saved lessons, decisions and links, computed in the browser like the Memory pages.',
+      'A growth rate only with a denominator of at least 5 and 3 real snapshots.',
+    ],
+    today: [{ label: 'Explore', to: '/memory/explore' }, { label: 'Lessons', to: '/memory/lessons' }],
+  },
   digitalTwin: {
     title: 'Digital Twin Organisation',
     crumbs: ['Forecasts', 'Digital Twin'],
@@ -129,6 +140,7 @@ export const ExecutiveBriefingCentrePage: React.FC = () => <Unavailable spec={SP
 export const PredictiveUnavailablePage: React.FC = () => <Unavailable spec={SPECS.predictive} />;
 export const ForecastsUnavailablePage: React.FC = () => <Unavailable spec={SPECS.forecasts} />;
 export const ExecutiveIntelligenceUnavailablePage: React.FC = () => <Unavailable spec={SPECS.executiveIntelligence} />;
+export const KnowledgeAnalyticsUnavailablePage: React.FC = () => <Unavailable spec={SPECS.knowledgeAnalytics} />;
 export const DigitalTwinUnavailablePage: React.FC = () => <Unavailable spec={SPECS.digitalTwin} />;
 export const ScenarioModellingUnavailablePage: React.FC = () => <Unavailable spec={SPECS.scenarioModelling} />;
 export const UNAVAILABLE_SPECS = SPECS;

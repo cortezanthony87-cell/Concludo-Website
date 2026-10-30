@@ -76,7 +76,7 @@ import { MemoryLessonsPage } from './pages/MemoryLessonsPage';
 import { MemoryTimelinePage } from './pages/MemoryTimelinePage';
 import { KnowledgeAnalyticsPage } from './pages/knowledge/KnowledgeAnalyticsPage';
 import { PillarShell } from './components/intel/PillarTabs';
-import { MEMORY_PILLAR, BRIEFINGS_PILLAR, activeRedirects as activeIntelRedirects } from './lib/intel/pillarRoutes';
+import { MEMORY_PILLAR, BRIEFINGS_PILLAR, FORECASTS_PILLAR, INSIGHT_PILLAR, activeRedirects as activeIntelRedirects } from './lib/intel/pillarRoutes';
 
 // Tasklet 22 Concludo Copilot & Conversational Intelligence Page
 import { CopilotPage } from './pages/copilot/CopilotPage';
@@ -91,10 +91,10 @@ import {
   PredictiveUnavailablePage,
   ForecastsUnavailablePage,
   ExecutiveIntelligenceUnavailablePage,
+  KnowledgeAnalyticsUnavailablePage,
 } from './pages/UnavailablePages';
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage';
 import { fetchExecutiveBriefings } from './lib/predictive/executiveBriefingService';
-import { FORECASTS_PILLAR } from './lib/intel/pillarRoutes';
 
 // Email Command Centre
 import { EmailModuleLayout } from './components/email/EmailModuleLayout';
@@ -171,8 +171,6 @@ export const App: React.FC = () => {
             <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
             <Route path="/actions" element={<ActionsPage />} />
             <Route path="/actions/:id" element={<ActionDetailPage />} />
-            <Route path="/insight" element={<InsightPage />} />
-            <Route path="/stats" element={<StatsPage />} />
             <Route path="/endpoint-report" element={<EndpointReportPage />} />
             <Route path="/endpoint-report/:id" element={<EndpointReportPage />} />
 
@@ -211,9 +209,6 @@ export const App: React.FC = () => {
             <Route path="/approvals/:id" element={<ApprovalsPage />} />
             <Route path="/workflows/:id" element={<WorkflowLegacyRedirect />} />
 
-            {/* Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Routes */}
-            <Route path="/predictive-intelligence" element={<PredictiveIntelligencePage />} />
-                                    
             {/* Tasklet 21 Memory & Knowledge Routes (Phase B Pillar Shell) */}
             <Route path="/memory" element={<PillarShell pillar={MEMORY_PILLAR} />}>
               <Route index element={<Navigate to="decisions" replace />} />
@@ -236,21 +231,20 @@ export const App: React.FC = () => {
               <Route path="scenarios" element={<ScenarioModellingUnavailablePage />} />
               <Route path="twin" element={<DigitalTwinUnavailablePage />} />
             </Route>
+            <Route path="/insight" element={<PillarShell pillar={INSIGHT_PILLAR} />}>
+              <Route index element={<Navigate to="overview" replace />} />
+              <Route path="overview" element={<InsightPage />} />
+              <Route path="stats" element={<StatsPage />} />
+              <Route path="knowledge" element={<KnowledgeAnalyticsUnavailablePage />} />
+              <Route path="performance" element={<EnterprisePerformancePage />} />
+            </Route>
             {activeIntelRedirects().map((r) => (
               <Route key={r.from} path={r.from} element={<Navigate to={r.to} replace />} />
             ))}
             <Route path="/executive-explorer" element={<Navigate to="/memory/explore" replace />} />
-            <Route path="/knowledge-analytics" element={<KnowledgeAnalyticsPage />} />
 
             {/* Tasklet 22 Concludo Copilot Route */}
             <Route path="/copilot" element={<CopilotPage />} />
-
-            {/* Tasklet 23 Strategic Operations (Phase B Fail-Closed Honest Gates) */}
-            <Route path="/digital-twin" element={<DigitalTwinUnavailablePage />} />
-            <Route path="/executive-command-center" element={<ExecutiveCommandCentrePage />} />
-            <Route path="/scenario-modeling" element={<ScenarioModellingUnavailablePage />} />
-            <Route path="/performance" element={<EnterprisePerformancePage />} />
-            <Route path="/executive-center" element={<ExecutiveBriefingCentrePage />} />
 
             {/* Email Command Centre. One parent, eleven children, generated
                 from the same destination list the tab row reads, so a tab can
