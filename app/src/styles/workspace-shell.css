@@ -1,0 +1,313 @@
+/* =====================================================================
+   Concludo Workspace Shell: top bar, mobile bar and shell grid.
+   Theme: Concludo Dusk (see tokens.css). Class names and markup contracts
+   are unchanged from the previous version, so no component edit is needed.
+
+   The shell is a navy L-shaped frame (top bar plus side menu). The page sits
+   inside it with a rounded top-left corner, so a bright page and a dark page
+   both look intentional beside it. The frame never changes colour with the
+   page. The page keeps whatever background it sets itself.
+   ===================================================================== */
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  background-color: var(--dusk-frame, #16263F);
+  color: var(--dusk-text, #F4F6FA);
+}
+
+/* ================================================= Top Navigation Bar */
+.top-navbar {
+  height: var(--dusk-bar-h, 64px);
+  background: linear-gradient(180deg, var(--dusk-frame-top, #1B3050) 0%, var(--dusk-frame, #16263F) 100%);
+  color: var(--dusk-text, #F4F6FA);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  /* one fine light line, then a gold hairline: structure, not glow */
+  border-bottom: 1px solid var(--dusk-edge, rgba(255, 255, 255, 0.10));
+  box-shadow: 0 1px 0 rgba(226, 181, 60, 0.22);
+}
+
+.nav-brand-group { display: flex; align-items: center; gap: 18px; }
+
+.mobile-menu-toggle {
+  display: none;
+  color: var(--dusk-text, #F4F6FA);
+  background: var(--dusk-chip);
+  border: 1px solid var(--dusk-edge-strong);
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.brand-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+.brand-logo-link:hover { opacity: 0.92; }
+
+.brand-logo-img { height: 30px; width: auto; max-width: 120px; object-fit: contain; display: block; }
+
+.brand-title-badge {
+  font-family: Poppins, Montserrat, Arial, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #1B3050;
+  background: var(--dusk-gold, #E2B53C);
+  padding: 0 10px;
+  height: 26px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.nav-right-group { display: flex; align-items: center; gap: 14px; }
+
+/* Bell: a quiet chip. The count is the only gold on it. */
+.top-navbar .top-navbar-bell-btn {
+  position: relative;
+  background: var(--dusk-chip);
+  border: 1px solid var(--dusk-edge-strong);
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dusk-text, #F4F6FA);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.top-navbar .top-navbar-bell-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.3); }
+.top-navbar .bell-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--dusk-gold, #E2B53C);
+  color: #16263F;
+  font: 700 10px Inter, sans-serif;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px var(--dusk-frame, #16263F);
+}
+
+/* Plan badge */
+.plan-badge-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  height: 32px;
+  background: var(--dusk-gold-soft, rgba(226, 181, 60, 0.14));
+  border: 1px solid rgba(226, 181, 60, 0.45);
+  color: #F3C958;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.plan-badge-dot { width: 6px; height: 6px; border-radius: 50%; background-color: #F3C958; animation: pulse-glow 2.5s infinite; }
+@keyframes pulse-glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* Account menu */
+.account-menu-container { position: relative; }
+
+.account-menu-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 0 6px;
+  height: 40px;
+  border-radius: 999px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  color: var(--dusk-text, #F4F6FA);
+  background: var(--dusk-chip);
+  border: 1px solid var(--dusk-edge-strong);
+  cursor: pointer;
+}
+.account-menu-button:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.3); }
+
+.user-avatar-initial {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--dusk-raised, #21395C);
+  border: 1.5px solid var(--dusk-gold, #E2B53C);
+  color: #F3C958;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.user-display-name { font-size: 0.88rem; font-weight: 500; color: var(--dusk-text, #F4F6FA); }
+
+/* The menu is a light card. It blends with bright pages and gives the
+   navy bar a clear "open" state. */
+.account-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 272px;
+  background: #FFFFFF;
+  border: 1px solid #DDE3EE;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px -16px rgba(22, 38, 63, 0.45), 0 2px 6px rgba(22, 38, 63, 0.12);
+  padding: 8px;
+  z-index: 60;
+  color: #16263F;
+}
+.dropdown-user-header { padding: 12px 12px 12px; border-bottom: 1px solid #E4E8EF; margin-bottom: 6px; }
+.dropdown-user-header > div:first-child { color: #16263F !important; }
+.dropdown-user-header > div:nth-child(2) { color: #5A6478 !important; }
+.dropdown-user-header > div:nth-child(3) { color: #16263F !important; }
+.dropdown-user-header > div:nth-child(3) svg { color: #BC8A1C; }
+.dropdown-user-email { color: #5A6478; }
+
+.dropdown-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  min-height: 40px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #16263F;
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.dropdown-link svg { color: #5A6478; }
+.dropdown-link:hover { background: #F4F6FA; color: #16263F; padding-left: 12px; }
+.dropdown-link:hover svg { color: #16263F; }
+.dropdown-link:focus-visible { outline: 2px solid #16263F; outline-offset: -2px; }
+.dropdown-link[style*="f87171"], .dropdown-link-danger { color: #B42318 !important; }
+.dropdown-link[style*="f87171"] svg { color: #B42318; }
+.dropdown-divider { height: 1px; background-color: #E4E8EF; margin: 6px 4px; }
+
+/* ================================================= App Shell Body */
+.app-shell-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--dusk-frame, #16263F);
+}
+
+.main-content-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px;
+  background-color: var(--bg-base, #090e1a);
+  position: relative;
+  /* the page sits inside the navy frame */
+  border-top-left-radius: var(--dusk-radius, 18px);
+}
+
+/* ============================================ Mobile Bottom Navigation */
+.mobile-bottom-bar { display: none; }
+
+@media (max-width: 899px) {
+  .top-navbar { padding: 0 14px; height: 58px; }
+  .mobile-menu-toggle { display: inline-flex; }
+  .user-display-name { display: none; }
+  .account-menu-button { padding: 0 6px; }
+  .plan-badge-placeholder { display: none; }
+  .main-content-area { border-top-left-radius: 0; padding-bottom: calc(24px + 62px + env(safe-area-inset-bottom, 0px)); }
+
+  .mobile-bottom-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    min-height: 62px;
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
+    background: var(--dusk-frame, #16263F);
+    border-top: 1px solid var(--dusk-edge-strong, rgba(255, 255, 255, 0.18));
+    box-shadow: 0 -8px 20px -12px rgba(22, 38, 63, 0.6);
+    z-index: 80;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 4px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+  }
+
+  .mobile-bottom-bar .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #B7C4D8;
+    text-decoration: none;
+    background: none;
+    border: none;
+    padding: 6px 4px;
+    min-height: 48px;
+    font: 500 0.68rem Inter, sans-serif;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: background 0.15s ease, color 0.15s ease;
+    flex: 1;
+    max-width: 80px;
+  }
+  .mobile-bottom-bar .mobile-nav-item.active { color: #FFFFFF; font-weight: 600; background: var(--dusk-raised, #21395C); }
+  .mobile-bottom-bar .mobile-nav-item.active svg { color: var(--dusk-gold, #E2B53C); }
+  .mobile-bottom-bar .mobile-nav-item:focus-visible { outline: 2px solid var(--dusk-gold, #E2B53C); outline-offset: -2px; }
+}
+
+/* Visible keyboard focus on navy: gold, 2px. Gold on navy is 7.89:1. */
+.top-navbar .brand-logo-link:focus-visible,
+.top-navbar .top-navbar-bell-btn:focus-visible,
+.top-navbar .account-menu-button:focus-visible,
+.top-navbar .mobile-menu-toggle:focus-visible {
+  outline: 2px solid var(--dusk-gold, #E2B53C);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+.top-navbar .account-menu-button:focus-visible { border-radius: 999px; }
+
+/* WORKSPACE badge: light neon glow, soft pulse. */
+.brand-title-badge {
+  box-shadow: 0 0 6px rgba(255, 224, 130, 0.7), 0 0 16px rgba(226, 181, 60, 0.45);
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.4);
+  animation: workspace-neon 3.2s ease-in-out infinite;
+}
+@keyframes workspace-neon {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 224, 130, 0.7), 0 0 16px rgba(226, 181, 60, 0.45); }
+  50% { box-shadow: 0 0 9px rgba(255, 224, 130, 0.9), 0 0 22px rgba(226, 181, 60, 0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-title-badge { animation: none; }
+  .plan-badge-dot { animation: none; }
+  .brand-logo-link, .account-menu-button, .dropdown-link, .top-navbar .top-navbar-bell-btn { transition: none; }
+}

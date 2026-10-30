@@ -1,0 +1,94 @@
+:root {
+  /* Brand Navy & Dark Palette */
+  --bg-deep: #060a12;
+  --bg-base: #090e1a;
+  --bg-surface: #0e1729;
+  --bg-surface-elevated: #142038;
+  --bg-glass: rgba(14, 23, 41, 0.72);
+  --bg-glass-elevated: rgba(20, 32, 56, 0.85);
+
+  --navy-900: #0b1220;
+  --navy-800: #16263f;
+  --navy-700: #21395c;
+  --navy-600: #2d4c7a;
+
+  /* Concludo Gold & Luminous Accents */
+  --gold-300: #f7d57a;
+  --gold-400: #f3c958;
+  --gold-500: #e2b53c;
+  --gold-600: #bc8a1c;
+  --gold-glow: rgba(226, 181, 60, 0.2);
+  --gold-glow-strong: rgba(226, 181, 60, 0.38);
+
+  /* Borders & Hairlines */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-gold: rgba(226, 181, 60, 0.3);
+  --border-gold-glow: rgba(226, 181, 60, 0.5);
+
+  /* Typography Colors */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-gold: #f3c958;
+
+  /* Status Colors */
+  --emerald-400: #34d399;
+  --emerald-glow: rgba(52, 211, 153, 0.25);
+
+  /* Fonts */
+  --font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace, Consolas;
+
+  /* Sidebar Specific Variables */
+  --cws-ground: #0D1626;
+  --cws-surface: #16263F;
+  --cws-raised: #111E33;
+  --cws-edge: #1B2A42;
+  --cws-edge-strong: #22344F;
+  --cws-text: #E8EDF5;
+  --cws-text-idle: #D3DCE8;
+  --cws-label: #98A7BC;
+  --cws-icon: #8696AD;
+  --cws-gold: #E2B53C;
+  --cws-gold-deep: #BC8A1C;
+  --cws-badge-bg: #1F3250;
+  --cws-badge-text: #C6D3E4;
+}
+
+/* =====================================================================
+   Concludo Dusk: the shell theme (top bar, side menu, mobile bar).
+
+   A middle between the near-black shell and the bright content pages.
+   The frame is brand navy #16263F, lifted from the old #0D1626, so it sits
+   comfortably beside bright pages and beside dark ones. Additive only: no
+   existing token above is changed, so no other page moves.
+
+   Measured contrast (WCAG 2.2):
+     idle text   #DCE4F0 on #16263F  11.86   pass
+     active text #FFFFFF on #21395C  11.64   pass
+     group label #A9B8CE on #16263F   7.54   pass
+     idle icon   #9DB0CB on #16263F   6.87   pass
+     gold        #E2B53C on #16263F   7.89   pass (accent on navy only)
+     navy on gold #16263F on #E2B53C  7.89   pass
+     menu link   #16263F on #FFFFFF  15.18   pass
+     menu muted  #5A6478 on #FFFFFF   5.95   pass
+   ===================================================================== */
+:root {
+  --dusk-frame: #16263F;
+  --dusk-frame-top: #1B3050;
+  --dusk-raised: #21395C;
+  --dusk-hover: rgba(255, 255, 255, 0.07);
+  --dusk-chip: rgba(255, 255, 255, 0.08);
+  --dusk-edge: rgba(255, 255, 255, 0.10);
+  --dusk-edge-strong: rgba(255, 255, 255, 0.18);
+  --dusk-text: #F4F6FA;
+  --dusk-text-idle: #DCE4F0;
+  --dusk-label: #A9B8CE;
+  --dusk-icon: #9DB0CB;
+  --dusk-gold: #E2B53C;
+  --dusk-gold-soft: rgba(226, 181, 60, 0.14);
+  --dusk-radius: 18px;
+  --dusk-bar-h: 64px;
+}

@@ -1,42 +1,45 @@
 /* =====================================================================
-   Concludo Workspace sidebar
+   Concludo Workspace sidebar: Concludo Dusk
 
-   Its own file rather than another block in index.css, which is already
-   1,710 lines and which every other page depends on. This one can be
-   reviewed, moved or removed without touching that.
+   The side menu is the left leg of the navy frame (see workspace-shell.css).
+   Brand navy #16263F, lifted from the old near-black #0D1626, so it sits
+   beside a bright page without a hard black edge and beside a dark page
+   without disappearing. Class names, geometry, collapse physics and the
+   rail and drawer breakpoints are unchanged.
 
-   Every colour below was measured, not eyeballed:
+   Measured, not eyeballed (WCAG 2.2):
 
-     item text    #E8EDF5 on #0D1626   15.40:1   pass
-     active text  #FFFFFF on #16263F   15.18:1   pass
-     gold         #E2B53C on #0D1626    9.41:1   pass
-     badge text   #C6D3E4 on #1F3250    8.49:1   pass
+     item text    #DCE4F0 on #16263F   11.86:1   pass
+     hover text   #F4F6FA on #26354C   11.44:1   pass
+     active text  #FFFFFF on #21395C   11.64:1   pass
+     gold         #E2B53C on #16263F    7.89:1   pass
+     gold active  #E2B53C on #21395C    6.05:1   pass
      navy on gold #16263F on #E2B53C    7.89:1   pass
-     group label  #98A7BC on #0D1626    7.40:1   pass
-     idle icon    #8696AD on #0D1626    6.02:1   pass
-
-   The group label is #98A7BC rather than #93A2B8 because the latter reads
-   4.49:1 against a hovered row at #21395C, which is under the threshold.
+     group label  #A9B8CE on #16263F    7.54:1   pass (6.15 on hover)
+     idle icon    #9DB0CB on #16263F    6.87:1   pass
+     search text  #C3CFE0 on #29374E    7.61:1   pass
+     kbd hint     #B7C4D8 on #37445A    5.57:1   pass
+     footer note  #A9B8CE on #223149    6.51:1   pass
 
    Gold reaches 1.93:1 on white, so it is an accent, a bar and a badge fill.
-   It is never text on a light surface. On this dark ground it is fine, which
-   is why the focus ring is gold here and navy in the content area.
+   It is never text on a light surface. On this navy it is fine, which is why
+   the focus ring is gold here and navy in the content area.
    ===================================================================== */
 
 .cws-nav {
-  --cws-ground: #0D1626;
-  --cws-surface: #16263F;
-  --cws-raised: #111E33;
-  --cws-edge: #1B2A42;
-  --cws-edge-strong: #22344F;
-  --cws-text: #E8EDF5;
-  --cws-text-idle: #D3DCE8;
-  --cws-label: #98A7BC;
-  --cws-icon: #8696AD;
+  --cws-ground: var(--dusk-frame, #16263F);
+  --cws-surface: var(--dusk-raised, #21395C);
+  --cws-raised: rgba(255, 255, 255, 0.08);
+  --cws-edge: rgba(255, 255, 255, 0.10);
+  --cws-edge-strong: rgba(255, 255, 255, 0.18);
+  --cws-text: #F4F6FA;
+  --cws-text-idle: #DCE4F0;
+  --cws-label: #A9B8CE;
+  --cws-icon: #9DB0CB;
   --cws-gold: #E2B53C;
   --cws-gold-deep: #BC8A1C;
-  --cws-badge-bg: #1F3250;
-  --cws-badge-text: #C6D3E4;
+  --cws-badge-bg: #2F4A73;
+  --cws-badge-text: #E6ECF5;
 
   flex: 0 0 288px;
   width: 288px;
@@ -89,32 +92,32 @@
   margin: 0;
   border-left: none;
   border-radius: 0 6px 6px 0;
-  background: #0D1626;
-  border-color: #2A3E5C;
+  background: var(--dusk-frame, #16263F);
+  border-color: rgba(255, 255, 255, 0.22);
   color: var(--cws-gold, #E2B53C);
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.45);
+  box-shadow: 2px 2px 10px rgba(22, 38, 63, 0.35);
 }
 
 .cws {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--cws-ground);
-  border-right: 1px solid var(--cws-edge);
+  background: linear-gradient(180deg, var(--dusk-frame-top, #1B3050) 0%, var(--cws-ground) 140px);
+  border-right: none;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #3E5273 transparent;
+  scrollbar-color: #4A6086 transparent;
   min-width: 288px;
   transition: opacity 0.18s ease;
 }
 
 .cws::-webkit-scrollbar { width: 8px; }
 .cws::-webkit-scrollbar-thumb {
-  background: #2A3E5C;
+  background: #3A5078;
   border-radius: 8px;
   border: 2px solid var(--cws-ground);
 }
@@ -127,7 +130,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--cws-ground);
+  background: var(--dusk-frame-top, #1B3050);
 }
 
 .cws-mark { width: 22px; height: 25px; object-fit: contain; }
@@ -146,7 +149,7 @@
   font-size: 8.5px;
   font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--cws-surface);
+  color: #16263F;
   background: var(--cws-gold);
   padding: 3px 7px;
   border-radius: 4px;
@@ -161,7 +164,7 @@
   justify-content: center;
   border: 1px solid var(--cws-edge-strong);
   border-radius: 6px;
-  background: var(--cws-surface);
+  background: var(--cws-raised);
   color: var(--cws-text-idle);
   cursor: pointer;
   flex-shrink: 0;
@@ -169,7 +172,7 @@
 }
 
 .cws-collapse-btn:hover {
-  background: var(--cws-raised);
+  background: rgba(255, 255, 255, 0.16);
   border-color: var(--cws-gold);
   color: #FFFFFF;
 }
@@ -190,7 +193,7 @@
   justify-content: center;
   border: 0;
   border-radius: 8px;
-  background: var(--cws-surface);
+  background: var(--cws-raised);
   color: var(--cws-badge-text);
   cursor: pointer;
 }
@@ -207,21 +210,21 @@
   background: var(--cws-raised);
   border: 1px solid var(--cws-edge-strong);
   border-radius: 9px;
-  color: var(--cws-icon);
+  color: #C3CFE0;
   font: 500 12.5px Inter, sans-serif;
   text-align: left;
   cursor: pointer;
 }
 
-.cws-search:hover { border-color: #2F4668; }
+.cws-search:hover { border-color: rgba(255, 255, 255, 0.32); background: rgba(255, 255, 255, 0.11); }
 .cws-search:focus-visible { outline: 2px solid var(--cws-gold); outline-offset: 2px; }
 .cws-search-label { flex: 1; min-width: 0; }
 
 .cws-kbd {
   font: 600 9.5px Inter, sans-serif;
-  color: var(--cws-label);
-  background: #1A2C49;
-  border: 1px solid #2A3E5C;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #B7C4D8;
   border-radius: 4px;
   padding: 2px 5px;
 }
@@ -258,13 +261,15 @@
   cursor: pointer;
 }
 
+.cws-group-toggle:focus-visible { outline: 2px solid var(--cws-gold); outline-offset: -2px; border-radius: 6px; }
+
 .cws-group-label {
   font-family: Poppins, Montserrat, Arial, sans-serif;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #cbd5e1;
+  color: var(--cws-label);
   padding: 0 20px;
   margin: 18px 0 6px;
 }
@@ -272,38 +277,40 @@
 /* ---------------------------------------------------- Copilot Gold Glow */
 
 .cws-row-copilot {
-  background: linear-gradient(90deg, rgba(226, 181, 60, 0.16) 0%, rgba(33, 57, 92, 0.28) 100%) !important;
-  border-left: 3px solid #e2b53c !important;
-  box-shadow: 0 0 16px rgba(226, 181, 60, 0.22), inset 0 0 12px rgba(226, 181, 60, 0.08) !important;
+  background: linear-gradient(90deg, rgba(226, 181, 60, 0.16) 0%, rgba(226, 181, 60, 0.05) 100%) !important;
+  border-left: 3px solid #E2B53C !important;
+  box-shadow: none !important;
 }
 
 .cws-row-copilot svg {
-  color: #e2b53c !important;
-  filter: drop-shadow(0 0 6px rgba(226, 181, 60, 0.75)) !important;
+  color: #E2B53C !important;
+  filter: none !important;
 }
 
 .cws-row-copilot .cws-row-label {
   font-weight: 700 !important;
-  color: #f8fafc !important;
-  text-shadow: 0 0 10px rgba(226, 181, 60, 0.35) !important;
+  color: #FFFFFF !important;
+  text-shadow: none !important;
 }
+
+.cws-row-copilot:hover { background: linear-gradient(90deg, rgba(226, 181, 60, 0.24) 0%, rgba(226, 181, 60, 0.08) 100%) !important; }
 
 .cws-copilot-badge {
   font-size: 0.65rem;
-  background: #e2b53c;
-  color: #0f172a;
+  background: #E2B53C;
+  color: #16263F;
   padding: 1px 6px;
   border-radius: 4px;
   font-weight: 800;
   margin-left: auto;
-  box-shadow: 0 0 8px rgba(226, 181, 60, 0.5);
+  box-shadow: none;
 }
 .cws-group-toggle .cws-group-label { padding: 0; margin: 0; }
 
-  .cws-rail .cws-row-copilot {
-    border-left: none !important;
-    box-shadow: 0 0 12px rgba(226, 181, 60, 0.3) !important;
-  }
+.cws-rail .cws-row-copilot {
+  border-left: none !important;
+  box-shadow: inset 0 0 0 1px rgba(226, 181, 60, 0.45) !important;
+}
 /* ---------------------------------------------------------------- rows */
 
 .cws-list { list-style: none; margin: 0; padding: 0; }
@@ -327,15 +334,16 @@
 .cws-row svg { flex: 0 0 18px; color: var(--cws-icon); }
 .cws-row-label { flex: 1; min-width: 0; white-space: nowrap; }
 
-.cws-row:hover { background: var(--cws-surface); color: #F4F6FA; }
-.cws-row:hover svg { color: #B9C6D8; }
+.cws-row:hover { background: var(--dusk-hover, rgba(255, 255, 255, 0.07)); color: #F4F6FA; }
+.cws-row:hover svg { color: #C4D0E2; }
 
 .cws-row:focus-visible { outline: 2px solid var(--cws-gold); outline-offset: -2px; }
 
 /* The active row reaches the sidebar edge and squares its left corners, so
    the gold bar and the panel read as one shape. Inset, the bar floats free
    of the panel it belongs to and looks like an accident. */
-.cws-row-on {
+.cws-row-on,
+.cws-row-on:hover {
   background: var(--cws-surface);
   color: #FFFFFF;
   font-weight: 600;
@@ -375,12 +383,12 @@
   box-sizing: border-box;
   line-height: 1;
   background: var(--cws-gold, #E2B53C);
-  color: #0D1626;
+  color: #16263F;
 }
 
 .cws-badge-gold,
 .cws-badge-blocking,
-.cws-badge-informational { background: var(--cws-gold, #E2B53C); color: #0D1626; }
+.cws-badge-informational { background: var(--cws-gold, #E2B53C); color: #16263F; }
 
 .cws-dot {
   position: absolute;
@@ -398,7 +406,7 @@
 .cws-dot-informational { background: var(--cws-gold, #E2B53C); }
 
 .cws-dot-blocking { background: var(--cws-gold); }
-.cws-dot-informational { background: #6E86A8; }
+.cws-dot-informational { background: #8CA3C4; }
 
 /* -------------------------------------------------------------- footer */
 
@@ -406,9 +414,9 @@
   flex: 0 0 auto;
   margin: 10px 16px calc(16px + env(safe-area-inset-bottom, 12px));
   padding: 12px 13px;
-  background: var(--cws-raised);
-  border: 1px solid var(--cws-badge-bg);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--cws-edge-strong);
+  border-radius: 12px;
 }
 
 .cws-secured {
@@ -504,7 +512,7 @@
     position: fixed;
     inset: 0;
     z-index: 90;
-    background: rgba(6, 12, 22, 0.7);
+    background: rgba(14, 24, 40, 0.62);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     animation: cwsFadeIn 0.2s ease-out;
@@ -535,4 +543,129 @@
 @keyframes cwsFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* =====================================================================
+   Dusk v1.1: futuristic pass. Same navy and gold. Light neon, not heavy.
+   ===================================================================== */
+
+/* Panel: a faint circuit grid and a lit right edge. */
+.cws {
+  background:
+    linear-gradient(180deg, rgba(226, 181, 60, 0.05) 0%, rgba(226, 181, 60, 0) 160px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 28px),
+    linear-gradient(180deg, var(--dusk-frame-top, #1B3050) 0%, var(--cws-ground) 140px);
+}
+.cws-nav:not(.cws-nav-collapsed)::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(226, 181, 60, 0.55), rgba(226, 181, 60, 0.08) 45%, rgba(226, 181, 60, 0.3));
+  box-shadow: 0 0 8px rgba(226, 181, 60, 0.35);
+  pointer-events: none;
+  z-index: 11;
+}
+
+/* Rows: glass chips with a thin edge. */
+.cws-row { border: 1px solid transparent; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, color .16s ease; }
+
+/* Hover: light yellow glow so you can see exactly what you are about to click. */
+.cws-row:not(.cws-row-on):hover {
+  background: linear-gradient(90deg, rgba(255, 224, 130, 0.16) 0%, rgba(255, 224, 130, 0.06) 100%);
+  border-color: rgba(255, 224, 130, 0.55);
+  box-shadow: 0 0 14px rgba(255, 224, 130, 0.32), inset 0 0 12px rgba(255, 224, 130, 0.10);
+  color: #FFFFFF;
+}
+.cws-row:not(.cws-row-on):hover svg { color: #FFE082; filter: drop-shadow(0 0 4px rgba(255, 224, 130, 0.7)); }
+.cws-row:not(.cws-row-on):hover .cws-row-label { text-shadow: 0 0 8px rgba(255, 224, 130, 0.35); }
+
+/* Active: lit gold edge. */
+.cws-row-on { box-shadow: inset 0 0 18px rgba(226, 181, 60, 0.10); }
+.cws-row-on::before { box-shadow: 0 0 10px rgba(226, 181, 60, 0.85); }
+.cws-row-on:hover { box-shadow: 0 0 14px rgba(255, 224, 130, 0.28), inset 0 0 18px rgba(226, 181, 60, 0.12); }
+
+/* Copilot: the neon star is back. */
+.cws-row-copilot {
+  background: linear-gradient(90deg, rgba(226, 181, 60, 0.20) 0%, rgba(33, 57, 92, 0.30) 100%) !important;
+  border-left: 3px solid #E2B53C !important;
+  box-shadow: 0 0 16px rgba(226, 181, 60, 0.28), inset 0 0 12px rgba(226, 181, 60, 0.08) !important;
+}
+.cws-row-copilot svg {
+  color: #E2B53C !important;
+  filter: drop-shadow(0 0 6px rgba(226, 181, 60, 0.85)) drop-shadow(0 0 12px rgba(226, 181, 60, 0.45)) !important;
+}
+.cws-row-copilot .cws-row-label { text-shadow: 0 0 10px rgba(226, 181, 60, 0.4) !important; }
+.cws-row-copilot:hover { box-shadow: 0 0 22px rgba(255, 224, 130, 0.42), inset 0 0 14px rgba(255, 224, 130, 0.12) !important; }
+.cws-copilot-badge { box-shadow: 0 0 8px rgba(226, 181, 60, 0.5); }
+.cws-rail .cws-row-copilot { box-shadow: 0 0 12px rgba(226, 181, 60, 0.35) !important; }
+
+/* Search and footer: same glass, a touch of light. */
+.cws-search:hover, .cws-search:focus-visible { box-shadow: 0 0 12px rgba(255, 224, 130, 0.22); border-color: rgba(255, 224, 130, 0.5); }
+.cws-footer { box-shadow: inset 0 0 0 1px rgba(226, 181, 60, 0.10), 0 0 14px rgba(226, 181, 60, 0.08); }
+.cws-secured-dot { box-shadow: 0 0 8px rgba(226, 181, 60, 0.9); }
+
+/* WORKSPACE chip in the sidebar: light neon. */
+.cws-chip {
+  box-shadow: 0 0 6px rgba(255, 224, 130, 0.65), 0 0 14px rgba(226, 181, 60, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) { .cws-row { transition: none; } }
+@media (prefers-contrast: more) {
+  .cws-row:not(.cws-row-on):hover { border-color: #FFE082; }
+}
+
+/* =====================================================================
+   Dusk v1.2
+   1. Light blue neon on the collapse arrow.
+   2. Slimmer desktop side menu: 288px to 236px (a 18 per cent cut).
+   The rail (900 to 1179px) and the phone drawer are unchanged.
+   ===================================================================== */
+
+.cws-collapse-btn {
+  color: #BFE6FF;
+  border-color: rgba(125, 211, 252, 0.75);
+  background: rgba(125, 211, 252, 0.10);
+  box-shadow: 0 0 7px rgba(125, 211, 252, 0.65), 0 0 16px rgba(56, 189, 248, 0.35), inset 0 0 6px rgba(125, 211, 252, 0.18);
+  text-shadow: 0 0 6px rgba(125, 211, 252, 0.9);
+}
+.cws-collapse-btn:hover {
+  color: #FFFFFF;
+  border-color: #A5E3FF;
+  background: rgba(125, 211, 252, 0.20);
+  box-shadow: 0 0 10px rgba(165, 227, 255, 0.85), 0 0 22px rgba(56, 189, 248, 0.5), inset 0 0 8px rgba(125, 211, 252, 0.25);
+}
+.cws-nav.cws-nav-collapsed .cws-collapse-btn {
+  background: var(--dusk-frame, #16263F);
+  border-color: rgba(125, 211, 252, 0.75);
+  color: #BFE6FF;
+  box-shadow: 0 0 8px rgba(125, 211, 252, 0.7), 0 0 18px rgba(56, 189, 248, 0.4);
+}
+
+@media (min-width: 1180px) {
+  .cws-nav { flex: 0 0 236px; width: 236px; }
+  .cws { min-width: 236px; }
+
+  /* The top bar already carries the WORKSPACE badge, and the narrower menu has no room for a second. */
+  .cws-chip { display: none; }
+  .cws-brand { padding: 18px 12px 12px 14px; gap: 8px; }
+  .cws-collapse-btn { margin-left: auto; }
+  .cws-wordmark { font-size: 15px; }
+
+  .cws-search-wrap { padding: 0 10px 12px; }
+  .cws-search { padding: 0 9px; gap: 7px; }
+  .cws-kbd { display: none; }
+
+  .cws-group-toggle, .cws-group-label { padding-left: 14px; padding-right: 12px; }
+  .cws-group-toggle .cws-group-label { padding: 0; }
+  .cws-divider { margin: 4px 10px 0; }
+
+  .cws-row { gap: 9px; padding: 0 9px; margin: 0 6px; font-size: 13px; }
+  .cws-row-on { padding-left: 14px; margin-left: 0; }
+  .cws-badge { height: 18px; min-width: 18px; font-size: 10.5px; padding: 0 5px; }
+  .cws-copilot-badge { font-size: 0.58rem; padding: 1px 4px; flex: 0 0 auto; }
+  .cws-row-copilot { gap: 7px; padding-left: 10px; padding-right: 7px; }
+  .cws-row-copilot .cws-row-label { font-size: 12px; letter-spacing: -0.01em; }
+  .cws-footer { margin: 10px 10px 16px; padding: 10px 11px; }
 }
