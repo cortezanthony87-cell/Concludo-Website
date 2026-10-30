@@ -26,7 +26,8 @@ export async function saveMeetingRecord(
   supabase: SupabaseClient,
   model: MeetingModel,
   target: SaveTarget,
-  extras: SaveExtras
+  extras: SaveExtras,
+  options?: { canDraftEmail?: boolean }
 ): Promise<{ projectId: string }> {
   const m = model;
   let projectId = target.projectId || '';
@@ -70,8 +71,34 @@ export async function saveMeetingRecord(
   if (plan.error) fail('The action plan', plan.error);
   const log = await saveOutput(supabase, { project_id: projectId, output_type: 'decision_log', content: `# Decision log: ${m.meta.title}\n\n${decisionsMd || 'No decisions recorded.'}`, json_content: m, model_used: MODEL });
   if (log.error) fail('The decision log', log.error);
-  const email = await saveOutput(supabase, { project_id: projectId, output_type: 'follow_up_email', content: `Subject: ${extras.email.subject}\n\n${extras.email.body}`, model_used: MODEL });
-  if (email.error) fail('The follow-up email draft', email.error);
+
+  // Plan gate: follow_up_email output is saved on Pro and Team only. Starter skips this write.
+  let canDraft = options?.canDraftEmail;
+  if (canDraft === undefined) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      if (userId) {
+        const { data: allowed } = await supabase.rpc('can_use_feature', {
+          p_user_id: userId,
+          p_feature_key: 'follow_up_email_draft',
+        });
+        if (typeof allowed === 'boolean') {
+          canDraft = allowed;
+        } else {
+          const { data: prof } = await supabase.from('profiles').select('plan').eq('id', userId).single();
+          const p = prof?.plan;
+          canDraft = p ? (p !== 'starter' && p !== 'starter_trial' && p !== 'free_preview') : false;
+        }
+      }
+    } catch {
+      canDraft = true;
+    }
+  }
+  if (canDraft) {
+    const email = await saveOutput(supabase, { project_id: projectId, output_type: 'follow_up_email', content: `Subject: ${extras.email.subject}\n\n${extras.email.body}`, model_used: MODEL });
+    if (email.error) fail('The follow-up email draft', email.error);
+  }
 
   // 3. Registers.
   for (const d of kept(m.decisions)) {

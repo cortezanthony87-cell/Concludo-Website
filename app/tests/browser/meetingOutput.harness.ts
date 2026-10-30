@@ -28,6 +28,19 @@ w.__unmount = mountMeetingStudio(host, {
   onSave: (m, t, x) => saveMeetingRecord(fakeSupabase as never, m, t, x),
   onSaved: (id) => { w.__savedTo = id; },
 });
+w.__remount = (canDraftEmail = true, canExportDeck = true) => {
+  if (typeof w.__unmount === 'function') (w.__unmount as () => void)();
+  w.__unmount = mountMeetingStudio(host, {
+    embedded: true,
+    logo: lockup,
+    logoReversed: lockupRev,
+    canDraftEmail,
+    canExportDeck,
+    listProjects: async () => [{ id: 'p-1', title: 'CRM cutover', client: 'Kestrel Bay (fictional)' }],
+    onSave: (m, t, x) => saveMeetingRecord(fakeSupabase as never, m, t, x, { canDraftEmail }),
+    onSaved: (id) => { w.__savedTo = id; },
+  });
+};
 w.__mountViewer = (el: HTMLElement) => {
   const api = (host as unknown as { __cmo: { S: { model: unknown } } }).__cmo;
   return mountMeetingDocument(el, JSON.parse(JSON.stringify(api.S.model)), { logo: lockup, logoReversed: lockupRev });

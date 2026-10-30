@@ -5,6 +5,7 @@ import { fetchProjects } from '../lib/projects/projectClient';
 import { parseUploadedFile } from '../lib/intelligence/fileParser';
 import { saveMeetingRecord } from '../lib/outputs/saveMeetingRecord';
 import { mountMeetingStudio } from '../features/meeting-output/studio';
+import { useFeatureAccess } from '../lib/permissions/usePermissions';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import '../features/meeting-output/meeting-output.css';
@@ -18,12 +19,16 @@ export const MeetingOutputPage: React.FC = () => {
   const { supabase } = useAuth();
   const navigate = useNavigate();
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const { isAllowed: canDraftEmail } = useFeatureAccess('follow_up_email_draft');
+  const { isAllowed: canExportDeck } = useFeatureAccess('deck_export');
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host || !supabase) return undefined;
     const unmount = mountMeetingStudio(host, {
       embedded: true,
+      canDraftEmail,
+      canExportDeck,
       parseFile: async (file) => {
         // Keep the matching PDF worker local instead of depending on a CDN version.
         pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -34,11 +39,11 @@ export const MeetingOutputPage: React.FC = () => {
         const res = await fetchProjects(supabase);
         return (res.data || []).map((p) => ({ id: p.id, title: p.title, client: p.client_name ?? null }));
       },
-      onSave: (model, target, extras) => saveMeetingRecord(supabase, model, target, extras),
+      onSave: (model, target, extras) => saveMeetingRecord(supabase, model, target, extras, { canDraftEmail }),
       onSaved: (projectId) => navigate(`/projects/${projectId}`),
     });
     return unmount;
-  }, [supabase, navigate]);
+  }, [supabase, navigate, canDraftEmail, canExportDeck]);
 
   return <div ref={hostRef} className="cmo-host" />;
 };

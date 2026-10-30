@@ -174,6 +174,10 @@ export interface MeetingModel {
   };
   warnings: string[];
   signals: { balance: number | null; speakers: number; dateConfirmed: boolean };
+  followUp?: {
+    audience: 'internal' | 'client';
+    correctionDeadline: string;
+  };
 }
 
 /* -------------------------------------------------------------- constants */
@@ -1049,27 +1053,182 @@ export function toMarkdown(m: MeetingModel, include: (r: { review: Review }) => 
   return L.join('\n');
 }
 
-export function followUpEmail(m: MeetingModel, include: (r: { review: Review }) => boolean = (r) => r.review !== 'excluded'): { subject: string; body: string } {
+export interface FollowUpEmailOptions {
+  audience?: 'internal' | 'client';
+  correctionDeadline?: string;
+  sender?: string;
+  include?: (r: { review: Review }) => boolean;
+}
+
+export function melbourneTodayIso(): string {
+  const parts = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Melbourne',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const m = parts.find((p) => p.type === 'month')?.value;
+  const d = parts.find((p) => p.type === 'day')?.value;
+  return `${y}-${m}-${d}`;
+}
+
+export function defaultCorrectionDeadline(meetingDateIso?: string): string {
+  const baseIso = meetingDateIso || melbourneTodayIso();
+  let current = addDays(baseIso, 1);
+  let dow = parseIso(current).getUTCDay(); // 0 = Sun, 6 = Sat
+  if (dow === 6) {
+    current = addDays(current, 2);
+  } else if (dow === 0) {
+    current = addDays(current, 1);
+  }
+  const d = parseIso(current);
+  const formatted = d.toLocaleDateString('en-AU', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'long',
+    weekday: 'long',
+  });
+  return `12 pm ${formatted}`;
+}
+
+export function followUpEmail(
+  m: MeetingModel,
+  optsOrInclude?: FollowUpEmailOptions | ((r: { review: Review }) => boolean)
+): { subject: string; body: string } {
+  let audience: 'internal' | 'client' = 'client';
+  let correctionDeadline = defaultCorrectionDeadline(m.meta.meetingDate);
+  let sender = m.meta.chair || 'Anthony';
+  let include: (r: { review: Review }) => boolean = (r) => r.review !== 'excluded';
+
+  if (typeof optsOrInclude === 'function') {
+    include = optsOrInclude;
+  } else if (optsOrInclude) {
+    if (optsOrInclude.audience) audience = optsOrInclude.audience;
+    if (optsOrInclude.correctionDeadline) correctionDeadline = optsOrInclude.correctionDeadline;
+    if (optsOrInclude.sender) sender = optsOrInclude.sender;
+    if (optsOrInclude.include) include = optsOrInclude.include;
+  }
+
+  // Store in record's json_content (no new column)
+  m.followUp = {
+    audience,
+    correctionDeadline,
+  };
+
   const a = m.actions.filter(include);
   const d = m.decisions.filter(include);
   const o = m.openItems.filter(include);
-  const lines = [
-    'Hi all,',
-    '',
-    `Thanks for your time at ${m.meta.title} on ${fmtDate(m.meta.meetingDate)}. Here is what we agreed.`,
-    '',
-    'Decisions',
-    ...d.map((x) => `- ${stripEnd(x.statement)}${x.status === 'conditional' && x.condition && !x.statement.includes(x.condition) ? ` (conditional: ${x.condition})` : ''}`),
-    '',
-    'Actions',
-    ...a.map((x) => `- ${x.owner ?? 'Owner to be named'}: ${stripEnd(x.task)}${x.due ? `, by ${fmtDate(x.due)}` : ', date to be set'}`),
-    ...(o.length ? ['', 'Still open', ...o.map((x) => `- ${x.question}`)] : []),
-    '',
-    'Please reply if anything here does not match your notes.',
-    '',
-    'Regards,',
-  ];
-  return { subject: `Outcomes and actions: ${m.meta.title} (${fmtDate(m.meta.meetingDate)})`, body: lines.join('\n') };
+  const r = m.risks.filter(include);
+
+  // Headline decision: first confirmed decision, shortened to 60 characters at a word boundary
+  const confirmedDec = d.find((x) => x.status === 'agreed' || x.status === 'conditional');
+  let headline = 'decisions and actions';
+  if (confirmedDec) {
+    const raw = stripEnd(confirmedDec.statement);
+    if (raw.length <= 60) {
+      headline = raw;
+    } else {
+      const sub = raw.slice(0, 60);
+      const lastSp = sub.lastIndexOf(' ');
+      headline = (lastSp > 15 ? sub.slice(0, lastSp) : sub).replace(/[,;:.-]+$/, '');
+    }
+  }
+
+  // Subject: [Client or meeting name] [meeting type], [d Mon]: [headline decision]
+  const clientOrMeeting = m.meta.organisation || m.meta.project || m.meta.title || 'Meeting';
+  const mType = m.meta.meetingType || 'Meeting';
+  const dMon = m.meta.meetingDate ? parseIso(m.meta.meetingDate).toLocaleDateString('en-AU', { timeZone: 'UTC', day: 'numeric', month: 'short' }) : '';
+  let subject = `${clientOrMeeting} ${mType}, ${dMon}: ${headline}`.replace(/\s*,\s*:\s*/, ': ');
+  if (subject.length >= 120) {
+    const sub = subject.slice(0, 119);
+    const lastSp = sub.lastIndexOf(' ');
+    subject = (lastSp > 20 ? sub.slice(0, lastSp) : sub).replace(/[,;:.-]+$/, '');
+  }
+
+  const sections: string[] = [];
+
+  // [Names] and Cc: [informed list]
+  const present = m.participants.filter((p) => p.present);
+  const absent = m.participants.filter((p) => !p.present);
+  const fmtParticipant = (p: Participant) => (audience === 'client' && p.role ? `${p.name} (${p.role})` : p.name);
+
+  if (present.length > 0) sections.push(present.map(fmtParticipant).join(', '));
+  if (absent.length > 0) sections.push(`Cc: ${absent.map(fmtParticipant).join(', ')}`);
+
+  // Opening line
+  const openLine = m.meta.title
+    ? `Thank you for your time at ${m.meta.title} on ${fmtDate(m.meta.meetingDate)}. Summary below. If anything is wrong, please tell me by ${correctionDeadline} and I will correct it.`
+    : `Summary below. If anything is wrong, please tell me by ${correctionDeadline} and I will correct it.`;
+  sections.push(openLine);
+
+  // CONTEXT: what, when, who, what it was for. Two or three lines.
+  if (m.meta.title) {
+    const ctx = [
+      'CONTEXT',
+      `${m.meta.title} (${m.meta.meetingType}), held on ${fmtDate(m.meta.meetingDate)}${m.meta.duration ? ` (${m.meta.duration})` : ''}.`,
+      `Attendees: ${present.length > 0 ? present.map((p) => p.name).join(', ') : 'Not recorded'}.`,
+    ];
+    if (m.bottomLine) {
+      ctx.push(`Focus: ${m.bottomLine}.`);
+    } else if (m.meta.project) {
+      ctx.push(`Focus: ${m.meta.project}.`);
+    }
+    sections.push(ctx.join('\n'));
+  }
+
+  // DECISIONS: D-01 [decision]. Decided by [name].
+  if (d.length > 0) {
+    const dLines = [
+      'DECISIONS',
+      ...d.map((x) => {
+        const cond = x.status === 'conditional' && x.condition && !x.statement.includes(x.condition) ? ` (conditional: ${x.condition})` : '';
+        const by = x.calledBy ? ` Decided by ${x.calledBy}.` : '';
+        return `${x.id} ${stripEnd(x.statement)}${cond}.${by}`;
+      }),
+    ];
+    sections.push(dLines.join('\n'));
+  }
+
+  // ACTIONS: table: # | Action | Owner | By | Confirmed by
+  if (a.length > 0) {
+    const aRows = a.map((x) => {
+      const oVal = x.owner ? x.owner : 'Who will own this?';
+      const byVal = x.due ? `${fmtDate(x.due)}${x.dueApprox ? ' (approx.)' : ''}` : 'Can you confirm a date?';
+      const confVal = x.evidence[0]?.speaker ? x.evidence[0].speaker : 'Not recorded';
+      return `${x.id} | ${x.task} | ${oVal} | ${byVal} | ${confVal}`;
+    });
+    sections.push(['ACTIONS', '# | Action | Owner | By | Confirmed by', '---|---|---|---|---', ...aRows].join('\n'));
+  }
+
+  // DEADLINES AND DATES: only dates stated in the record
+  const dated = a.filter((x) => !!x.due).sort((x, y) => (x.due! > y.due! ? 1 : -1));
+  if (dated.length > 0) {
+    sections.push(['DEADLINES AND DATES', ...dated.map((x) => `- ${fmtDate(x.due)}: ${x.task} (${x.owner || 'Who will own this?'})`)].join('\n'));
+  }
+
+  // OPEN QUESTIONS: Q-01 [question]. [Owner], by [date].
+  if (o.length > 0) {
+    sections.push(['OPEN QUESTIONS', ...o.map((x) => `${x.id} ${stripEnd(x.question)}. Who will own this?, by Can you confirm a date?.`)].join('\n'));
+  }
+
+  // RISKS: Internal version (8.1) only, confirmed risks only
+  const confirmedRisks = r.filter((x) => x.review === 'confirmed');
+  if (audience === 'internal' && confirmedRisks.length > 0) {
+    sections.push(['RISKS', ...confirmedRisks.map((x) => `${x.id} ${stripEnd(x.risk)} (${x.rating} risk). ${x.mitigation ? `Response stated: ${x.mitigation}` : 'Response: not stated'}.`)].join('\n'));
+  }
+
+  // NEXT MEETING: [date, time]. It must produce: [outcome].
+  sections.push('NEXT MEETING\nNo next meeting set');
+
+  // [Sender first name]
+  const senderFirst = (sender || 'Anthony').trim().split(/\s+/)[0];
+  sections.push(senderFirst);
+
+  const cleanSubject = subject.replace(/[\u2013\u2014]/g, '-');
+  const cleanBody = sections.join('\n\n').replace(/[\u2013\u2014]/g, '-');
+
+  return { subject: cleanSubject, body: cleanBody };
 }
 
 export function fmtDate(iso?: string, opts: { weekday?: boolean } = {}): string {

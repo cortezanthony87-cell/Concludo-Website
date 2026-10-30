@@ -5,6 +5,8 @@ import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
+import { Client as PgClient } from 'pg';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const out = path.join(here, '.harness');
@@ -89,6 +91,93 @@ ok(errors.length === 0, `No page errors (${errors.join(' | ')})`);
 await p.setViewportSize({ width: 390, height: 844 });
 await p.reload(); await p.waitForSelector('.cmo .stepper');
 ok(await p.evaluate(() => document.getElementById('ws-main').scrollWidth <= document.getElementById('ws-main').clientWidth + 1), 'No sideways scroll in the content area at 390px');
+
+// 8. Starter: email panel locked, no follow_up_email row saved
+await p.setViewportSize({ width: 1440, height: 900 });
+await p.evaluate(() => window.__remount(false));
+await p.waitForSelector('.cmo .stepper');
+await p.click('.cmo [data-act=sample]'); await p.waitForTimeout(500);
+await p.click('.cmo [data-act=generate]'); await p.waitForTimeout(300);
+await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1000);
+await p.click('.cmo [data-tpl=email]'); await p.waitForTimeout(500);
+const lockedText = await p.$eval('.cmo .email-card', (e) => e.innerText);
+ok(lockedText.includes('Follow-up email drafts are included in Pro and Team.'), `8. Starter email panel is locked with notice`);
+ok((await p.$$eval('.cmo [data-act=copy-email]', (x) => x.length)) === 0, '8. Starter has no Copy email button');
+await p.evaluate(() => { globalThis.__writes = []; });
+await p.click('.cmo [data-act=save]'); await p.waitForSelector('.cmo [data-act=do-save]');
+await p.click('.cmo [data-savemode=new]');
+await p.click('.cmo [data-act=do-save]'); await p.waitForTimeout(1000);
+const starterWrites = await p.evaluate(() => globalThis.__writes);
+const starterOutputTypes = starterWrites.filter((x) => x.fn === 'saveOutput').map((x) => x.input.output_type);
+ok(!starterOutputTypes.includes('follow_up_email'), `8. Starter does not save follow_up_email row (${starterOutputTypes})`);
+
+// 9. Pro trial: panel works, row saved
+await p.evaluate(() => window.__remount(true));
+await p.waitForSelector('.cmo .stepper');
+await p.click('.cmo [data-act=sample]'); await p.waitForTimeout(500);
+await p.click('.cmo [data-act=generate]'); await p.waitForTimeout(300);
+await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1000);
+await p.click('.cmo [data-tpl=email]'); await p.waitForTimeout(500);
+const proEmailText = await p.$eval('.cmo .email-card', (e) => e.innerText);
+ok(!proEmailText.includes('Follow-up email drafts are included in Pro and Team.'), '9. Pro trial email panel is unlocked');
+ok((await p.$$eval('.cmo [data-act=copy-email]', (x) => x.length)) === 1, '9. Pro trial has Copy email button');
+ok((await p.$$eval('.cmo [data-act=dl-email-txt]', (x) => x.length)) === 1, '9. Pro trial has Download .txt button');
+ok((await p.$$eval('.cmo [data-act=set-audience]', (x) => x.length)) === 2, '9. Pro trial has Client and Internal audience toggles');
+await p.evaluate(() => { globalThis.__writes = []; });
+await p.click('.cmo [data-act=save]'); await p.waitForSelector('.cmo [data-act=do-save]');
+await p.click('.cmo [data-savemode=new]');
+await p.click('.cmo [data-act=do-save]'); await p.waitForTimeout(1000);
+const proWrites = await p.evaluate(() => globalThis.__writes);
+const proOutputTypes = proWrites.filter((x) => x.fn === 'saveOutput').map((x) => x.input.output_type);
+ok(proOutputTypes.includes('follow_up_email'), `9. Pro trial saves follow_up_email row (${proOutputTypes})`);
+
+// 8b. Starter: deck panel locked, no pptxgenjs network request
+await p.evaluate(() => window.__remount(false, false));
+await p.waitForSelector('.cmo .stepper');
+await p.click('.cmo [data-act=sample]'); await p.waitForTimeout(500);
+await p.click('.cmo [data-act=generate]'); await p.waitForTimeout(300);
+await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1000);
+await p.click('.cmo [data-tpl=deck]'); await p.waitForTimeout(500);
+const starterDeckText = await p.$eval('.cmo .email-card', (e) => e.innerText);
+ok(starterDeckText.includes('Client decks are included in Pro and Team.'), '8b. Starter deck panel is locked with notice');
+ok((await p.$$eval('.cmo [data-act=dl-deck-pptx]', (x) => x.length)) === 0, '8b. Starter has no Download PowerPoint button');
+
+// 9b. Pro trial: deck panel works, slides render and export buttons appear when confirmed
+await p.evaluate(() => window.__remount(true, true));
+await p.waitForSelector('.cmo .stepper');
+await p.click('.cmo [data-act=sample]'); await p.waitForTimeout(500);
+await p.click('.cmo [data-act=generate]'); await p.waitForTimeout(300);
+
+// Confirm all items in step 2 so record is approved and validated
+await p.click('.cmo [data-act=confirm-all]'); await p.waitForTimeout(300);
+
+await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1000);
+await p.click('.cmo [data-tpl=deck]'); await p.waitForTimeout(500);
+const proDeckText = await p.$eval('.cmo #pages', (e) => e.innerText);
+ok(!proDeckText.includes('Client decks are included in Pro and Team.'), '9b. Pro trial deck panel is unlocked');
+ok((await p.$$eval('.cmo [data-act=dl-deck-pptx]', (x) => x.length)) === 1, '9b. Pro trial has Download PowerPoint button');
+ok((await p.$$eval('.cmo [data-act=print-deck]', (x) => x.length)) === 1, '9b. Pro trial has Print or save PDF button');
+const renderedDeckSlides = await p.$$eval('.cmo .pg', (xs) => xs.length);
+ok(renderedDeckSlides >= 6, `9b. Pro trial renders deck slides in studio (${renderedDeckSlides} slides)`);
+
+// 10. Starter direct insert of a follow_up_email row through the client is refused by the database (branch/preview)
+try { execSync('service postgresql status || service postgresql start', { stdio: 'ignore' }); } catch {}
+const pgClient = new PgClient({ host: 'localhost', database: 'concludo_preview', user: 'postgres', password: 'postgres' });
+await pgClient.connect();
+let test10Error = null;
+try {
+  await pgClient.query('BEGIN;');
+  await pgClient.query('SET LOCAL ROLE authenticated;');
+  await pgClient.query(`SET LOCAL "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';`);
+  await pgClient.query(`INSERT INTO public.outputs (project_id, user_id, output_type, content) VALUES ('77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 'follow_up_email', 'Subject: Malicious\\n\\nDirect insert bypass');`);
+  await pgClient.query('COMMIT;');
+} catch (e) {
+  test10Error = e;
+  await pgClient.query('ROLLBACK;');
+} finally {
+  await pgClient.end();
+}
+ok(test10Error !== null && test10Error.message.includes('follow_up_email_draft'), `10. Starter direct insert of follow_up_email refused by database: ${test10Error?.message}`);
 
 await b.close();
 console.log(`\n${pass} passed, ${failN} failed`);

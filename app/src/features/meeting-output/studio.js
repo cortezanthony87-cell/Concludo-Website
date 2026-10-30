@@ -6,6 +6,7 @@
    mountMeetingStudio(root, options) renders the three-step studio into root and returns an unmount function.
    Styles are scoped under .cmo (meeting-output.css). Nothing is sent anywhere unless options.onSave is supplied. */
 import * as CE from '../../lib/intelligence/meetingEngine';
+import { fromEngineRecord, renderDeckHtml, renderDeckPptx, validateDeck } from '../../lib/outputs/deck';
 import { SAMPLE_TRANSCRIPT, SAMPLE_DOC } from './samples';
 
 export function mountMeetingStudio(root, opts = {}) {
@@ -103,10 +104,18 @@ export function mountMeetingStudio(root, opts = {}) {
     filter: 'all',
     section: 'bottom',
     template: 'board',
+    emailAudience: opts.model?.followUp?.audience || 'client',
+    correctionDeadline: opts.model?.followUp?.correctionDeadline || '',
+    deckAudience: 'client',
+    deckQuotes: false,
+    deckPreparedWith: true,
+    deckFonts: 'brand',
     error: '',
     outline: [],
   };
   const CAN_FILE = opts.canFile !== false;
+  const CAN_DRAFT_EMAIL = opts.canDraftEmail !== false;
+  const CAN_EXPORT_DECK = opts.canExportDeck !== false;
   const MEETING_TYPES = ['Leadership meeting', 'Board meeting', 'Steering committee', 'Project kick-off', 'Client meeting', 'Status meeting', 'Workshop', 'Meeting'];
 
   const allSources = () => {
@@ -418,6 +427,7 @@ export function mountMeetingStudio(root, opts = {}) {
   const TEMPLATES = [
     ['board', 'Board briefing', 'Full record for directors and leadership', 'board'],
     ['exec', 'Executive summary', 'One page: the answer, decisions, next steps', 'one'],
+    ['deck', 'Client deck', 'Six slides in Concludo house style', 'spark'],
     ['actions', 'Action plan', 'Five-field schedule, timeline and gaps', 'list'],
     ['decisions', 'Decision pack', 'Each decision with its evidence and links', 'gavel'],
     ['email', 'Follow-up email', 'Draft only. Never sent automatically', 'mail'],
@@ -427,7 +437,10 @@ export function mountMeetingStudio(root, opts = {}) {
     return `<div class="doc-shell">
       <aside class="doc-side">
         <h3>Template</h3>
-        <div class="tpls">${TEMPLATES.map(([k, n, d, i]) => `<button class="tpl ${S.template === k ? 'on' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span><b>${n}</b><span>${d}</span></span></button>`).join('')}</div>
+        <div class="tpls">${TEMPLATES.map(([k, n, d, i]) => {
+          const locked = (k === 'deck' && !CAN_EXPORT_DECK) || (k === 'email' && !CAN_DRAFT_EMAIL);
+          return `<button class="tpl ${S.template === k ? 'on' : ''} ${locked ? 'locked' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span><b>${n}${locked ? ' <span style="font-size:10px;color:var(--gold-deep);font-weight:600">PRO</span>' : ''}</b><span>${d}</span></span></button>`;
+        }).join('')}</div>
         <h3>On this document</h3>
         <ul class="outline" id="outline"></ul>
         <div class="note cmo-hide-viewer" style="margin-top:18px">Built from ${plural(S.model.stats.decisions, 'decision')}, ${plural(S.model.stats.actions, 'action')}, ${plural(S.model.stats.risks, 'risk')} and ${plural(S.model.stats.openItems, 'open item')} you kept. <a href="#" data-go="2">Back to review</a></div>
@@ -435,7 +448,7 @@ export function mountMeetingStudio(root, opts = {}) {
       <section class="doc-main">
         <div class="doc-bar"><div class="t">${t[1]}<span id="pgcount"></span></div><div class="acts">
           ${S.template !== 'email' ? `<label class="preview-size">Preview<select data-preview-size aria-label="Document preview size"><option value="fit" ${previewMode === 'fit' ? 'selected' : ''}>Fit width</option><option value="actual" ${previewMode === 'actual' ? 'selected' : ''}>Actual size (100%)</option></select></label>` : ''}
-          ${S.template === 'email' ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button>` : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
+          ${S.template === 'deck' ? (CAN_EXPORT_DECK ? `<span id="deck-acts-slot"></span>` : '') : S.template === 'email' ? (CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button>` : '') : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
         </div></div>
         <div class="pages" id="pages"></div>
       </section>
@@ -624,13 +637,166 @@ export function mountMeetingStudio(root, opts = {}) {
     return { kind: 'Decision pack · Governance record', blocks: b };
   }
 
+
+  function buildStudioDeckPayload() {
+    const m = S.model;
+    const review = {};
+    [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].forEach((x) => {
+      review[x.id] = x.review;
+    });
+    const unapproved = m.gate.status !== 'Ready to circulate' && [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].some((x) => x.review === 'proposed');
+    const ctx = {
+      review,
+      approval: unapproved ? null : { by: m.meta.chair || 'Reviewed and approved', atISO: new Date().toISOString() },
+      audience: S.deckAudience || 'client',
+      version: 1,
+      preparedBy: { name: m.meta.chair || 'Reviewer', organisation: m.meta.organisation || null },
+      clientOrganisation: m.meta.organisation || null,
+      outcomeConfirmed: true,
+      nothingLeftOpenConfirmed: false,
+      nextMeeting: null,
+      correctionDeadline: { label: S.correctionDeadline || CE.defaultCorrectionDeadline(m.meta.meetingDate), contact: m.meta.chair || 'Chair' },
+    };
+    return fromEngineRecord(m, ctx);
+  }
   /* --------------------------------------- paginator */
   async function buildDocument() {
     const host = $('#pages');
     if (!host) return;
+    if (S.template === 'deck') {
+      if (!CAN_EXPORT_DECK) {
+        host.innerHTML = `<div class="email-card email-locked"><p style="font-size:15px;color:var(--navy);font-weight:500;margin:32px 24px;text-align:center">Client decks are included in Pro and Team.</p></div>`;
+        $('#outline').innerHTML = '';
+        $('#pgcount').textContent = '';
+        const actsSlot = $('#deck-acts-slot');
+        if (actsSlot) actsSlot.innerHTML = '';
+        return;
+      }
+      const payload = buildStudioDeckPayload();
+      const val = validateDeck(payload);
+      const actsSlot = $('#deck-acts-slot');
+      if (actsSlot) {
+        if (!val.ok) {
+          actsSlot.innerHTML = `<span style="font-size:12px;font-weight:600;color:var(--sig-high)">${esc(val.errors[0])}</span>`;
+        } else {
+          actsSlot.innerHTML = `<button class="btn sm navy" data-act="dl-deck-pptx">${ic('download')}<span>Download PowerPoint</span></button><button class="btn sm" data-act="print-deck">${ic('print')}<span>Print or save PDF</span></button>`;
+        }
+      }
+      const deckOptions = {
+        fonts: S.deckFonts || 'brand',
+        quotes: !!S.deckQuotes,
+        preparedWith: S.deckPreparedWith !== false,
+      };
+      let rendered;
+      try {
+        rendered = renderDeckHtml(payload, deckOptions);
+      } catch (err) {
+        // When unapproved or items still proposed, construct a valid preview payload from confirmed items or sample items so user can see preview
+        const previewPayload = JSON.parse(JSON.stringify(payload));
+        previewPayload.approval = previewPayload.approval || { by: 'Review in progress', atISO: new Date().toISOString() };
+        [...previewPayload.decisions, ...previewPayload.actions, ...previewPayload.openQuestions, ...previewPayload.risks].forEach((x) => {
+          if (x.review === 'proposed') x.review = 'confirmed';
+        });
+        rendered = renderDeckHtml(previewPayload, deckOptions);
+      }
+      const bodyContent = rendered.html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+      host.innerHTML = `<div class="deck-ctrls" style="width:100%;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 18px;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;background:var(--sand-50, #FDFCFB)">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Audience</span>
+            <div class="seg-btn" style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+              <button class="btn sm ${payload.audience === 'client' ? 'navy' : ''}" data-act="set-deck-aud" data-aud="client" style="border-radius:0;border:none">Client</button>
+              <button class="btn sm ${payload.audience === 'internal' ? 'navy' : ''}" data-act="set-deck-aud" data-aud="internal" style="border-radius:0;border:none">Internal</button>
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--navy);font-weight:500;cursor:pointer">
+            <input type="checkbox" data-act="toggle-deck-quotes" ${S.deckQuotes ? 'checked' : ''} />
+            <span>Verbatim quotes</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--navy);font-weight:500;cursor:pointer">
+            <input type="checkbox" data-act="toggle-deck-prep" ${S.deckPreparedWith !== false ? 'checked' : ''} />
+            <span>Prepared with Concludo</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Fonts</span>
+            <select data-act="set-deck-fonts" style="padding:4px 8px;font-size:12.5px;border-radius:6px;border:1px solid var(--border)">
+              <option value="brand" ${S.deckFonts !== 'safe' ? 'selected' : ''}>Brand fonts</option>
+              <option value="safe" ${S.deckFonts === 'safe' ? 'selected' : ''}>System fonts</option>
+            </select>
+          </div>
+        </div>
+      </div><div class="deck-pages-host" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px">${bodyContent}</div>`;
+
+      const deckPages = host.querySelectorAll('.pg');
+      $('#pgcount').textContent = `${deckPages.length} slides · 16:9`;
+      const out = [];
+      deckPages.forEach((p, i) => {
+        const titleEl = p.querySelector('h1') || p.querySelector('.ctitle');
+        const titleText = titleEl ? titleEl.textContent.trim() : (i === 0 ? 'Cover' : `Slide ${i + 1}`);
+        out.push({ label: titleText, page: i + 1, el: p });
+      });
+      $('#outline').innerHTML = out.map((o, k) => `<li><a href="#" data-jump="${k}">${esc(o.label)}<span>s. ${o.page}</span></a></li>`).join('');
+      S.outline = out;
+
+      const style = getComputedStyle(host);
+      const hostWidth = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      deckPages.forEach((page) => {
+        let frame = page.parentElement;
+        if (!frame.classList.contains('page-frame')) {
+          frame = document.createElement('div');
+          frame.className = 'page-frame';
+          page.before(frame);
+          frame.appendChild(page);
+        }
+        const pw = 1280;
+        const ph = 720;
+        page.style.width = `${pw}px`;
+        page.style.height = `${ph}px`;
+        page.style.transformOrigin = 'top left';
+        const scale = previewMode === 'actual' ? 1 : Math.min(1, Math.max(0.1, (hostWidth - 40) / pw));
+        frame.style.width = `${pw * scale}px`;
+        frame.style.height = `${ph * scale}px`;
+        page.style.transform = `scale(${scale})`;
+      });
+      return;
+    }
     if (S.template === 'email') {
-      const e = CE.followUpEmail(S.model);
-      host.innerHTML = `<div class="email-card"><div class="eh"><div><b>To</b>${esc(S.model.participants.filter((p) => p.present).map((p) => p.name).join(', '))}</div><div><b>Subject</b>${esc(e.subject)}</div></div><pre>${esc(e.body)}</pre><div class="ef">Draft only. Concludo never sends email. Copy it into your mail app, check it, then send.</div></div>`;
+      if (!CAN_DRAFT_EMAIL) {
+        host.innerHTML = `<div class="email-card email-locked"><p style="font-size:15px;color:var(--navy);font-weight:500;margin:32px 24px;text-align:center">Follow-up email drafts are included in Pro and Team.</p></div>`;
+        $('#outline').innerHTML = '';
+        $('#pgcount').textContent = '';
+        return;
+      }
+      S.emailAudience = S.emailAudience || S.model?.followUp?.audience || 'client';
+      S.correctionDeadline = S.correctionDeadline || S.model?.followUp?.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
+      const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline });
+      const present = S.model.participants.filter((p) => p.present);
+      const absent = S.model.participants.filter((p) => !p.present);
+      const fmtP = (p) => (S.emailAudience === 'client' && p.role ? `${p.name} (${p.role})` : p.name);
+      const presentNames = present.map(fmtP).join(', ');
+      const absentNames = absent.map(fmtP).join(', ');
+      host.innerHTML = `<div class="email-card">
+        <div class="email-ctrls" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--sand-50, #FDFCFB)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Audience</span>
+            <div class="seg-btn" style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+              <button class="btn sm ${S.emailAudience === 'client' ? 'navy' : ''}" data-act="set-audience" data-aud="client" style="border-radius:0;border:none">Client</button>
+              <button class="btn sm ${S.emailAudience === 'internal' ? 'navy' : ''}" data-act="set-audience" data-aud="internal" style="border-radius:0;border:none">Internal</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label for="cmo-deadline-inp" style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Correction deadline</label>
+            <input id="cmo-deadline-inp" class="cmo-input" data-field="correction-deadline" value="${esc(S.correctionDeadline)}" style="width:220px;padding:4px 8px;font-size:13px;height:30px" />
+          </div>
+        </div>
+        <div class="eh">
+          <div><b>To</b>${esc(presentNames || 'Not recorded')}</div>
+          ${absentNames ? `<div><b>Cc</b>${esc(absentNames)}</div>` : ''}
+          <div><b>Subject</b>${esc(e.subject)}</div>
+        </div>
+        <pre>${esc(e.body)}</pre>
+        <div class="ef">Draft only. Concludo never sends email. Copy it into your mail app, check it, then send.</div>
+      </div>`;
       $('#outline').innerHTML = '';
       $('#pgcount').textContent = '';
       return;
@@ -791,9 +957,54 @@ export function mountMeetingStudio(root, opts = {}) {
       window.addEventListener('afterprint', done);
       try { window.print(); } catch (error) { done(); throw error; }
     }
+
+    if (act === 'set-deck-aud') { S.deckAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
+    if (act === 'toggle-deck-quotes') { S.deckQuotes = t.checked; buildDocument(); }
+    if (act === 'toggle-deck-prep') { S.deckPreparedWith = t.checked; buildDocument(); }
+    if (act === 'set-deck-fonts') { S.deckFonts = t.value; buildDocument(); }
+    if (act === 'print-deck') {
+      const payload = buildStudioDeckPayload();
+      const val = validateDeck(payload);
+      if (!val.ok) { toast(val.errors[0]); return; }
+      const rendered = renderDeckHtml(payload, { fonts: S.deckFonts || 'brand', quotes: !!S.deckQuotes, preparedWith: S.deckPreparedWith !== false });
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.open();
+        w.document.write(rendered.html);
+        w.document.close();
+        w.focus();
+        setTimeout(() => w.print(), 350);
+      } else {
+        toast('Popup blocked. Allow popups to print PDF.');
+      }
+    }
+    if (act === 'dl-deck-pptx') {
+      const payload = buildStudioDeckPayload();
+      const val = validateDeck(payload);
+      if (!val.ok) { toast(val.errors[0]); return; }
+      toast('Generating PowerPoint deck...');
+      try {
+        const { default: PptxGenJS } = await import('pptxgenjs');
+        const { data, fileName } = await renderDeckPptx(PptxGenJS, payload, { fonts: S.deckFonts || 'brand', quotes: !!S.deckQuotes, preparedWith: S.deckPreparedWith !== false }, 'blob');
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('PowerPoint downloaded');
+      } catch (err) {
+        toast(err.message || 'Failed to export deck');
+      }
+    }
+
     if (act === 'copy-md') { await copy(CE.toMarkdown(S.model)); toast('Copied as text'); }
     if (act === 'dl-md') download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.md`, CE.toMarkdown(S.model), 'text/markdown');
-    if (act === 'copy-email') { const e = CE.followUpEmail(S.model); await copy(`Subject: ${e.subject}\n\n${e.body}`); toast('Email draft copied'); }
+    if (act === 'set-audience') { S.emailAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
+    if (act === 'copy-email') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); await copy(`Subject: ${e.subject}\n\n${e.body}`); toast('Email draft copied'); }
+    if (act === 'dl-email-txt') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); download(`${(S.model.meta.title || 'follow-up-email').replace(/[^\w]+/g, '-')}.txt`, `Subject: ${e.subject}\n\n${e.body}`, 'text/plain'); }
     if (act === 'save') (opts.onSave ? modalSaveWired() : modalSave());
     if (act === 'do-save') doSave(t);
     if (act === 'copy-json') { await copy(JSON.stringify(S.model, null, 2)); root.querySelector('.modal-bg')?.remove(); toast('Record copied'); }
@@ -804,6 +1015,14 @@ export function mountMeetingStudio(root, opts = {}) {
     const t = ev.target;
     if (t.dataset.bind) { S[t.dataset.bind] = t.value; detectMeta(); updateSignals(); }
     if (t.dataset.meta) { S.meta[t.dataset.meta] = t.value; }
+    if (t.dataset.field === 'correction-deadline') {
+      S.correctionDeadline = t.value;
+      const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline });
+      const pre = root.querySelector('.email-card pre');
+      if (pre) pre.textContent = e.body;
+      const subjEl = root.querySelector('.email-card .eh div:last-child');
+      if (subjEl) subjEl.innerHTML = `<b>Subject</b>${esc(e.subject)}`;
+    }
   });
   function updateSignals() {
     // keep focus while typing: only refresh the Generate button state
@@ -883,7 +1102,7 @@ export function mountMeetingStudio(root, opts = {}) {
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
-      const res = await opts.onSave(S.model, target, { sources: allSources(), markdown: CE.toMarkdown(S.model), email: CE.followUpEmail(S.model) });
+      const res = await opts.onSave(S.model, target, { sources: allSources(), markdown: CE.toMarkdown(S.model), email: CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }) });
       div.remove();
       toast('Saved to project');
       if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 700);
