@@ -190,3 +190,11 @@
 .ib-linkbtn { all: unset; cursor: pointer; display: block; width: 100%; }
 .ib-linkbtn:focus-visible { box-shadow: var(--ib-focus); border-radius: var(--ib-radius-sm); }
 .ib-textarea:focus-visible { box-shadow: var(--ib-focus); outline: none; }
+
+/* Pillar tabs */
+.ib-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--ib-line-strong); margin: 0 0 24px; }
+.ib-tab { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; color: var(--ib-ink-2); text-decoration: none; border-bottom: 3px solid transparent; font-weight: 500; }
+.ib-tab:hover { color: var(--ib-ink); }
+.ib-tab--on { color: var(--ib-ink); border-bottom-color: var(--ib-ink-2); font-weight: 600; }
+.ib-tab:focus-visible { box-shadow: var(--ib-focus); outline: none; border-radius: var(--ib-radius-sm); }
+.ib-pillar { font-family: var(--ib-font-head); font-size: 0.8125rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ib-muted); margin: 0 0 4px; }

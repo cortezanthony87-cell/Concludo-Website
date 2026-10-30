@@ -75,6 +75,8 @@ import { MemoryExplorePage } from './pages/MemoryExplorePage';
 import { MemoryLessonsPage } from './pages/MemoryLessonsPage';
 import { MemoryTimelinePage } from './pages/MemoryTimelinePage';
 import { KnowledgeAnalyticsPage } from './pages/knowledge/KnowledgeAnalyticsPage';
+import { PillarShell } from './components/intel/PillarTabs';
+import { MEMORY_PILLAR, BRIEFINGS_PILLAR, activeRedirects as activeIntelRedirects } from './lib/intel/pillarRoutes';
 
 // Tasklet 22 Concludo Copilot & Conversational Intelligence Page
 import { CopilotPage } from './pages/copilot/CopilotPage';
@@ -159,7 +161,7 @@ export const App: React.FC = () => {
             <Route path="/account" element={<AccountPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/deleted" element={<RecentlyDeletedPage />} />
-            <Route path="/decision-memory" element={<DecisionMemoryPage />} />
+            <Route path="/decision-memory" element={<Navigate to="/memory/decisions" replace />} />
             <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
             <Route path="/actions" element={<ActionsPage />} />
             <Route path="/actions/:id" element={<ActionDetailPage />} />
@@ -209,14 +211,23 @@ export const App: React.FC = () => {
             <Route path="/forecasts" element={<ForecastsPage />} />
             <Route path="/executive-briefings" element={<ExecutiveBriefingsPage />} />
 
-            {/* Tasklet 21 Memory & Knowledge Routes (Phase B Bright System) */}
-            <Route path="/knowledge" element={<MemoryExplorePage />} />
-            <Route path="/memory/explore" element={<MemoryExplorePage />} />
-            <Route path="/organizational-memory" element={<MemoryLessonsPage />} />
-            <Route path="/memory/lessons" element={<MemoryLessonsPage />} />
-            <Route path="/knowledge/timeline" element={<MemoryTimelinePage />} />
-            <Route path="/memory/timeline" element={<MemoryTimelinePage />} />
-            <Route path="/executive-explorer" element={<Navigate to="/knowledge" replace />} />
+            {/* Tasklet 21 Memory & Knowledge Routes (Phase B Pillar Shell) */}
+            <Route path="/memory" element={<PillarShell pillar={MEMORY_PILLAR} />}>
+              <Route index element={<Navigate to="decisions" replace />} />
+              <Route path="decisions" element={<DecisionMemoryPage />} />
+              <Route path="lessons" element={<MemoryLessonsPage />} />
+              <Route path="timeline" element={<MemoryTimelinePage />} />
+              <Route path="explore" element={<MemoryExplorePage />} />
+            </Route>
+            <Route path="/briefings" element={<PillarShell pillar={BRIEFINGS_PILLAR} />}>
+              <Route index element={<Navigate to="centre" replace />} />
+              <Route path="centre" element={<ExecutiveBriefingCentrePage />} />
+              <Route path="command-centre" element={<ExecutiveCommandCentrePage />} />
+            </Route>
+            {activeIntelRedirects().map((r) => (
+              <Route key={r.from} path={r.from} element={<Navigate to={r.to} replace />} />
+            ))}
+            <Route path="/executive-explorer" element={<Navigate to="/memory/explore" replace />} />
             <Route path="/knowledge-analytics" element={<KnowledgeAnalyticsPage />} />
 
             {/* Tasklet 22 Concludo Copilot Route */}
