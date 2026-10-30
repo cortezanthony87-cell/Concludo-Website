@@ -27,6 +27,21 @@ export const BRIEFINGS_PILLAR: Pillar = {
   tabs: [
     { id: 'centre', label: 'Briefing Centre', to: '/briefings/centre', feature: 'executive_intelligence' },
     { id: 'command-centre', label: 'Command Centre', to: '/briefings/command-centre', feature: 'executive_command_center' },
+    { id: 'executive', label: 'Executive Intelligence', to: '/briefings/executive', feature: 'executive_intelligence' },
+    { id: 'saved', label: 'Saved', to: '/briefings/saved', feature: 'executive_intelligence' },
+  ],
+};
+
+export const FORECASTS_PILLAR: Pillar = {
+  path: '/forecasts',
+  title: 'Forecasts',
+  purpose: 'What is expected next, shown only when the records are enough to say.',
+  defaultTab: '/forecasts/predictive',
+  tabs: [
+    { id: 'predictive', label: 'Predictive', to: '/forecasts/predictive', feature: 'predictive_intelligence' },
+    { id: 'trend', label: 'Forecasts', to: '/forecasts/trend', feature: 'forecasting' },
+    { id: 'scenarios', label: 'Scenarios', to: '/forecasts/scenarios', feature: 'scenario_modeling' },
+    { id: 'twin', label: 'Digital Twin', to: '/forecasts/twin', feature: 'digital_twin' },
   ],
 };
 
@@ -40,8 +55,12 @@ export const LEGACY_REDIRECTS: LegacyRedirect[] = [
   { from: '/knowledge/memory', to: '/memory/lessons', ready: true, note: 'Copilot citations link here.' },
   { from: '/executive-command-center', to: '/briefings/command-centre', ready: true },
   { from: '/executive-center', to: '/briefings/centre', ready: true },
-  { from: '/executive-briefings', to: '/briefings/centre', ready: false, note: 'Predictive briefings page not yet reviewed; stays routed as it is.' },
-  { from: '/executive-intelligence', to: '/briefings/centre', ready: false, note: 'Predictive intelligence page not yet reviewed; stays routed as it is.' },
+  { from: '/executive-briefings', to: '/briefings/saved', ready: true, note: 'Old generator stopped; saved briefings kept read-only.' },
+  { from: '/executive-intelligence', to: '/briefings/executive', ready: true },
+  { from: '/predictive-intelligence', to: '/forecasts/predictive', ready: true },
+  { from: '/scenario-modeling', to: '/forecasts/scenarios', ready: true },
+  { from: '/digital-twin', to: '/forecasts/twin', ready: true },
+  { from: '/performance', to: '/insight', ready: false, note: 'Insight pillar not built yet.' },
 ];
 
 export function activeRedirects(): LegacyRedirect[] { return LEGACY_REDIRECTS.filter((r) => r.ready); }

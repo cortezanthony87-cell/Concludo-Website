@@ -52,6 +52,40 @@ const SPECS: Record<string, Spec> = {
     ],
     today: [{ label: 'Decision Memory', to: '/decision-memory' }, { label: 'Lessons', to: '/memory/lessons' }],
   },
+  predictive: {
+    title: 'Predictive Intelligence',
+    crumbs: ['Forecasts', 'Predictive'],
+    purpose: 'Risks and opportunities the records point to.',
+    why: 'The earlier version produced fixed scores, fixed confidence labels and template wording, and saved a snapshot every time the page opened. None of it came from your records.',
+    needs: [
+      'Real history: at least 8 weeks before any projection is labelled a trend projection.',
+      'At least 3 genuine saved snapshots before any trend is drawn. Snapshots made by the earlier version will not count.',
+      'Every risk shown with the records it comes from.',
+    ],
+    today: [{ label: 'Decision Memory', to: '/decision-memory' }, { label: 'Lessons', to: '/memory/lessons' }],
+  },
+  forecasts: {
+    title: 'Forecasts',
+    crumbs: ['Forecasts', 'Forecasts'],
+    purpose: 'Where delivery is heading, if the recent pattern holds.',
+    why: 'The earlier version drew a rising line from fixed rules and called it improving. A line is only honest when it is drawn from real weekly history.',
+    needs: [
+      'At least 8 weeks of real weekly history, shown beside the line.',
+      'A Trend projection label, a range and the history it is based on. Never a promise.',
+    ],
+    today: [{ label: 'Decision Memory', to: '/decision-memory' }, { label: 'Projects', to: '/projects' }],
+  },
+  executiveIntelligence: {
+    title: 'Executive Intelligence',
+    crumbs: ['Briefings', 'Executive Intelligence'],
+    purpose: 'What matters at an executive level, from saved records.',
+    why: 'The earlier version showed a momentum score and risk levels set by fixed rules, not by your records.',
+    needs: [
+      'The shared definitions for open, overdue and blocked actions.',
+      'Decision status and impact recorded on decisions, so that a rate has something real behind it.',
+    ],
+    today: [{ label: 'Decision Memory', to: '/decision-memory' }, { label: 'Lessons', to: '/memory/lessons' }],
+  },
   digitalTwin: {
     title: 'Digital Twin Organisation',
     crumbs: ['Forecasts', 'Digital Twin'],
@@ -92,6 +126,9 @@ const Unavailable: React.FC<{ spec: Spec }> = ({ spec }) => (
 export const ExecutiveCommandCentrePage: React.FC = () => <Unavailable spec={SPECS.commandCentre} />;
 export const EnterprisePerformancePage: React.FC = () => <Unavailable spec={SPECS.performance} />;
 export const ExecutiveBriefingCentrePage: React.FC = () => <Unavailable spec={SPECS.briefingCentre} />;
+export const PredictiveUnavailablePage: React.FC = () => <Unavailable spec={SPECS.predictive} />;
+export const ForecastsUnavailablePage: React.FC = () => <Unavailable spec={SPECS.forecasts} />;
+export const ExecutiveIntelligenceUnavailablePage: React.FC = () => <Unavailable spec={SPECS.executiveIntelligence} />;
 export const DigitalTwinUnavailablePage: React.FC = () => <Unavailable spec={SPECS.digitalTwin} />;
 export const ScenarioModellingUnavailablePage: React.FC = () => <Unavailable spec={SPECS.scenarioModelling} />;
 export const UNAVAILABLE_SPECS = SPECS;

@@ -88,7 +88,13 @@ import {
   ExecutiveBriefingCentrePage,
   DigitalTwinUnavailablePage,
   ScenarioModellingUnavailablePage,
+  PredictiveUnavailablePage,
+  ForecastsUnavailablePage,
+  ExecutiveIntelligenceUnavailablePage,
 } from './pages/UnavailablePages';
+import { SavedBriefingsPage } from './pages/SavedBriefingsPage';
+import { fetchExecutiveBriefings } from './lib/predictive/executiveBriefingService';
+import { FORECASTS_PILLAR } from './lib/intel/pillarRoutes';
 
 // Email Command Centre
 import { EmailModuleLayout } from './components/email/EmailModuleLayout';
@@ -207,10 +213,7 @@ export const App: React.FC = () => {
 
             {/* Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Routes */}
             <Route path="/predictive-intelligence" element={<PredictiveIntelligencePage />} />
-            <Route path="/executive-intelligence" element={<ExecutiveIntelligencePage />} />
-            <Route path="/forecasts" element={<ForecastsPage />} />
-            <Route path="/executive-briefings" element={<ExecutiveBriefingsPage />} />
-
+                                    
             {/* Tasklet 21 Memory & Knowledge Routes (Phase B Pillar Shell) */}
             <Route path="/memory" element={<PillarShell pillar={MEMORY_PILLAR} />}>
               <Route index element={<Navigate to="decisions" replace />} />
@@ -223,6 +226,15 @@ export const App: React.FC = () => {
               <Route index element={<Navigate to="centre" replace />} />
               <Route path="centre" element={<ExecutiveBriefingCentrePage />} />
               <Route path="command-centre" element={<ExecutiveCommandCentrePage />} />
+              <Route path="executive" element={<ExecutiveIntelligenceUnavailablePage />} />
+              <Route path="saved" element={<SavedBriefingsPage loader={() => fetchExecutiveBriefings({})} />} />
+            </Route>
+            <Route path="/forecasts" element={<PillarShell pillar={FORECASTS_PILLAR} />}>
+              <Route index element={<Navigate to="predictive" replace />} />
+              <Route path="predictive" element={<PredictiveUnavailablePage />} />
+              <Route path="trend" element={<ForecastsUnavailablePage />} />
+              <Route path="scenarios" element={<ScenarioModellingUnavailablePage />} />
+              <Route path="twin" element={<DigitalTwinUnavailablePage />} />
             </Route>
             {activeIntelRedirects().map((r) => (
               <Route key={r.from} path={r.from} element={<Navigate to={r.to} replace />} />

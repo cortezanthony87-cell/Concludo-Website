@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '../supabase/admin';
 import { getSupabaseBrowserClient } from '../supabase/client';
 import { runPredictiveEngine } from './predictiveEngine';
 import { PredictiveAnalysisResult } from './types';
+import { assertGeneratorsEnabled } from '../intel/generatorGuard';
 
 export interface FetchPredictiveOptions {
   scope: 'organization' | 'team' | 'individual';
@@ -23,6 +24,7 @@ export async function getPredictiveAnalysis(
   options: FetchPredictiveOptions,
   client?: SupabaseClient
 ): Promise<PredictiveAnalysisResult> {
+  assertGeneratorsEnabled('Predictive analysis');
   const db = getClient(client);
 
   // 1. Authoritative Scope Authorization Check
