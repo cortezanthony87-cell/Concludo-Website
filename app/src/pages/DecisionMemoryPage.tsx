@@ -1,26 +1,32 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import {
-  BrainCircuit,
-  Sparkles,
-  Lock,
-  Calendar,
-  User,
-  FolderKanban,
-  ExternalLink,
-  AlertCircle,
-  RefreshCw,
-  Loader2,
-  FileText,
-  Plus,
-} from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useFeatureAccess } from '../lib/permissions/usePermissions';
 import { fetchDecisions } from '../lib/decisions/decisionClient';
 import { DecisionRecord } from '../lib/decisions/types';
+import { PageHeader, ScopeBar, MetricCard, StatePanel, ProvenanceChip } from '../components/intel/IntelKit';
+import {
+  DecisionPeriod,
+  DecisionScope,
+  filterDecisions,
+  formatDecisionDate,
+  projectName,
+  projectOptions,
+  describeScope,
+  undatedCount,
+} from '../lib/intel/decisionMemoryView';
+import '../styles/intel-bright.css';
 
+/**
+ * Decision Memory (Memory > Decisions).
+ * One job: find what was decided, by whom, when, and why, with the source one click away.
+ * Phase B template for the other Intelligence pages.
+ *
+ * Deliberately not shown: status, impact or "superseded" markers. The decision_memory
+ * schema in the handover has no such columns, so showing them would invent them.
+ * They return when the decision-status migration is approved and run.
+ */
 export const DecisionMemoryPage: React.FC = () => {
-  const navigate = useNavigate();
   const { supabase } = useAuth();
   const featureAccess = useFeatureAccess('decision_memory');
 
@@ -28,395 +34,220 @@ export const DecisionMemoryPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadDecisions = useCallback(async () => {
+  const [scope, setScope] = useState<DecisionScope>('all');
+  const [period, setPeriod] = useState<DecisionPeriod>('all');
+  const [projectId, setProjectId] = useState<string>('all');
+  const [query, setQuery] = useState('');
+
+  const load = useCallback(async () => {
     if (!featureAccess.isAllowed) {
       setLoading(false);
       return;
     }
-
     setLoading(true);
     setError(null);
-
-    const { data, error: fetchErr } = await fetchDecisions(supabase);
-
+    const { data, error: fetchErr } = await fetchDecisions(supabase, { workspaceScope: scope });
     if (fetchErr) {
-      setError(fetchErr.message || 'Failed to load decisions');
+      setError(fetchErr.message || 'The decisions could not be loaded.');
       setDecisions([]);
     } else {
       setDecisions(data || []);
     }
     setLoading(false);
-  }, [supabase, featureAccess.isAllowed]);
+  }, [supabase, featureAccess.isAllowed, scope]);
 
   useEffect(() => {
-    loadDecisions();
-  }, [loadDecisions]);
+    load();
+  }, [load]);
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'No date recorded';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-AU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  const filters = useMemo(() => ({ query, period, projectId }), [query, period, projectId]);
+  const shown = useMemo(() => filterDecisions(decisions, filters), [decisions, filters]);
+  const projects = useMemo(() => projectOptions(decisions), [decisions]);
+  const withReasoning = useMemo(() => shown.filter((d) => d.decision_reasoning).length, [shown]);
+  const withOwner = useMemo(() => shown.filter((d) => d.decision_owner).length, [shown]);
 
-  // If user lacks permission: Show "Available on Pro" and prevent access
+  // A project filter can outlive its data after a scope change. Reset it rather than show an empty list.
+  useEffect(() => {
+    if (projectId !== 'all' && !projects.some((p) => p.id === projectId)) setProjectId('all');
+  }, [projects, projectId]);
+
+  const header = (
+    <PageHeader
+      title="Decision Memory"
+      purpose="What was decided, by whom, when and why. Each entry links back to the project it came from."
+      crumbs={[{ label: 'Memory' }, { label: 'Decisions' }]}
+    />
+  );
+
   if (!featureAccess.isAllowed) {
     return (
-      <div className="workspace-page-container">
-        <div className="page-header">
-          <div className="page-eyebrow">
-            <Sparkles size={13} color="#f3c958" />
-            <span>INSTITUTIONAL KNOWLEDGE REPOSITORY</span>
-          </div>
-          <h1 className="page-title">Decision Memory</h1>
-          <p className="page-subtitle">A historical record of organizational choices, context, and reasoning.</p>
-        </div>
-
-        <div
-          className="content-card"
-          style={{
-            textAlign: 'center',
-            padding: '72px 32px',
-            backgroundColor: '#16263f',
-            borderRadius: '16px',
-            border: '1px solid rgba(226, 181, 60, 0.25)',
-          }}
-        >
-          <div
-            style={{
-              width: '68px',
-              height: '68px',
-              borderRadius: '16px',
-              backgroundColor: 'rgba(226, 181, 60, 0.12)',
-              border: '1px solid rgba(226, 181, 60, 0.35)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '20px',
-              color: '#e2b53c',
-            }}
-          >
-            <Lock size={32} />
-          </div>
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '4px 12px',
-              borderRadius: '20px',
-              backgroundColor: 'rgba(226, 181, 60, 0.2)',
-              color: '#f3c958',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '14px',
-              border: '1px solid rgba(226, 181, 60, 0.4)',
-            }}
-          >
-            Available on Pro
-          </div>
-          <h2 style={{ fontSize: '1.45rem', fontWeight: 600, color: '#f8fafc', marginBottom: '10px' }}>
-            Decision Memory is a Pro Feature
-          </h2>
-          <p
-            style={{
-              color: '#94a3b8',
-              maxWidth: '520px',
-              margin: '0 auto 24px',
-              fontSize: '0.95rem',
-              lineHeight: 1.6,
-            }}
-          >
-            Decision Memory indexes agreed decisions, rationale, and stakeholders across your meetings so you can easily
-            track what was decided, by whom, and why.
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => navigate('/dashboard')}
-            style={{ padding: '10px 24px', fontSize: '0.92rem' }}
-          >
-            Return to Dashboard
-          </button>
-        </div>
+      <div className="ib">
+        {header}
+        <StatePanel
+          kind="denied"
+          title="Decision Memory is not part of your current plan"
+          body="It is included in the Pro subscription. Prices are indicative until validated with real buyers."
+          action={
+            <Link className="ib-btn ib-btn--primary" to="/dashboard">
+              Back to dashboard
+            </Link>
+          }
+        />
       </div>
     );
   }
 
+  const projectLabel = projectId === 'all' ? null : projects.find((p) => p.id === projectId)?.name || null;
+
   return (
-    <div className="workspace-page-container">
-      {/* Page Header */}
-      <div className="page-header-row" style={{ marginBottom: '24px' }}>
-        <div>
-          <div className="page-breadcrumbs">
-            <span>Workspace</span>
-            <span className="breadcrumb-separator">/</span>
-            <span className="breadcrumb-active">Decision Memory</span>
-          </div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <BrainCircuit size={26} color="#e2b53c" />
-            <span>Decision Memory</span>
-          </h1>
-          <p className="page-subtitle">A historical record of organizational choices, context, and reasoning.</p>
-        </div>
-      </div>
+    <div className="ib">
+      {header}
 
-      {/* Loading State */}
-      {loading && (
-        <div
-          className="loading-container"
-          style={{
-            padding: '60px 20px',
-            textAlign: 'center',
-            backgroundColor: '#16263f',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-          }}
-        >
-          <Loader2 size={32} className="spin-animation" color="#e2b53c" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ color: '#f8fafc', fontSize: '1.1rem', marginBottom: '6px' }}>Loading decisions</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Fetching indexed meeting decisions...</p>
+      <ScopeBar
+        summary={
+          loading
+            ? 'waiting for the decisions to load'
+            : error
+            ? 'nothing yet, because the decisions did not load'
+            : describeScope({
+                shown: shown.length,
+                total: decisions.length,
+                scope,
+                period,
+                query,
+                projectLabel,
+                undated: undatedCount(decisions, filters),
+              })
+        }
+      >
+        <div className="ib-field ib-field--grow">
+          <label className="ib-label" htmlFor="dm-search">Search</label>
+          <input
+            id="dm-search"
+            className="ib-input"
+            type="search"
+            placeholder="Title, summary, reasoning or owner"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
-      )}
+        <div className="ib-field">
+          <label className="ib-label" htmlFor="dm-scope">Whose decisions</label>
+          <select id="dm-scope" className="ib-select" value={scope} onChange={(e) => setScope(e.target.value as DecisionScope)}>
+            <option value="all">Mine and my teams</option>
+            <option value="personal">Personal only</option>
+            <option value="team">Team only</option>
+          </select>
+        </div>
+        <div className="ib-field">
+          <label className="ib-label" htmlFor="dm-period">Decided in</label>
+          <select id="dm-period" className="ib-select" value={period} onChange={(e) => setPeriod(e.target.value as DecisionPeriod)}>
+            <option value="all">All dates</option>
+            <option value="30d">Last 30 days</option>
+            <option value="90d">Last 90 days</option>
+            <option value="365d">Last 12 months</option>
+          </select>
+        </div>
+        <div className="ib-field">
+          <label className="ib-label" htmlFor="dm-project">Project</label>
+          <select id="dm-project" className="ib-select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <option value="all">All projects</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      </ScopeBar>
 
-      {/* Error State with required retry support */}
+      {loading && <StatePanel kind="loading" title="Loading decisions" />}
+
       {!loading && error && (
-        <div
-          className="error-banner"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
-            backgroundColor: 'rgba(239, 68, 68, 0.12)',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderRadius: '10px',
-            padding: '16px 20px',
-            marginBottom: '24px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <AlertCircle size={22} color="#f87171" style={{ flexShrink: 0 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: '#f87171', fontSize: '0.95rem' }}>Failed to load decisions</div>
-              <div style={{ color: '#cbd5e1', fontSize: '0.85rem', marginTop: '2px' }}>{error}</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={loadDecisions}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              fontSize: '0.85rem',
-            }}
-          >
-            <RefreshCw size={14} />
-            <span>Retry</span>
-          </button>
-        </div>
+        <StatePanel
+          kind="error"
+          title="The decisions could not be loaded"
+          body={error}
+          action={<button type="button" className="ib-btn" onClick={load}>Try again</button>}
+        />
       )}
 
-      {/* Empty State */}
       {!loading && !error && decisions.length === 0 && (
-        <div
-          style={{
-            padding: '72px 24px',
-            textAlign: 'center',
-            backgroundColor: '#16263f',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-          }}
-        >
-          <BrainCircuit size={40} color="#64748b" style={{ margin: '0 auto 18px' }} />
-          <h2 style={{ color: '#f8fafc', fontSize: '1.3rem', fontWeight: 600, marginBottom: '8px' }}>
-            No decisions saved yet
-          </h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.92rem', maxWidth: '440px', margin: '0 auto 24px' }}>
-            Saved decisions from Decision Logs will appear here.
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => navigate('/projects')}
-            style={{ padding: '8px 20px', fontSize: '0.9rem' }}
-          >
-            Go to Projects
-          </button>
-        </div>
+        <StatePanel
+          kind="empty"
+          title="No decisions saved yet"
+          body="Decisions appear here once you save them from a Decision Log on a project."
+          action={<Link className="ib-btn ib-btn--primary" to="/projects">Go to projects</Link>}
+        />
       )}
 
-      {/* Decisions List */}
-      {!loading && !error && decisions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {decisions.map((dec) => {
-            const projectName = dec.projects?.title || dec.projects?.project_name || 'Untitled Project';
+      {!loading && !error && decisions.length > 0 && shown.length === 0 && (
+        <StatePanel
+          kind="empty"
+          title="Nothing matches these filters"
+          body="Widen the period, clear the search, or choose all projects."
+          action={
+            <button
+              type="button"
+              className="ib-btn"
+              onClick={() => {
+                setQuery('');
+                setPeriod('all');
+                setProjectId('all');
+              }}
+            >
+              Clear filters
+            </button>
+          }
+        />
+      )}
 
-            return (
-              <div
-                key={dec.id}
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid rgba(226, 181, 60, 0.5)',
-                  borderRadius: '12px',
-                  padding: '20px 24px',
-                  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.12)',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '20px',
-                  transition: 'border-color 0.15s ease',
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        color: '#93c5fd',
-                      }}
-                    >
-                      <FolderKanban size={13} />
-                      <span>{projectName}</span>
-                    </span>
+      {!loading && !error && shown.length > 0 && (
+        <>
+          <section className="ib-summary" aria-label="Summary of what is shown">
+            <MetricCard label="Decisions shown" value={shown.length} />
+            <MetricCard
+              label="With reasoning recorded"
+              value={`${withReasoning} of ${shown.length}`}
+              note="Counts the records that explain why."
+            />
+            <MetricCard
+              label="With an owner named"
+              value={`${withOwner} of ${shown.length}`}
+              note="Counts the records that name who decided."
+            />
+          </section>
 
-                    {dec.decision_owner && (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          fontSize: '0.8rem',
-                          color: '#e2b53c',
-                          backgroundColor: 'rgba(226, 181, 60, 0.12)',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        <User size={12} />
-                        <span>Owner: {dec.decision_owner}</span>
-                      </span>
-                    )}
-
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        fontSize: '0.8rem',
-                        color: '#475569',
-                      }}
-                    >
-                      <Calendar size={13} style={{ color: '#b48316' }} />
-                      <span>{formatDate(dec.decision_date)}</span>
-                    </span>
-                  </div>
-
-                  <h3
-                    style={{
-                      fontSize: '1.15rem',
-                      color: '#b48316',
-                      fontWeight: 700,
-                      marginBottom: '8px',
-                    }}
-                  >
-                    <Link
-                      to={`/decision-memory/${dec.id}`}
-                      style={{ color: 'inherit', textDecoration: 'none' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#e2b53c')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = '#b48316')}
-                    >
-                      {dec.decision_title}
-                    </Link>
-                  </h3>
-
-                  {dec.decision_summary && (
-                    <p
-                      style={{
-                        color: '#0f172a',
-                        fontSize: '0.92rem',
-                        lineHeight: 1.55,
-                        margin: '0 0 10px',
-                        fontWeight: 450,
-                      }}
-                    >
-                      {dec.decision_summary}
-                    </p>
-                  )}
-
-                  {dec.decision_reasoning && (
-                    <div
-                      style={{
-                        backgroundColor: 'rgba(226, 181, 60, 0.08)',
-                        borderLeft: '3px solid #e2b53c',
-                        padding: '8px 12px',
-                        borderRadius: '4px',
-                        fontSize: '0.85rem',
-                        color: '#1e293b',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      <strong style={{ fontStyle: 'normal', color: '#0f172a' }}>Reasoning: </strong>
-                      {dec.decision_reasoning}
-                    </div>
-                  )}
+          <ul className="ib-list" aria-label="Decisions">
+            {shown.map((d) => (
+              <li key={d.id} className="ib-card">
+                <div className="ib-card__meta">
+                  <ProvenanceChip kind="recorded" />
+                  <span>{formatDecisionDate(d.decision_date)}</span>
+                  <span>Owner: {d.decision_owner || 'not recorded'}</span>
+                  <span>{d.ownership_type === 'team' ? 'Team' : 'Personal'}</span>
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => navigate(`/projects/${dec.project_id}`)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      fontSize: '0.85rem',
-                    }}
-                    title="Open Source Project"
-                  >
-                    <span>Open Project</span>
-                    <ExternalLink size={14} />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => navigate(`/decision-memory/${dec.id}`)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 12px',
-                      fontSize: '0.82rem',
-                      background: '#101b2e',
-                      color: '#e2b53c',
-                      border: '1px solid rgba(226, 181, 60, 0.4)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    <span>Details</span>
-                  </button>
+                <h2 className="ib-card__title">
+                  <Link to={`/decision-memory/${d.id}`}>{d.decision_title}</Link>
+                </h2>
+                {d.decision_summary && <p className="ib-card__body">{d.decision_summary}</p>}
+                {d.decision_reasoning ? (
+                  <div className="ib-why"><strong>Why: </strong>{d.decision_reasoning}</div>
+                ) : (
+                  <div className="ib-why"><strong>Why: </strong>No reasoning was recorded for this decision.</div>
+                )}
+                <div className="ib-card__foot">
+                  <span>
+                    Source: {projectName(d)}
+                    {d.source_output_id ? ', from a saved output' : ''}
+                  </span>
+                  <Link className="ib-link" to={`/projects/${d.project_id}`}>Open project</Link>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              </li>
+            ))}
+          </ul>
+          <p className="ib-note">
+            This page shows saved records only. It does not rank decisions or score the people who made them.
+          </p>
+        </>
       )}
     </div>
   );

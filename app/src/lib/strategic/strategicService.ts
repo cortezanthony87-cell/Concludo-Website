@@ -16,6 +16,7 @@ import { DigitalTwinEngine } from './digitalTwinEngine';
 import { StrategicHealthEngine } from './strategicHealthEngine';
 import { ScenarioEngine } from './scenarioEngine';
 import { StrategicBriefingService } from './strategicBriefingService';
+import { TEMPLATE_GENERATORS_ENABLED, assertGeneratorsEnabled } from '../intel/generatorGuard';
 
 export class StrategicService {
   /**
@@ -60,6 +61,7 @@ export class StrategicService {
     organizationId?: string | null,
     teamId?: string | null
   ): Promise<StrategicDigitalTwin> {
+    assertGeneratorsEnabled('Digital twin refresh');
     const computed = await DigitalTwinEngine.computeDigitalTwin(client, userId, organizationId, teamId);
 
     const { data, error } = await client
@@ -278,6 +280,7 @@ export class StrategicService {
     organizationId?: string | null,
     teamId?: string | null
   ): Promise<StrategicBriefing> {
+    assertGeneratorsEnabled('Strategic briefing generation');
     let pQuery = client.from('projects').select('id, title, status').is('deleted_at', null).limit(10);
     if (teamId) pQuery = pQuery.eq('team_id', teamId);
     else if (organizationId) pQuery = pQuery.eq('organization_id', organizationId);
@@ -305,7 +308,7 @@ export class StrategicService {
         title: finalTitle,
         briefing_type: briefingType,
         sections,
-        status: 'published',
+        status: 'draft', // a person approves before anything is published
       })
       .select()
       .single();
@@ -454,6 +457,7 @@ export class StrategicService {
    * Enhanced Strategic Recommendations
    */
   public static getStrategicRecommendations(): StrategicRecommendationItem[] {
+    if (!TEMPLATE_GENERATORS_ENABLED) return [];
     return [
       {
         id: 'strat-rec-1',
@@ -557,6 +561,7 @@ export class StrategicService {
   }
 
   public static getDemoDigitalTwin(): StrategicDigitalTwin {
+    assertGeneratorsEnabled('The digital twin demo');
     return {
       id: 'demo-twin-1',
       title: 'Concludo Executive Digital Twin',
@@ -591,6 +596,7 @@ export class StrategicService {
   }
 
   public static getDemoAlerts(): StrategicAlert[] {
+    if (!TEMPLATE_GENERATORS_ENABLED) return [];
     return [
       {
         id: 'alert-1',

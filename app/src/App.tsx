@@ -70,22 +70,23 @@ import { ExecutiveIntelligencePage } from './pages/predictive/ExecutiveIntellige
 import { ForecastsPage } from './pages/predictive/ForecastsPage';
 import { ExecutiveBriefingsPage } from './pages/predictive/ExecutiveBriefingsPage';
 
-// Tasklet 21 Knowledge Network, Organizational Memory & Explorer Pages
-import { KnowledgeExplorerPage } from './pages/knowledge/KnowledgeExplorerPage';
-import { OrganizationalMemoryPage } from './pages/knowledge/OrganizationalMemoryPage';
-import { KnowledgeTimelinePage } from './pages/knowledge/KnowledgeTimelinePage';
-import { ExecutiveKnowledgeExplorerPage } from './pages/knowledge/ExecutiveKnowledgeExplorerPage';
+// Tasklet 21 Knowledge Network & Memory Pages (Phase B Intel Bright System)
+import { MemoryExplorePage } from './pages/MemoryExplorePage';
+import { MemoryLessonsPage } from './pages/MemoryLessonsPage';
+import { MemoryTimelinePage } from './pages/MemoryTimelinePage';
 import { KnowledgeAnalyticsPage } from './pages/knowledge/KnowledgeAnalyticsPage';
 
 // Tasklet 22 Concludo Copilot & Conversational Intelligence Page
 import { CopilotPage } from './pages/copilot/CopilotPage';
 
-// Tasklet 23 Strategic Operations, Digital Twin & Executive Command Center Pages
-import { DigitalTwinPage } from './pages/strategic/DigitalTwinPage';
-import { ExecutiveCommandCenterPage } from './pages/strategic/ExecutiveCommandCenterPage';
-import { ScenarioModelingPage } from './pages/strategic/ScenarioModelingPage';
-import { PerformanceDashboardPage } from './pages/strategic/PerformanceDashboardPage';
-import { ExecutiveBriefingCenterPage } from './pages/strategic/ExecutiveBriefingCenterPage';
+// Tasklet 23 Strategic Operations (Phase B Honest Unavailable State Gates)
+import {
+  ExecutiveCommandCentrePage,
+  EnterprisePerformancePage,
+  ExecutiveBriefingCentrePage,
+  DigitalTwinUnavailablePage,
+  ScenarioModellingUnavailablePage,
+} from './pages/UnavailablePages';
 
 // Email Command Centre
 import { EmailModuleLayout } from './components/email/EmailModuleLayout';
@@ -208,22 +209,25 @@ export const App: React.FC = () => {
             <Route path="/forecasts" element={<ForecastsPage />} />
             <Route path="/executive-briefings" element={<ExecutiveBriefingsPage />} />
 
-            {/* Tasklet 21 Knowledge Network, Organizational Memory & Explorer Routes */}
-            <Route path="/knowledge" element={<KnowledgeExplorerPage />} />
-            <Route path="/organizational-memory" element={<OrganizationalMemoryPage />} />
-            <Route path="/knowledge/timeline" element={<KnowledgeTimelinePage />} />
-            <Route path="/executive-explorer" element={<ExecutiveKnowledgeExplorerPage />} />
+            {/* Tasklet 21 Memory & Knowledge Routes (Phase B Bright System) */}
+            <Route path="/knowledge" element={<MemoryExplorePage />} />
+            <Route path="/memory/explore" element={<MemoryExplorePage />} />
+            <Route path="/organizational-memory" element={<MemoryLessonsPage />} />
+            <Route path="/memory/lessons" element={<MemoryLessonsPage />} />
+            <Route path="/knowledge/timeline" element={<MemoryTimelinePage />} />
+            <Route path="/memory/timeline" element={<MemoryTimelinePage />} />
+            <Route path="/executive-explorer" element={<Navigate to="/knowledge" replace />} />
             <Route path="/knowledge-analytics" element={<KnowledgeAnalyticsPage />} />
 
             {/* Tasklet 22 Concludo Copilot Route */}
             <Route path="/copilot" element={<CopilotPage />} />
 
-            {/* Tasklet 23 Strategic Operations, Digital Twin & Command Center Routes */}
-            <Route path="/digital-twin" element={<DigitalTwinPage />} />
-            <Route path="/executive-command-center" element={<ExecutiveCommandCenterPage />} />
-            <Route path="/scenario-modeling" element={<ScenarioModelingPage />} />
-            <Route path="/performance" element={<PerformanceDashboardPage />} />
-            <Route path="/executive-center" element={<ExecutiveBriefingCenterPage />} />
+            {/* Tasklet 23 Strategic Operations (Phase B Fail-Closed Honest Gates) */}
+            <Route path="/digital-twin" element={<DigitalTwinUnavailablePage />} />
+            <Route path="/executive-command-center" element={<ExecutiveCommandCentrePage />} />
+            <Route path="/scenario-modeling" element={<ScenarioModellingUnavailablePage />} />
+            <Route path="/performance" element={<EnterprisePerformancePage />} />
+            <Route path="/executive-center" element={<ExecutiveBriefingCentrePage />} />
 
             {/* Email Command Centre. One parent, eleven children, generated
                 from the same destination list the tab row reads, so a tab can

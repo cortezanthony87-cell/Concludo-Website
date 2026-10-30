@@ -1,0 +1,192 @@
+/* Concludo Intelligence, bright system (Phase B).
+   Scope: every Intelligence page (Memory, Insight, Forecasts, Briefings).
+   Additive and scoped under .ib so no existing page moves until it opts in.
+   Calm by design: white and very light surfaces, restrained blue and teal,
+   no glow, no gradients, no glass. Gold is a thin structural rule only and is
+   never used as text on a light surface.
+
+   Measured contrast (WCAG 2.2), see tests/contrast.mjs:
+     ink #16263F on white 15.18, on page #F4F6FA 14.03
+     muted #5A6478 on white 5.95, on page 5.50
+     link #1D4ED8 on white 6.70
+     teal #0E7490 on white 5.36
+   Dark mode follows the system setting, or data-theme="dark" on any ancestor. */
+
+.ib {
+  --ib-page: #f4f6fa;
+  --ib-surface: #ffffff;
+  --ib-surface-2: #f8fafd;
+  --ib-line: #dde3ee;
+  --ib-line-strong: #c3ccdc;
+  --ib-ink: #16263f;
+  --ib-ink-2: #21395c;
+  --ib-muted: #5a6478;
+  --ib-link: #1d4ed8;
+  --ib-link-soft: #e8f0ff;
+  --ib-teal: #0e7490;
+  --ib-teal-soft: #e6f6fa;
+  --ib-ok: #166534;
+  --ib-ok-soft: #ecfdf3;
+  --ib-warn: #9a3412;
+  --ib-warn-soft: #fff7ed;
+  --ib-danger: #b42318;
+  --ib-danger-soft: #fef3f2;
+  --ib-gold: #e2b53c;
+  --ib-radius: 12px;
+  --ib-radius-sm: 8px;
+  --ib-shadow: 0 1px 2px rgba(22, 38, 63, 0.06);
+  --ib-focus: 0 0 0 2px var(--ib-surface), 0 0 0 4px var(--ib-link);
+  --ib-font-head: 'Poppins', 'Montserrat', Arial, sans-serif;
+  --ib-font-body: 'Inter', 'Segoe UI', Arial, sans-serif;
+
+  background: var(--ib-page);
+  color: var(--ib-ink);
+  font-family: var(--ib-font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  padding: 24px clamp(16px, 3vw, 32px) 48px;
+  min-height: 100%;
+}
+:where(.ib) *, :where(.ib) *::before, :where(.ib) *::after { box-sizing: border-box; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .ib { --ib-dark: 1; }
+}
+:root[data-theme='dark'] .ib,
+:root:not([data-theme='light']) .ib[data-dark='auto'] {
+  --ib-page: #0f1a2c;
+  --ib-surface: #16263f;
+  --ib-surface-2: #1b2f4d;
+  --ib-line: #2b4166;
+  --ib-line-strong: #3b5580;
+  --ib-ink: #f4f6fa;
+  --ib-ink-2: #dce4f0;
+  --ib-muted: #a9b8ce;
+  --ib-link: #8fb4ff;
+  --ib-link-soft: #1d3358;
+  --ib-teal: #5fd0e6;
+  --ib-teal-soft: #11364a;
+  --ib-ok: #6ee7a0;
+  --ib-ok-soft: #12342a;
+  --ib-warn: #fdba74;
+  --ib-warn-soft: #3a2a1a;
+  --ib-danger: #fda29b;
+  --ib-danger-soft: #3b1f20;
+  --ib-shadow: none;
+}
+
+/* ---------- Header: title and purpose, one primary action ---------- */
+.ib-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.ib-head__text { min-width: 0; flex: 1 1 320px; }
+.ib-crumbs { font-size: 13px; color: var(--ib-muted); margin: 0 0 6px; }
+.ib-crumbs a { color: var(--ib-link); text-decoration: none; }
+.ib-crumbs a:hover { text-decoration: underline; }
+.ib-title { font-family: var(--ib-font-head); font-weight: 700; font-size: clamp(1.45rem, 2.4vw, 1.85rem); line-height: 1.2; margin: 0; color: var(--ib-ink); letter-spacing: -0.01em; }
+.ib-title::after { content: ''; display: block; width: 36px; height: 3px; border-radius: 2px; background: var(--ib-gold); margin-top: 10px; }
+.ib-purpose { margin: 10px 0 0; color: var(--ib-muted); max-width: 68ch; }
+.ib-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- Tabs (pillar sub navigation) ---------- */
+.ib-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--ib-line); margin: 0 0 20px; }
+.ib-tab { padding: 10px 14px; min-height: 44px; display: inline-flex; align-items: center; color: var(--ib-muted); text-decoration: none; font-weight: 600; border-bottom: 3px solid transparent; margin-bottom: -1px; border-radius: 6px 6px 0 0; }
+.ib-tab:hover { color: var(--ib-ink); background: var(--ib-surface-2); }
+.ib-tab[aria-current='page'] { color: var(--ib-ink); border-bottom-color: var(--ib-link); }
+
+/* ---------- Scope bar: filters plus the active scope and period ---------- */
+.ib-scope { background: var(--ib-surface); border: 1px solid var(--ib-line); border-radius: var(--ib-radius); padding: 14px 16px; margin-bottom: 20px; box-shadow: var(--ib-shadow); }
+.ib-scope__row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.ib-field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1 1 160px; }
+.ib-field--grow { flex: 2 1 240px; }
+.ib-label { font-size: 13px; font-weight: 600; color: var(--ib-ink-2); }
+.ib-input, .ib-select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--ib-line-strong); border-radius: var(--ib-radius-sm); background: var(--ib-surface); color: var(--ib-ink); font: inherit; width: 100%; }
+.ib-input::placeholder { color: var(--ib-muted); }
+.ib-scope__now { margin: 12px 0 0; font-size: 13px; color: var(--ib-muted); }
+.ib-scope__now strong { color: var(--ib-ink); font-weight: 600; }
+
+/* ---------- Buttons ---------- */
+.ib-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border-radius: var(--ib-radius-sm); border: 1px solid var(--ib-line-strong); background: var(--ib-surface); color: var(--ib-ink); font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; }
+.ib-btn:hover { background: var(--ib-surface-2); }
+.ib-btn--primary { background: var(--ib-link); border-color: var(--ib-link); color: #fff; }
+.ib-btn--primary:hover { background: #1e40af; }
+.ib-btn[disabled], .ib-btn[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+.ib :is(a, button, input, select, textarea, [tabindex]):focus-visible { outline: none; box-shadow: var(--ib-focus); }
+
+/* ---------- Summary strip and metric cards ---------- */
+.ib-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.ib-metric { background: var(--ib-surface); border: 1px solid var(--ib-line); border-radius: var(--ib-radius); padding: 14px 16px; box-shadow: var(--ib-shadow); }
+.ib-metric__label { font-size: 13px; color: var(--ib-muted); margin: 0; }
+.ib-metric__value { font-family: var(--ib-font-head); font-weight: 700; font-size: 1.6rem; margin: 2px 0 0; color: var(--ib-ink); }
+.ib-metric__note { font-size: 13px; color: var(--ib-muted); margin: 4px 0 0; }
+
+/* ---------- Records (cards in a list) ---------- */
+.ib-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ib-card { background: var(--ib-surface); border: 1px solid var(--ib-line); border-radius: var(--ib-radius); padding: 18px 20px; box-shadow: var(--ib-shadow); }
+.ib-card:hover { border-color: var(--ib-line-strong); }
+.ib-card__meta { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 13px; color: var(--ib-muted); margin-bottom: 8px; }
+.ib-card__title { font-family: var(--ib-font-head); font-weight: 600; font-size: 1.1rem; line-height: 1.35; margin: 0 0 6px; overflow-wrap: anywhere; }
+.ib-card__title a { color: var(--ib-ink); text-decoration: none; }
+.ib-card__title a:hover { color: var(--ib-link); text-decoration: underline; }
+.ib-card__body { margin: 0 0 10px; color: var(--ib-ink-2); overflow-wrap: anywhere; }
+.ib-why { border-left: 3px solid var(--ib-teal); background: var(--ib-teal-soft); padding: 8px 12px; border-radius: 0 var(--ib-radius-sm) var(--ib-radius-sm) 0; font-size: 14px; color: var(--ib-ink-2); overflow-wrap: anywhere; }
+.ib-why strong { color: var(--ib-ink); }
+.ib-card__foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 13px; color: var(--ib-muted); }
+.ib-link { color: var(--ib-link); font-weight: 600; text-decoration: none; }
+.ib-link:hover { text-decoration: underline; }
+
+/* ---------- Provenance chips: what kind of statement is this? ---------- */
+.ib-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
+.ib-chip--recorded { background: var(--ib-link-soft); color: var(--ib-link); border-color: color-mix(in srgb, var(--ib-link) 25%, transparent); }
+.ib-chip--inferred { background: var(--ib-teal-soft); color: var(--ib-teal); border-color: color-mix(in srgb, var(--ib-teal) 25%, transparent); }
+.ib-chip--suggested { background: var(--ib-surface-2); color: var(--ib-ink-2); border-color: var(--ib-line-strong); }
+.ib-chip--scenario { background: var(--ib-warn-soft); color: var(--ib-warn); border-color: color-mix(in srgb, var(--ib-warn) 35%, transparent); border-style: dashed; }
+.ib-chip--stale { background: var(--ib-warn-soft); color: var(--ib-warn); }
+
+/* ---------- Evidence list ---------- */
+.ib-evidence { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.ib-evidence li { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+.ib-evidence a { color: var(--ib-link); font-weight: 600; }
+
+/* ---------- State panels: loading, empty, error, denied, stale, insufficient ---------- */
+.ib-state { background: var(--ib-surface); border: 1px solid var(--ib-line); border-radius: var(--ib-radius); padding: 40px 24px; text-align: center; }
+.ib-state__icon { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; border-radius: 12px; background: var(--ib-link-soft); color: var(--ib-link); margin-bottom: 12px; }
+.ib-state--error { border-color: color-mix(in srgb, var(--ib-danger) 40%, var(--ib-line)); background: var(--ib-danger-soft); }
+.ib-state--error .ib-state__icon { background: transparent; color: var(--ib-danger); }
+.ib-state--stale, .ib-state--insufficient { background: var(--ib-warn-soft); border-color: color-mix(in srgb, var(--ib-warn) 35%, var(--ib-line)); }
+.ib-state--stale .ib-state__icon, .ib-state--insufficient .ib-state__icon { background: transparent; color: var(--ib-warn); }
+.ib-state__title { font-family: var(--ib-font-head); font-weight: 600; font-size: 1.15rem; margin: 0 0 6px; }
+.ib-state__body { margin: 0 auto 16px; max-width: 52ch; color: var(--ib-muted); }
+.ib-state--error .ib-state__body, .ib-state--stale .ib-state__body, .ib-state--insufficient .ib-state__body { color: var(--ib-ink-2); }
+.ib-skeleton { display: grid; gap: 12px; }
+.ib-skeleton > div { height: 112px; border-radius: var(--ib-radius); background: var(--ib-line); opacity: 0.6; animation: ib-pulse 1.4s ease-in-out infinite; }
+@keyframes ib-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .ib-skeleton > div { animation: none; }
+  .ib * { transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- Disclosure line (limits of the data) ---------- */
+.ib-note { font-size: 13px; color: var(--ib-muted); margin-top: 16px; }
+
+.ib-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .ib { padding-top: 16px; }
+  .ib-card { padding: 16px; }
+  .ib-actions, .ib-actions .ib-btn { width: 100%; }
+}
+
+/* Dialog (replaces confirm() and alert()) */
+.ib-modal { position: fixed; inset: 0; background: rgba(22, 38, 63, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 1000; }
+.ib-modal__panel { background: var(--ib-surface); color: var(--ib-ink); border: 1px solid var(--ib-line-strong); border-radius: var(--ib-radius); max-width: 480px; width: 100%; padding: 24px; }
+.ib-modal__title { font-family: var(--ib-font-head); font-size: 1.125rem; margin: 0 0 8px; }
+.ib-modal__body { margin: 0 0 20px; line-height: 1.5; }
+.ib-modal__actions { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+.ib-form { display: grid; gap: 16px; }
+.ib-textarea { min-height: 96px; resize: vertical; width: 100%; padding: 8px 12px; border: 1px solid var(--ib-line-strong); border-radius: var(--ib-radius-sm); background: var(--ib-surface); color: var(--ib-ink); font: inherit; }
+.ib-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ib-split { display: grid; gap: 24px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+@media (max-width: 860px) { .ib-split { grid-template-columns: minmax(0, 1fr); } }
+.ib-card--selected { border-color: var(--ib-ink-2); box-shadow: inset 4px 0 0 var(--ib-ink-2); }
+.ib-linkbtn { all: unset; cursor: pointer; display: block; width: 100%; }
+.ib-linkbtn:focus-visible { box-shadow: var(--ib-focus); border-radius: var(--ib-radius-sm); }
+.ib-textarea:focus-visible { box-shadow: var(--ib-focus); outline: none; }
