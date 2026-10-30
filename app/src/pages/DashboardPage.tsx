@@ -462,76 +462,115 @@ export const DashboardPage: React.FC = () => {
 
     // 1. Recent projects
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id,title,meeting_type,client_name,project_name,client_or_project,meeting_date,updated_at')
-        .is('deleted_at', null)
-        .order('updated_at', { ascending: false })
-        .limit(5);
-      if (error) setProjectsError('Could not load projects');
-      else setRecentProjects(data || []);
-    } catch {
-      setProjectsError('Could not load projects');
-    }
-
-    // 2. Recent outputs
-    try {
-      const { data, error } = await supabase
-        .from('outputs')
-        .select('id,project_id,output_type,content,created_at,updated_at,projects(id,title)')
-        .is('deleted_at', null)
-        .order('updated_at', { ascending: false })
-        .limit(5);
-      if (error) setOutputsError('Could not load outputs');
-      else setRecentOutputs((data as any) || []);
-    } catch {
-      setOutputsError('Could not load outputs');
-    }
-
-    // 2b. Stage counts for bar chart · reads `stage` column from projects
-    try {
-      const { data: stageRows } = await supabase
-        .from('projects')
-        .select('stage')
-        .eq('user_id', user.id)
-        .is('deleted_at', null)
-        .eq('archived', false);
-
-      const counts: Record<string, number> = {
-        New: 0,
-        'In Progress': 0,
-        Review: 0,
-        Complete: 0,
-      };
-      (stageRows || []).forEach((p: { stage: string | null }) => {
-        if (p.stage && Object.prototype.hasOwnProperty.call(counts, p.stage)) {
-          counts[p.stage]++;
-        } else {
-          counts['New']++;
-        }
-      });
-      setStageCounts(
-        Object.entries(counts).map(([stage, stage_count]) => ({ stage, stage_count }))
-      );
-    } catch {
-      // stageCounts stays at default zeros; chart shows 0% actual bars
-    }
-
-    // 2c. Week Overview Calendar · meetings, tasks and deadlines
-    setLoadingCalendar(true);
-    setCalendarError(null);
-    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
       const { weekStart, weekEnd } = getWeekBounds();
 
-      // Query authentic calendar_items scoped to current user
-      const { data: calItems, error: calErr } = await fetchCalendarItems(supabase, user.id);
+      setLoadingCalendar(true);
+      setLoadingEmail(true);
+      setLoadingPermissions(true);
 
-      if (calErr) {
-        setCalendarError('Calendar unavailable');
-        setCalendarEvents([]);
-        setTaskEvents([]);
-      } else {
-        const items = calItems || [];
+      // Phase 1: Concurrently load core dashboard modules
+      const [
+        projectsRes,
+        outputsRes,
+        stageRowsRes,
+        calItemsRes,
+        emailRes,
+        permsRes,
+      ] = await Promise.allSettled([
+        supabase
+          .from('projects')
+          .select('id,title,meeting_type,client_name,project_name,client_or_project,meeting_date,updated_at')
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(5),
+
+        supabase
+          .from('outputs')
+          .select('id,project_id,output_type,content,created_at,updated_at,projects(id,title)')
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(5),
+
+        supabase
+          .from('projects')
+          .select('stage')
+          .eq('user_id', user.id)
+          .is('deleted_at', null)
+          .eq('archived', false),
+
+        fetchCalendarItems(supabase, user.id),
+
+        Promise.all([
+          supabase
+            .from('email_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('status', 'needs_reply'),
+          supabase
+            .from('email_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('is_read', false),
+          supabase
+            .from('email_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('is_flagged', true),
+          supabase
+            .from('email_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .gte('processed_at', todayStart.toISOString()),
+          supabase
+            .from('email_items')
+            .select('id,sender_name,subject,client_or_project,received_at,status')
+            .eq('user_id', user.id)
+            .order('received_at', { ascending: false })
+            .limit(4),
+        ]),
+
+        queryBackendPermissions(supabase),
+      ]);
+
+      // Unpack Projects
+      if (projectsRes.status === 'fulfilled' && !projectsRes.value.error && projectsRes.value.data) {
+        setRecentProjects(projectsRes.value.data);
+      } else if (projectsRes.status === 'fulfilled' && projectsRes.value.error) {
+        setProjectsError('Could not load projects');
+      }
+
+      // Unpack Outputs
+      if (outputsRes.status === 'fulfilled' && !outputsRes.value.error && outputsRes.value.data) {
+        setRecentOutputs((outputsRes.value.data as any) || []);
+      } else if (outputsRes.status === 'fulfilled' && outputsRes.value.error) {
+        setOutputsError('Could not load outputs');
+      }
+
+      // Unpack Stage Counts
+      if (stageRowsRes.status === 'fulfilled' && stageRowsRes.value.data) {
+        const counts: Record<string, number> = {
+          New: 0,
+          'In Progress': 0,
+          Review: 0,
+          Complete: 0,
+        };
+        (stageRowsRes.value.data || []).forEach((p: { stage: string | null }) => {
+          if (p.stage && Object.prototype.hasOwnProperty.call(counts, p.stage)) {
+            counts[p.stage]++;
+          } else {
+            counts['New']++;
+          }
+        });
+        setStageCounts(
+          Object.entries(counts).map(([stage, stage_count]) => ({ stage, stage_count }))
+        );
+      }
+
+      // Unpack Calendar Items
+      if (calItemsRes.status === 'fulfilled' && !calItemsRes.value.error) {
+        const items = calItemsRes.value.data || [];
         const meetings: CalendarEvent[] = [];
         const tasks: TaskEvent[] = [];
 
@@ -560,177 +599,130 @@ export const DashboardPage: React.FC = () => {
             });
           }
         }
-
         setCalendarEvents(meetings);
         setTaskEvents(tasks);
-      }
-    } catch {
-      setCalendarError('Calendar unavailable');
-      setCalendarEvents([]);
-      setTaskEvents([]);
-    } finally {
-      setLoadingCalendar(false);
-    }
-
-    // 2d. Email Command Centre snapshot
-    setLoadingEmail(true);
-    try {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const [needReplyRes, unreadRes, flaggedRes, processedTodayRes, previewRes] = await Promise.all([
-        supabase
-          .from('email_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('status', 'needs_reply'),
-        supabase
-          .from('email_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('is_read', false),
-        supabase
-          .from('email_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('is_flagged', true),
-        supabase
-          .from('email_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .gte('processed_at', todayStart.toISOString()),
-        supabase
-          .from('email_items')
-          .select('id,sender_name,subject,client_or_project,received_at,status')
-          .eq('user_id', user.id)
-          .order('received_at', { ascending: false })
-          .limit(4),
-      ]);
-
-      setEmailStats({
-        needReply: needReplyRes.count ?? 0,
-        unread: unreadRes.count ?? 0,
-        flagged: flaggedRes.count ?? 0,
-        processedToday: processedTodayRes.count ?? 0,
-      });
-      setEmailPreviews((previewRes.data || []) as EmailPreviewItem[]);
-    } catch {
-      // Email snapshot is optional · stay at default zeros
-    } finally {
-      setLoadingEmail(false);
-    }
-
-    // 3. Permissions
-    let permDataResult: BackendPermissionsResponse | null = null;
-    setLoadingPermissions(true);
-    try {
-      const { data: permData, error: permErr } = await queryBackendPermissions(supabase);
-      if (permErr || !permData) {
-        setPermissionError('Permission check failed');
+        setCalendarError(null);
       } else {
-        setBackendPerms(permData);
-        permDataResult = permData;
+        setCalendarError('Calendar unavailable');
+        setCalendarEvents([]);
+        setTaskEvents([]);
       }
-    } catch {
-      setPermissionError('Permission check failed');
-    } finally {
+      setLoadingCalendar(false);
+
+      // Unpack Email items
+      if (emailRes.status === 'fulfilled') {
+        const [needReplyRes, unreadRes, flaggedRes, processedTodayRes, previewRes] = emailRes.value;
+        setEmailStats({
+          needReply: needReplyRes.count ?? 0,
+          unread: unreadRes.count ?? 0,
+          flagged: flaggedRes.count ?? 0,
+          processedToday: processedTodayRes.count ?? 0,
+        });
+        setEmailPreviews((previewRes.data || []) as EmailPreviewItem[]);
+      }
+      setLoadingEmail(false);
+
+      // Unpack Permissions
+      let permDataResult: BackendPermissionsResponse | null = null;
+      if (permsRes.status === 'fulfilled' && permsRes.value.data) {
+        setBackendPerms(permsRes.value.data);
+        permDataResult = permsRes.value.data;
+      } else {
+        setPermissionError('Permission check failed');
+      }
       setLoadingPermissions(false);
-    }
 
-    // 4. Decisions
-    if (permDataResult?.allowedFeatures.includes('decision_memory')) {
-      setLoadingDecisions(true);
-      try {
-        const decRes = await fetchDecisions(supabase, { limit: 5 });
-        if (decRes.error) setDecisionsError('Failed to load decisions');
-        else setRecentDecisions(decRes.data || []);
-      } catch {
-        setDecisionsError('Failed to load decisions');
-      } finally {
-        setLoadingDecisions(false);
+      // Phase 2: Permitted feature details in parallel
+      const secondaryTasks: Promise<any>[] = [];
+
+      if (permDataResult?.allowedFeatures.includes('decision_memory')) {
+        setLoadingDecisions(true);
+        secondaryTasks.push(
+          fetchDecisions(supabase, { limit: 5 })
+            .then((decRes) => {
+              if (decRes.error) setDecisionsError('Failed to load decisions');
+              else setRecentDecisions(decRes.data || []);
+            })
+            .catch(() => setDecisionsError('Failed to load decisions'))
+            .finally(() => setLoadingDecisions(false))
+        );
       }
-    }
 
-    // 5. Actions
-    if (permDataResult?.allowedFeatures.includes('action_tracker')) {
-      setLoadingActions(true);
-      try {
-        const actRes = await fetchActions(supabase);
-        if (actRes.error) setActionsError('Failed to load actions');
-        else {
-          const openActions = (actRes.data || []).filter((a: ActionRecord) => a.status !== 'completed').slice(0, 5);
-          setRecentActions(openActions);
-        }
-      } catch {
-        setActionsError('Failed to load actions');
-      } finally {
-        setLoadingActions(false);
+      if (permDataResult?.allowedFeatures.includes('action_tracker')) {
+        setLoadingActions(true);
+        secondaryTasks.push(
+          fetchActions(supabase)
+            .then((actRes) => {
+              if (actRes.error) setActionsError('Failed to load actions');
+              else {
+                const openActions = (actRes.data || []).filter((a: ActionRecord) => a.status !== 'completed').slice(0, 5);
+                setRecentActions(openActions);
+              }
+            })
+            .catch(() => setActionsError('Failed to load actions'))
+            .finally(() => setLoadingActions(false))
+        );
       }
-    }
 
-    // 6. Insights
-    if (permDataResult?.allowedFeatures.includes('insight')) {
-      setLoadingInsights(true);
-      try {
-        const insData = await fetchUserInsights({ supabase });
-        setInsights(insData);
-      } catch (err) {
-        console.warn('Could not load dashboard insights:', err);
-      } finally {
-        setLoadingInsights(false);
+      if (permDataResult?.allowedFeatures.includes('insight')) {
+        setLoadingInsights(true);
+        secondaryTasks.push(
+          fetchUserInsights({ supabase })
+            .then((insData) => setInsights(insData))
+            .catch((err) => console.warn('Could not load dashboard insights:', err))
+            .finally(() => setLoadingInsights(false))
+        );
       }
-    }
 
-    // 7. Stats
-    if (permDataResult?.allowedFeatures.includes('stats')) {
-      setLoadingStats(true);
-      try {
-        const statsData = await fetchUserStats('all', { supabase });
-        setStats(statsData);
-      } catch (err) {
-        console.warn('Could not load dashboard stats:', err);
-      } finally {
-        setLoadingStats(false);
+      if (permDataResult?.allowedFeatures.includes('stats')) {
+        setLoadingStats(true);
+        secondaryTasks.push(
+          fetchUserStats('all', { supabase })
+            .then((statsData) => setStats(statsData))
+            .catch((err) => console.warn('Could not load dashboard stats:', err))
+            .finally(() => setLoadingStats(false))
+        );
       }
-    }
 
-    // 8. Reports
-    if (permDataResult?.allowedFeatures.includes('endpoint_report')) {
-      setLoadingReports(true);
-      try {
-        const reports = await fetchEndpointReports({ supabase });
-        setRecentReports(reports.slice(0, 3));
-      } catch (err) {
-        console.warn('Could not load dashboard reports:', err);
-      } finally {
-        setLoadingReports(false);
+      if (permDataResult?.allowedFeatures.includes('endpoint_report')) {
+        setLoadingReports(true);
+        secondaryTasks.push(
+          fetchEndpointReports({ supabase })
+            .then((reports) => setRecentReports(reports.slice(0, 3)))
+            .catch((err) => console.warn('Could not load dashboard reports:', err))
+            .finally(() => setLoadingReports(false))
+        );
       }
-    }
 
-    // 9. Teams
-    if (permDataResult?.allowedFeatures.includes('team_workspace')) {
-      try {
-        const teamsRes = await fetchUserTeams(supabase);
-        if (teamsRes.data) setUserTeams(teamsRes.data.map((t) => ({ team: t, role: t.currentRole })));
-      } catch (err) {
-        console.warn('Could not load user teams:', err);
+      if (permDataResult?.allowedFeatures.includes('team_workspace')) {
+        secondaryTasks.push(
+          fetchUserTeams(supabase)
+            .then((teamsRes) => {
+              if (teamsRes.data) setUserTeams(teamsRes.data.map((t) => ({ team: t, role: t.currentRole })));
+            })
+            .catch((err) => console.warn('Could not load user teams:', err))
+        );
       }
-    }
 
-    // 10. Predictive
-    if (permDataResult?.allowedFeatures.includes('predictive_intelligence')) {
-      setLoadingPredictive(true);
-      try {
-        const pred = await getPredictiveAnalysis({ scope: 'individual', userId: user.id }, supabase);
-        setPredictiveData(pred);
-      } catch (err) {
-        console.warn('Could not load predictive intelligence:', err);
-      } finally {
-        setLoadingPredictive(false);
+      if (permDataResult?.allowedFeatures.includes('predictive_intelligence')) {
+        setLoadingPredictive(true);
+        secondaryTasks.push(
+          getPredictiveAnalysis({ scope: 'individual', userId: user.id }, supabase)
+            .then((pred) => setPredictiveData(pred))
+            .catch((err) => console.warn('Could not load predictive intelligence:', err))
+            .finally(() => setLoadingPredictive(false))
+        );
       }
-    }
 
-    setLoadingDashboard(false);
+      if (secondaryTasks.length > 0) {
+        await Promise.allSettled(secondaryTasks);
+      }
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setDashboardError('Failed to load dashboard data');
+    } finally {
+      setLoadingDashboard(false);
+    }
   }, [supabase, user, profile, authLoading]);
 
   useEffect(() => {
@@ -850,9 +842,45 @@ export const DashboardPage: React.FC = () => {
     return (
       <div className="dashboard-v2-page">
         <div className="page">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', padding: '40px 0' }}>
-            <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-            <span style={{ fontSize: '0.9rem' }}>Loading your workspace...</span>
+          {/* Header Skeleton */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#f3c958', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
+                <Sparkles size={13} color="#f3c958" />
+                <span>CONCLUDO WORKSPACE</span>
+              </div>
+              <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.75rem', fontWeight: 700, color: '#16263f', marginBottom: '2px' }}>
+                {welcomeGreeting}
+              </h1>
+              <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
+                {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ padding: '6px 14px', background: 'rgba(226,181,60,0.1)', border: '1px solid rgba(226,181,60,0.3)', borderRadius: '20px', color: '#f3c958', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Zap size={13} /> {planBadgeText}
+              </span>
+            </div>
+          </div>
+
+          {/* Loading Banner */}
+          <div
+            style={{
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              color: '#64748b',
+              marginBottom: '20px',
+              boxShadow: '0 1px 4px rgba(22,38,63,0.06)',
+            }}
+          >
+            <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite', color: '#e2b53c' }} />
+            <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#16263f' }}>Loading your workspace...</span>
           </div>
         </div>
       </div>

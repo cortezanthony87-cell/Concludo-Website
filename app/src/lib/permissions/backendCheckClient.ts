@@ -4,6 +4,7 @@ import {
   PlanType,
   ALL_FEATURE_KEYS,
   FEATURE_TIER_BADGES,
+  PLAN_PERMISSIONS,
 } from './types';
 
 export interface BackendPermissionsResponse {
@@ -13,6 +14,9 @@ export interface BackendPermissionsResponse {
   lockedFeatures: FeatureKey[];
   features: Record<FeatureKey, { allowed: boolean; badge?: string }>;
 }
+
+const permissionsCache = new Map<string, { data: BackendPermissionsResponse; timestamp: number }>();
+const CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache
 
 /**
  * Client helper to query the authoritative backend permission check.
@@ -33,6 +37,12 @@ export async function queryBackendPermissions(
       };
     }
 
+    // Return from in-memory cache if available and fresh
+    const cached = permissionsCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return { data: cached.data, error: null };
+    }
+
     // Attempt 1: Call server API router endpoint /api/features/status
     try {
       const res = await fetch('/api/features/status', {
@@ -43,14 +53,14 @@ export async function queryBackendPermissions(
 
       if (res.ok) {
         const json = await res.json();
+        permissionsCache.set(userId, { data: json, timestamp: Date.now() });
         return { data: json, error: null };
       }
     } catch {
       // If server API route is unavailable (e.g. offline or client-only preview), fall back to database RPC
     }
 
-    // Attempt 2: Direct authoritative backend RPC in PostgreSQL (check_feature_access)
-    // First retrieve the authenticated profile's plan directly from the database
+    // Attempt 2: Direct authoritative backend lookup for authenticated profile's plan in PostgreSQL
     const { data: profile, error: profileErr } = await supabase
       .from('profiles')
       .select('plan')
@@ -65,44 +75,37 @@ export async function queryBackendPermissions(
     }
 
     const plan = (profile.plan as PlanType) || 'free_preview';
+    const planAllowedList = PLAN_PERMISSIONS[plan] || [];
 
-    // Verify key features via RPC check_feature_access
     const allowedFeatures: FeatureKey[] = [];
     const lockedFeatures: FeatureKey[] = [];
     const features: Record<FeatureKey, { allowed: boolean; badge?: string }> = {} as any;
 
     for (const key of ALL_FEATURE_KEYS) {
-      try {
-        const { data: rpcRes } = await supabase.rpc('check_feature_access', {
-          p_feature_key: key,
-        });
-
-        const isAllowed = rpcRes?.allowed === true;
-        if (isAllowed) {
-          allowedFeatures.push(key);
-        } else {
-          lockedFeatures.push(key);
-        }
-
-        features[key] = {
-          allowed: isAllowed,
-          badge: FEATURE_TIER_BADGES[key],
-        };
-      } catch {
-        // Fallback to strict check
+      const isAllowed = planAllowedList.includes(key);
+      if (isAllowed) {
+        allowedFeatures.push(key);
+      } else {
         lockedFeatures.push(key);
-        features[key] = { allowed: false, badge: FEATURE_TIER_BADGES[key] };
       }
+
+      features[key] = {
+        allowed: isAllowed,
+        badge: FEATURE_TIER_BADGES[key],
+      };
     }
 
+    const resultData: BackendPermissionsResponse = {
+      userId,
+      plan,
+      allowedFeatures,
+      lockedFeatures,
+      features,
+    };
+    permissionsCache.set(userId, { data: resultData, timestamp: Date.now() });
+
     return {
-      data: {
-        userId,
-        plan,
-        allowedFeatures,
-        lockedFeatures,
-        features,
-      },
+      data: resultData,
       error: null,
     };
   } catch (err) {
