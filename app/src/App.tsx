@@ -26,8 +26,9 @@ import { DecisionMemoryPage } from './pages/DecisionMemoryPage';
 import { DecisionDetailPage } from './pages/DecisionDetailPage';
 import { ActionsPage } from './pages/ActionsPage';
 import { ActionDetailPage } from './pages/ActionDetailPage';
-import { InsightPage } from './pages/InsightPage';
-import { StatsPage } from './pages/StatsPage';
+import { InsightOverviewPage } from './pages/InsightOverviewPage';
+import { StatsOverviewPage } from './pages/StatsOverviewPage';
+import { fetchUserInsights, fetchUserStats } from './lib/intelligence/intelligenceClient';
 import { EndpointReportPage } from './pages/EndpointReportPage';
 import { ConnectionTestPage } from './pages/ConnectionTestPage';
 import { TeamDashboardPage } from './pages/TeamDashboardPage';
@@ -75,6 +76,8 @@ import { MemoryExplorePage } from './pages/MemoryExplorePage';
 import { MemoryLessonsPage } from './pages/MemoryLessonsPage';
 import { MemoryTimelinePage } from './pages/MemoryTimelinePage';
 import { KnowledgeAnalyticsPage } from './pages/knowledge/KnowledgeAnalyticsPage';
+import { PillarShell } from './components/intel/PillarTabs';
+import { MEMORY_PILLAR, BRIEFINGS_PILLAR, FORECASTS_PILLAR, INSIGHT_PILLAR, activeRedirects as activeIntelRedirects } from './lib/intel/pillarRoutes';
 
 // Tasklet 22 Concludo Copilot & Conversational Intelligence Page
 import { CopilotPage } from './pages/copilot/CopilotPage';
@@ -86,7 +89,13 @@ import {
   ExecutiveBriefingCentrePage,
   DigitalTwinUnavailablePage,
   ScenarioModellingUnavailablePage,
+  PredictiveUnavailablePage,
+  ForecastsUnavailablePage,
+  ExecutiveIntelligenceUnavailablePage,
+  KnowledgeAnalyticsUnavailablePage,
 } from './pages/UnavailablePages';
+import { SavedBriefingsPage } from './pages/SavedBriefingsPage';
+import { fetchExecutiveBriefings } from './lib/predictive/executiveBriefingService';
 
 // Email Command Centre
 import { EmailModuleLayout } from './components/email/EmailModuleLayout';
@@ -159,12 +168,10 @@ export const App: React.FC = () => {
             <Route path="/account" element={<AccountPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/deleted" element={<RecentlyDeletedPage />} />
-            <Route path="/decision-memory" element={<DecisionMemoryPage />} />
+            <Route path="/decision-memory" element={<Navigate to="/memory/decisions" replace />} />
             <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
             <Route path="/actions" element={<ActionsPage />} />
             <Route path="/actions/:id" element={<ActionDetailPage />} />
-            <Route path="/insight" element={<InsightPage />} />
-            <Route path="/stats" element={<StatsPage />} />
             <Route path="/endpoint-report" element={<EndpointReportPage />} />
             <Route path="/endpoint-report/:id" element={<EndpointReportPage />} />
 
@@ -203,31 +210,56 @@ export const App: React.FC = () => {
             <Route path="/approvals/:id" element={<ApprovalsPage />} />
             <Route path="/workflows/:id" element={<WorkflowLegacyRedirect />} />
 
-            {/* Tasklet 20 Predictive Intelligence, Strategy & Executive Briefing Routes */}
-            <Route path="/predictive-intelligence" element={<PredictiveIntelligencePage />} />
-            <Route path="/executive-intelligence" element={<ExecutiveIntelligencePage />} />
-            <Route path="/forecasts" element={<ForecastsPage />} />
-            <Route path="/executive-briefings" element={<ExecutiveBriefingsPage />} />
-
-            {/* Tasklet 21 Memory & Knowledge Routes (Phase B Bright System) */}
-            <Route path="/knowledge" element={<MemoryExplorePage />} />
-            <Route path="/memory/explore" element={<MemoryExplorePage />} />
-            <Route path="/organizational-memory" element={<MemoryLessonsPage />} />
-            <Route path="/memory/lessons" element={<MemoryLessonsPage />} />
-            <Route path="/knowledge/timeline" element={<MemoryTimelinePage />} />
-            <Route path="/memory/timeline" element={<MemoryTimelinePage />} />
-            <Route path="/executive-explorer" element={<Navigate to="/knowledge" replace />} />
-            <Route path="/knowledge-analytics" element={<KnowledgeAnalyticsPage />} />
+            {/* Tasklet 21 Memory & Knowledge Routes (Phase B Pillar Shell) */}
+            <Route path="/memory" element={<PillarShell pillar={MEMORY_PILLAR} />}>
+              <Route index element={<Navigate to="decisions" replace />} />
+              <Route path="decisions" element={<DecisionMemoryPage />} />
+              <Route path="lessons" element={<MemoryLessonsPage />} />
+              <Route path="timeline" element={<MemoryTimelinePage />} />
+              <Route path="explore" element={<MemoryExplorePage />} />
+            </Route>
+            <Route path="/briefings" element={<PillarShell pillar={BRIEFINGS_PILLAR} />}>
+              <Route index element={<Navigate to="centre" replace />} />
+              <Route path="centre" element={<ExecutiveBriefingCentrePage />} />
+              <Route path="command-centre" element={<ExecutiveCommandCentrePage />} />
+              <Route path="executive" element={<ExecutiveIntelligenceUnavailablePage />} />
+              <Route path="saved" element={<SavedBriefingsPage loader={() => fetchExecutiveBriefings({})} />} />
+            </Route>
+            <Route path="/forecasts" element={<PillarShell pillar={FORECASTS_PILLAR} />}>
+              <Route index element={<Navigate to="predictive" replace />} />
+              <Route path="predictive" element={<PredictiveUnavailablePage />} />
+              <Route path="trend" element={<ForecastsUnavailablePage />} />
+              <Route path="scenarios" element={<ScenarioModellingUnavailablePage />} />
+              <Route path="twin" element={<DigitalTwinUnavailablePage />} />
+            </Route>
+            <Route path="/insight" element={<PillarShell pillar={INSIGHT_PILLAR} />}>
+              <Route index element={<Navigate to="overview" replace />} />
+              <Route
+                path="overview"
+                element={
+                  <InsightOverviewPage
+                    loader={(refresh) => fetchUserInsights({ forceRefresh: refresh })}
+                  />
+                }
+              />
+              <Route
+                path="stats"
+                element={
+                  <StatsOverviewPage
+                    loader={() => fetchUserStats('all')}
+                  />
+                }
+              />
+              <Route path="knowledge" element={<KnowledgeAnalyticsUnavailablePage />} />
+              <Route path="performance" element={<EnterprisePerformancePage />} />
+            </Route>
+            {activeIntelRedirects().map((r) => (
+              <Route key={r.from} path={r.from} element={<Navigate to={r.to} replace />} />
+            ))}
+            <Route path="/executive-explorer" element={<Navigate to="/memory/explore" replace />} />
 
             {/* Tasklet 22 Concludo Copilot Route */}
             <Route path="/copilot" element={<CopilotPage />} />
-
-            {/* Tasklet 23 Strategic Operations (Phase B Fail-Closed Honest Gates) */}
-            <Route path="/digital-twin" element={<DigitalTwinUnavailablePage />} />
-            <Route path="/executive-command-center" element={<ExecutiveCommandCentrePage />} />
-            <Route path="/scenario-modeling" element={<ScenarioModellingUnavailablePage />} />
-            <Route path="/performance" element={<EnterprisePerformancePage />} />
-            <Route path="/executive-center" element={<ExecutiveBriefingCentrePage />} />
 
             {/* Email Command Centre. One parent, eleven children, generated
                 from the same destination list the tab row reads, so a tab can

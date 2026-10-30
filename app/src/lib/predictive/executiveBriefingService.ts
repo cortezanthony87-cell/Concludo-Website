@@ -6,6 +6,7 @@ import {
   ExecutiveReportType,
   PredictiveAnalysisResult,
 } from './types';
+import { assertGeneratorsEnabled } from '../intel/generatorGuard';
 
 export interface CreateExecutiveBriefingInput {
   title: string;
@@ -29,6 +30,7 @@ export async function createExecutiveBriefing(
   input: CreateExecutiveBriefingInput,
   client?: SupabaseClient
 ): Promise<{ success: boolean; data?: ExecutiveBriefingRecord; error?: string }> {
+  assertGeneratorsEnabled('Executive briefing generation');
   const db = getClient(client);
 
   // Authoritative service-level scope authorization check
