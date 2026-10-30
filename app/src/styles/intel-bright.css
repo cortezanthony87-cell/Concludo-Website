@@ -198,3 +198,4 @@
 .ib-tab--on { color: var(--ib-ink); border-bottom-color: var(--ib-ink-2); font-weight: 600; }
 .ib-tab:focus-visible { box-shadow: var(--ib-focus); outline: none; border-radius: var(--ib-radius-sm); }
 .ib-pillar { font-family: var(--ib-font-head); font-size: 0.8125rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ib-muted); margin: 0 0 4px; }
+.ib-metrics { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin: 0 0 24px; }

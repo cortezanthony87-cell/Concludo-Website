@@ -26,8 +26,9 @@ import { DecisionMemoryPage } from './pages/DecisionMemoryPage';
 import { DecisionDetailPage } from './pages/DecisionDetailPage';
 import { ActionsPage } from './pages/ActionsPage';
 import { ActionDetailPage } from './pages/ActionDetailPage';
-import { InsightPage } from './pages/InsightPage';
-import { StatsPage } from './pages/StatsPage';
+import { InsightOverviewPage } from './pages/InsightOverviewPage';
+import { StatsOverviewPage } from './pages/StatsOverviewPage';
+import { fetchUserInsights, fetchUserStats } from './lib/intelligence/intelligenceClient';
 import { EndpointReportPage } from './pages/EndpointReportPage';
 import { ConnectionTestPage } from './pages/ConnectionTestPage';
 import { TeamDashboardPage } from './pages/TeamDashboardPage';
@@ -233,8 +234,22 @@ export const App: React.FC = () => {
             </Route>
             <Route path="/insight" element={<PillarShell pillar={INSIGHT_PILLAR} />}>
               <Route index element={<Navigate to="overview" replace />} />
-              <Route path="overview" element={<InsightPage />} />
-              <Route path="stats" element={<StatsPage />} />
+              <Route
+                path="overview"
+                element={
+                  <InsightOverviewPage
+                    loader={(refresh) => fetchUserInsights({ forceRefresh: refresh })}
+                  />
+                }
+              />
+              <Route
+                path="stats"
+                element={
+                  <StatsOverviewPage
+                    loader={() => fetchUserStats('all')}
+                  />
+                }
+              />
               <Route path="knowledge" element={<KnowledgeAnalyticsUnavailablePage />} />
               <Route path="performance" element={<EnterprisePerformancePage />} />
             </Route>
