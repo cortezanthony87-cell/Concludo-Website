@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { ActionRecord, CreateActionInput, UpdateActionInput, ActionStatus, isActionOverdue } from './types';
+import { ActionRecord, CreateActionInput, UpdateActionInput, ActionStatus } from './types';
+import { isActionOverdue } from '../intel/actionStatus';
 import { logTeamActivity } from '../teams/teamClient';
 
 export interface ActionQueryResult<T> {
@@ -34,10 +35,11 @@ export async function saveAction(
       return { data: null, error: new Error('User session not found') };
     }
 
-    let initialStatus: ActionStatus = input.status || 'not_started';
-    if (input.due_date && isActionOverdue({ status: initialStatus, due_date: input.due_date })) {
-      initialStatus = 'overdue';
-    }
+    // Overdue is computed from due_date with Melbourne date; never stored in status.
+    // Legacy 'overdue' is treated as pending ('not_started').
+    let initialStatus: ActionStatus = input.status === 'overdue'
+      ? 'not_started'
+      : (input.status || 'not_started');
 
     // Determine ownership and team_id if not explicitly provided
     let ownershipType = input.ownership_type || (input.team_id ? 'team' : 'personal');
@@ -133,7 +135,10 @@ export async function fetchActions(
 
     if (options?.status && options.status !== 'all') {
       if (options.status === 'overdue') {
-        // Handled in JS post-processing to include both status='overdue' and past due_dates
+        // Handled in JS post-processing: not completed and due_date before today in Melbourne
+      } else if (options.status === 'not_started' || options.status === 'pending') {
+        // Stored 'overdue' is treated as pending ('not_started')
+        query = query.in('status', ['not_started', 'overdue']);
       } else {
         query = query.eq('status', options.status);
       }
@@ -149,21 +154,20 @@ export async function fetchActions(
       return { data: null, error: new Error(error.message) };
     }
 
-    // Filter out actions whose parent project is soft-deleted
+    // Filter out actions whose parent project is soft-deleted.
+    // A stored 'overdue' is treated as pending ('not_started').
     let records = (data || []).filter(
       (a: any) => !a.projects || a.projects.deleted_at === null
-    ) as ActionRecord[];
-
-    // Auto-detect overdue status for any uncompleted action
-    records = records.map((act) => {
-      if (act.status !== 'completed' && isActionOverdue(act)) {
-        return { ...act, status: 'overdue' as ActionStatus };
+    ).map((act: any) => {
+      if (act.status === 'overdue') {
+        return { ...act, status: 'not_started' as ActionStatus };
       }
-      return act;
+      return act as ActionRecord;
     });
 
+    // Overdue filter becomes: not completed and due_date before today in Melbourne
     if (options?.status === 'overdue') {
-      records = records.filter((act) => act.status === 'overdue');
+      records = records.filter((act) => isActionOverdue(act));
     }
 
     // Sort: Incomplete first -> Nearest due date -> Most recent
@@ -216,8 +220,9 @@ export async function fetchActionById(
     }
 
     const record = data as ActionRecord;
-    if (record.status !== 'completed' && isActionOverdue(record)) {
-      record.status = 'overdue';
+    // Treat legacy stored 'overdue' as pending ('not_started'); overdue is computed
+    if (record.status === 'overdue') {
+      record.status = 'not_started';
     }
 
     return { data: record, error: null };
@@ -243,18 +248,14 @@ export async function updateAction(
     if (input.action_description !== undefined) updatePayload.action_description = input.action_description?.trim() || null;
     if (input.owner_name !== undefined) updatePayload.owner_name = input.owner_name?.trim() || null;
     if (input.due_date !== undefined) updatePayload.due_date = input.due_date || null;
-    if (input.status !== undefined) updatePayload.status = input.status;
+    if (input.status !== undefined) {
+      // Overdue is computed from due_date, never stored in status.
+      updatePayload.status = input.status === 'overdue' ? 'not_started' : input.status;
+    }
     if (input.assigned_user_id !== undefined) updatePayload.assigned_user_id = input.assigned_user_id;
     if (input.assigned_user_name !== undefined) updatePayload.assigned_user_name = input.assigned_user_name;
     if (input.ownership_type !== undefined) updatePayload.ownership_type = input.ownership_type;
     if (input.team_id !== undefined) updatePayload.team_id = input.team_id;
-
-    // Auto-overdue detection
-    if (updatePayload.due_date && updatePayload.status !== 'completed') {
-      if (isActionOverdue({ status: updatePayload.status || 'not_started', due_date: updatePayload.due_date })) {
-        updatePayload.status = 'overdue';
-      }
-    }
 
     const { data, error } = await supabase
       .from('action_tracker')
@@ -312,129 +313,4 @@ export async function softDeleteAction(
   id: string
 ): Promise<{ success: boolean; error: Error | null }> {
   try {
-    const { error: rpcErr } = await supabase.rpc('soft_delete_action', {
-      p_action_id: id,
-    });
-
-    if (!rpcErr) {
-      return { success: true, error: null };
-    }
-
-    // Direct fallback
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const now = new Date();
-    const purgeAfter = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const { error } = await supabase
-      .from('action_tracker')
-      .update({
-        deleted_at: now.toISOString(),
-        deleted_by: user?.id || null,
-        purge_after: purgeAfter.toISOString(),
-        updated_at: now.toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) {
-      return { success: false, error: new Error(error.message) };
-    }
-
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: err instanceof Error ? err : new Error('Failed to delete action') };
-  }
-}
-
-/**
- * Restore a soft-deleted action.
- */
-export async function restoreAction(
-  supabase: SupabaseClient,
-  id: string
-): Promise<{ success: boolean; error: Error | null }> {
-  try {
-    const { error: rpcErr } = await supabase.rpc('restore_action', {
-      p_action_id: id,
-    });
-
-    if (!rpcErr) {
-      return { success: true, error: null };
-    }
-
-    const { error } = await supabase
-      .from('action_tracker')
-      .update({
-        deleted_at: null,
-        deleted_by: null,
-        purge_after: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) {
-      return { success: false, error: new Error(error.message) };
-    }
-
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: err instanceof Error ? err : new Error('Failed to restore action') };
-  }
-}
-
-/**
- * True database deletion (available only from Recently Deleted).
- */
-export async function permanentDeleteAction(
-  supabase: SupabaseClient,
-  id: string
-): Promise<{ success: boolean; error: Error | null }> {
-  try {
-    const { error: rpcErr } = await supabase.rpc('permanent_delete_action', {
-      p_action_id: id,
-    });
-
-    if (!rpcErr) {
-      return { success: true, error: null };
-    }
-
-    const { error } = await supabase
-      .from('action_tracker')
-      .delete()
-      .eq('id', id)
-      .not('deleted_at', 'is', null);
-
-    if (error) {
-      return { success: false, error: new Error(error.message) };
-    }
-
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: err instanceof Error ? err : new Error('Failed to permanently delete action') };
-  }
-}
-
-/**
- * Fetch deleted actions for Recently Deleted view.
- */
-export async function fetchDeletedActions(
-  supabase: SupabaseClient
-): Promise<ActionQueryResult<ActionRecord[]>> {
-  try {
-    const { data, error } = await supabase
-      .from('action_tracker')
-      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
-      .not('deleted_at', 'is', null)
-      .order('deleted_at', { ascending: false });
-
-    if (error) {
-      return { data: null, error: new Error(error.message) };
-    }
-
-    return { data: (data as ActionRecord[]) || [], error: null };
-  } catch (err: any) {
-    return { data: null, error: err instanceof Error ? err : new Error('Failed to load deleted actions') };
-  }
-}
+    const { error: rpcErr } = await supabase.rpc('soft_delete_action', {\n      p_action_id: id,\n    });\n\n    if (!rpcErr) {\n      return { success: true, error: null };\n    }\n\n    // Direct fallback\n    const {\n      data: { user },\n    } = await supabase.auth.getUser();\n\n    const now = new Date();\n    const purgeAfter = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);\n\n    const { error } = await supabase\n      .from('action_tracker')\n      .update({\n        deleted_at: now.toISOString(),\n        deleted_by: user?.id || null,\n        purge_after: purgeAfter.toISOString(),\n        updated_at: now.toISOString(),\n      })\n      .eq('id', id);\n\n    if (error) {\n      return { success: false, error: new Error(error.message) };\n    }\n\n    return { success: true, error: null };\n  } catch (err: any) {\n    return { success: false, error: err instanceof Error ? err : new Error('Failed to delete action') };\n  }\n}\n\n/**\n * Restore a soft-deleted action.\n */\nexport async function restoreAction(\n  supabase: SupabaseClient,\n  id: string\n): Promise<{ success: boolean; error: Error | null }> {\n  try {\n    const { error: rpcErr } = await supabase.rpc('restore_action', {\n      p_action_id: id,\n    });\n\n    if (!rpcErr) {\n      return { success: true, error: null };\n    }\n\n    const { error } = await supabase\n      .from('action_tracker')\n      .update({\n        deleted_at: null,\n        deleted_by: null,\n        purge_after: null,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', id);\n\n    if (error) {\n      return { success: false, error: new Error(error.message) };\n    }\n\n    return { success: true, error: null };\n  } catch (err: any) {\n    return { success: false, error: err instanceof Error ? err : new Error('Failed to restore action') };\n  }\n}\n\n/**\n * True database deletion (available only from Recently Deleted).\n */\nexport async function permanentDeleteAction(\n  supabase: SupabaseClient,\n  id: string\n): Promise<{ success: boolean; error: Error | null }> {\n  try {\n    const { error: rpcErr } = await supabase.rpc('permanent_delete_action', {\n      p_action_id: id,\n    });\n\n    if (!rpcErr) {\n      return { success: true, error: null };\n    }\n\n    const { error } = await supabase\n      .from('action_tracker')\n      .delete()\n      .eq('id', id)\n      .not('deleted_at', 'is', null);\n\n    if (error) {\n      return { success: false, error: new Error(error.message) };\n    }\n\n    return { success: true, error: null };\n  } catch (err: any) {\n    return { success: false, error: err instanceof Error ? err : new Error('Failed to permanently delete action') };\n  }\n}\n\n/**\n * Fetch deleted actions for Recently Deleted view.\n */\nexport async function fetchDeletedActions(\n  supabase: SupabaseClient\n): Promise<ActionQueryResult<ActionRecord[]>> {\n  try {\n    const { data, error } = await supabase\n      .from('action_tracker')\n      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')\n      .not('deleted_at', 'is', null)\n      .order('deleted_at', { ascending: false });\n\n    if (error) {\n      return { data: null, error: new Error(error.message) };\n    }\n\n    return { data: (data as ActionRecord[]) || [], error: null };\n  } catch (err: any) {\n    return { data: null, error: err instanceof Error ? err : new Error('Failed to load deleted actions') };\n  }\n}

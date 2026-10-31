@@ -1,39 +1,43 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  CheckSquare,
-  Sparkles,
-  Lock,
-  Calendar,
-  User,
-  FolderKanban,
-  ExternalLink,
-  AlertCircle,
-  RefreshCw,
-  Loader2,
-  Filter,
+  CheckCircle2,
   Clock,
   AlertTriangle,
-  CheckCircle2,
+  Plus,
+  Search,
+  Filter,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Layers,
+  ArrowUpDown,
+  User,
+  Calendar,
   XCircle,
   Hourglass,
-  CircleDot,
-  X,
+  Tag,
+  ShieldAlert,
 } from 'lucide-react';
-import { useAuth } from '../lib/auth/AuthContext';
-import { useFeatureAccess } from '../lib/permissions/usePermissions';
+import { useAuth } from '../context/AuthContext';
+import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import { fetchActions, updateActionStatus } from '../lib/actions/actionClient';
 import { ActionRecord, ActionStatus, isActionOverdue } from '../lib/actions/types';
-import { refreshAllIntelligence } from '../lib/intelligence/intelligenceClient';
+import { WorkspaceHeader } from '../components/workspace/WorkspaceHeader';
+import { QuickActionModal } from '../components/workspace/QuickActionModal';
+import { WorkspaceScopeToggle, WorkspaceScope } from '../components/workspace/WorkspaceScopeToggle';
 
 export const ActionsPage: React.FC = () => {
+  const { user, supabase } = useAuth();
   const navigate = useNavigate();
-  const { supabase } = useAuth();
+  const [searchParams] = useSearchParams();
   const featureAccess = useFeatureAccess('action_tracker');
 
   const [actions, setActions] = useState<ActionRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [scope, setScope] = useState<WorkspaceScope>('all');
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -49,65 +53,87 @@ export const ActionsPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    try {
+      setLoading(true);
+      const res = await fetchActions(supabase, {
+        workspaceScope: scope,
+        projectId: searchParams.get('projectId') || undefined,
+      });
 
-    const { data, error: fetchErr } = await fetchActions(supabase, {
-      status: statusFilter !== 'all' ? statusFilter : undefined,
-      owner: ownerFilter.trim() || undefined,
-    });
-
-    if (fetchErr) {
-      setError(fetchErr.message || 'Failed to load actions');
-      setActions([]);
-    } else {
-      setActions(data || []);
+      if (res.data) {
+        setActions(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load actions:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [supabase, featureAccess.isAllowed, statusFilter, ownerFilter]);
+  }, [supabase, featureAccess.isAllowed, scope, searchParams]);
 
   useEffect(() => {
     loadActions();
   }, [loadActions]);
 
+  const handleToggleComplete = async (action: ActionRecord) => {
+    const newStatus: ActionStatus = action.status === 'completed' ? 'not_started' : 'completed';
+    setUpdatingId(action.id);
+    try {
+      const res = await updateActionStatus(supabase, action.id, newStatus);
+      if (res.data) {
+        setActions((prev) =>
+          prev.map((a) => (a.id === action.id ? { ...a, status: newStatus } : a))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update action status:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleStatusChange = async (actionId: string, newStatus: ActionStatus) => {
     setUpdatingId(actionId);
-    const { data, error: updateErr } = await updateActionStatus(supabase, actionId, newStatus);
-    setUpdatingId(null);
-
-    if (updateErr) {
-      setError(updateErr.message || 'Failed to update action');
-    } else if (data) {
-      setActions((prev) =>
-        prev.map((a) => (a.id === actionId ? { ...a, status: data.status, updated_at: data.updated_at } : a))
-      );
-      refreshAllIntelligence({ supabase }).catch(() => {});
-    }
-  };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'No due date';
     try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-AU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return dateStr;
+      const res = await updateActionStatus(supabase, actionId, newStatus);
+      if (res.data) {
+        setActions((prev) =>
+          prev.map((a) => (a.id === actionId ? { ...a, status: newStatus } : a))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to change status:', err);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
-  // Filter actions based on client-side project and dueDate options
+  // Filtered actions
   const filteredActions = actions.filter((act) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = act.action_title.toLowerCase().includes(q);
+      const matchDesc = act.action_description?.toLowerCase().includes(q) || false;
+      const matchOwner = act.owner_name?.toLowerCase().includes(q) || false;
+      const matchProject = act.projects?.title?.toLowerCase().includes(q) || false;
+      if (!matchTitle && !matchDesc && !matchOwner && !matchProject) return false;
+    }
+
+    if (statusFilter !== 'all' && act.status !== statusFilter) return false;
+
+    if (ownerFilter.trim()) {
+      const o = ownerFilter.toLowerCase();
+      const matchOwner = act.owner_name?.toLowerCase().includes(o) || false;
+      const matchAssigned = act.assigned_user_name?.toLowerCase().includes(o) || false;
+      if (!matchOwner && !matchAssigned) return false;
+    }
+
     if (projectFilter.trim()) {
       const pTitle = act.projects?.title?.toLowerCase() || '';
       if (!pTitle.includes(projectFilter.trim().toLowerCase())) return false;
     }
 
     if (dueDateFilter === 'overdue') {
-      return act.status === 'overdue' || (act.status !== 'completed' && isActionOverdue(act));
+      return isActionOverdue(act);
     }
     if (dueDateFilter === 'today') {
       if (!act.due_date) return false;
@@ -159,134 +185,212 @@ export const ActionsPage: React.FC = () => {
           border: 'rgba(251, 146, 60, 0.35)',
           icon: <XCircle size={13} />,
         };
-      case 'not_started':
       default:
         return {
           label: 'Not Started',
           bg: 'rgba(148, 163, 184, 0.15)',
           color: '#cbd5e1',
           border: 'rgba(148, 163, 184, 0.3)',
-          icon: <CircleDot size={13} />,
+          icon: <Clock size={13} />,
         };
     }
   };
 
-  // If user lacks permission: Show "Available on Pro" and prevent access
-  if (!featureAccess.isAllowed) {
-    return (
-      <div className="workspace-page-container">
-        <div className="page-header">
-          <div className="page-eyebrow">
-            <Sparkles size={13} color="#f3c958" />
-            <span>GOVERNANCE & ACCOUNTABILITY</span>
+  const formatDate = (d: string | null) => {
+    if (!d) return 'No due date';
+    try {
+      const parsed = new Date(d);
+      return parsed.toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return d;
+    }
+  };
+
+  // Metrics
+  const totalCount = actions.length;
+  const completedCount = actions.filter((a) => a.status === 'completed').length;
+  const overdueCount = actions.filter((a) => a.status !== 'completed' && isActionOverdue(a)).length;
+  const inProgressCount = actions.filter((a) => a.status === 'in_progress').length;
+
+  return (
+    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      <WorkspaceHeader
+        title="Action Tracker"
+        subtitle="Manage and track decisions and actions generated from your meetings"
+      >
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <WorkspaceScopeToggle value={scope} onChange={setScope} />
+          <QuickActionModal
+            defaultType="action"
+            onSuccess={loadActions}
+            trigger={
+              <button
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 16px',
+                  backgroundColor: '#D4AF37',
+                  color: '#0A1128',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)',
+                }}
+              >
+                <Plus size={16} />
+                New Action
+              </button>
+            }
+          />
+        </div>
+      </WorkspaceHeader>
+
+      {/* Tier Gate Warning */}
+      {!featureAccess.isAllowed && (
+        <div
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+          }}
+        >
+          <ShieldAlert size={28} color="#ef4444" />
+          <div style={{ flex: 1 }}>
+            <h4 style={{ margin: '0 0 4px', color: '#fca5a5' }}>Feature Restricted</h4>
+            <p style={{ margin: 0, color: '#f87171', fontSize: '0.88rem' }}>
+              Action Tracker is available on Pro and Team plans. Upgrade your subscription to record, track, and complete actions across all meeting outputs.
+            </p>
           </div>
-          <h1 className="page-title">Action Accountability Tracker</h1>
-          <p className="page-subtitle">Track deliverables, accountability, and deadlines across meetings.</p>
+          <button
+            onClick={() => navigate('/settings?tab=billing')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+            }}
+          >
+            Upgrade Plan
+          </button>
+        </div>
+      )}
+
+      {/* Metrics Row */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '16px',
+          marginBottom: '24px',
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: '#1E293B',
+            borderRadius: '10px',
+            padding: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>Total Actions</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f8fafc' }}>{totalCount}</div>
         </div>
 
         <div
-          className="content-card"
           style={{
-            textAlign: 'center',
-            padding: '72px 32px',
-            backgroundColor: '#16263f',
-            borderRadius: '16px',
-            border: '1px solid rgba(226, 181, 60, 0.25)',
+            backgroundColor: '#1E293B',
+            borderRadius: '10px',
+            padding: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
-          <div
-            style={{
-              width: '68px',
-              height: '68px',
-              borderRadius: '16px',
-              backgroundColor: 'rgba(226, 181, 60, 0.12)',
-              border: '1px solid rgba(226, 181, 60, 0.35)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '20px',
-              color: '#e2b53c',
-            }}
-          >
-            <Lock size={32} />
-          </div>
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '4px 12px',
-              borderRadius: '20px',
-              backgroundColor: 'rgba(226, 181, 60, 0.2)',
-              color: '#f3c958',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '14px',
-              border: '1px solid rgba(226, 181, 60, 0.4)',
-            }}
-          >
-            Available on Pro
-          </div>
-          <h2 style={{ fontSize: '1.45rem', fontWeight: 600, color: '#f8fafc', marginBottom: '10px' }}>
-            Action Accountability Tracker is a Pro Feature
-          </h2>
-          <p
-            style={{
-              color: '#94a3b8',
-              maxWidth: '520px',
-              margin: '0 auto 24px',
-              fontSize: '0.95rem',
-              lineHeight: 1.6,
-            }}
-          >
-            Track agreed deliverables across meetings, assign ownership, monitor due dates, and identify overdue actions
-            in one centralised governance view.
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => navigate('/dashboard')}
-            style={{ padding: '10px 24px', fontSize: '0.92rem' }}
-          >
-            Return to Dashboard
-          </button>
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>In Progress</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#60a5fa' }}>{inProgressCount}</div>
         </div>
-      </div>
-    );
-  }
 
-  return (
-    <div className="workspace-page-container">
-      {/* Page Header */}
-      <div className="page-header-row" style={{ marginBottom: '24px' }}>
-        <div>
-          <div className="page-breadcrumbs">
-            <span>Workspace</span>
-            <span className="breadcrumb-separator">/</span>
-            <span className="breadcrumb-active">Action Tracker</span>
+        <div
+          style={{
+            backgroundColor: '#1E293B',
+            borderRadius: '10px',
+            padding: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>Overdue</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: overdueCount > 0 ? '#f87171' : '#94a3b8' }}>
+            {overdueCount}
           </div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CheckSquare size={26} color="#e2b53c" />
-            <span>Action Accountability Tracker</span>
-          </h1>
-          <p className="page-subtitle">Track deliverables, accountability, and deadlines across meetings.</p>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: '#1E293B',
+            borderRadius: '10px',
+            padding: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>Completed</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#4ade80' }}>{completedCount}</div>
         </div>
       </div>
 
-      {/* Action Filters Bar */}
+      {/* Filter and Search Bar */}
       <div
         style={{
-          backgroundColor: '#16263f',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: '#1E293B',
           borderRadius: '12px',
-          padding: '16px 20px',
-          marginBottom: '24px',
+          padding: '16px',
+          marginBottom: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: '12px',
-          alignItems: 'center',
+          alignItems: 'end',
         }}
       >
+        {/* Search */}
+        <div style={{ gridColumn: 'span 2' }}>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>Search</label>
+          <div style={{ position: 'relative' }}>
+            <Search
+              size={15}
+              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}
+            />
+            <input
+              type="text"
+              placeholder="Search actions, owners, projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px 8px 36px',
+                backgroundColor: '#0f172a',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '6px',
+                color: '#f8fafc',
+                fontSize: '0.85rem',
+              }}
+            />
+          </div>
+        </div>
+
         {/* Status Filter */}
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>Status</label>
@@ -298,7 +402,7 @@ export const ActionsPage: React.FC = () => {
               backgroundColor: '#0f172a',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '6px',
-              padding: '6px 10px',
+              padding: '8px 10px',
               color: '#f8fafc',
               fontSize: '0.85rem',
             }}
@@ -306,30 +410,9 @@ export const ActionsPage: React.FC = () => {
             <option value="all">All Statuses</option>
             <option value="not_started">Not Started</option>
             <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
             <option value="blocked">Blocked</option>
-            <option value="overdue">Overdue</option>
+            <option value="completed">Completed</option>
           </select>
-        </div>
-
-        {/* Owner Filter */}
-        <div>
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>Owner</label>
-          <input
-            type="text"
-            placeholder="Filter by owner..."
-            value={ownerFilter}
-            onChange={(e) => setOwnerFilter(e.target.value)}
-            style={{
-              width: '100%',
-              backgroundColor: '#0f172a',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              color: '#f8fafc',
-              fontSize: '0.85rem',
-            }}
-          />
         </div>
 
         {/* Due Date Filter */}
@@ -343,331 +426,237 @@ export const ActionsPage: React.FC = () => {
               backgroundColor: '#0f172a',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '6px',
-              padding: '6px 10px',
+              padding: '8px 10px',
               color: '#f8fafc',
               fontSize: '0.85rem',
             }}
           >
-            <option value="all">All Dates</option>
+            <option value="all">Any Due Date</option>
             <option value="overdue">Overdue Only</option>
             <option value="today">Due Today</option>
-            <option value="upcoming">Upcoming (Active)</option>
+            <option value="upcoming">Upcoming</option>
           </select>
         </div>
 
-        {/* Project Filter */}
-        <div>
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>Project</label>
-          <input
-            type="text"
-            placeholder="Filter by project..."
-            value={projectFilter}
-            onChange={(e) => setProjectFilter(e.target.value)}
-            style={{
-              width: '100%',
-              backgroundColor: '#0f172a',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              color: '#f8fafc',
-              fontSize: '0.85rem',
-            }}
-          />
+        {/* Clear Filters */}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {(statusFilter !== 'all' || dueDateFilter !== 'all' || searchQuery || ownerFilter || projectFilter) && (
+            <button
+              onClick={() => {
+                setStatusFilter('all');
+                setDueDateFilter('all');
+                setSearchQuery('');
+                setOwnerFilter('');
+                setProjectFilter('');
+              }}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#94a3b8',
+                borderRadius: '6px',
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+              }}
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div
-          className="loading-container"
-          style={{
-            padding: '60px 20px',
-            textAlign: 'center',
-            backgroundColor: '#16263f',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-          }}
-        >
-          <Loader2 size={32} className="spin-animation" color="#e2b53c" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ color: '#f8fafc', fontSize: '1.1rem', marginBottom: '6px' }}>Loading actions</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Fetching action deliverables and deadlines...</p>
+      {/* Action List */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b' }}>
+          <Clock size={32} style={{ animation: 'spin 2s linear infinite', marginBottom: '12px' }} />
+          <div>Loading actions...</div>
         </div>
-      )}
-
-      {/* Error State with required retry support */}
-      {!loading && error && (
-        <div
-          className="error-banner"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
-            backgroundColor: 'rgba(239, 68, 68, 0.12)',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderRadius: '10px',
-            padding: '16px 20px',
-            marginBottom: '24px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <AlertCircle size={22} color="#f87171" style={{ flexShrink: 0 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: '#f87171', fontSize: '0.95rem' }}>Failed to load actions</div>
-              <div style={{ color: '#cbd5e1', fontSize: '0.85rem', marginTop: '2px' }}>{error}</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={loadActions}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              fontSize: '0.85rem',
-            }}
-          >
-            <RefreshCw size={14} />
-            <span>Retry</span>
-          </button>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && !error && filteredActions.length === 0 && (
+      ) : filteredActions.length === 0 ? (
         <div
           style={{
-            padding: '72px 24px',
-            textAlign: 'center',
-            backgroundColor: '#16263f',
+            backgroundColor: '#1E293B',
             borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            padding: '48px',
+            textAlign: 'center',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
-          <CheckSquare size={40} color="#64748b" style={{ margin: '0 auto 18px' }} />
-          <h2 style={{ color: '#f8fafc', fontSize: '1.3rem', fontWeight: 600, marginBottom: '8px' }}>
-            No actions tracked yet
-          </h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.92rem', maxWidth: '440px', margin: '0 auto 24px' }}>
-            Actions saved from meeting outputs will appear here.
+          <CheckCircle2 size={40} color="#64748b" style={{ marginBottom: '16px' }} />
+          <h3 style={{ margin: '0 0 8px', color: '#f8fafc' }}>No actions found</h3>
+          <p style={{ margin: '0 0 20px', color: '#94a3b8', fontSize: '0.9rem' }}>
+            {actions.length === 0
+              ? 'Generate an output or add an action manually to start tracking commitments.'
+              : 'No actions match the active filters.'}
           </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => navigate('/projects')}
-            style={{ padding: '8px 20px', fontSize: '0.9rem' }}
-          >
-            Go to Projects
-          </button>
         </div>
-      )}
-
-      {/* Actions List */}
-      {!loading && !error && filteredActions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {filteredActions.map((act) => {
-            const badge = getStatusBadge(act.status, act.due_date);
-            const projectName = act.projects?.title || act.projects?.project_name || 'Untitled Project';
-            const isUpdating = updatingId === act.id;
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {filteredActions.map((action) => {
+            const badge = getStatusBadge(action.status, action.due_date);
+            const isCompleted = action.status === 'completed';
 
             return (
               <div
-                key={act.id}
+                key={action.id}
                 style={{
-                  backgroundColor: '#16263f',
-                  border: '1px solid rgba(255, 255, 255, 0.07)',
-                  borderRadius: '12px',
-                  padding: '20px 24px',
+                  backgroundColor: '#1E293B',
+                  borderRadius: '10px',
+                  padding: '16px 20px',
+                  border: isCompleted
+                    ? '1px solid rgba(34, 197, 94, 0.2)'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
                   display: 'flex',
                   alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '20px',
-                  transition: 'border-color 0.15s ease',
+                  gap: '16px',
+                  transition: 'background-color 0.15s ease',
+                  opacity: isCompleted ? 0.75 : 1,
                 }}
               >
+                {/* Complete checkbox */}
+                <button
+                  onClick={() => handleToggleComplete(action)}
+                  disabled={updatingId === action.id}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
+                    border: isCompleted
+                      ? '2px solid #4ade80'
+                      : '2px solid rgba(255, 255, 255, 0.3)',
+                    backgroundColor: isCompleted ? '#22c55e' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    marginTop: '2px',
+                    flexShrink: 0,
+                    transition: 'all 0.15s ease',
+                  }}
+                  title={isCompleted ? 'Mark as incomplete' : 'Mark as completed'}
+                >
+                  {isCompleted && <Check size={16} color="#0A1128" strokeWidth={3} />}
+                </button>
+
+                {/* Main Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                    <span
+                      onClick={() => navigate(`/actions/${action.id}`)}
+                      style={{
+                        fontWeight: 600,
+                        fontSize: '0.95rem',
+                        color: isCompleted ? '#94a3b8' : '#f8fafc',
+                        textDecoration: isCompleted ? 'line-through' : 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {action.action_title}
+                    </span>
+
                     {/* Status Badge */}
                     <span
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '5px',
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        padding: '3px 9px',
-                        borderRadius: '4px',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
                         backgroundColor: badge.bg,
                         color: badge.color,
                         border: `1px solid ${badge.border}`,
                       }}
                     >
                       {badge.icon}
-                      <span>{badge.label}</span>
+                      {badge.label}
                     </span>
+                  </div>
 
-                    {/* Linked Project */}
-                    <span
+                  {action.action_description && (
+                    <p
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        color: '#93c5fd',
+                        margin: '0 0 10px',
+                        fontSize: '0.84rem',
+                        color: '#94a3b8',
+                        lineHeight: 1.4,
                       }}
                     >
-                      <FolderKanban size={13} />
-                      <span>{projectName}</span>
-                    </span>
+                      {action.action_description}
+                    </p>
+                  )}
 
-                    {/* Owner */}
-                    {act.owner_name && (
+                  {/* Metadata Tags */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '14px',
+                      fontSize: '0.78rem',
+                      color: '#64748b',
+                    }}
+                  >
+                    {action.projects?.title && (
                       <span
+                        onClick={() => navigate(`/projects/${action.project_id}`)}
                         style={{
-                          display: 'inline-flex',
+                          display: 'flex',
                           alignItems: 'center',
                           gap: '5px',
-                          fontSize: '0.8rem',
-                          color: '#e2b53c',
-                          backgroundColor: 'rgba(226, 181, 60, 0.12)',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
                         }}
                       >
-                        <User size={12} />
-                        <span>Owner: {act.owner_name}</span>
+                        <Layers size={13} color="#D4AF37" />
+                        {action.projects.title}
                       </span>
                     )}
 
-                    {/* Due Date */}
+                    {(action.owner_name || action.assigned_user_name) && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <User size={13} />
+                        {action.assigned_user_name || action.owner_name}
+                      </span>
+                    )}
+
                     <span
                       style={{
-                        display: 'inline-flex',
+                        display: 'flex',
                         alignItems: 'center',
                         gap: '5px',
-                        fontSize: '0.8rem',
-                        color: badge.label === 'Overdue' ? '#f87171' : '#94a3b8',
-                        fontWeight: badge.label === 'Overdue' ? 600 : 400,
+                        color:
+                          badge.label === 'Overdue'
+                            ? '#f87171'
+                            : '#64748b',
                       }}
                     >
                       <Calendar size={13} />
-                      <span>Due: {formatDate(act.due_date)}</span>
+                      {formatDate(action.due_date)}
                     </span>
                   </div>
-
-                  <h3
-                    style={{
-                      fontSize: '1.15rem',
-                      fontWeight: 600,
-                      color: '#f8fafc',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    <Link
-                      to={`/actions/${act.id}`}
-                      style={{ color: 'inherit', textDecoration: 'none' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#e2b53c')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = '#f8fafc')}
-                    >
-                      {act.action_title}
-                    </Link>
-                  </h3>
-
-                  {act.action_description && (
-                    <p
-                      style={{
-                        color: '#cbd5e1',
-                        fontSize: '0.92rem',
-                        lineHeight: 1.55,
-                        margin: 0,
-                      }}
-                    >
-                      {act.action_description}
-                    </p>
-                  )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => navigate(`/projects/${act.project_id}`)}
+                {/* Status Dropdown selector */}
+                <div style={{ flexShrink: 0 }}>
+                  <select
+                    value={action.status === 'overdue' ? 'not_started' : action.status}
+                    onChange={(e) => handleStatusChange(action.id, e.target.value as ActionStatus)}
+                    disabled={updatingId === action.id}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      fontSize: '0.85rem',
-                    }}
-                    title="Open Project"
-                  >
-                    <span>Open project</span>
-                    <ExternalLink size={14} />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => navigate(`/actions/${act.id}`)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 12px',
-                      fontSize: '0.82rem',
+                      backgroundColor: '#0f172a',
+                      color: '#cbd5e1',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
                     }}
                   >
-                    <span>Details</span>
-                  </button>
-
-                  {/* Quick status cycle button */}
-                  <div style={{ marginTop: '4px' }}>
-                    {act.status !== 'completed' ? (
-                      <button
-                        type="button"
-                        disabled={isUpdating}
-                        onClick={() => handleStatusChange(act.id, 'completed')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#4ade80',
-                          cursor: 'pointer',
-                          fontSize: '0.78rem',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '2px 6px',
-                        }}
-                      >
-                        {isUpdating ? <Loader2 size={12} className="spin-animation" /> : <CheckCircle2 size={12} />}
-                        <span>Mark Complete</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isUpdating}
-                        onClick={() => handleStatusChange(act.id, 'in_progress')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#94a3b8',
-                          cursor: 'pointer',
-                          fontSize: '0.78rem',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '2px 6px',
-                        }}
-                      >
-                        <span>Reopen</span>
-                      </button>
-                    )}
-                  </div>
+                    <option value="not_started">Not Started</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="completed">Completed</option>
+                  </select>
                 </div>
               </div>
             );
@@ -677,3 +666,4 @@ export const ActionsPage: React.FC = () => {
     </div>
   );
 };
+export default ActionsPage;

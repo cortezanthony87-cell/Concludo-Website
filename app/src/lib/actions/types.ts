@@ -76,26 +76,8 @@ export interface UpdateActionInput {
 }
 
 /**
- * Checks if an action is overdue according to business logic:
- * status != 'completed' and due_date < current_date
+ * Re-exported from src/lib/intel/actionStatus:
+ * Overdue is computed from due_date with the Melbourne date.
+ * Not completed, has a due date, and due_date is before today in Melbourne.
  */
-export function isActionOverdue(action: {
-  status: string;
-  due_date: string | null;
-}): boolean {
-  if (action.status === 'completed') return false;
-  if (!action.due_date) return false;
-
-  const due = new Date(action.due_date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // If due_date is in YYYY-MM-DD format, parse as UTC/local midnight
-  if (typeof action.due_date === 'string' && action.due_date.length === 10) {
-    const [y, m, d] = action.due_date.split('-').map(Number);
-    const dueDateObj = new Date(y, m - 1, d);
-    return dueDateObj < today;
-  }
-
-  return due < today;
-}
+export { isActionOverdue } from '../intel/actionStatus';
