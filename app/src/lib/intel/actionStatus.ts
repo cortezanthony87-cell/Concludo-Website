@@ -17,8 +17,8 @@ export function isActionOverdue(a: ActionLike, now: Date = new Date()): boolean 
   return a.due_date.slice(0, 10) < melbourneToday(now);
 }
 
-/** The stored status with the legacy 'overdue' value folded back to 'pending'. Blocked and in-progress are kept. */
+/** The stored status with the legacy 'overdue' value folded back to 'not_started'. Blocked and in-progress are kept. */
 export function effectiveStatus(a: ActionLike): string {
-  const s = a.status || 'pending';
-  return s === 'overdue' ? 'pending' : s;
+  const s = a.status || 'not_started';
+  return s === 'overdue' ? 'not_started' : s;
 }

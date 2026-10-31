@@ -313,4 +313,129 @@ export async function softDeleteAction(
   id: string
 ): Promise<{ success: boolean; error: Error | null }> {
   try {
-    const { error: rpcErr } = await supabase.rpc('soft_delete_action', {\n      p_action_id: id,\n    });\n\n    if (!rpcErr) {\n      return { success: true, error: null };\n    }\n\n    // Direct fallback\n    const {\n      data: { user },\n    } = await supabase.auth.getUser();\n\n    const now = new Date();\n    const purgeAfter = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);\n\n    const { error } = await supabase\n      .from('action_tracker')\n      .update({\n        deleted_at: now.toISOString(),\n        deleted_by: user?.id || null,\n        purge_after: purgeAfter.toISOString(),\n        updated_at: now.toISOString(),\n      })\n      .eq('id', id);\n\n    if (error) {\n      return { success: false, error: new Error(error.message) };\n    }\n\n    return { success: true, error: null };\n  } catch (err: any) {\n    return { success: false, error: err instanceof Error ? err : new Error('Failed to delete action') };\n  }\n}\n\n/**\n * Restore a soft-deleted action.\n */\nexport async function restoreAction(\n  supabase: SupabaseClient,\n  id: string\n): Promise<{ success: boolean; error: Error | null }> {\n  try {\n    const { error: rpcErr } = await supabase.rpc('restore_action', {\n      p_action_id: id,\n    });\n\n    if (!rpcErr) {\n      return { success: true, error: null };\n    }\n\n    const { error } = await supabase\n      .from('action_tracker')\n      .update({\n        deleted_at: null,\n        deleted_by: null,\n        purge_after: null,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', id);\n\n    if (error) {\n      return { success: false, error: new Error(error.message) };\n    }\n\n    return { success: true, error: null };\n  } catch (err: any) {\n    return { success: false, error: err instanceof Error ? err : new Error('Failed to restore action') };\n  }\n}\n\n/**\n * True database deletion (available only from Recently Deleted).\n */\nexport async function permanentDeleteAction(\n  supabase: SupabaseClient,\n  id: string\n): Promise<{ success: boolean; error: Error | null }> {\n  try {\n    const { error: rpcErr } = await supabase.rpc('permanent_delete_action', {\n      p_action_id: id,\n    });\n\n    if (!rpcErr) {\n      return { success: true, error: null };\n    }\n\n    const { error } = await supabase\n      .from('action_tracker')\n      .delete()\n      .eq('id', id)\n      .not('deleted_at', 'is', null);\n\n    if (error) {\n      return { success: false, error: new Error(error.message) };\n    }\n\n    return { success: true, error: null };\n  } catch (err: any) {\n    return { success: false, error: err instanceof Error ? err : new Error('Failed to permanently delete action') };\n  }\n}\n\n/**\n * Fetch deleted actions for Recently Deleted view.\n */\nexport async function fetchDeletedActions(\n  supabase: SupabaseClient\n): Promise<ActionQueryResult<ActionRecord[]>> {\n  try {\n    const { data, error } = await supabase\n      .from('action_tracker')\n      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')\n      .not('deleted_at', 'is', null)\n      .order('deleted_at', { ascending: false });\n\n    if (error) {\n      return { data: null, error: new Error(error.message) };\n    }\n\n    return { data: (data as ActionRecord[]) || [], error: null };\n  } catch (err: any) {\n    return { data: null, error: err instanceof Error ? err : new Error('Failed to load deleted actions') };\n  }\n}
+    const { error: rpcErr } = await supabase.rpc('soft_delete_action', {
+      p_action_id: id,
+    });
+
+    if (!rpcErr) {
+      return { success: true, error: null };
+    }
+
+    // Direct fallback
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const now = new Date();
+    const purgeAfter = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const { error } = await supabase
+      .from('action_tracker')
+      .update({
+        deleted_at: now.toISOString(),
+        deleted_by: user?.id || null,
+        purge_after: purgeAfter.toISOString(),
+        updated_at: now.toISOString(),
+      })
+      .eq('id', id);
+
+    if (error) {
+      return { success: false, error: new Error(error.message) };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err instanceof Error ? err : new Error('Failed to delete action') };
+  }
+}
+
+/**
+ * Restore a soft-deleted action.
+ */
+export async function restoreAction(
+  supabase: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    const { error: rpcErr } = await supabase.rpc('restore_action', {
+      p_action_id: id,
+    });
+
+    if (!rpcErr) {
+      return { success: true, error: null };
+    }
+
+    const { error } = await supabase
+      .from('action_tracker')
+      .update({
+        deleted_at: null,
+        deleted_by: null,
+        purge_after: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (error) {
+      return { success: false, error: new Error(error.message) };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err instanceof Error ? err : new Error('Failed to restore action') };
+  }
+}
+
+/**
+ * True database deletion (available only from Recently Deleted).
+ */
+export async function permanentDeleteAction(
+  supabase: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    const { error: rpcErr } = await supabase.rpc('permanent_delete_action', {
+      p_action_id: id,
+    });
+
+    if (!rpcErr) {
+      return { success: true, error: null };
+    }
+
+    const { error } = await supabase
+      .from('action_tracker')
+      .delete()
+      .eq('id', id)
+      .not('deleted_at', 'is', null);
+
+    if (error) {
+      return { success: false, error: new Error(error.message) };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err instanceof Error ? err : new Error('Failed to permanently delete action') };
+  }
+}
+
+/**
+ * Fetch deleted actions for Recently Deleted view.
+ */
+export async function fetchDeletedActions(
+  supabase: SupabaseClient
+): Promise<ActionQueryResult<ActionRecord[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('action_tracker')
+      .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at)')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    if (error) {
+      return { data: null, error: new Error(error.message) };
+    }
+
+    return { data: (data as ActionRecord[]) || [], error: null };
+  } catch (err: any) {
+    return { data: null, error: err instanceof Error ? err : new Error('Failed to load deleted actions') };
+  }
+}
