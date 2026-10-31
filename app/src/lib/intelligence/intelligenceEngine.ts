@@ -1,3 +1,4 @@
+import { isActionOverdue, effectiveStatus } from "../intel/actionStatus";
 import { SupabaseClient } from '@supabase/supabase-js';
 import {
   InsightData,
@@ -261,15 +262,7 @@ export async function processUserIntelligence(
     }));
 
   // B. Top Risks
-  const overdueActions = filteredActions.filter((a) => {
-    if (a.status === 'completed') return false;
-    if (a.status === 'overdue') return true;
-    if (!a.due_date) return false;
-    const due = new Date(a.due_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return due < today;
-  });
+  const overdueActions = filteredActions.filter((a) => isActionOverdue(a));
 
   const topRisks: IdentifiedRisk[] = [];
   if (overdueActions.length > 0) {
@@ -367,7 +360,7 @@ export async function processUserIntelligence(
       ownerStats[owner].completed++;
     } else {
       ownerStats[owner].open++;
-      if (a.status === 'overdue' || (a.due_date && new Date(a.due_date) < new Date())) {
+      if (isActionOverdue(a)) {
         ownerStats[owner].overdue++;
       }
     }
@@ -384,7 +377,7 @@ export async function processUserIntelligence(
   // G. Open Action Trends & Overdue Action Trends
   const notStartedCount = filteredActions.filter((a) => a.status === 'not_started').length;
   const inProgressCount = filteredActions.filter(
-    (a) => a.status === 'in_progress' || a.status === 'overdue'
+    (a) => effectiveStatus(a) === 'in_progress'
   ).length;
   const blockedCount = filteredActions.filter((a) => a.status === 'blocked').length;
   const totalOpen = filteredActions.filter((a) => a.status !== 'completed').length;

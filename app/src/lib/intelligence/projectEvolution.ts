@@ -1,3 +1,4 @@
+import { isActionOverdue } from "../intel/actionStatus";
 /**
  * Concludo Project Evolution & Stage Intelligence Engine
  * 
@@ -127,12 +128,10 @@ export function computeProjectEvolution(options: {
       completedActions++;
     } else {
       openActions++;
-      if (act.due_date) {
-        if (act.due_date < todayStr || act.status === 'overdue') {
-          overdueActions++;
-        } else if (!nearestUpcomingDeadline || act.due_date < nearestUpcomingDeadline) {
-          nearestUpcomingDeadline = act.due_date;
-        }
+      if (isActionOverdue(act)) {
+        overdueActions++;
+      } else if (act.due_date && (!nearestUpcomingDeadline || act.due_date < nearestUpcomingDeadline)) {
+        nearestUpcomingDeadline = act.due_date;
       }
     }
   }
