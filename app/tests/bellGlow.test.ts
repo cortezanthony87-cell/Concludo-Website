@@ -45,4 +45,10 @@ describe('Notification Bell Yellow Glowing Effect', () => {
     expect(modalTsx).toContain('store.getNotifications().forEach((n) => store.markNotificationRead(n.id))');
     expect(modalTsx).toContain('accountNotifs.markAllAsRead()');
   });
+
+  it('6. Bell icon itself applies glowing drop-shadow filter and animation when unread > 0', () => {
+    expect(layoutTsx).toContain('drop-shadow(0 0 4px rgba(243, 201, 88, 0.95)) drop-shadow(0 0 8px rgba(226, 181, 60, 0.75))');
+    expect(shellCss).toContain('.top-navbar .top-navbar-bell-btn .top-navbar-bell-icon.has-bell-glow');
+    expect(shellCss).toContain('@keyframes bell-icon-pulse');
+  });
 });

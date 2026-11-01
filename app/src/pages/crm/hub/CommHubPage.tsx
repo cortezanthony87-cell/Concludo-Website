@@ -135,7 +135,7 @@ export const CommHubPage: React.FC = () => {
             aria-label="Open notifications centre"
             onClick={() => setIsNotifOpen(true)}
           >
-            <Icons.Bell size={15} color={unreadNotifs > 0 ? '#F3C958' : '#FFFFFF'} />
+            <Icons.Bell size={15} color={unreadNotifs > 0 ? '#F3C958' : '#FFFFFF'} className={unreadNotifs > 0 ? 'hub-bell-icon has-bell-glow' : 'hub-bell-icon'} style={{ filter: unreadNotifs > 0 ? 'drop-shadow(0 0 3px rgba(243, 201, 88, 0.95)) drop-shadow(0 0 6px rgba(226, 181, 60, 0.75))' : 'none', transition: 'filter 0.25s ease, color 0.2s ease' }} />
             {unreadNotifs > 0 && (
               <span style={{ background: 'var(--hub-gold)', color: 'var(--hub-navy)', borderRadius: '8px', padding: '0 5px', fontSize: '10px', fontWeight: 700, marginLeft: '4px' }}>
                 {unreadNotifs}
