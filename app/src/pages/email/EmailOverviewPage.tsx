@@ -32,6 +32,7 @@ import { composeOverview } from '../../lib/email/overview';
 import { metricCounts } from '../../lib/email/aggregation';
 import { ThreadRecord } from '../../lib/email/filters';
 import { DraftStyle, PriorityBand, ThreadStatus } from '../../lib/email/model';
+import { calculateEmailStatusFromDataset } from '../../lib/email/sharedEmailStatus';
 import '../../styles/email-overview-redesign.css';
 
 export const EmailOverviewPage: React.FC = () => {
@@ -123,22 +124,12 @@ export const EmailOverviewPage: React.FC = () => {
     return list;
   }, [viewFilter, records, page.lead, page.sections]);
 
-  // Metrics for the 4 Stat Tiles
-  const needsReplyCount = useMemo(() => {
-    return counts.find((c) => c.key === 'replies_due')?.count ?? 0;
-  }, [counts]);
+  // Metrics for the 4 Stat Tiles (computed via shared email status engine)
+  const { counts: sharedCounts } = useMemo(() => {
+    return calculateEmailStatusFromDataset(dataset, now);
+  }, [dataset, now]);
 
-  const unreadCount = useMemo(() => {
-    return records.filter((r) => !r.thread.isRead).length;
-  }, [records]);
-
-  const flaggedCount = useMemo(() => {
-    return page.security.length;
-  }, [page.security]);
-
-  const processedCount = useMemo(() => {
-    return records.filter((r) => r.analysis.currentStatus === 'resolved').length;
-  }, [records]);
+  const { needsReply: needsReplyCount, unread: unreadCount, flagged: flaggedCount, processedToday: processedCount } = sharedCounts;
 
   // Priority band breakdown and classification progress
   const { triagePercentage, analysedCount, totalCount, urgentCount, highCount, soonCount, batchOrLowCount } = useMemo(() => {
