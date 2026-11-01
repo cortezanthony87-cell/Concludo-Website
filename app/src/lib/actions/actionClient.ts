@@ -45,7 +45,7 @@ export async function saveAction(
     let ownershipType = input.ownership_type || (input.team_id ? 'team' : 'personal');
     let teamId = input.team_id || null;
 
-    if (!input.team_id) {
+    if (!input.team_id && input.project_id) {
       const { data: proj } = await supabase
         .from('projects')
         .select('ownership_type, team_id')
@@ -62,7 +62,7 @@ export async function saveAction(
       .from('action_tracker')
       .insert({
         user_id: user.id,
-        project_id: input.project_id,
+        project_id: input.project_id || null,
         action_title: input.action_title.trim(),
         action_description: input.action_description?.trim() || null,
         owner_name: input.owner_name?.trim() || null,
@@ -163,10 +163,22 @@ export async function fetchActions(
     }
 
     // Filter out actions whose parent project is soft-deleted.
+    // Synthetic demonstration and dry-run tasks are strictly excluded.
     // A stored 'overdue' is treated as pending ('not_started').
-    let records = (data || []).filter(
-      (a: any) => !a.projects || a.projects.deleted_at === null
-    ).map((act: any) => {
+    let records = (data || []).filter((a: any) => {
+      if (a.deleted_at !== null) return false;
+      if (a.projects && a.projects.deleted_at !== null) return false;
+      const titleLower = (a.action_title || '').toLowerCase();
+      if (
+        titleLower.includes('alex mercer') ||
+        titleLower.includes('sarah jenkins') ||
+        titleLower.includes('synthetic demonstration') ||
+        titleLower.includes('[demonstration]')
+      ) {
+        return false;
+      }
+      return true;
+    }).map((act: any) => {
       if (act.status === 'overdue') {
         return { ...act, status: 'not_started' as ActionStatus };
       }

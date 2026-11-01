@@ -207,9 +207,18 @@
   background: #ffffff;
 }
 
+.ach-table-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 8px;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+}
+
 .ach-table {
   border-collapse: collapse;
   width: 100%;
+  min-width: 1100px;
   table-layout: fixed;
   background: #ffffff;
   font-size: 13px;
@@ -218,25 +227,42 @@
 .ach-table th {
   background: #EEF1F7;
   text-align: left;
-  padding: 8px 6px;
+  padding: 10px 12px;
   border: 1px solid var(--ach-line);
   font-weight: 600;
   color: var(--ach-navy);
+  white-space: nowrap;
 }
 
 .ach-table td {
-  padding: 8px 6px;
+  padding: 10px 12px;
   border: 1px solid #E4E8EF;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
   vertical-align: middle;
   color: var(--ach-navy);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .ach-table td:nth-child(2),
 .ach-table th:nth-child(2) {
   font-weight: 600;
+  min-width: 260px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+.ach-task-title {
+  display: block;
+  font-weight: 600;
+  color: var(--ach-navy);
+  line-height: 1.5;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
+  letter-spacing: 0.01em;
 }
 
 .ach-table tr:nth-child(even) td {
@@ -403,24 +429,4 @@
   display: none;
 }
 
-@media (max-width: 768px) {
-  .ach-container {
-    padding: 12px;
-  }
-  .ach-sum {
-    grid-template-columns: 1fr;
-  }
-  .ach-cnt {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .ach-table-wrapper {
-    display: none;
-  }
-  .ach-mobile-cards {
-    display: block;
-  }
-  .ach-panel,
-  .ach-modal-box {
-    width: 100%;
-  }
-}
+@media (max-width: 768px) {\n  .ach-container {\n    padding: 12px;\n  }\n  .ach-sum {\n    grid-template-columns: 1fr;\n  }\n  .ach-cnt {\n    grid-template-columns: repeat(2, 1fr);\n  }\n  .ach-table-wrapper {\n    display: none;\n  }\n  .ach-mobile-cards {\n    display: block;\n  }\n  .ach-panel,\n  .ach-modal-box {\n    width: 100%;\n  }\n}
