@@ -213,13 +213,14 @@
   border-radius: 8px;
   -webkit-overflow-scrolling: touch;
   background: #ffffff;
+  width: 100%;
 }
 
 .ach-table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1380px;
-  table-layout: fixed;
+  min-width: 1480px;
+  table-layout: auto !important;
   background: #ffffff;
   font-size: 13px;
 }
@@ -241,29 +242,33 @@
   color: var(--ach-navy);
   font-size: 13px;
   line-height: 1.45;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .ach-table td:nth-child(2),
 .ach-table th:nth-child(2) {
   font-weight: 600;
-  min-width: 340px;
-  width: 360px;
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: break-word;
+  min-width: 420px !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
   line-height: 1.5;
-  letter-spacing: normal;
+  letter-spacing: normal !important;
 }
 
 .ach-task-title {
-  display: block;
+  display: inline-block;
   font-weight: 600;
   color: var(--ach-navy);
   line-height: 1.5;
-  word-break: normal;
-  overflow-wrap: break-word;
-  white-space: normal;
+  word-break: keep-all;
+  white-space: nowrap;
   letter-spacing: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .ach-table tr:nth-child(even) td {

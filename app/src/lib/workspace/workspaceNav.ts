@@ -205,16 +205,6 @@ const DESTINATIONS: WorkspaceDestination[] = [
     feature: 'workspace_basic',
     pinned: true,
   },
-  {
-    path: '/approvals',
-    label: 'Approvals',
-    iconName: 'CheckCircle',
-    accessibleDescription: 'What is waiting on your decision before anything is sent or changed.',
-    group: 'Work',
-    feature: 'workflow_approvals',
-    pinned: true,
-    badge: 'blocking',
-  },
   ...(ACTION_HUB_V1
     ? [
         {
@@ -228,6 +218,16 @@ const DESTINATIONS: WorkspaceDestination[] = [
         },
       ]
     : []),
+  {
+    path: '/approvals',
+    label: 'Approvals',
+    iconName: 'CheckCircle',
+    accessibleDescription: 'What is waiting on your decision before anything is sent or changed.',
+    group: 'Work',
+    feature: 'workflow_approvals',
+    pinned: true,
+    badge: 'blocking',
+  },
 
   /* -------------------------------------------------------- Connectivity */
   {
