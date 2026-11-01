@@ -116,8 +116,10 @@
 /* Bell icon itself glows radiant yellow/gold when there are new messages */
 .top-navbar .top-navbar-bell-btn .top-navbar-bell-icon.has-bell-glow,
 .top-navbar .top-navbar-bell-btn.has-unread-glow svg {
-  color: #F3C958;
-  filter: drop-shadow(0 0 4px rgba(243, 201, 88, 0.95)) drop-shadow(0 0 8px rgba(226, 181, 60, 0.75));
+  stroke: #F3C958 !important;
+  color: #F3C958 !important;
+  fill: rgba(243, 201, 88, 0.25) !important;
+  filter: drop-shadow(0 0 4px rgba(243, 201, 88, 1)) drop-shadow(0 0 8px rgba(226, 181, 60, 0.85)) drop-shadow(0 0 12px rgba(243, 201, 88, 0.6)) !important;
   animation: bell-icon-pulse 2.2s infinite ease-in-out;
 }
 

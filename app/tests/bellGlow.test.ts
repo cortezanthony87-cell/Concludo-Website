@@ -46,9 +46,12 @@ describe('Notification Bell Yellow Glowing Effect', () => {
     expect(modalTsx).toContain('accountNotifs.markAllAsRead()');
   });
 
-  it('6. Bell icon itself applies glowing drop-shadow filter and animation when unread > 0', () => {
-    expect(layoutTsx).toContain('drop-shadow(0 0 4px rgba(243, 201, 88, 0.95)) drop-shadow(0 0 8px rgba(226, 181, 60, 0.75))');
-    expect(shellCss).toContain('.top-navbar .top-navbar-bell-btn .top-navbar-bell-icon.has-bell-glow');
+  it('6. Bell icon itself applies glowing yellow stroke, gold fill, drop-shadow filter and animation when unread > 0', () => {
+    expect(layoutTsx).toContain("stroke: effectiveUnreadNotifsCount > 0 ? '#F3C958' : '#F8FAFC'");
+    expect(layoutTsx).toContain("fill: effectiveUnreadNotifsCount > 0 ? 'rgba(243, 201, 88, 0.25)' : 'none'");
+    expect(layoutTsx).toContain('drop-shadow(0 0 4px rgba(243, 201, 88, 1))');
+    expect(shellCss).toContain('stroke: #F3C958 !important');
+    expect(shellCss).toContain('fill: rgba(243, 201, 88, 0.25) !important');
     expect(shellCss).toContain('@keyframes bell-icon-pulse');
   });
 });

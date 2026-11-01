@@ -202,7 +202,7 @@ export const WorkspaceLayout: React.FC = () => {
               transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, color 0.2s ease',
             }}
           >
-            <Bell size={18} color={effectiveUnreadNotifsCount > 0 ? '#F3C958' : '#F8FAFC'} className={effectiveUnreadNotifsCount > 0 ? 'top-navbar-bell-icon has-bell-glow' : 'top-navbar-bell-icon'} style={{ filter: effectiveUnreadNotifsCount > 0 ? 'drop-shadow(0 0 4px rgba(243, 201, 88, 0.95)) drop-shadow(0 0 8px rgba(226, 181, 60, 0.75))' : 'none', transition: 'filter 0.25s ease, color 0.2s ease' }} />
+            <Bell size={18} color={effectiveUnreadNotifsCount > 0 ? '#F3C958' : '#F8FAFC'} className={effectiveUnreadNotifsCount > 0 ? 'top-navbar-bell-icon has-bell-glow' : 'top-navbar-bell-icon'} style={{ stroke: effectiveUnreadNotifsCount > 0 ? '#F3C958' : '#F8FAFC', fill: effectiveUnreadNotifsCount > 0 ? 'rgba(243, 201, 88, 0.25)' : 'none', filter: effectiveUnreadNotifsCount > 0 ? 'drop-shadow(0 0 4px rgba(243, 201, 88, 1)) drop-shadow(0 0 8px rgba(226, 181, 60, 0.85)) drop-shadow(0 0 12px rgba(243, 201, 88, 0.6))' : 'none', transition: 'stroke 0.2s ease, fill 0.2s ease, filter 0.25s ease, color 0.2s ease' }} />
             {effectiveUnreadNotifsCount > 0 && (
               <span
                 style={{
