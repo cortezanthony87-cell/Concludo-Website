@@ -82,6 +82,13 @@ export interface CreateActionInput {
   source_id?: string | null;
   source_url?: string | null;
   origin_marker?: string | null;
+  approval_state?: 'manual' | 'approved_from_candidate';
+  approved_by?: string | null;
+  approved_at?: string | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
 }
 
 export interface UpdateActionInput {

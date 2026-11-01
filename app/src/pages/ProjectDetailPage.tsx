@@ -58,6 +58,7 @@ import {
   softDeleteAction,
   updateActionStatus,
 } from '../lib/actions/actionClient';
+import { saveCandidate } from '../lib/actions/actionCandidates';
 import {
   ActionRecord,
   CreateActionInput,
@@ -150,7 +151,7 @@ function parseActionContext(description: string | null) {
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { supabase } = useAuth();
+  const { supabase, user } = useAuth();
   const decisionAccess = useFeatureAccess('decision_memory');
   const actionAccess = useFeatureAccess('action_tracker');
 
@@ -761,17 +762,18 @@ export const ProjectDetailPage: React.FC = () => {
           continue;
         }
 
-        await saveAction(supabase, {
-          project_id: project.id,
-          action_title: act.title,
-          action_description: enrichedDescription,
-          owner_name: act.owner,
-          due_date: act.due_date,
-          status: 'not_started',
-          source_output_id: sourceActOutputId,
-          ownership_type: project.ownership_type,
-          team_id: project.team_id,
-        });
+        if (user?.id) {
+          await saveCandidate(supabase, {
+            user_id: user.id,
+            project_id: project.id,
+            title: act.title,
+            source_excerpt: enrichedDescription,
+            proposed_owner_label: act.owner || null,
+            proposed_due: act.due_date || null,
+            source_type: 'transcript_intel',
+            source_id: sourceActOutputId,
+          });
+        }
       }
 
       // 6. Refresh Project Data

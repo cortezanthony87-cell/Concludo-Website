@@ -3,7 +3,7 @@ import { createProject } from '../projects/projectClient';
 import { createProjectFile } from '../projects/projectFilesClient';
 import { saveOutput } from './outputClient';
 import { saveDecision } from '../decisions/decisionClient';
-import { saveAction } from '../actions/actionClient';
+import { saveCandidate } from '../actions/actionCandidates';
 import { refreshAllIntelligence } from '../intelligence/intelligenceClient';
 import type { MeetingModel, Review } from '../intelligence/meetingEngine';
 import type { SaveTarget, SaveExtras } from '../../features/meeting-output/studio';
@@ -115,20 +115,27 @@ export async function saveMeetingRecord(
     });
     if (r.error) fail(`Decision ${d.id}`, r.error);
   }
-  for (const a of kept(m.actions)) {
-    const ev = a.evidence[0];
-    const r = await saveAction(supabase, {
-      project_id: projectId,
-      action_title: a.task,
-      action_description: ev ? `"${ev.quote}" (${ev.sourceName}, line ${ev.line}${ev.timestamp ? `, ${ev.timestamp}` : ''})` : a.task,
-      owner_name: a.owner ?? null,
-      due_date: a.due ?? null,
-      status: 'not_started',
-      source_output_id: plan.data?.id ?? summary.data!.id,
-      ownership_type,
-      team_id,
-    });
-    if (r.error) fail(`Action ${a.id}`, r.error);
+
+  // 3. Extracted actions staged as candidates awaiting human review.
+  // Rule: Concludo proposes; a person disposes. Actions are never auto-inserted into action_tracker without approval.
+  const { data: authData } = await supabase.auth.getUser();
+  const currentUserId = authData?.user?.id;
+
+  if (currentUserId) {
+    for (const a of kept(m.actions)) {
+      const ev = a.evidence[0];
+      const r = await saveCandidate(supabase, {
+        user_id: currentUserId,
+        project_id: projectId,
+        title: a.task,
+        source_excerpt: ev ? `"${ev.quote}" (${ev.sourceName}, line ${ev.line}${ev.timestamp ? `, ${ev.timestamp}` : ''})` : a.task,
+        proposed_owner_label: a.owner ?? null,
+        proposed_due: a.due ?? null,
+        source_type: 'meeting_output',
+        source_id: plan.data?.id ?? summary.data!.id,
+      });
+      if (r.error) fail(`Action candidate ${a.id}`, r.error);
+    }
   }
 
   // 4. Sources into project file storage.

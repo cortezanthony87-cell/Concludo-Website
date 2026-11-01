@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { fetchActions, saveAction, updateAction } from '../../lib/actions/actionClient';
 import { ActionRecord, ActionStatus } from '../../lib/actions/types';
+import { approveCandidate, dismissCandidate, fetchCandidates } from '../../lib/actions/actionCandidates';
 import { calculateActionBuckets, getActionBucket } from '../../lib/actions/actionBuckets';
 import { melbourneToday } from '../../lib/intel/actionStatus';
 import '../../styles/action-hub.css';
@@ -17,6 +18,7 @@ interface CandidateSuggestion {
   project: string;
   quote: string;
   isDuplicate?: boolean;
+  rawCandidate?: any;
 }
 
 export const ActionHubPage: React.FC = () => {
@@ -61,12 +63,7 @@ export const ActionHubPage: React.FC = () => {
       return;
     }
     try {
-      const { data, error: cErr } = await supabase
-        .from('action_candidates')
-        .select('*')
-        .eq('state', 'pending')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const { data, error: cErr } = await fetchCandidates(supabase);
       if (!cErr && Array.isArray(data) && data.length > 0) {
         setCandidates(
           data.map((c: any) => ({
@@ -80,6 +77,7 @@ export const ActionHubPage: React.FC = () => {
             project: 'General',
             quote: c.source_excerpt || '',
             isDuplicate: !!c.duplicate_of_action_id,
+            rawCandidate: c,
           }))
         );
       } else {
@@ -88,7 +86,7 @@ export const ActionHubPage: React.FC = () => {
     } catch {
       setCandidates([]);
     }
-  }, [supabase, user?.id]);
+  }, [supabase]);
 
   // Load actions from Supabase
   const loadActions = useCallback(async () => {
@@ -299,7 +297,10 @@ export const ActionHubPage: React.FC = () => {
           <button
             className="ach-btn-secondary"
             style={{ padding: '6px 12px', fontSize: '13px' }}
-            onClick={() => {
+            onClick={async () => {
+              for (const c of candidates) {
+                await dismissCandidate(supabase, c.id);
+              }
               setCandidates([]);
               setBannerDismissed(true);
             }}
@@ -671,21 +672,10 @@ export const ActionHubPage: React.FC = () => {
                   return;
                 }
                 for (const c of toSave) {
-                  await saveAction(supabase, {
-                    action_title: c.title,
-                    priority: c.priority as any,
-                    due_date: c.dueBasis === 'stated' && c.dueText !== 'none found' ? c.dueText : null,
-                    owner_name: c.ownerLabel !== 'unassigned' ? c.ownerLabel : null,
-                    status: 'not_started',
-                  });
-                  await supabase
-                    .from('action_candidates')
-                    .update({ state: 'accepted' })
-                    .eq('id', c.id);
+                  await approveCandidate(supabase, c.rawCandidate || c);
                 }
                 setShowReviewPanel(false);
-                loadActions();
-                loadCandidates();
+                await Promise.all([loadActions(), loadCandidates()]);
               }}
             >
               Save selected actions
@@ -695,13 +685,10 @@ export const ActionHubPage: React.FC = () => {
               onClick={async () => {
                 const toDismiss = candidates.filter((c) => selectedCandidateIds[c.id]);
                 for (const c of toDismiss) {
-                  await supabase
-                    .from('action_candidates')
-                    .update({ state: 'dismissed' })
-                    .eq('id', c.id);
+                  await dismissCandidate(supabase, c.id);
                 }
                 setShowReviewPanel(false);
-                loadCandidates();
+                await loadCandidates();
               }}
             >
               Dismiss selected

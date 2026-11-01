@@ -50,6 +50,7 @@ import { fetchDecisions } from '../lib/decisions/decisionClient';
 import { DecisionRecord } from '../lib/decisions/types';
 import { fetchActions } from '../lib/actions/actionClient';
 import { ActionRecord, isActionOverdue, STATUS_LABELS } from '../lib/actions/types';
+import { calculateActionBuckets, getActionBucket, ActionBucketCounts } from '../lib/actions/actionBuckets';
 import { fetchUserInsights, fetchUserStats } from '../lib/intelligence/intelligenceClient';
 import { InsightData, StatsData } from '../lib/intelligence/types';
 import { fetchEndpointReports } from '../lib/reports/reportClient';
@@ -423,6 +424,7 @@ export const DashboardPage: React.FC = () => {
   const [recentOutputs, setRecentOutputs] = useState<DashboardOutput[]>([]);
   const [recentDecisions, setRecentDecisions] = useState<DecisionRecord[]>([]);
   const [recentActions, setRecentActions] = useState<ActionRecord[]>([]);
+  const [actionBucketCounts, setActionBucketCounts] = useState<ActionBucketCounts | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentReports, setRecentReports] = useState<EndpointReport[]>([]);
@@ -641,7 +643,10 @@ export const DashboardPage: React.FC = () => {
             .then((actRes) => {
               if (actRes.error) setActionsError('Failed to load actions');
               else {
-                const openActions = (actRes.data || []).filter((a: ActionRecord) => a.status !== 'completed').slice(0, 5);
+                const allActions = actRes.data || [];
+                const counts = calculateActionBuckets(allActions, new Date());
+                setActionBucketCounts(counts);
+                const openActions = allActions.filter((a: ActionRecord) => getActionBucket(a, new Date()) !== 'Completed').slice(0, 5);
                 setRecentActions(openActions);
               }
             })
@@ -1563,9 +1568,9 @@ export const DashboardPage: React.FC = () => {
                 <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Decisions recorded</div>
               </div>
             )}
-            {recentActions.length > 0 && (
+            {actionBucketCounts && (actionBucketCounts.overdue + actionBucketCounts.dueToday + actionBucketCounts.pending > 0) && (
               <div style={cardStyle}>
-                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{recentActions.length}</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{actionBucketCounts.overdue + actionBucketCounts.dueToday + actionBucketCounts.pending}</div>
                 <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Open actions</div>
               </div>
             )}

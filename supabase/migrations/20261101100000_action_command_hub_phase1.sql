@@ -161,11 +161,11 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'action_approval_events' AND policyname = 'action_approval_events_owner_all') THEN
-    CREATE POLICY action_approval_events_owner_all ON public.action_approval_events FOR ALL TO authenticated USING (actor_id = auth.uid() OR EXISTS (SELECT 1 FROM public.action_tracker t WHERE t.id = action_id AND (t.user_id = auth.uid() OR t.assigned_user_id = auth.uid()))) WITH CHECK (actor_id = auth.uid());
+    CREATE POLICY action_approval_events_owner_all ON public.action_approval_events FOR ALL TO authenticated USING (actor_id = auth.uid() OR EXISTS (SELECT 1 FROM public.action_tracker t WHERE t.id = action_id AND (t.user_id = auth.uid() OR t.assigned_user_id = auth.uid()))) WITH CHECK (actor_id = auth.uid() AND EXISTS (SELECT 1 FROM public.action_tracker t WHERE t.id = action_id AND (t.user_id = auth.uid() OR t.assigned_user_id = auth.uid())));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'action_audit_events' AND policyname = 'action_audit_events_owner_all') THEN
-    CREATE POLICY action_audit_events_owner_all ON public.action_audit_events FOR ALL TO authenticated USING (actor_id = auth.uid() OR EXISTS (SELECT 1 FROM public.action_tracker t WHERE t.id = action_id AND (t.user_id = auth.uid() OR t.assigned_user_id = auth.uid()))) WITH CHECK (actor_id = auth.uid());
+    CREATE POLICY action_audit_events_owner_all ON public.action_audit_events FOR ALL TO authenticated USING (actor_id = auth.uid() OR EXISTS (SELECT 1 FROM public.action_tracker t WHERE t.id = action_id AND (t.user_id = auth.uid() OR t.assigned_user_id = auth.uid()))) WITH CHECK (actor_id = auth.uid() AND EXISTS (SELECT 1 FROM public.action_tracker t WHERE t.id = action_id AND (t.user_id = auth.uid() OR t.assigned_user_id = auth.uid())));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'action_sync_jobs' AND policyname = 'action_sync_jobs_owner_all') THEN

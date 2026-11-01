@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './lib/auth/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicAuthRoute } from './components/PublicAuthRoute';
@@ -114,6 +114,12 @@ import { CheckoutPage } from './pages/CheckoutPage';
 import { CheckoutSuccessPage } from './pages/billing/CheckoutSuccessPage';
 import { CheckoutCancelPage } from './pages/billing/CheckoutCancelPage';
 
+const ActionsRedirect: React.FC = () => {
+  const location = useLocation();
+  const target = location.pathname.replace(/^\/actions/, '/work/actions') + location.search;
+  return <Navigate to={target} replace />;
+};
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -173,8 +179,8 @@ export const App: React.FC = () => {
             <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
             <Route path="/work/actions" element={<ActionHubPage />} />
             <Route path="/work/actions/:id" element={<ActionDetailPage />} />
-            <Route path="/actions" element={ACTION_HUB_V1 ? <Navigate to="/work/actions" replace /> : <ActionsPage />} />
-            <Route path="/actions/:id" element={ACTION_HUB_V1 ? <Navigate to="/work/actions" replace /> : <ActionDetailPage />} />
+            <Route path="/actions" element={ACTION_HUB_V1 ? <ActionsRedirect /> : <ActionsPage />} />
+            <Route path="/actions/:id" element={ACTION_HUB_V1 ? <ActionsRedirect /> : <ActionDetailPage />} />
             <Route path="/endpoint-report" element={<EndpointReportPage />} />
             <Route path="/endpoint-report/:id" element={<EndpointReportPage />} />
 

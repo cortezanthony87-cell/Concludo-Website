@@ -81,6 +81,13 @@ export async function saveAction(
         source_id: input.source_id || null,
         source_url: input.source_url || null,
         origin_marker: input.origin_marker || null,
+        approval_state: input.approval_state || 'manual',
+        approved_by: input.approved_by || null,
+        approved_at: input.approved_at || null,
+        completed_at: input.completed_at || null,
+        completed_by: input.completed_by || null,
+        archived_at: input.archived_at || null,
+        archived_by: input.archived_by || null,
       })
       .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .single();
