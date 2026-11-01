@@ -59,6 +59,7 @@ import { Team, TeamRole } from '../lib/teams/types';
 import { getPredictiveAnalysis } from '../lib/predictive/predictiveService';
 import { fetchCalendarItems } from '../lib/calendar/calendarClient';
 import { DashboardEmailCard } from '../components/dashboard/DashboardEmailCard';
+import { getWelcomeGreeting, formatDashboardDate } from '../lib/dashboard/greeting';
 
 import { PredictiveAnalysisResult } from '../lib/predictive/types';
 
@@ -741,7 +742,9 @@ export const DashboardPage: React.FC = () => {
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const fullName = profile?.full_name?.trim();
-  const welcomeGreeting = fullName ? `Good day, ${fullName}` : 'Good day';
+  const userTimezone = profile?.timezone;
+  const welcomeGreeting = getWelcomeGreeting(fullName, new Date(), userTimezone);
+  const formattedToday = formatDashboardDate(new Date(), userTimezone);
   const currentPlan: PlanType = (profile?.plan as PlanType) || 'free_preview';
   const planBadgeText = PLAN_LABELS[currentPlan] || 'Free Preview';
 
@@ -838,7 +841,7 @@ export const DashboardPage: React.FC = () => {
                 {welcomeGreeting}
               </h1>
               <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-                {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {formattedToday}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -890,7 +893,7 @@ export const DashboardPage: React.FC = () => {
           </div>
           <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 700, color: '#16263f', marginBottom: '4px' }}>{welcomeGreeting}</h1>
           <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-            {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {formattedToday}
           </p>
         </div>
 
@@ -965,7 +968,7 @@ export const DashboardPage: React.FC = () => {
             {welcomeGreeting}
           </h1>
           <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-            {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {formattedToday}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
