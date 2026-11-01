@@ -45,7 +45,7 @@ ok((await p.$eval('#ws-h1', (e) => getComputedStyle(e).color)) === 'rgb(255, 0, 
 ok((await p.$eval('.cmo .btn', (e) => getComputedStyle(e).backgroundColor)) !== 'rgb(128, 0, 128)', 'Workspace .btn rule does not reach studio buttons');
 
 // 3. Documents
-await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1500);
+await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1000);
 const doc = async (t) => { await p.click(`.cmo [data-tpl=${t}]`); await p.waitForTimeout(1200); return p.$$eval('.cmo .page', (ps) => ps.map((pg) => { const bd = pg.querySelector('.pg-body'); return { w: pg.getBoundingClientRect().width, over: bd.scrollHeight > bd.clientHeight + 1, text: pg.innerText }; })); };
 const board = await doc('board');
 ok(board.length >= 5, `Board briefing paginates (${board.length} pages)`);
@@ -131,35 +131,23 @@ const proWrites = await p.evaluate(() => globalThis.__writes);
 const proOutputTypes = proWrites.filter((x) => x.fn === 'saveOutput').map((x) => x.input.output_type);
 ok(proOutputTypes.includes('follow_up_email'), `9. Pro trial saves follow_up_email row (${proOutputTypes})`);
 
-// 8b. Starter: deck panel locked, no pptxgenjs network request
+// 8b & 9b. Client Deck hidden from template selector for every tier until written release ("release the deck")
 await p.evaluate(() => window.__remount(false, false));
 await p.waitForSelector('.cmo .stepper');
 await p.click('.cmo [data-act=sample]'); await p.waitForTimeout(500);
 await p.click('.cmo [data-act=generate]'); await p.waitForTimeout(300);
 await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1000);
-await p.click('.cmo [data-tpl=deck]'); await p.waitForTimeout(500);
-const starterDeckText = await p.$eval('.cmo .email-card', (e) => e.innerText);
-ok(starterDeckText.includes('Client decks are included in Pro and Team.'), '8b. Starter deck panel is locked with notice');
-ok((await p.$$eval('.cmo [data-act=dl-deck-pptx]', (x) => x.length)) === 0, '8b. Starter has no Download PowerPoint button');
+const starterDeckCount = await p.$$eval('.cmo [data-tpl=deck]', (xs) => xs.length);
+ok(starterDeckCount === 0, '8b. Client deck hidden from template selector on Starter');
 
-// 9b. Pro trial: deck panel works, slides render and export buttons appear when confirmed
 await p.evaluate(() => window.__remount(true, true));
 await p.waitForSelector('.cmo .stepper');
 await p.click('.cmo [data-act=sample]'); await p.waitForTimeout(500);
 await p.click('.cmo [data-act=generate]'); await p.waitForTimeout(300);
-
-// Confirm all items in step 2 so record is approved and validated
 await p.click('.cmo [data-act=confirm-all]'); await p.waitForTimeout(300);
-
 await p.click('.cmo .stepper [data-go="3"]'); await p.waitForTimeout(1000);
-await p.click('.cmo [data-tpl=deck]'); await p.waitForTimeout(500);
-const proDeckText = await p.$eval('.cmo #pages', (e) => e.innerText);
-ok(!proDeckText.includes('Client decks are included in Pro and Team.'), '9b. Pro trial deck panel is unlocked');
-ok((await p.$$eval('.cmo [data-act=dl-deck-pptx]', (x) => x.length)) === 1, '9b. Pro trial has Download PowerPoint button');
-ok((await p.$$eval('.cmo [data-act=print-deck]', (x) => x.length)) === 1, '9b. Pro trial has Print or save PDF button');
-const renderedDeckSlides = await p.$$eval('.cmo .pg', (xs) => xs.length);
-ok(renderedDeckSlides >= 6, `9b. Pro trial renders deck slides in studio (${renderedDeckSlides} slides)`);
-
+const proDeckCount = await p.$$eval('.cmo [data-tpl=deck]', (xs) => xs.length);
+ok(proDeckCount === 0, '9b. Client deck hidden from template selector on Pro trial until released');
 // 10. Starter direct insert of a follow_up_email row through the client is refused by the database (branch/preview)
 try { execSync('service postgresql status || service postgresql start', { stdio: 'ignore' }); } catch {}
 const pgClient = new PgClient({ host: 'localhost', database: 'concludo_preview', user: 'postgres', password: 'postgres' });

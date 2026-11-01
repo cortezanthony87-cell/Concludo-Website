@@ -109,7 +109,7 @@ export const OUTPUT_KINDS: readonly OutputDefinition[] = [
     format: 'email_text',
     documentKind: 'Follow-up email',
     iconName: 'Mail',
-    minimumTier: 'starter',
+    minimumTier: 'pro',
   },
 ];
 
@@ -1147,20 +1147,33 @@ export interface TierEntitlement {
   note: string;
 }
 
+import { PLAN_PERMISSIONS, PlanType } from '../permissions/types';
+
+/**
+ * Derived from PLAN_PERMISSIONS (source of truth mirrored from database can_use_feature).
+ * Starter thread kinds: ['thread_summary', 'action_plan'].
+ * follow_up_email requires follow_up_email_draft (Pro/Team only).
+ */
 export const OUTPUT_ENTITLEMENTS: readonly TierEntitlement[] = [
   {
     tier: 'starter',
-    kinds: ['thread_summary', 'action_plan', 'follow_up_email'],
-    note: 'Three outputs, and three threads analysed a week.',
+    kinds: PLAN_PERMISSIONS.starter.includes('follow_up_email_draft')
+      ? ['thread_summary', 'action_plan', 'follow_up_email']
+      : ['thread_summary', 'action_plan'],
+    note: 'Two outputs, and three threads analysed a week.',
   },
   {
     tier: 'pro',
-    kinds: ['thread_summary', 'action_plan', 'decision_log', 'follow_up_email'],
+    kinds: PLAN_PERMISSIONS.pro_subscription.includes('follow_up_email_draft')
+      ? ['thread_summary', 'action_plan', 'decision_log', 'follow_up_email']
+      : ['thread_summary', 'action_plan', 'decision_log'],
     note: 'Every output, unlimited threads.',
   },
   {
     tier: 'team',
-    kinds: ['thread_summary', 'action_plan', 'decision_log', 'follow_up_email'],
+    kinds: PLAN_PERMISSIONS.team.includes('follow_up_email_draft')
+      ? ['thread_summary', 'action_plan', 'decision_log', 'follow_up_email']
+      : ['thread_summary', 'action_plan', 'decision_log'],
     note: 'Every output, unlimited threads, per seat.',
   },
 ];

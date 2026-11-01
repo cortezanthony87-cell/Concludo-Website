@@ -95,7 +95,7 @@ export interface HealthSection {
   dimensions?: HealthDimension[];
   verdict?: {
     headline: string;
-    note: string;
+    note?: string;
   };
 }
 
@@ -106,7 +106,7 @@ export interface ClosingSection {
   audit_title?: string;
   audit?: [string, string][];
   gate?: {
-    status: 'Pass' | 'Conditional pass' | 'Fail';
+    status: 'Pass' | 'Conditional pass' | 'Fail' | 'Not assessed';
     note: string;
   };
 }

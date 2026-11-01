@@ -103,11 +103,11 @@ t('2. Internal version includes confirmed risks only', () => {
   assert.ok(!internalEmail.body.includes(m.risks[1].id), 'Must not include unconfirmed proposed risk R-02');
 });
 
-t('3. Missing due date prints Can you confirm a date?; missing owner prints Who will own this?', () => {
+t('3. Missing due date prints Date to be agreed; missing owner prints Who will own this?', () => {
   const m = sample();
   const email = followUpEmail(m);
   assert.ok(email.body.includes('Who will own this?'), 'Missing owner must print "Who will own this?"');
-  assert.ok(email.body.includes('Can you confirm a date?'), 'Missing due date must print "Can you confirm a date?"');
+  assert.ok(email.body.includes('Date to be agreed'), 'Missing due date must print "Date to be agreed"');
 });
 
 t('4. Correction deadline from a Friday meeting resolves to Monday 12 pm, Melbourne', () => {

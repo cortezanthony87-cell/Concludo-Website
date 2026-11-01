@@ -20,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
+import { getSupabaseBrowserClient } from '../lib/supabase/client';
 import { PLAN_LABELS } from '../lib/profiles/types';
 import { resetAllScrollPositions } from './ScrollToTop';
 import { WorkspaceSidebar } from './workspace/WorkspaceSidebar';
@@ -65,6 +66,26 @@ export const WorkspaceLayout: React.FC = () => {
       };
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [transcriptUsage, setTranscriptUsage] = useState<{ used: number; total: number } | null>(null);
+
+  useEffect(() => {
+    async function checkUsage() {
+      if (!user || (profile?.plan !== 'starter' && profile?.plan !== 'starter_trial')) {
+        setTranscriptUsage(null);
+        return;
+      }
+      try {
+        const sb = getSupabaseBrowserClient();
+        const { data, error } = await sb.rpc('monthly_transcripts_used', { p_user_id: user.id });
+        if (!error && typeof data === 'number') {
+          setTranscriptUsage({ used: data, total: 20 });
+        }
+      } catch {
+        // graceful fallback
+      }
+    }
+    checkUsage();
+  }, [user, profile?.plan]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
       return typeof window !== 'undefined' && window.localStorage.getItem('concludo.sidebar.collapsed') === 'true';
@@ -209,6 +230,27 @@ export const WorkspaceLayout: React.FC = () => {
             <Zap size={12} />
             <span>{planBadgeText}</span>
           </div>
+
+          {transcriptUsage && (
+            <div 
+              className="transcript-limit-indicator" 
+              style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: transcriptUsage.used >= transcriptUsage.total ? '#DC2626' : '#4B5563',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                background: transcriptUsage.used >= transcriptUsage.total ? '#FEE2E2' : '#F3F4F6',
+                border: '1px solid ' + (transcriptUsage.used >= transcriptUsage.total ? '#FCA5A5' : '#E5E7EB'),
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              title="Monthly transcript allowance for Starter tier"
+            >
+              <span>You have used {transcriptUsage.used} of {transcriptUsage.total} transcripts this month.</span>
+            </div>
+          )}
 
           {/* User Account Menu */}
           <div className="account-menu-container" ref={accountMenuRef}>

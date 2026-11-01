@@ -579,6 +579,9 @@ group('Entitlement decides which outputs a tier may produce');
   assert(entitledTo('thread_summary', 'starter'), 'Starter can produce a thread report.');
   assert(entitledTo('action_plan', 'starter'), 'And an action plan.');
   assert(!entitledTo('decision_log', 'starter'), 'But not a decision log.');
+  assert(!entitledTo('follow_up_email', 'starter'), 'And not a follow-up email (Pro and Team only).');
+  assert(entitledTo('follow_up_email', 'pro'), 'Pro can produce follow-up email.');
+  assert(entitledTo('follow_up_email', 'team'), 'Team can produce follow-up email.');
   assert(entitledTo('decision_log', 'pro'), 'Pro can.');
   assert(entitledTo('decision_log', 'team'), 'So can Team.');
   for (const e of OUTPUT_ENTITLEMENTS) {

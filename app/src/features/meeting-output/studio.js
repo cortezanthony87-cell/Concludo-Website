@@ -112,6 +112,8 @@ export function mountMeetingStudio(root, opts = {}) {
     deckFonts: 'brand',
     error: '',
     outline: [],
+    draftingMethod: opts.draftingMethod || null,
+    draftingReason: null,
   };
   const CAN_FILE = opts.canFile !== false;
   const CAN_DRAFT_EMAIL = opts.canDraftEmail !== false;
@@ -240,12 +242,38 @@ export function mountMeetingStudio(root, opts = {}) {
     }, 350);
   }
 
-  function generate() {
+  async function generate() {
     S.error = '';
     try {
       const meta = {};
       Object.entries(S.meta).forEach(([k, v]) => v && (meta[k] = v));
-      S.model = CE.analyseMeeting(allSources(), meta);
+      const srcs = allSources();
+      if (opts.draftMeetingRecord) {
+        try {
+          const res = await opts.draftMeetingRecord(srcs, meta);
+          if (res && res.drafting_method === 'model' && res.record) {
+            S.model = CE.buildModelFromRecord(res.record, srcs, meta);
+            S.draftingMethod = 'model';
+            S.draftingReason = null;
+          } else if (res && res.model) {
+            S.model = res.model;
+            S.draftingMethod = res.draftingMethod || 'model';
+            S.draftingReason = res.reason || null;
+          } else {
+            S.model = CE.analyseMeeting(srcs, meta);
+            S.draftingMethod = 'basic';
+            S.draftingReason = res && res.reason ? res.reason : null;
+          }
+        } catch (err) {
+          S.model = CE.analyseMeeting(srcs, meta);
+          S.draftingMethod = 'basic';
+          S.draftingReason = 'model_api_unavailable';
+        }
+      } else {
+        S.model = CE.analyseMeeting(srcs, meta);
+        S.draftingMethod = 'basic';
+        S.draftingReason = null;
+      }
       S.step = 2;
       S.section = 'bottom';
       setY(0);
@@ -354,6 +382,13 @@ export function mountMeetingStudio(root, opts = {}) {
           <div class="progress"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>Reviewed</span><span>${reviewed} of ${all.length}</span></div><div class="bar"><i style="width:${all.length ? (reviewed / all.length) * 100 : 0}%"></i></div><button class="btn sm" style="width:100%;margin-top:6px" data-act="confirm-all">${ic('check')}<span>Confirm all remaining</span></button></div>
         </aside>
         <div>
+          ${S.draftingMethod === 'basic' && S.draftingReason === 'missing_meeting_date' && opts.canUseModelDrafting
+            ? `<div class="warn">${ic('alert')}<span>Add the meeting date to use full drafting.</span></div>`
+            : S.draftingMethod === 'basic' && S.draftingReason === 'limit_reached'
+            ? `<div class="warn">${ic('alert')}<span>You have used this month's full drafts. Drafted with the basic method. Review each item carefully.</span></div>`
+            : S.draftingMethod === 'basic' && S.draftingReason && S.draftingReason !== 'flag_off' && S.draftingReason !== 'missing_meeting_date'
+            ? `<div class="warn">${ic('alert')}<span>Drafted with the basic method. Review each item carefully.</span></div>`
+            : ''}
           ${m.warnings.map((w) => `<div class="warn">${ic('alert')}<span>${esc(w)}</span></div>`).join('')}
           <div class="toolbar"><div class="chipset"><button class="chip ${S.filter === 'all' ? 'on' : ''}" data-filter="all">All items</button><button class="chip ${S.filter === 'attn' ? 'on' : ''}" data-filter="attn">Needs attention (${attn})</button></div><span style="font-size:12.5px;color:var(--slate)">Edits update the record and the document straight away.</span></div>
           <section class="section" id="sec-bottom"><header><div><h2>Bottom line</h2><p>Written from the items below. It updates as you review.</p></div></header><div class="answer">${esc(m.bottomLine)}</div></section>
@@ -424,10 +459,10 @@ export function mountMeetingStudio(root, opts = {}) {
   }
 
   /* ======================================================= STEP 3: DOCUMENT */
+  // Client deck is hidden from the selector until explicit written release ("release the deck").
   const TEMPLATES = [
     ['board', 'Board briefing', 'Full record for directors and leadership', 'board'],
     ['exec', 'Executive summary', 'One page: the answer, decisions, next steps', 'one'],
-    ['deck', 'Client deck', 'Six slides in Concludo house style', 'spark'],
     ['actions', 'Action plan', 'Five-field schedule, timeline and gaps', 'list'],
     ['decisions', 'Decision pack', 'Each decision with its evidence and links', 'gavel'],
     ['email', 'Follow-up email', 'Draft only. Never sent automatically', 'mail'],

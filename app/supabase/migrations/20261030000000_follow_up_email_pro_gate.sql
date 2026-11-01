@@ -1,90 +1,66 @@
--- ==============================================================================
--- Concludo Workspace: Follow-up Email Pro Gate Migration
--- 30 October 2026. Gate: Feature follow_up_email_draft on Pro & Team tiers only.
--- ==============================================================================
-
 BEGIN;
 
--- 1. Update can_use_feature function to include follow_up_email_draft for Pro and Team
-CREATE OR REPLACE FUNCTION public.can_use_feature(p_user_id UUID, p_feature_key TEXT)
-RETURNS BOOLEAN AS $$
+-- 1. Update can_use_feature preserving effective_plan_for_user
+CREATE OR REPLACE FUNCTION public.can_use_feature(p_user_id uuid, p_feature_key text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
-    v_plan TEXT;
-    v_is_suspended BOOLEAN;
-    v_grant_tier TEXT;
+  v_plan TEXT;
 BEGIN
-    IF p_user_id IS NULL OR p_feature_key IS NULL THEN
-        RETURN false;
-    END IF;
-
-    SELECT plan, COALESCE(is_suspended, false) INTO v_plan, v_is_suspended
-    FROM public.profiles
-    WHERE id = p_user_id;
-
-    IF v_plan IS NULL THEN
-        RETURN false;
-    END IF;
-
-    -- Suspension beats everything, including a grant.
-    IF v_is_suspended = true THEN
-        RETURN false;
-    END IF;
-
-    IF v_plan = 'admin' THEN
-        RETURN true;
-    END IF;
-
-    v_grant_tier := public.active_grant_tier(p_user_id);
-    IF v_grant_tier IS NOT NULL THEN
-        v_plan := v_grant_tier;
-    END IF;
-
-    -- Team tier: includes all Pro features plus team workspace and governance
-    IF v_plan = 'team' THEN
-        RETURN p_feature_key IN (
-            'workspace_basic', 'core_outputs', 'copy_output', 'json_export',
-            'meeting_memory', 'decision_memory', 'action_tracker', 'keyword_search',
-            'insight', 'stats', 'endpoint_report', 'automation_export',
-            'saved_projects', 'transcript_archive', 'manual_outputs',
-            'next_best_action', 'meeting_health_dashboard',
-            'follow_up_email_draft',
-            'team_workspace', 'team_administration', 'shared_projects',
-            'shared_decisions', 'shared_actions', 'shared_insights',
-            'audit_logging', 'advanced_governance',
-            'compliance_controls', 'organization_admin', 'retention_policies',
-            'legal_hold', 'security_controls', 'organization_analytics'
-        );
-    END IF;
-
-    -- Pro subscriptions and trials: includes follow_up_email_draft
-    IF v_plan IN ('pro_subscription', 'pro_subscription_trial') THEN
-        RETURN p_feature_key IN (
-            'workspace_basic', 'core_outputs', 'copy_output', 'json_export',
-            'meeting_memory', 'decision_memory', 'action_tracker', 'keyword_search',
-            'insight', 'stats', 'endpoint_report', 'automation_export',
-            'saved_projects', 'transcript_archive', 'manual_outputs',
-            'next_best_action', 'meeting_health_dashboard',
-            'follow_up_email_draft'
-        );
-    END IF;
-
-    -- Starter tiers: does NOT include follow_up_email_draft
-    IF v_plan IN ('starter', 'starter_trial') THEN
-        RETURN p_feature_key IN ('workspace_basic', 'core_outputs', 'copy_output', 'json_export');
-    END IF;
-
-    -- Free preview: minimal outputs only
-    IF v_plan = 'free_preview' THEN
-        RETURN p_feature_key IN ('workspace_basic', 'core_outputs', 'copy_output');
-    END IF;
-
+  IF p_user_id IS NULL OR p_feature_key IS NULL THEN
     RETURN false;
+  END IF;
+
+  v_plan := public.effective_plan_for_user(p_user_id);
+  IF v_plan = 'admin' THEN
+    RETURN true;
+  END IF;
+
+  IF v_plan = 'team' THEN
+    RETURN p_feature_key IN (
+      'workspace_basic', 'core_outputs', 'copy_output', 'json_export',
+      'meeting_memory', 'decision_memory', 'action_tracker', 'keyword_search',
+      'insight', 'stats', 'endpoint_report', 'automation_export',
+      'saved_projects', 'transcript_archive', 'manual_outputs',
+      'next_best_action', 'meeting_health_dashboard',
+      'follow_up_email_draft',
+      'team_workspace', 'team_administration', 'shared_projects',
+      'shared_decisions', 'shared_actions', 'shared_insights',
+      'audit_logging', 'advanced_governance',
+      'compliance_controls', 'organization_admin', 'retention_policies',
+      'legal_hold', 'security_controls', 'organization_analytics'
+    );
+  END IF;
+
+  IF v_plan IN ('pro_subscription', 'pro_subscription_trial') THEN
+    RETURN p_feature_key IN (
+      'workspace_basic', 'core_outputs', 'copy_output', 'json_export',
+      'meeting_memory', 'decision_memory', 'action_tracker', 'keyword_search',
+      'insight', 'stats', 'endpoint_report', 'automation_export',
+      'saved_projects', 'transcript_archive', 'manual_outputs',
+      'next_best_action', 'meeting_health_dashboard',
+      'follow_up_email_draft'
+    );
+  END IF;
+
+  IF v_plan IN ('starter', 'starter_trial') THEN
+    RETURN p_feature_key IN ('workspace_basic', 'core_outputs', 'copy_output', 'json_export');
+  END IF;
+
+  IF v_plan = 'free_preview' THEN
+    RETURN p_feature_key IN ('workspace_basic', 'core_outputs', 'copy_output');
+  END IF;
+
+  RETURN p_feature_key IN ('workspace_basic', 'core_outputs', 'copy_output');
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$function$;
 
 GRANT EXECUTE ON FUNCTION public.can_use_feature(UUID, TEXT) TO authenticated, service_role;
 
--- 2. Update check_feature_access RPC endpoint to recognise follow_up_email_draft
+-- 2. Update check_feature_access RPC endpoint
 CREATE OR REPLACE FUNCTION public.check_feature_access(p_feature_key TEXT)
 RETURNS JSONB AS $$
 DECLARE
@@ -117,7 +93,7 @@ BEGIN
         );
     END IF;
 
-    SELECT plan INTO v_plan FROM public.profiles WHERE id = v_user_id;
+    v_plan := public.effective_plan_for_user(v_user_id);
 
     IF v_plan IS NULL THEN
         RETURN jsonb_build_object(

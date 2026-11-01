@@ -51,6 +51,7 @@ export type FeatureKey =
   // Meeting Output v2 Follow-Up Email Gating
   | 'follow_up_email_draft'
   | 'deck_export'
+  | 'model_drafting'
   // Tasklet 19 Features
   | 'ai_agents'
   | 'workflow_orchestration'
@@ -197,6 +198,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   admin_tools: 'Admin Tools',
   follow_up_email_draft: 'Follow-up Email Draft',
   deck_export: 'Client Deck Export',
+  model_drafting: 'Model Drafting',
   ai_agents: 'AI Agents',
   workflow_orchestration: 'Workflow Orchestration',
   intelligent_automation: 'Intelligent Automation',

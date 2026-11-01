@@ -13,7 +13,8 @@ import '../features/meeting-output/meeting-output.css';
 /**
  * Meeting output studio v2. Route: /meeting-output (unchanged).
  * The studio is a self-contained module scoped under .cmo. This page only supplies
- * the Workspace services it needs: the file parser, the project list and the save path.
+ * the Workspace services it needs: the file parser, the project list, edge function drafting,
+ * and the save path.
  */
 export const MeetingOutputPage: React.FC = () => {
   const { supabase } = useAuth();
@@ -21,6 +22,7 @@ export const MeetingOutputPage: React.FC = () => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const { isAllowed: canDraftEmail } = useFeatureAccess('follow_up_email_draft');
   const { isAllowed: canExportDeck } = useFeatureAccess('deck_export');
+  const { isAllowed: canUseModelDrafting } = useFeatureAccess('model_drafting');
 
   useEffect(() => {
     const host = hostRef.current;
@@ -29,11 +31,40 @@ export const MeetingOutputPage: React.FC = () => {
       embedded: true,
       canDraftEmail,
       canExportDeck,
+      canUseModelDrafting,
       parseFile: async (file) => {
         // Keep the matching PDF worker local instead of depending on a CDN version.
         pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
         const parsed = await parseUploadedFile(file);
         return { name: parsed.name, type: parsed.type, text: parsed.text };
+      },
+      draftMeetingRecord: async (srcs, meta) => {
+        // Blocker 3 & Round 3: If no meeting date is entered, only signal missing_meeting_date
+        // if the user has model drafting enabled; otherwise silent basic drafting
+        if (!meta?.meetingDate) {
+          return {
+            drafting_method: 'basic',
+            reason: canUseModelDrafting ? 'missing_meeting_date' : 'flag_off',
+          };
+        }
+
+        // Concatenate sources (primary transcript)
+        const transcript = srcs.map((s: any) => s.text || '').join('\n\n');
+        const meetingDate = meta.meetingDate;
+        const title = meta?.title || 'not stated';
+
+        const { data, error } = await supabase.functions.invoke('draft-meeting-record', {
+          body: {
+            transcript,
+            meetingDate,
+            title,
+          },
+        });
+
+        if (error || !data) {
+          return { drafting_method: 'basic', reason: 'model_api_unavailable' };
+        }
+        return data;
       },
       listProjects: async () => {
         const res = await fetchProjects(supabase);

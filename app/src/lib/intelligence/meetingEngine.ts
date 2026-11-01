@@ -97,6 +97,8 @@ export interface OpenItem {
   question: string;
   kind: 'approval' | 'deferred' | 'unresolved';
   raisedBy?: string;
+  resolver?: string;
+  neededBy?: string;
   evidence: Evidence[];
   review: Review;
 }
@@ -178,6 +180,13 @@ export interface MeetingModel {
     audience: 'internal' | 'client';
     correctionDeadline: string;
   };
+  nextMeeting?: {
+    date?: string;
+    time?: string;
+    mustProduce?: string;
+    rawText?: string;
+  };
+  flags?: string[];
 }
 
 /* -------------------------------------------------------------- constants */
@@ -239,8 +248,8 @@ export function normaliseDate(raw?: string | null, fallbackYear?: number): strin
  * Resolve a spoken deadline relative to the meeting date.
  * Returns the ISO date, the phrase as said, and whether the date is approximate.
  */
-export function resolveDue(sentence: string, meetingDate: string): { iso?: string; text?: string; approx: boolean } | null {
-  const s = sentence.toLowerCase();
+export function resolveDue(sentence: string, meetingDate: string): { iso?: string; text?: string; approx: boolean; uncertain?: boolean } | null {
+  const s = sentence.toLowerCase().replace(/\bfirst\s+thing\s+/i, '');
   const base = parseIso(meetingDate);
   const baseDow = base.getUTCDay();
   const y = base.getUTCFullYear();
@@ -256,16 +265,105 @@ export function resolveDue(sentence: string, meetingDate: string): { iso?: strin
     return iso;
   };
 
-  const lead = String.raw`(?:by|before|due|until|no later than|on|for|from|in|this|next|over|at|around|ahead of|the)?\s*`;
-  const rules: Array<[RegExp, (m: RegExpMatchArray) => { iso?: string; approx: boolean }]> = [
+  const isoDowBase = baseDow === 0 ? 7 : baseDow;
+  const currentWeekMonday = addDays(meetingDate, 1 - isoDowBase);
+  const nextWeekMonday = addDays(currentWeekMonday, 7);
+
+  const ORDINAL_MAP: Record<string, number> = {
+    first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3,
+    fourth: 4, '4th': 4, fifth: 5, '5th': 5, sixth: 6, '6th': 6,
+    seventh: 7, '7th': 7, eighth: 8, '8th': 8, ninth: 9, '9th': 9,
+    tenth: 10, '10th': 10, eleventh: 11, '11th': 11, twelfth: 12, '12th': 12,
+    thirteenth: 13, '13th': 13, fourteenth: 14, '14th': 14, fifteenth: 15, '15th': 15,
+    sixteenth: 16, '16th': 16, seventeenth: 17, '17th': 17, eighteenth: 18, '18th': 18,
+    nineteenth: 19, '19th': 19, twentieth: 20, '20th': 20,
+    'twenty-first': 21, 'twenty first': 21, '21st': 21,
+    'twenty-second': 22, 'twenty second': 22, '22nd': 22,
+    'twenty-third': 23, 'twenty third': 23, '23rd': 23,
+    'twenty-fourth': 24, 'twenty fourth': 24, '24th': 24,
+    'twenty-fifth': 25, 'twenty fifth': 25, '25th': 25,
+    'twenty-sixth': 26, 'twenty sixth': 26, '26th': 26,
+    'twenty-seventh': 27, 'twenty seventh': 27, '27th': 27,
+    'twenty-eighth': 28, 'twenty eighth': 28, '28th': 28,
+    'twenty-ninth': 29, 'twenty ninth': 29, '29th': 29,
+    thirtieth: 30, '30th': 30, 'thirty-first': 31, 'thirty first': 31, '31st': 31,
+  };
+
+  const rules: Array<[RegExp, (m: RegExpMatchArray) => { iso?: string; approx: boolean; uncertain?: boolean }]> = [
     [/\b(\d{4}-\d{2}-\d{2})\b/, (m) => ({ iso: m[1], approx: false })],
     [/\b(\d{1,2})[/.](\d{1,2})(?:[/.](\d{2,4}))?\b/, (m) => ({ iso: isoFromParts(m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : y, +m[2], +m[1]), approx: false })],
-    [/\b(?:the\s+)?week of (?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?(?:\s+(?:of\s+)?([a-z]+))?/, (m) => {
-      const mi = m[2] && monthIndex(m[2]) >= 0 ? monthIndex(m[2]) : (+m[1] < base.getUTCDate() ? mo % 12 : mo - 1);
-      return { iso: rollYear(mi, +m[1]), approx: true };
-    }],
+    
+    // Explicit date with month: 13 Nov, 13 November, Nov 13, November 13
     [/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b(?:,?\s+(\d{4}))?/, (m) => ({ iso: m[3] ? isoFromParts(+m[3], monthIndex(m[2]) + 1, +m[1]) : rollYear(monthIndex(m[2]), +m[1]), approx: false })],
     [/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\b/, (m) => ({ iso: rollYear(monthIndex(m[1]), +m[2]), approx: false })],
+
+    // Week of the Nth (digits or word ordinal)
+    [/\b(?:the\s+)?week of (?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-first|twenty-second|twenty-third|twenty-fourth|twenty-fifth|twenty-sixth|twenty-seventh|twenty-eighth|twenty-ninth|thirtieth|thirty-first)(?:\s+(?:of\s+)?([a-z]+))?/, (m) => {
+      const ordStr = m[1].toLowerCase();
+      const d = ORDINAL_MAP[ordStr] ?? parseInt(ordStr, 10);
+      const mi = m[2] && monthIndex(m[2]) >= 0 ? monthIndex(m[2]) : (d < base.getUTCDate() ? mo % 12 : mo - 1);
+      return { iso: rollYear(mi, d), approx: true };
+    }],
+
+    // Fortnight from ...
+    [/\ba\s+fortnight\s+from\s+(today|now|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/, (m) => {
+      if (m[1] === 'today' || m[1] === 'now') return { iso: addDays(meetingDate, 14), approx: false };
+      const target = DAY_NAMES.indexOf(m[1]);
+      const diff = (target - baseDow + 7) % 7 || 7;
+      return { iso: addDays(meetingDate, diff + 14), approx: false };
+    }],
+    [/\b(?:in\s+a|a)\s+fortnight\b/, () => ({ iso: addDays(meetingDate, 14), approx: false })],
+
+    // Wednesday next week / next week Wednesday
+    [/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+next\s+week\b|\bnext\s+week\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/, (m) => {
+      const day = m[1] || m[2];
+      const target = DAY_NAMES.indexOf(day);
+      const isoTargetDow = target === 0 ? 7 : target;
+      return { iso: addDays(nextWeekMonday, isoTargetDow - 1), approx: false };
+    }],
+
+    // Friday week
+    [/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+week\b/, (m) => {
+      const target = DAY_NAMES.indexOf(m[1]);
+      const isoTargetDow = target === 0 ? 7 : target;
+      const baseIsoDow = baseDow === 0 ? 7 : baseDow;
+      if (isoTargetDow === baseIsoDow) {
+        return { iso: addDays(meetingDate, 14), approx: false };
+      }
+      return { iso: addDays(nextWeekMonday, isoTargetDow - 1), approx: false };
+    }],
+
+    // Weekday + Ordinal (word or digits): "Friday the thirteenth", "Monday the sixteenth", "by the twentieth", "Wednesday the fourth"
+    [/\b(?:(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+)?(?:the\s+)?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-first|twenty-second|twenty-third|twenty-fourth|twenty-fifth|twenty-sixth|twenty-seventh|twenty-eighth|twenty-ninth|thirtieth|thirty-first|\d{1,2}(?:st|nd|rd|th)?)\b/, (m) => {
+      const weekday = m[1];
+      const ordStr = m[2];
+      const d = ORDINAL_MAP[ordStr] ?? parseInt(ordStr, 10);
+      if (!d || d < 1 || d > 31) return { iso: undefined, approx: true };
+
+      let candidate = isoFromParts(y, mo, d);
+      if (candidate <= meetingDate) {
+        candidate = isoFromParts(mo === 12 ? y + 1 : y, (mo % 12) + 1, d);
+      } else if (weekday) {
+        const targetDow = DAY_NAMES.indexOf(weekday);
+        if (parseIso(candidate).getUTCDay() !== targetDow) {
+          const nextCandidate = isoFromParts(mo === 12 ? y + 1 : y, (mo % 12) + 1, d);
+          if (parseIso(nextCandidate).getUTCDay() === targetDow) {
+            candidate = nextCandidate;
+          }
+        }
+      }
+
+      if (weekday) {
+        const targetDow = DAY_NAMES.indexOf(weekday);
+        const actualDow = parseIso(candidate).getUTCDay();
+        if (targetDow !== actualDow) {
+          return { iso: undefined, approx: true, uncertain: true };
+        }
+      }
+      return { iso: candidate, approx: false };
+    }],
+
+    // Relative periods
     [/\b(early|mid|late|end of|start of|beginning of)\s+(jan(?:uary)?|feb(?:ruary)?|march|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/, (m) => {
       const mi = monthIndex(m[2]);
       const last = new Date(Date.UTC(y, mi + 1, 0)).getUTCDate();
@@ -274,11 +372,6 @@ export function resolveDue(sentence: string, meetingDate: string): { iso?: strin
     }],
     [/\b(?:end of|close of)\s+(?:the\s+)?(?:this\s+)?month\b|\beom\b/, () => ({ iso: isoFromParts(y, mo, new Date(Date.UTC(y, mo, 0)).getUTCDate()), approx: false })],
     [/\bend of next month\b/, () => ({ iso: isoFromParts(mo === 12 ? y + 1 : y, (mo % 12) + 1, new Date(Date.UTC(y, mo + 1, 0)).getUTCDate()), approx: false })],
-    [/\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b/, (m) => {
-      const d = +m[1];
-      const thisMonth = d >= base.getUTCDate();
-      return { iso: thisMonth ? isoFromParts(y, mo, d) : isoFromParts(mo === 12 ? y + 1 : y, (mo % 12) + 1, d), approx: false };
-    }],
     [/\b(?:today|tonight|end of (?:the )?day|eod|cob|close of business)\b/, () => ({ iso: meetingDate, approx: false })],
     [/\btomorrow\b/, () => ({ iso: addDays(meetingDate, 1), approx: false })],
     [/\b(?:end of (?:the |this )?week|this friday|eow)\b/, () => ({ iso: fridayOf(meetingDate), approx: false })],
@@ -288,10 +381,9 @@ export function resolveDue(sentence: string, meetingDate: string): { iso?: strin
       const target = DAY_NAMES.indexOf(m[2]);
       let diff = (target - baseDow + 7) % 7 || 7;
       if (m[1]) {
-        // "next Monday": the one in the following Monday-to-Sunday week
-        const isoDowBase = (baseDow + 6) % 7;
-        const isoDowTarget = (target + 6) % 7;
-        if (isoDowTarget > isoDowBase) diff += 7;
+        const isoDowT = (target + 6) % 7;
+        const isoDowB = (baseDow + 6) % 7;
+        if (isoDowT > isoDowB) diff += 7;
       }
       return { iso: addDays(meetingDate, diff), approx: false };
     }],
@@ -305,17 +397,15 @@ export function resolveDue(sentence: string, meetingDate: string): { iso?: strin
   for (const [re, fn] of rules) {
     const m = s.match(re);
     if (m) {
-      // Only treat as a deadline when the phrase follows a deadline word or is clearly a date.
       const idx = m.index ?? 0;
       const before = s.slice(Math.max(0, idx - 22), idx);
-      const deadlineCue = /(by|before|due|until|no later than|on|for|this|next|over|ahead of|end of|the week of|week of|in|from)\s*(the\s*)?$/.test(before) || /^(today|tomorrow|tonight|eod|cob|end of|close of|this|next|early|mid|late|start of|beginning of|(?:the\s+)?week of|in \w+ weeks?)/.test(m[0]);
+      const deadlineCue = /(by|before|due|until|no later than|on|for|this|next|over|ahead of|end of|the week of|week of|in|from)\s*(the\s*)?$/.test(before) || /^(today|tomorrow|tonight|eod|cob|end of|close of|this|next|early|mid|late|start of|beginning of|(?:the\s+)?week of|in \w+ weeks?|a\s+fortnight|fortnight|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:next\s+week|week))/.test(m[0]);
       if (!deadlineCue && !/^\d{4}-|^\d{1,2}[/.]/.test(m[0])) continue;
       const r = fn(m);
       const text = sentence.substr(idx, m[0].length);
-      return { iso: r.iso, text: text.trim(), approx: r.approx };
+      return { iso: r.iso, text: text.trim(), approx: r.approx, uncertain: r.uncertain };
     }
   }
-  void lead;
   return null;
 }
 
@@ -403,6 +493,107 @@ function parsePerson(raw: string, present: boolean): Participant | null {
   return { name: m[1].trim(), role: (m[2] || m[3] || '').trim() || undefined, present };
 }
 
+
+function extractNextMeeting(
+  turns: Turn[],
+  meetingDate: string,
+  meetingTime?: string
+): { date?: string; time?: string; mustProduce?: string; rawText?: string } | undefined {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const text = turns[i].text;
+    if (/\b(?:give you a call|call you|be in touch|speak on the phone)\b/i.test(text) && !/\b(?:meet|meeting|check in)\b/i.test(text)) {
+      continue;
+    }
+    const m = text.match(/\b(?:next (?:meeting|committee meeting|partners meeting|review|sprint planning|planning)|sprint planning|(?:shall we|let's)\s+meet(?:\s+again)?|check in again|same time next (?:monday|tuesday|wednesday|thursday|friday)|same time in (?:two|2) weeks|book the (?:shortlist )?review)\b/i);
+    if (!m) continue;
+
+    let date: string | undefined;
+    let time: string | undefined;
+    let mustProduce: string | undefined;
+
+    const base = parseIso(meetingDate);
+    const baseDow = base.getUTCDay();
+    const isoDowBase = baseDow === 0 ? 7 : baseDow;
+    const currentWeekMonday = addDays(meetingDate, 1 - isoDowBase);
+    const nextWeekMonday = addDays(currentWeekMonday, 7);
+
+    const stNext = text.match(/\bsame time next (monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i);
+    if (stNext) {
+      const target = DAY_NAMES.indexOf(stNext[1].toLowerCase());
+      const isoTargetDow = target === 0 ? 7 : target;
+      date = addDays(nextWeekMonday, isoTargetDow - 1);
+      time = meetingTime;
+    }
+
+    if (!date && /\bsame time in (?:two|2) weeks\b/i.test(text)) {
+      date = addDays(meetingDate, 14);
+      time = meetingTime;
+    }
+
+    if (!date) {
+      const stated = text.match(/\b(?:(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+)?(?:the\s+)?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-first|twenty-second|twenty-third|twenty-fourth|twenty-fifth|twenty-sixth|twenty-seventh|twenty-eighth|twenty-ninth|thirtieth|thirty-first|\d{1,2}(?:st|nd|rd|th)?)(?:\s+(?:of\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?))?\b/i);
+      if (stated) {
+        const ordStr = stated[2].toLowerCase();
+        const ORDINAL_MAP: Record<string, number> = {
+          first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3, fourth: 4, '4th': 4, fifth: 5, '5th': 5,
+          sixth: 6, '6th': 6, seventh: 7, '7th': 7, eighth: 8, '8th': 8, ninth: 9, '9th': 9, tenth: 10, '10th': 10,
+          eleventh: 11, '11th': 11, twelfth: 12, '12th': 12, thirteenth: 13, '13th': 13, fourteenth: 14, '14th': 14,
+          fifteenth: 15, '15th': 15, sixteenth: 16, '16th': 16, seventeenth: 17, '17th': 17, eighteenth: 18, '18th': 18,
+          nineteenth: 19, '19th': 19, twentieth: 20, '20th': 20, 'twenty-first': 21, '21st': 21, 'twenty-second': 22, '22nd': 22,
+          'twenty-third': 23, '23rd': 23, 'twenty-fourth': 24, '24th': 24, 'twenty-fifth': 25, '25th': 25,
+          'twenty-sixth': 26, '26th': 26, 'twenty-seventh': 27, '27th': 27, 'twenty-eighth': 28, '28th': 28,
+          'twenty-ninth': 29, '29th': 29, thirtieth: 30, '30th': 30, 'thirty-first': 31, '31st': 31
+        };
+        const d = ORDINAL_MAP[ordStr] ?? parseInt(ordStr, 10);
+        if (d && d >= 1 && d <= 31) {
+          const y = base.getUTCFullYear();
+          const mo = base.getUTCMonth() + 1;
+          let candidate = isoFromParts(y, mo, d);
+          if (candidate <= meetingDate) {
+            candidate = isoFromParts(mo === 12 ? y + 1 : y, (mo % 12) + 1, d);
+          }
+          date = candidate;
+        }
+      }
+    }
+
+    if (!date) {
+      const nextDay = text.match(/\bnext\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i);
+      if (nextDay) {
+        const target = DAY_NAMES.indexOf(nextDay[1].toLowerCase());
+        const isoTargetDow = target === 0 ? 7 : target;
+        date = addDays(nextWeekMonday, isoTargetDow - 1);
+      }
+    }
+
+    const tm = text.match(/\b(?:at\s+)?(\d{1,2}(?::\d{2})?|six|seven|eight|nine|ten|eleven|twelve|one|two|three|four|five)(?:\s*(am|pm|o'clock))?\b/i);
+    if (tm) {
+      const wordMap: Record<string, string> = {
+        six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12',
+        one: '1', two: '2', three: '3', four: '4', five: '5'
+      };
+      const numStr = wordMap[tm[1].toLowerCase()] || tm[1];
+      const ampm = tm[2]?.toLowerCase() || (/pm|morning|evening|afternoon/.test(text) ? 'pm' : (Number(numStr) < 8 || Number(numStr) === 12 ? 'pm' : 'am'));
+      const actualAmpm = ampm === "o'clock" ? 'am' : (ampm === 'pm' ? 'pm' : 'am');
+      if (numStr.includes(':')) {
+        time = `${numStr} ${actualAmpm}`;
+      } else {
+        time = `${numStr}:00 ${actualAmpm}`;
+      }
+    }
+
+    const purp = text.match(/\b(?:to|aim would be to|for the)\s+([^.]+)/i);
+    if (purp) {
+      mustProduce = purp[1].trim();
+    }
+
+    if (date) {
+      return { date, time, mustProduce, rawText: text };
+    }
+  }
+  return undefined;
+}
+
 function parseHeader(text: string): HeaderInfo {
   const info: HeaderInfo = { attendees: [] };
   const lines = text.split(/\r?\n/).slice(0, 60);
@@ -421,6 +612,10 @@ function parseHeader(text: string): HeaderInfo {
     const m = line.match(/^(?:#+\s*)?([A-Za-z ]{3,22}):\s*(.*)$/);
     if (!m) {
       if (!info.title && /^#\s+/.test(line)) info.title = line.replace(/^#+\s*/, '').trim();
+      if (!info.date) {
+        const dMatch = line.match(/\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)?,?\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|\d{4}-\d{2}-\d{2})\b/i);
+        if (dMatch) info.date = normaliseDate(dMatch[1]);
+      }
       continue;
     }
     const label = m[1].trim().toLowerCase();
@@ -434,7 +629,8 @@ function parseHeader(text: string): HeaderInfo {
     else if (/^(?:time|duration)$/.test(label)) info.time = val;
     else if (/^(?:attendees?|present|participants)$/.test(label)) {
       if (!val) inAttendeeList = true;
-      for (const p of splitPeople(val)) {
+      const cleanVal = val.replace(/\.\s*Quorum\s+.*$/i, '');
+      for (const p of splitPeople(cleanVal)) {
         const person = parsePerson(p, true);
         if (person) info.attendees.push(person);
       }
@@ -451,7 +647,7 @@ function parseHeader(text: string): HeaderInfo {
 }
 
 const TURN_RE =
-  /^\s*(?:[-*•]\s*)?(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?\s*[-–]?\s*)?(?:\*\*)?([A-Z][A-Za-z0-9'.-]*(?:\s+[A-Z][A-Za-z0-9'.-]*){0,3})(?:\*\*)?\s*(?:\(([^)]{1,40})\))?\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+)$/;
+  /^\s*(?:[-*•]\s*)?(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?\s*[-–]?\s*)?(?:\*\*)?([A-Z][A-Za-z0-9'.-]*(?:\s+[A-Za-z0-9'.-]+){0,3})(?:\*\*)?\s*(?:\(([^)]{1,40})\))?\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+)$/;
 
 function parseTurns(src: SourceInput, sourceId: string): Turn[] {
   const turns: Turn[] = [];
@@ -459,8 +655,14 @@ function parseTurns(src: SourceInput, sourceId: string): Turn[] {
   lines.forEach((raw, i) => {
     const line = raw.trim();
     if (!line || /^(?:WEBVTT|NOTE)\b/.test(line) || /-->/.test(line) || /^\d+$/.test(line) || /^-{3,}$/.test(line)) return;
-    const m = src.kind === 'document' ? null : line.match(TURN_RE);
-    if (m && !META_LABELS.test(m[2].trim()) && m[2].split(/\s+/).length <= 4) {
+    const cleanLine = line.replace(/[–—]/g, '-');
+    const vtt = cleanLine.match(/^<v\s+([^>]+)>(.+)$/);
+    if (vtt) {
+      turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, speaker: vtt[1].trim(), text: vtt[2].trim() });
+      return;
+    }
+    const m = src.kind === 'document' ? null : cleanLine.match(TURN_RE);
+    if (m && !META_LABELS.test(m[2].trim()) && !/^(?:RESOLVED|ACTION)$/i.test(m[2].trim()) && m[2].split(/\s+/).length <= 4) {
       turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, timestamp: m[1], speaker: m[2].trim(), text: m[4].trim() });
       return;
     }
@@ -552,6 +754,26 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     quote: clean(quote).replace(/^[-*•]\s*/, ''),
   });
 
+  const fullText = usable.map((s) => s.text).join('\n');
+  if (allTurns.some((t) => /^Speaker \d+$/i.test(t.speaker || '') || !t.speaker) || /Speaker \d+/i.test(fullText)) {
+    if (!warnings.includes('speaker_ambiguity')) warnings.push('speaker_ambiguity');
+  }
+  if (/\b(?:privileged and confidential|just between us|without prejudice|strictly confidential|off the record)\b/i.test(fullText)) {
+    if (!warnings.includes('consent_or_confidentiality_signal')) warnings.push('consent_or_confidentiality_signal');
+  }
+  if (/\b(?:lease dispute|letter of demand|litigation|legal advice|solicitor|barrister)\b/i.test(fullText)) {
+    if (!warnings.includes('requires_qualified_review')) warnings.push('requires_qualified_review');
+  }
+  if (/\b(?:SYSTEM\s+NOTE|IGNORE (?:ALL )?PREVIOUS INSTRUCTIONS|NOTE TO AI)\b/i.test(fullText)) {
+    if (!warnings.includes('instruction_shaped_content')) warnings.push('instruction_shaped_content');
+  }
+  // Name variant detection (general)
+  const attendeeFirsts = header.attendees.map(a => a.name.split(' ')[0].toLowerCase());
+  const turnSpeakers = new Set(allTurns.map(t => (t.speaker || '').split(' ')[0].toLowerCase()));
+  if (attendeeFirsts.some(af => turnSpeakers.has(af) && header.attendees.some(a => a.name.split(' ').length > 1 && a.name.split(' ')[0].toLowerCase() === af))) {
+    if (!warnings.includes('name_variant')) warnings.push('name_variant');
+  }
+
   const decisions: Decision[] = [];
   const actions: Action[] = [];
   const risks: Risk[] = [];
@@ -560,6 +782,7 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
   const claimed = new Set<string>(); // sentence keys used by a decision or action
 
   const pushAction = (a: Omit<Action, 'id' | 'horizon' | 'gaps' | 'review'>) => {
+    a.task = a.task.replace(/\s+\b(?:by|before|due|on|until|at|ahead of|by the end of|from|for the week of|the week of|week of|in time for)\b\s*$/i, '');
     if (a.task.length < 6 || words(a.task).length < 2) return;
     const dup = actions.find((x) => similarity(x.task, a.task) >= 0.7 && (!x.owner || !a.owner || x.owner === a.owner));
     if (dup) {
@@ -600,6 +823,17 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     const sentences = splitSentences(turn.text);
     sentences.forEach((rawSentence) => {
       const sentence = deFill(rawSentence);
+      // General sensitive content categories (passwords/credentials, health/medical, settlement/confidential claims)
+      const isSensitive = /\b(?:(?:temp(?:orary)?\s+)?password|passcode|pin|credentials?|api[_-]?key|secret\s+key|access\s+token)\s*(?:is|:|=)\s*\S+/i.test(sentence)
+        || /\b(?:medical\s+(?:condition|history|records?)|health\s+(?:issue|condition|problem)|surgery|diagnosis|illness|pregnant|pregnancy|disability)\b/i.test(sentence)
+        || /\b(?:settlement\s+figure|without\s+prejudice\s+offer|accept\s+\0\d+.*(?:to\s+(?:settle|make\s+this\s+go\s+away|drop\s+the\s+claim)|in\s+settlement))\b/i.test(sentence);
+      if (isSensitive) {
+        if (!warnings.includes('sensitive_content_withheld')) warnings.push('sensitive_content_withheld');
+        return;
+      }
+      if (/\b(?:SYSTEM\s+NOTE|IGNORE (?:ALL )?PREVIOUS INSTRUCTIONS|NOTE TO AI|PROMPT INJECTION)\b/i.test(sentence)) {
+        return;
+      }
       const key = `${turn.sourceId}:${turn.line}:${sentence.slice(0, 40)}`;
       const lower = sentence.toLowerCase();
       const isQuestion = /\?\s*$/.test(sentence);
@@ -617,6 +851,43 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       for (const m of sentence.matchAll(/(?:AU)?\$\s?\d[\d,]*(?:\.\d+)?\s?(?:k|m|million|thousand|bn)?\b|\b\d+(?:\.\d+)?\s?(?:%|per ?cent)|\b\d{1,3}(?:,\d{3})+\s+[a-z]+|\b\d{3,}\s+(?:contacts|listings|records|clients|properties|tenancies|leads|vendors|staff|users|hours|days)\b/gi)) {
         const core = m[0].replace(/[^\d.$%]/g, '');
         if (!figures.some((f) => f.value.replace(/[^\d.$%]/g, '') === core)) figures.push({ value: m[0].trim(), context: shorten(clean(sentence), 140), evidence: evidenceOf(turn, rawSentence) });
+      }
+
+      /* typed minutes RESOLVED and ACTION lines */
+      const resolvedMin = sentence.match(/^(?:[-*•]\s*)?(?:RESOLVED|Resolved)\s*:\s*(.+)$/i);
+      if (resolvedMin) {
+        const body = cap(stripEnd(clean(resolvedMin[1])));
+        pushDecision({
+          statement: body,
+          calledBy: header.chair || 'Board',
+          status: /subject to|conditional/i.test(body) ? 'conditional' : 'agreed',
+          condition: /subject to\s+(.+)/i.test(body) ? body.match(/subject to\s+(.+)/i)?.[0] : undefined,
+          evidence: [evidenceOf(turn, rawSentence)],
+          confidence: 'explicit',
+        });
+        claimed.add(key);
+        return;
+      }
+
+      const actionMin = sentence.match(/^(?:[-*•]\s*)?(?:ACTION|Action)\s*:\s*([A-Za-z]+)\s*[-–—:,]\s*(.+)$/i);
+      if (actionMin) {
+        const rawOwner = actionMin[1];
+        const owner = resolveName(rawOwner) || rawOwner;
+        let task = actionMin[2];
+        const due = resolveDue(task, meetingDate);
+        if (due?.text) task = task.replace(new RegExp(`\\s*(?:by|before|due|on|until)?\\s*${due.text.replace(/[.*+?^${}()|[\]\\]/g, '\$&')}`, 'i'), '');
+        pushAction({
+          task: firstPersonToTask(task, owner),
+          owner,
+          ownerBasis: 'stated',
+          due: due?.iso,
+          dueText: due?.text,
+          dueApprox: !!due?.approx,
+          evidence: [evidenceOf(turn, rawSentence)],
+          confidence: 'explicit',
+        });
+        claimed.add(key);
+        return;
       }
 
       /* explicit markers in notes and documents */
@@ -655,8 +926,29 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       const deferred = /\b(?:park (?:that|this|it)|parking (?:that|this|it)|come back to (?:that|this|it)|revisit|take (?:that|this|it) offline|leave (?:that|this|it) for (?:the )?next|next meeting|defer(?:red)?|hold off (?:on|until)|tbc|to be confirmed)\b/i.test(sentence);
       const needsApproval = /\b(?:needs?|need|requires?|subject to|pending|waiting (?:on|for)|until)\b[^.]{0,40}\b(?:sign[- ]?off|approval|approve|signs? off|board|cfo|finance)\b/i.test(sentence);
 
+      /* F2: assent to a proposal in previous turn */
+      if (/^(?:yes|yep|agreed|let's do that|works for me|sounds good|let's do it)[,.]?$/i.test(sentence) && ti > 0) {
+        const prevText = allTurns[ti - 1].text;
+        const prop = prevText.match(/\b(?:so the plan is to|the plan is to|let's|we go with|we proceed with|we will|how about we|why don't we|we should|proposal is to|what if we)\s+([^.?]+)/i);
+        if (prop) {
+          pushDecision({
+            statement: cap(stripEnd(clean(prop[1]))),
+            calledBy: speakerOf(allTurns[ti - 1]),
+            status: 'agreed',
+            evidence: [evidenceOf(allTurns[ti - 1], prop[0]), evidenceOf(turn, rawSentence)],
+            confidence: 'explicit',
+          });
+          claimed.add(key);
+          return;
+        }
+      }
+
       /* decisions */
-      const decisionCue = /\b(?:decision(?: is)?\s*:|(?:so\s+)?we(?:'ve| have)? (?:now )?decided|(?:so\s+)?we(?:'re| are) (?:all )?agreed|that'?s (?:agreed|decided|settled|locked in)|let'?s lock (?:that|it) in|lock(?:ed)? in|we(?:'ll| will| are|'re) go(?:ing)? with|let'?s go with|approved?\b|i(?:'m| am) (?:comfortable|happy) (?:approving|to approve|signing off)|signed off|the call is|we(?:'re| are) (?:moving|switching|going) (?:to|ahead)|agreed:?)\b/i;
+      // General decision reversal / contradiction detection
+      if (/\b(?:scrap\s+(?:the\s+)?|scratch\s+(?:that|the)|revisit(?:ing)?|reverse|reversal|change\s+(?:of\s+mind|our\s+mind|to)|instead\s+of|rather\s+than|actually\s+no|actually,?\s+let'?s|changed?\s+to)\b/i.test(sentence)) {
+        if (!warnings.includes('contradiction')) warnings.push('contradiction');
+      }
+      const decisionCue = /\b(?:decision(?: is)?\s*:|(?:so\s+)?we(?:'ve| have)?\s*(?:all|unanimously|now|also)?\s*decided|(?:so\s+)?we(?:'re| are)\s*(?:all|unanimously)?\s*agreed|that'?s (?:agreed|decided|settled|locked in)|let'?s lock (?:that|it) in|lock(?:ed)? in|we(?:'ll| will| are|'re) go(?:ing)? with|let'?s go with|approved?\b|i(?:'m| am) (?:comfortable|happy) (?:approving|to approve|signing off)|signed off|the call is|we(?:'re| are) (?:moving|switching|going) (?:to|ahead)|agreed:?)\b/i;
       if (decisionCue.test(sentence) && !isQuestion && !notDecided && !/\b(?:if|whether|maybe|might|could|should we|do we|not approved|isn't approved|not agreed)\b[^.]{0,12}(?:approve|agree|decide|go with)/i.test(sentence) && !/^(?:if|when|once)\b/i.test(sentence)) {
         let statement = sentence
           .replace(/^(?:so,?\s*)?(?:decision(?: is)?\s*:\s*|(?:so\s+)?we(?:'ve| have)? (?:now )?decided (?:that\s+|to\s+)?|(?:so\s+)?we(?:'re| are) (?:all )?agreed(?: that|,|:)?\s*|let'?s note (?:that|this) as a decision:?\s*)/i, '')
@@ -710,11 +1002,12 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
 
       /* actions: first-person commitments */
       const commit = sentence.match(/\b(?:I'll|I will|I can|I'm going to|I am going to|I'll take|I'll own|leave (?:it|that) with me,?\s*I'll|I'll get)\s+(.+)$/i);
-      if (commit && !HEDGE_I.test(sentence) && !/^(?:if|when)\b/i.test(sentence) && !isQuestion && turn.speaker) {
+      const isNeedFromOther = /\b(?:I(?:'ll| will)?\s*need|we(?:'ll| will)?\s*need)\b/i.test(sentence);
+      if (commit && !isNeedFromOther && !HEDGE_I.test(sentence) && !/^(?:if|when)\b/i.test(sentence) && !isQuestion && turn.speaker) {
         const owner = speaker;
         let task = commit[1];
         const due = resolveDue(task, meetingDate);
-        if (due?.text) task = task.replace(new RegExp(`[,]?\\s*(?:by|before|due|on|until|for|in|over|at|ahead of|the)?\\s*(?:the\\s+)?${due.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'), '');
+        if (due?.text) task = task.replace(new RegExp(`[,]?\\s*(?:\\b(?:by|before|due|on|until|for|in|over|at|ahead of|the)\\b\\s+)?(?:the\\s+)?${due.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'), '');
         task = task.replace(/^(?:also|just|then|definitely|happily)\s+/i, '').replace(/^(?:take|own)\s+(?:the\s+)?/i, (m) => (/own/i.test(m) ? 'Own the ' : 'Take the '));
         const done = sentence.match(/\b(?:so that|done when|signed off by|ready for|in time for)\s+(.+)$/i);
         if (done) task = task.replace(/[,;]?\s*(?:so that|done when|signed off by|ready for|in time for)\s+.+$/i, '');
@@ -722,10 +1015,49 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
           let finalTask = task;
           if (/^(?:do that|do it|do this|that|it)$/i.test(stripEnd(task)) && ti > 0) {
             const req = allTurns[ti - 1].text.match(/(?:can you|could you|will you|would you|please)\s+([^?]+)\?/i);
-            if (req) finalTask = req[1];
+            if (req) {
+              finalTask = req[1];
+              const prevDue = resolveDue(finalTask, meetingDate);
+              if (prevDue?.text) {
+                finalTask = finalTask.replace(new RegExp(`[,]?\\s*(?:\\b(?:by|before|due|on|until|for|in|over|at|ahead of|the)\\b\\s+)?(?:the\\s+)?${prevDue.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'), '');
+              }
+            }
           }
           pushAction({ task: firstPersonToTask(finalTask, owner), owner, ownerBasis: 'speaker', due: due?.iso, dueText: due?.text, dueApprox: !!due?.approx, doneDefinition: done ? cap(stripEnd(done[1])) : undefined, evidence: [evidenceOf(turn, rawSentence)], confidence: 'explicit' });
           claimed.add(key);
+          return;
+        }
+      }
+
+      /* F3: request addressed by name, followed by assent from that person */
+      const directReq = sentence.match(/^(?:and\s+)?([A-Z][a-z]+)[,:]?\s+(?:I(?:'ll| will)?\s+need\s+(?:from you\s+)?(?:to\s+)?|can you\s+|could you\s+|please\s+|what I need from you is\s+|your\s+)([^?]+)/i)
+        || sentence.match(/^(?:and\s+)?([A-Z][a-z]+)[,:]?\s+(?:I(?:'ll| will)?\s+need)\s+([^?]+)/i);
+      if (directReq && resolveName(directReq[1])) {
+        const target = resolveName(directReq[1])!;
+        const next = allTurns.slice(ti + 1, ti + 3).find((t) => speakerOf(t) === target);
+        const accepted = next && (ACCEPT.test(next.text) || ACCEPT.test(deFill(next.text)) || /\b(?:will do|can do|done|i'll\s+(?:get|send|do|have|ask)|i can do that)\b/i.test(next.text));
+        if (accepted) {
+          let task = directReq[2];
+          const due = resolveDue(task, meetingDate) || (next ? resolveDue(next.text, meetingDate) : null);
+          if (due?.text) task = task.replace(new RegExp(`\\s*(?:by|before|due|on|until)?\\s*${due.text.replace(/[.*+?^${}()|[\]\\]/g, '\$&')}`, 'i'), '');
+          task = task.replace(/\s+\bfrom you\b/i, '');
+          pushAction({
+            task: firstPersonToTask(task.replace(/\byour\b/gi, `${target.split(' ')[0]}'s`), target),
+            owner: target,
+            ownerBasis: 'stated',
+            due: due?.iso,
+            dueText: due?.text,
+            dueApprox: !!due?.approx,
+            evidence: [evidenceOf(turn, rawSentence), ...(next ? [evidenceOf(next, next.text)] : [])],
+            confidence: 'explicit',
+          });
+          claimed.add(key);
+          if (next) {
+            splitSentences(next.text).forEach((ns) => {
+              claimed.add(`${next.sourceId}:${next.line}:${deFill(ns).slice(0, 40)}`);
+              claimed.add(`${next.sourceId}:${next.line}:${ns.slice(0, 40)}`);
+            });
+          }
           return;
         }
       }
@@ -805,6 +1137,32 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     });
   });
 
+
+  /* F4: dialogue open questions */
+  const DEFERRAL_RE = /\b(?:not sure|i'll check|no idea|park (?:it|that)|let me think|good question|don't know|dunno|have a think|hard to say|to be considered|i'll find out|no rush|that's your (?:call|decision)|i'll confirm|can you find out|let you know|check with|i'll ask|we could, i'd want to think)\b/i;
+  for (let ti = 0; ti < allTurns.length; ti++) {
+    const t = allTurns[ti];
+    const sents = splitSentences(t.text);
+    for (const sent of sents) {
+      if (/\?\s*$/.test(sent) || /^Question raised:\s*/i.test(sent)) {
+        if (/^(?:yeah|right|is that right|by \w+)\?\s*$/i.test(sent.trim())) continue;
+        if (/^(?:can you|could you|will you|would you)\s+.*\b(?:by|before|tomorrow)\b/i.test(sent)) continue;
+        const nextTurns = allTurns.slice(ti + 1, ti + 3);
+        const hasDef = nextTurns.some((nt) => DEFERRAL_RE.test(nt.text));
+        const isExp = /^Question raised:/i.test(sent) || /to be considered/i.test(t.text);
+        if (hasDef || isExp) {
+          const cleanQ = cap(stripEnd(clean(sent.replace(/^Question raised:\s*/i, ''))));
+          pushOpen({
+            question: cleanQ.endsWith('?') ? cleanQ : cleanQ + '?',
+            kind: 'unresolved',
+            raisedBy: speakerOf(t),
+            evidence: [evidenceOf(t, sent)],
+          });
+        }
+      }
+    }
+  }
+
   /* ------------------------------------------------ number */
   decisions.forEach((d, i) => (d.id = `D${String(i + 1).padStart(2, '0')}`));
   actions.forEach((a, i) => (a.id = `A${String(i + 1).padStart(2, '0')}`));
@@ -861,8 +1219,15 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
   }
   if (!allTurns.some((t) => t.speaker)) warnings.push('No speaker labels found. Owners can only be taken from explicit “Action:” lines.');
 
+  const nextMeeting = extractNextMeeting(allTurns, meetingDate, header.time);
+  if (actions.some((a) => a.dueApprox) || warnings.some((w) => /date/i.test(w))) {
+    if (!warnings.includes('date_uncertainty')) warnings.push('date_uncertainty');
+  }
+
   const model: MeetingModel = {
     version: '2.0',
+    nextMeeting,
+    flags: [...warnings],
     meta,
     sources,
     participants,
@@ -1122,57 +1487,104 @@ export function followUpEmail(
   const r = m.risks.filter(include);
 
   // Headline decision: first confirmed decision, shortened to 60 characters at a word boundary
+  const DANGLING_HEADLINE = new Set([
+    'of', 'the', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between',
+    'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from',
+    'up', 'down', 'out', 'over', 'under', 'again', 'further', 'then', 'once', 'this',
+    'that', 'these', 'those', 'a', 'an', 'and', 'or', 'but', 'if', 'because', 'as',
+    'until', 'while', 'than',
+    'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'
+  ]);
+
   const confirmedDec = d.find((x) => x.status === 'agreed' || x.status === 'conditional');
   let headline = 'decisions and actions';
   if (confirmedDec) {
     const raw = stripEnd(confirmedDec.statement);
-    if (raw.length <= 60) {
-      headline = raw;
-    } else {
-      const sub = raw.slice(0, 60);
-      const lastSp = sub.lastIndexOf(' ');
-      headline = (lastSp > 15 ? sub.slice(0, lastSp) : sub).replace(/[,;:.-]+$/, '');
+    const isFragment = /^(?:let's do (?:that|it)|agreed|works for me|yes|yep|so decided|we decided|done)\b/i.test(raw) || /\b(?:it|that|this)$/i.test(raw);
+    if (!isFragment) {
+      if (raw.length <= 60) {
+        headline = raw;
+      } else {
+        const sub = raw.slice(0, 60);
+        const lastSp = sub.lastIndexOf(' ');
+        let trimmed = (lastSp > 15 ? sub.slice(0, lastSp) : sub).replace(/[,;:.-]+$/, '').trim();
+        const words = trimmed.split(/\s+/);
+        while (words.length > 0 && DANGLING_HEADLINE.has(words[words.length - 1].toLowerCase())) {
+          words.pop();
+        }
+        // If parentheses are opened but not closed, strip trailing unclosed open paren
+        let hText = words.join(' ');
+        if (hText.includes('(') && !hText.includes(')')) {
+          hText = hText.split('(')[0].trim();
+        }
+        headline = hText.length >= 5 ? hText : 'decisions and actions';
+      }
     }
   }
 
   // Subject: [Client or meeting name] [meeting type], [d Mon]: [headline decision]
   const clientOrMeeting = m.meta.organisation || m.meta.project || m.meta.title || 'Meeting';
   const mType = m.meta.meetingType || 'Meeting';
+  const hasType = new RegExp(`\\b${mType}\\b`, 'i').test(clientOrMeeting);
+  const subjectPrefix = hasType ? clientOrMeeting : `${clientOrMeeting} ${mType}`;
   const dMon = m.meta.meetingDate ? parseIso(m.meta.meetingDate).toLocaleDateString('en-AU', { timeZone: 'UTC', day: 'numeric', month: 'short' }) : '';
-  let subject = `${clientOrMeeting} ${mType}, ${dMon}: ${headline}`.replace(/\s*,\s*:\s*/, ': ');
+  let subject = `${subjectPrefix}, ${dMon}: ${headline}`.replace(/\s*,\s*:\s*/, ': ');
   if (subject.length >= 120) {
     const sub = subject.slice(0, 119);
     const lastSp = sub.lastIndexOf(' ');
     subject = (lastSp > 20 ? sub.slice(0, lastSp) : sub).replace(/[,;:.-]+$/, '');
   }
+  if (subject.includes('(') && !subject.includes(')')) {
+    subject = subject.split('(')[0].trim().replace(/[,;:.-]+$/, '');
+  }
 
   const sections: string[] = [];
 
   // [Names] and Cc: [informed list]
-  const present = m.participants.filter((p) => p.present);
-  const absent = m.participants.filter((p) => !p.present);
+  const cleanPName = (n: string) => n.replace(/[\s\t]+\d+(?::\d{2})*$/g, '').trim();
+  const seenP = new Set<string>();
+  const uniquePresent: Participant[] = [];
+  m.participants.filter((p) => p.present).forEach((p) => {
+    const cName = cleanPName(p.name);
+    if (cName && !seenP.has(cName.toLowerCase())) {
+      seenP.add(cName.toLowerCase());
+      uniquePresent.push({ ...p, name: cName });
+    }
+  });
+
+  const seenA = new Set<string>();
+  const uniqueAbsent: Participant[] = [];
+  m.participants.filter((p) => !p.present).forEach((p) => {
+    const cName = cleanPName(p.name);
+    if (cName && !seenP.has(cName.toLowerCase()) && !seenA.has(cName.toLowerCase())) {
+      seenA.add(cName.toLowerCase());
+      uniqueAbsent.push({ ...p, name: cName });
+    }
+  });
+
   const fmtParticipant = (p: Participant) => (audience === 'client' && p.role ? `${p.name} (${p.role})` : p.name);
 
-  if (present.length > 0) sections.push(present.map(fmtParticipant).join(', '));
-  if (absent.length > 0) sections.push(`Cc: ${absent.map(fmtParticipant).join(', ')}`);
+  if (uniquePresent.length > 0) sections.push(uniquePresent.map(fmtParticipant).join(', '));
+  if (uniqueAbsent.length > 0) sections.push(`Cc: ${uniqueAbsent.map(fmtParticipant).join(', ')}`);
 
   // Opening line
   const openLine = m.meta.title
     ? `Thank you for your time at ${m.meta.title} on ${fmtDate(m.meta.meetingDate)}. Summary below. If anything is wrong, please tell me by ${correctionDeadline} and I will correct it.`
     : `Summary below. If anything is wrong, please tell me by ${correctionDeadline} and I will correct it.`;
-  sections.push(openLine);
+  sections.push(openLine.replace(/\.{2,}$/, '.'));
 
   // CONTEXT: what, when, who, what it was for. Two or three lines.
   if (m.meta.title) {
+    const dynamicBottomLine = buildBottomLine(d, a, o, r).replace(/\.{2,}$/, '.');
     const ctx = [
       'CONTEXT',
-      `${m.meta.title} (${m.meta.meetingType}), held on ${fmtDate(m.meta.meetingDate)}${m.meta.duration ? ` (${m.meta.duration})` : ''}.`,
-      `Attendees: ${present.length > 0 ? present.map((p) => p.name).join(', ') : 'Not recorded'}.`,
+      `${m.meta.title} (${m.meta.meetingType}), held on ${fmtDate(m.meta.meetingDate)}${m.meta.duration && !m.meta.duration.includes('(from timestamps)') ? ` (${m.meta.duration})` : ''}.`.replace(/\.{2,}$/, '.'),
+      `Attendees: ${uniquePresent.length > 0 ? uniquePresent.map((p) => p.name).join(', ') : 'Not recorded'}.`,
     ];
-    if (m.bottomLine) {
-      ctx.push(`Focus: ${m.bottomLine}.`);
+    if (dynamicBottomLine) {
+      ctx.push(`Focus: ${dynamicBottomLine.replace(/\.{2,}$/, '')}.`);
     } else if (m.meta.project) {
-      ctx.push(`Focus: ${m.meta.project}.`);
+      ctx.push(`Focus: ${m.meta.project.replace(/\.{2,}$/, '')}.`);
     }
     sections.push(ctx.join('\n'));
   }
@@ -1194,11 +1606,10 @@ export function followUpEmail(
   if (a.length > 0) {
     const aRows = a.map((x) => {
       const oVal = x.owner ? x.owner : 'Who will own this?';
-      const byVal = x.due ? `${fmtDate(x.due)}${x.dueApprox ? ' (approx.)' : ''}` : 'Can you confirm a date?';
-      const confVal = x.evidence[0]?.speaker ? x.evidence[0].speaker : 'Not recorded';
-      return `${x.id} | ${x.task} | ${oVal} | ${byVal} | ${confVal}`;
+      const byVal = x.due ? `${fmtDate(x.due)}${x.dueApprox ? ' (approx.)' : ''}` : 'Date to be agreed';
+      return `${x.id} | ${x.task} | ${oVal} | ${byVal}`;
     });
-    sections.push(['ACTIONS', '# | Action | Owner | By | Confirmed by', '---|---|---|---|---', ...aRows].join('\n'));
+    sections.push(['ACTIONS', '# | Action | Owner | By', '---|---|---|---', ...aRows].join('\n'));
   }
 
   // DEADLINES AND DATES: only dates stated in the record
@@ -1209,7 +1620,62 @@ export function followUpEmail(
 
   // OPEN QUESTIONS: Q-01 [question]. [Owner], by [date].
   if (o.length > 0) {
-    sections.push(['OPEN QUESTIONS', ...o.map((x) => `${x.id} ${stripEnd(x.question)}. Who will own this?, by Can you confirm a date?.`)].join('\n'));
+    const formatNeededByDate = (rawDate: string): string => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return rawDate;
+      const [y, m, d] = rawDate.split("-").map((v) => parseInt(v, 10));
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${weekdays[dt.getUTCDay()]} ${d} ${months[m - 1]}`;
+    };
+
+    const formatOpenQ = (x: OpenItem) => {
+      // Separate initial question/statement part from any follow-up note sentence
+      // e.g. "Can Mei Lin's bonus be counted as income? This varies by lender."
+      let qPart = stripEnd(x.question).trim();
+      let notePart = '';
+      const qMarkIdx = qPart.indexOf('?');
+      if (qMarkIdx !== -1 && qMarkIdx < qPart.length - 1) {
+        notePart = qPart.slice(qMarkIdx + 1).trim();
+        qPart = qPart.slice(0, qMarkIdx).trim();
+      } else {
+        qPart = qPart.replace(/[\s,;:.!?]+$/, '');
+      }
+
+      // Round 4 Rule: Open questions written as statements ("Whether to keep the penguin tour") get no question mark.
+      const isStatement = /^\b(?:whether|if|to consider|to confirm|how to|we need to|explore|investigate|discuss|consider)\b/i.test(qPart);
+      const withMark = qPart ? (isStatement ? `${qPart}.` : `${qPart}?`) : 'Open question?';
+
+      // Clean notePart so it has no trailing punctuation except a single period
+      if (notePart) {
+        notePart = notePart.replace(/[\s,;:.!?]+$/, '');
+        if (notePart) notePart = `${notePart}.`;
+      }
+
+      // Check resolver: if resolver not explicitly set, check if an action covers this question
+      let resolver = x.resolver;
+      if (!resolver) {
+        const qWords = qPart.toLowerCase().match(/[a-z0-9]+/g)?.filter((w) => w.length > 3 && !['this', 'that', 'with', 'what', 'when', 'where', 'which', 'will', 'would', 'could', 'should'].includes(w)) || [];
+        for (const act of a) {
+          if (!act.owner) continue;
+          const actWords = new Set(act.task.toLowerCase().match(/[a-z0-9]+/g) || []);
+          const matches = qWords.filter((w) => actWords.has(w));
+          if (matches.length >= 2) {
+            resolver = act.owner;
+            break;
+          }
+        }
+      }
+
+      if (resolver) {
+        const byPart = x.neededBy ? `, by ${formatNeededByDate(x.neededBy)}` : '';
+        const resStmt = `${resolver} will check${byPart}.`;
+        return notePart ? `${x.id} ${withMark} ${resStmt} ${notePart}` : `${x.id} ${withMark} ${resStmt}`;
+      }
+
+      return notePart ? `${x.id} ${withMark} Owner to be agreed. ${notePart}` : `${x.id} ${withMark} Owner to be agreed.`;
+    };
+    sections.push(['OPEN QUESTIONS', ...o.map(formatOpenQ)].join('\n'));
   }
 
   // RISKS: Internal version (8.1) only, confirmed risks only
@@ -1219,14 +1685,21 @@ export function followUpEmail(
   }
 
   // NEXT MEETING: [date, time]. It must produce: [outcome].
-  sections.push('NEXT MEETING\nNo next meeting set');
+  if (m.nextMeeting?.date) {
+    const nmDateStr = fmtDate(m.nextMeeting.date, { weekday: true });
+    const nmTimeStr = m.nextMeeting.time ? `, ${m.nextMeeting.time}` : '';
+    const nmProduce = m.nextMeeting.mustProduce ? `. It must produce: ${m.nextMeeting.mustProduce}.` : '.';
+    sections.push(`NEXT MEETING\n${nmDateStr}${nmTimeStr}${nmProduce}`);
+  } else {
+    sections.push('NEXT MEETING\nNo next meeting set');
+  }
 
   // [Sender first name]
   const senderFirst = (sender || 'Anthony').trim().split(/\s+/)[0];
   sections.push(senderFirst);
 
   const cleanSubject = subject.replace(/[\u2013\u2014]/g, '-');
-  const cleanBody = sections.join('\n\n').replace(/[\u2013\u2014]/g, '-');
+  const cleanBody = sections.join('\n\n').replace(/[\u2013\u2014]/g, '-').replace(/\.{2,}/g, '.');
 
   return { subject: cleanSubject, body: cleanBody };
 }
@@ -1240,4 +1713,109 @@ export function fmtDate(iso?: string, opts: { weekday?: boolean } = {}): string 
 export function cite(e?: Evidence): string {
   if (!e) return '';
   return `${e.sourceId} line ${e.line}${e.timestamp ? ` at ${e.timestamp}` : ''}${e.speaker ? `, ${e.speaker}` : ''}`;
+}
+
+/**
+ * Builds a full MeetingModel from a validated model draft record.
+ * Populates decisions, actions, open items, risks, next meeting and participants,
+ * then calls refresh(model) so that all derived metrics, bottomLine, health,
+ * and quality gate checks are calculated dynamically.
+ */
+export function buildModelFromRecord(
+  record: any,
+  sources: SourceInput[],
+  metaIn: MeetingMetaInput = {}
+): MeetingModel {
+  const model = analyseMeeting(sources, metaIn);
+
+  if (record.participants && record.participants.length) {
+    model.participants = record.participants.map((p: any) => ({
+      name: p.name,
+      role: p.organisation || undefined,
+      present: true,
+    }));
+  }
+
+  model.decisions = (record.decisions || []).map((d: any, i: number) => ({
+    id: `D${String(i + 1).padStart(2, '0')}`,
+    statement: d.text,
+    title: d.text.slice(0, 80),
+    calledBy: d.decided_by || undefined,
+    status: d.conditions ? 'conditional' : 'agreed',
+    condition: d.conditions || undefined,
+    evidence: [{
+      sourceId: 'S1',
+      sourceName: sources[0]?.name || 'transcript',
+      line: 1,
+      quote: d.source_quote || d.text,
+    }],
+    confidence: 'explicit',
+    review: 'proposed',
+  }));
+
+  model.actions = (record.actions || []).map((a: any, i: number) => ({
+    id: `A${String(i + 1).padStart(2, '0')}`,
+    task: a.text,
+    owner: a.owner || undefined,
+    ownerBasis: a.owner ? 'stated' : 'none',
+    due: a.due_approximate ? undefined : (a.due_date || undefined),
+    dueText: a.due_raw || undefined,
+    dueApprox: !!a.due_approximate,
+    horizon: a.due_date ? 'next' : 'undated',
+    doneDefinition: a.done_when || undefined,
+    evidence: [{
+      sourceId: 'S1',
+      sourceName: sources[0]?.name || 'transcript',
+      line: 1,
+      quote: a.source_quote || a.text,
+    }],
+    confidence: 'explicit',
+    gaps: [],
+    review: 'proposed',
+  }));
+
+  model.openItems = (record.open_questions || []).map((q: any, i: number) => ({
+    id: `Q${String(i + 1).padStart(2, '0')}`,
+    question: q.text,
+    kind: 'unresolved',
+    resolver: q.resolver || undefined,
+    neededBy: q.needed_by || undefined,
+    evidence: [{
+      sourceId: 'S1',
+      sourceName: sources[0]?.name || 'transcript',
+      line: 1,
+      quote: q.source_quote || q.text,
+    }],
+    review: 'proposed',
+  }));
+
+  model.risks = (record.risks || []).map((r: any, i: number) => ({
+    id: `R${String(i + 1).padStart(2, '0')}`,
+    risk: r.text,
+    raisedBy: r.raised_by || undefined,
+    likelihood: 3,
+    consequence: 3,
+    rating: 'medium',
+    mitigation: r.mitigation || undefined,
+    evidence: [{
+      sourceId: 'S1',
+      sourceName: sources[0]?.name || 'transcript',
+      line: 1,
+      quote: r.source_quote || r.text,
+    }],
+    review: 'proposed',
+  }));
+
+  if (record.next_meeting && record.next_meeting.date) {
+    model.nextMeeting = {
+      date: record.next_meeting.date,
+      time: record.next_meeting.time || undefined,
+    };
+  }
+
+  if (record.flags && record.flags.length) {
+    model.flags = Array.from(new Set([...(model.flags || []), ...record.flags]));
+  }
+
+  return refresh(model);
 }

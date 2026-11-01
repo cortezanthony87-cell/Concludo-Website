@@ -299,18 +299,17 @@ export function buildConcludoPayload(
       title: 'Meeting health',
       intro: 'How the meeting operated, not what the project decided. Scored from observable behaviour in the record, so every score is partially verified at best.',
       dimensions: [
-        { name: 'Preparation', score: 62, note: 'No pre-read or papers referenced. The purchase order was not ready.' },
-        { name: 'Participation', score: 86, note: 'All seven attendees spoke. Two raised items not on the agenda.' },
-        { name: 'Focus', score: 88, note: 'The agenda was stated and followed in order.' },
-        { name: 'Decision quality', score: 84, note: 'Seven decisions, each owned and reasoned.' },
-        { name: 'Alignment', score: 80, note: 'No unresolved disagreement. One scope tension settled in the room.' },
-        { name: 'Collaboration', score: 82, note: 'Challenge accepted without defensiveness, including by the contractor.' },
-        { name: 'Strategic thinking', score: 58, note: 'Delivery focused. No discussion of what happens if March is missed.' },
-        { name: 'Overall effectiveness', score: 78, note: 'Short, decided and owned, with dates the weak point.' }
+        { name: 'Preparation', score: null, note: 'Not scored. A single meeting record does not support this measure.' },
+        { name: 'Participation', score: null, note: 'Not scored. A single meeting record does not support this measure.' },
+        { name: 'Focus', score: null, note: 'Not scored. A single meeting record does not support this measure.' },
+        { name: 'Decision quality', score: null, note: 'Not scored. A single meeting record does not support this measure.' },
+        { name: 'Alignment', score: null, note: 'Not scored. A single meeting record does not support this measure.' },
+        { name: 'Collaboration', score: null, note: 'Not scored. A single meeting record does not support this measure.' },
+        { name: 'Strategic thinking', score: null, note: 'Not scored. A single meeting record does not support this measure.' },
+        { name: 'Overall effectiveness', score: null, note: 'Not scored. A single meeting record does not support this measure.' }
       ],
       verdict: {
-        headline: 'Decided and owned. Undated and single threaded.',
-        note: 'Scores derive from transcript behaviour and are classified [P]. Confidence 70, moderate. One meeting, one source.'
+        headline: 'Not scored. Single meeting record abstains from aggregate health scoring.'
       }
     },
     closing: {
@@ -328,8 +327,12 @@ export function buildConcludoPayload(
         ['Commercial review required', 'Yes']
       ],
       gate: {
-        status: 'Pass',
-        note: 'Requirements for structured boardroom outcome documentation satisfied.'
+        status: (actionRows.some(r => r[2] === 'TBD' || r[3] === 'TBD') ? 'Conditional pass' : (actionRows.length === 0 && decisionRows.length === 0 ? 'Not assessed' : 'Pass')),
+        note: (actionRows.some(r => r[2] === 'TBD' || r[3] === 'TBD')
+          ? 'Contains unresolved action owners or dates requiring review.'
+          : (actionRows.length === 0 && decisionRows.length === 0
+            ? 'Record contains insufficient data to assess production governance.'
+            : 'Requirements for structured boardroom outcome documentation satisfied.'))
       }
     }
   };
