@@ -52,9 +52,24 @@ export function getMelbourneDateString(date: Date = new Date()): string {
  * for any given AccountDataset. Both Dashboard and ECC rely on this exact logic.
  */
 export function calculateEmailStatusFromDataset(
-  dataset: AccountDataset,
+  dataset: AccountDataset | null | undefined,
   nowIso: string = DEMO_NOW
 ): { counts: EmailStatusCounts; recentThreads: RecentEmailThreadSummary[] } {
+  if (!dataset) {
+    return {
+      counts: {
+        needsReply: 0,
+        unread: 0,
+        flagged: 0,
+        processedToday: 0,
+        urgentCount: 0,
+        highCount: 0,
+        analysedCount: 0,
+        totalCount: 0,
+      },
+      recentThreads: [],
+    };
+  }
   const records = recordsFor(dataset);
   const countsList = metricCounts(records, nowIso);
   const overview = composeOverview(records, nowIso);
