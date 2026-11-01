@@ -162,18 +162,24 @@ export async function saveCandidate(
  * Fetch candidates awaiting review for the current user.
  */
 export async function fetchCandidates(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  projectId?: string
 ): Promise<{ data: any[]; error: any }> {
   const { data: authData } = await supabase.auth.getUser();
   const userId = authData?.user?.id;
   if (!userId) return { data: [], error: null };
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('action_candidates')
     .select('*')
     .eq('user_id', userId)
-    .eq('state', 'new')
-    .order('created_at', { ascending: false });
+    .eq('state', 'new');
+
+  if (projectId) {
+    query = query.eq('project_id', projectId);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   return { data: data || [], error };
 }

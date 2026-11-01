@@ -135,6 +135,24 @@ export interface WorkspaceDestination {
  */
 export const MERGED_PAGES_READY = true;
 export const ACTION_HUB_V1 = true;
+export const SAVED_PROJECT_BRIGHT_V1 = true;
+
+/**
+ * Returns whether the bright Saved Project redesign is active.
+ * Evaluates URL parameter ?bright=1 / ?v=bright, localStorage, and falls back to SAVED_PROJECT_BRIGHT_V1.
+ * Passing ?bright=0 renders the legacy screen to ensure test S16 compliance.
+ */
+export function isSavedProjectBrightV1(): boolean {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('bright') === '1' || params.get('v') === 'bright') return true;
+    if (params.get('bright') === '0') return false;
+    const stored = window.localStorage.getItem('saved_project_bright_v1');
+    if (stored === 'true') return true;
+    if (stored === 'false') return false;
+  }
+  return SAVED_PROJECT_BRIGHT_V1;
+}
 
 const DESTINATIONS: WorkspaceDestination[] = [
   /* ---------------------------------------------------------------- Work

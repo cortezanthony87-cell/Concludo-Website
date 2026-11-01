@@ -49,7 +49,8 @@ Charlie: I will review the backup verification by Thursday 5 November.
 
   it('verifies that studio.js contains the top-actions with Save to project, Save all as PDF, and Export', async () => {
     const fs = await import('fs/promises');
-    const studioCode = await fs.readFile('/tmp/Concludo-Website/app/src/features/meeting-output/studio.js', 'utf8');
+    const studioPath = new URL('../src/features/meeting-output/studio.js', import.meta.url).pathname;
+    const studioCode = await fs.readFile(studioPath, 'utf8');
 
     // Top bar action buttons
     expect(studioCode).toContain('data-act="save"');
@@ -70,7 +71,8 @@ Charlie: I will review the backup verification by Thursday 5 November.
 
   it('verifies follow-up email gating is strictly enforced in exports', async () => {
     const fs = await import('fs/promises');
-    const studioCode = await fs.readFile('/tmp/Concludo-Website/app/src/features/meeting-output/studio.js', 'utf8');
+    const studioPath = new URL('../src/features/meeting-output/studio.js', import.meta.url).pathname;
+    const studioCode = await fs.readFile(studioPath, 'utf8');
 
     // Gated in Save all as PDF pack
     expect(studioCode).toContain('...(CAN_DRAFT_EMAIL ? [() => tplEmailPage()] : [])');
