@@ -118,12 +118,24 @@ export const CommHubPage: React.FC = () => {
           {/* Notification Bell */}
           <button
             type="button"
-            className="hub-btn-out"
-            style={{ position: 'relative', background: 'transparent', borderColor: '#3A5680', color: '#FFFFFF', padding: '0 10px', cursor: 'pointer' }}
+            className={`hub-btn-out ${unreadNotifs > 0 ? 'has-unread-glow' : ''}`}
+            style={{
+              position: 'relative',
+              background: unreadNotifs > 0 ? 'rgba(226, 181, 60, 0.12)' : 'transparent',
+              borderColor: unreadNotifs > 0 ? 'rgba(243, 201, 88, 0.75)' : '#3A5680',
+              color: unreadNotifs > 0 ? '#F3C958' : '#FFFFFF',
+              boxShadow: unreadNotifs > 0
+                ? '0 0 12px rgba(243, 201, 88, 0.55), 0 0 20px rgba(226, 181, 60, 0.3), inset 0 0 8px rgba(243, 201, 88, 0.18)'
+                : 'none',
+              animation: unreadNotifs > 0 ? 'bell-yellow-glow 2.2s infinite ease-in-out' : 'none',
+              padding: '0 10px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
             aria-label="Open notifications centre"
             onClick={() => setIsNotifOpen(true)}
           >
-            <Icons.Bell size={15} />
+            <Icons.Bell size={15} color={unreadNotifs > 0 ? '#F3C958' : '#FFFFFF'} />
             {unreadNotifs > 0 && (
               <span style={{ background: 'var(--hub-gold)', color: 'var(--hub-navy)', borderRadius: '8px', padding: '0 5px', fontSize: '10px', fontWeight: 700, marginLeft: '4px' }}>
                 {unreadNotifs}

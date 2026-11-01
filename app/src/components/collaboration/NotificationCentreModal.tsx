@@ -59,10 +59,16 @@ export const NotificationCentreModal: React.FC<Props> = ({ isOpen, onClose }) =>
   };
 
   const handleMarkAllRead = async () => {
-    if (!isDemo) {
+    if (isDemo) {
+      store.getNotifications().forEach((n) => store.markNotificationRead(n.id));
+    } else {
       await accountNotifs.markAllAsRead();
     }
   };
+
+  const unreadCount = isDemo
+    ? activeList.filter((n) => !n.is_read).length
+    : accountNotifs.unreadCount;
 
   const getKindIcon = (kind: UserNotificationKind) => {
     switch (kind) {
@@ -141,7 +147,7 @@ export const NotificationCentreModal: React.FC<Props> = ({ isOpen, onClose }) =>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {!isDemo && accountNotifs.unreadCount > 0 && (
+            {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={handleMarkAllRead}

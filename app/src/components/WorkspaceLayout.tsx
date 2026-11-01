@@ -175,29 +175,34 @@ export const WorkspaceLayout: React.FC = () => {
         </div>
 
         <div className="nav-right-group">
-          {/* Real-time Notifications Bell */}
+          {/* Real-time Notifications Bell with Yellow Glowing Effect on New Messages */}
           <button
             type="button"
-            className="top-navbar-bell-btn"
+            className={`top-navbar-bell-btn ${effectiveUnreadNotifsCount > 0 ? 'has-unread-glow' : ''}`}
             onClick={() => setIsNotificationCentreOpen(true)}
             aria-label="Open notifications centre"
-            title="Notifications Centre"
+            title={effectiveUnreadNotifsCount > 0 ? `Notifications Centre (${effectiveUnreadNotifsCount} new)` : 'Notifications Centre'}
             style={{
               position: 'relative',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
+              background: effectiveUnreadNotifsCount > 0 ? 'rgba(226, 181, 60, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+              border: effectiveUnreadNotifsCount > 0 ? '1px solid rgba(243, 201, 88, 0.75)' : '1px solid rgba(255, 255, 255, 0.14)',
               borderRadius: '8px',
               width: '36px',
               height: '36px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#F8FAFC',
+              color: effectiveUnreadNotifsCount > 0 ? '#F3C958' : '#F8FAFC',
               cursor: 'pointer',
               marginRight: '8px',
+              boxShadow: effectiveUnreadNotifsCount > 0
+                ? '0 0 12px rgba(243, 201, 88, 0.55), 0 0 24px rgba(226, 181, 60, 0.3), inset 0 0 8px rgba(243, 201, 88, 0.18)'
+                : 'none',
+              animation: effectiveUnreadNotifsCount > 0 ? 'bell-yellow-glow 2.2s infinite ease-in-out' : 'none',
+              transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, color 0.2s ease',
             }}
           >
-            <Bell size={18} />
+            <Bell size={18} color={effectiveUnreadNotifsCount > 0 ? '#F3C958' : '#F8FAFC'} />
             {effectiveUnreadNotifsCount > 0 && (
               <span
                 style={{
