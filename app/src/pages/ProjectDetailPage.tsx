@@ -58,6 +58,7 @@ import {
   softDeleteAction,
   updateActionStatus,
 } from '../lib/actions/actionClient';
+import { saveCandidate } from '../lib/actions/actionCandidates';
 import {
   ActionRecord,
   CreateActionInput,
@@ -76,6 +77,8 @@ import { OutputDocumentRenderer } from '../components/OutputDocumentRenderer';
 import { computeProjectEvolution } from '../lib/intelligence/projectEvolution';
 import { ProjectEvolutionCard } from '../components/projects/ProjectEvolutionCard';
 import { ProjectFilesSection } from '../components/projects/ProjectFilesSection';
+import { isSavedProjectBrightV1 } from '../lib/workspace/workspaceNav';
+import { SavedProjectBrightView } from '../components/projects/bright/SavedProjectBrightView';
 
 
 
@@ -150,7 +153,7 @@ function parseActionContext(description: string | null) {
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { supabase } = useAuth();
+  const { supabase, user } = useAuth();
   const decisionAccess = useFeatureAccess('decision_memory');
   const actionAccess = useFeatureAccess('action_tracker');
 
@@ -761,17 +764,18 @@ export const ProjectDetailPage: React.FC = () => {
           continue;
         }
 
-        await saveAction(supabase, {
-          project_id: project.id,
-          action_title: act.title,
-          action_description: enrichedDescription,
-          owner_name: act.owner,
-          due_date: act.due_date,
-          status: 'not_started',
-          source_output_id: sourceActOutputId,
-          ownership_type: project.ownership_type,
-          team_id: project.team_id,
-        });
+        if (user?.id) {
+          await saveCandidate(supabase, {
+            user_id: user.id,
+            project_id: project.id,
+            title: act.title,
+            source_excerpt: enrichedDescription,
+            proposed_owner_label: act.owner || null,
+            proposed_due: act.due_date || null,
+            source_type: 'transcript_intel',
+            source_id: sourceActOutputId,
+          });
+        }
       }
 
       // 6. Refresh Project Data
@@ -1048,6 +1052,61 @@ export const ProjectDetailPage: React.FC = () => {
 
   const displayClientName = project.client_name || project.client_or_project || 'Internal / Unspecified';
   const displayProjectName = project.project_name || 'Unspecified';
+
+  if (isSavedProjectBrightV1()) {
+    return (
+      <SavedProjectBrightView
+        project={project}
+        supabase={supabase}
+        outputs={outputs}
+        decisions={decisions}
+        actions={actions}
+        onUpdateProject={async (fields) => {
+          if (!supabase || !id) return false;
+          const r = await updateProject(supabase, id, fields);
+          if (r.data) {
+            setProject(r.data);
+            return true;
+          }
+          return false;
+        }}
+        onDeleteProject={handleDeleteProject}
+        onRefreshData={loadProject}
+        onExtractOutputs={handleGenerateOutputs}
+        onCreateAction={async (title, due, priority) => {
+          if (!supabase || !id) return;
+          await saveAction(supabase, {
+            project_id: id,
+            action_title: title,
+            due_date: due || undefined,
+            priority: priority.toLowerCase() as any,
+            status: 'not_started',
+            ownership_type: project?.ownership_type,
+            team_id: project?.team_id,
+          });
+          await loadActions();
+        }}
+        onCreateDecision={async (title, summary, reasoning, date) => {
+          if (!supabase || !id) return;
+          await saveDecision(supabase, {
+            project_id: id,
+            decision_title: title,
+            decision_summary: summary || undefined,
+            decision_reasoning: reasoning || undefined,
+            decision_date: date || undefined,
+            ownership_type: project?.ownership_type,
+            team_id: project?.team_id,
+          });
+          await loadDecisions();
+        }}
+        onDeleteOutput={async (outputId) => {
+          if (!supabase) return;
+          await softDeleteOutput(supabase, outputId);
+          await loadOutputs();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="workspace-page-container">

@@ -133,7 +133,26 @@ export interface WorkspaceDestination {
  *   Stage B: true, on the day the four merged pages are built and their tabs
  *   render the old views. One line, and it is reversible by changing it back.
  */
-export const MERGED_PAGES_READY = false;
+export const MERGED_PAGES_READY = true;
+export const ACTION_HUB_V1 = true;
+export const SAVED_PROJECT_BRIGHT_V1 = true;
+
+/**
+ * Returns whether the bright Saved Project redesign is active.
+ * Evaluates URL parameter ?bright=1 / ?v=bright, localStorage, and falls back to SAVED_PROJECT_BRIGHT_V1.
+ * Passing ?bright=0 renders the legacy screen to ensure test S16 compliance.
+ */
+export function isSavedProjectBrightV1(): boolean {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('bright') === '1' || params.get('v') === 'bright') return true;
+    if (params.get('bright') === '0') return false;
+    const stored = window.localStorage.getItem('saved_project_bright_v1');
+    if (stored === 'true') return true;
+    if (stored === 'false') return false;
+  }
+  return SAVED_PROJECT_BRIGHT_V1;
+}
 
 const DESTINATIONS: WorkspaceDestination[] = [
   /* ---------------------------------------------------------------- Work
@@ -214,6 +233,19 @@ const DESTINATIONS: WorkspaceDestination[] = [
     pinned: true,
     badge: 'blocking',
   },
+  ...(ACTION_HUB_V1
+    ? [
+        {
+          path: '/work/actions',
+          label: 'Actions',
+          iconName: 'ListChecks',
+          accessibleDescription: 'Action Command Hub: one trusted place to see, prioritise and complete pending work.',
+          group: 'Work' as const,
+          feature: 'action_tracker' as const,
+          pinned: true,
+        },
+      ]
+    : []),
 
   /* -------------------------------------------------------- Connectivity */
   {
@@ -275,14 +307,18 @@ const DESTINATIONS: WorkspaceDestination[] = [
     group: 'Automation',
     feature: 'workflow_orchestration',
   },
-  {
-    path: '/actions',
-    label: 'Actions',
-    iconName: 'ListChecks',
-    accessibleDescription: 'What is to be done, and by when.',
-    group: 'Automation',
-    feature: 'action_tracker',
-  },
+  ...(!ACTION_HUB_V1
+    ? [
+        {
+          path: '/actions',
+          label: 'Actions',
+          iconName: 'ListChecks',
+          accessibleDescription: 'What is to be done, and by when.',
+          group: 'Automation' as const,
+          feature: 'action_tracker' as const,
+        },
+      ]
+    : []),
   { path: '/agents/dashboard', label: 'Agent Dashboard', iconName: 'Gauge', accessibleDescription: 'How the agents are running.', group: 'Automation', feature: 'ai_agents' },
 
   /* -------------------------------------------------------- Intelligence
