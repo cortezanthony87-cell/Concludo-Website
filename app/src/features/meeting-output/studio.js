@@ -6,6 +6,7 @@
    mountMeetingStudio(root, options) renders the three-step studio into root and returns an unmount function.
    Styles are scoped under .cmo (meeting-output.css). Nothing is sent anywhere unless options.onSave is supplied. */
 import * as CE from '../../lib/intelligence/meetingEngine';
+import { generateMeetingPdf } from '../../lib/reporting/meetingPdfGenerator';
 import { fromEngineRecord, renderDeckHtml, renderDeckPptx, validateDeck } from '../../lib/outputs/deck';
 import { SAMPLE_TRANSCRIPT, SAMPLE_DOC } from './samples';
 
@@ -477,10 +478,41 @@ export function mountMeetingStudio(root, opts = {}) {
   function sectionActions(m) {
     const xs = m.actions.filter((x) => show('actions', x));
     const people = m.participants.map((p) => p.name);
+    S.customOwners = S.customOwners || [];
+    xs.forEach((a) => {
+      if (a.owner && a.owner !== 'Under review' && !people.includes(a.owner) && !S.customOwners.includes(a.owner)) {
+        S.customOwners.push(a.owner);
+      }
+    });
     return `<section class="section" id="sec-actions"><header><div><h2>Actions</h2><p>Who does what, by when. Gaps are flagged, never filled in.</p></div></header><div class="items">${xs.length ? xs.map((a) => `<article class="${cls(a)}"><span class="id">${a.id}</span><div><div class="txt">${esc(a.task)}</div>
-      <div class="meta">${a.gaps.filter((g) => g !== 'Definition of done not stated').map((g) => `<span class="tag high">${ic('alert')}${esc(g)}</span>`).join('') || '<span class="tag ok">' + ic('check') + 'Owned and dated</span>'}${a.dueText ? `<span class="tag line">Said: “${esc(a.dueText)}”</span>` : ''}<span class="tag line">${a.horizon === 'now' ? 'This week' : a.horizon === 'next' ? 'Within 30 days' : a.horizon === 'later' ? 'Later' : 'Undated'}</span></div>
+      <div class="meta">${a.gaps.filter((g) => g !== 'Definition of done not stated').map((g) => `<span class="tag ${g === 'Owner under review' ? 'gold' : 'high'}">${ic(g === 'Owner under review' ? 'clock' : 'alert')}${esc(g)}</span>`).join('') || '<span class="tag ok">' + ic('check') + 'Owned and dated</span>'}${a.dueText ? `<span class="tag line">Said: “${esc(a.dueText)}”</span>` : ''}<span class="tag line">${a.horizon === 'now' ? 'This week' : a.horizon === 'next' ? 'Within 30 days' : a.horizon === 'later' ? 'Later' : 'Undated'}</span></div>
       <div class="edit"><label style="flex:1;min-width:220px">Task<input data-edit="actions:${a.id}:task" value="${esc(a.task)}" style="width:100%"></label>
-      <label>Owner<select data-edit="actions:${a.id}:owner" class="${a.owner ? '' : 'miss'}"><option value="">Not named</option>${people.map((p) => `<option ${p === a.owner ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+      ${a._editingCustom ? `
+        <div class="field" style="min-width:210px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span style="font-size:12px;font-weight:600;color:var(--navy)">Custom assignee</span>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center">
+            <input type="text" placeholder="Enter assignee name..." class="cmo-custom-input" data-custom-input="${a.id}" value="${esc(a.owner && a.owner !== 'Under review' ? a.owner : '')}" style="height:34px;padding:4px 8px;font-size:13px;border-radius:6px;border:1px solid var(--gold);flex:1">
+            <button type="button" class="btn sm navy" data-act="save-custom-owner" data-id="${a.id}">Assign</button>
+            <button type="button" class="btn ghost sm" data-act="cancel-custom-owner" data-id="${a.id}" title="Cancel">✕</button>
+          </div>
+        </div>
+      ` : `
+        <label style="min-width:190px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span>Owner</span>
+            <button type="button" class="btn-link" data-act="add-custom-owner-btn" data-id="${a.id}" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;padding:0;font-weight:600;text-decoration:underline" title="Assign custom name">+ Custom name</button>
+          </div>
+          <select data-edit="actions:${a.id}:owner" class="${a.owner ? (a.owner === 'Under review' ? 'gold-border' : '') : 'miss'}">
+            <option value="">Not named</option>
+            <option value="Under review" ${a.owner === 'Under review' ? 'selected' : ''}>Under review</option>
+            ${people.length ? `<optgroup label="Meeting Attendees">${people.map((p) => `<option value="${esc(p)}" ${p === a.owner ? 'selected' : ''}>${esc(p)}</option>`).join('')}</optgroup>` : ''}
+            ${S.customOwners.length ? `<optgroup label="Custom Assignees">${S.customOwners.map((c) => `<option value="${esc(c)}" ${c === a.owner ? 'selected' : ''}>${esc(c)}</option>`).join('')}</optgroup>` : ''}
+            <option value="__add_custom__">+ Add custom name...</option>
+          </select>
+        </label>
+      `}
       <label>Due<input type="date" data-edit="actions:${a.id}:due" value="${a.due || ''}" class="${a.due ? '' : 'miss'}"></label></div>${evid(a.evidence[0])}</div>${decideBtns('actions', a)}</article>`).join('') : '<p class="note">Nothing needs attention here.</p>'}</div></section>`;
   }
   function sectionRisks(m) {
@@ -569,7 +601,7 @@ export function mountMeetingStudio(root, opts = {}) {
   }
   const H = (no, title, intro, id) => `<div class="d-h" data-anchor="${id}" data-label="${esc(title)}"><span class="no">${no}</span><h2>${esc(title)}</h2></div>${intro ? `<p class="d-intro">${esc(intro)}</p>` : ''}`;
   const pillDue = (a) => (a.due ? `${short(a.due)}${a.dueApprox ? ' (approx.)' : ''}` : '<span class="miss">Not stated</span>');
-  const owner = (a) => (a.owner ? esc(a.owner) : '<span class="miss">Not named</span>');
+  const owner = (a) => (a.owner ? (a.owner === 'Under review' ? '<span class="tag gold" style="font-size:11px;padding:2px 6px">Under review</span>' : esc(a.owner)) : '<span class="miss">Not named</span>');
   const horizonLabel = { now: 'This week', next: '30 days', later: 'Later', undated: 'Undated' };
 
   function kpis({ D, Ac, R, Q }) {
@@ -1030,24 +1062,49 @@ export function mountMeetingStudio(root, opts = {}) {
     toast('Follow-up email (.txt) downloaded');
   }
 
+  async function downloadMeetingPdf() {
+    if (!S.model) return;
+    toast('Generating PDF document...');
+    try {
+      const pdfBytes = await generateMeetingPdf(S.model);
+      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u;
+      a.download = `${baseName}-boardroom-pack.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
+      toast('Meeting PDF downloaded to device');
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast('Failed to generate PDF: ' + (err.message || 'unknown error'));
+    }
+  }
+
   async function downloadExportZip() {
     if (!S.model) return;
     toast('Building export archive (.zip)...');
     try {
       const { default: JSZip } = await import('jszip');
       const zip = new JSZip();
-      const baseName = (S.model.meta.title || 'meeting-output').replace(/[^\w]+/g, '-');
+      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
 
-      // 1. Markdown
+      // 1. Official PDF Document
+      const pdfBytes = await generateMeetingPdf(S.model);
+      zip.file(`${baseName}-boardroom-pack.pdf`, pdfBytes);
+
+      // 2. Markdown
       zip.file(`${baseName}.md`, CE.toMarkdown(S.model));
 
-      // 2. CSV actions
+      // 3. CSV actions
       zip.file(`${baseName}-actions.csv`, actionsToCsv(S.model.actions));
 
-      // 3. JSON record
+      // 4. JSON record
       zip.file(`${baseName}.concludo.json`, JSON.stringify(S.model, null, 2));
 
-      // 4. Follow-up emails (if entitled)
+      // 5. Follow-up emails (if entitled)
       if (CAN_DRAFT_EMAIL) {
         const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
         const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
@@ -1056,7 +1113,7 @@ export function mountMeetingStudio(root, opts = {}) {
         zip.file(`${baseName}-follow-up-email.txt`, emailText);
       }
 
-      // 5. Standalone HTML printable report
+      // 6. Standalone HTML printable report
       zip.file(`${baseName}-report.html`, generateStandaloneHtml(S.model));
 
       const blob = await zip.generateAsync({ type: 'blob' });
@@ -1098,24 +1155,13 @@ export function mountMeetingStudio(root, opts = {}) {
             <div class="cmo-export-card featured">
               <div style="min-width:0;padding-right:8px">
                 <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('print')}</span>
-                  <span>Save all as PDF (.pdf)</span>
+                  <span>${ic('download')}</span>
+                  <span>Meeting PDF document (.pdf)</span>
                   <span class="cmo-badge-rec">RECOMMENDED</span>
                 </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">All document templates (Board briefing, Exec summary, Actions, Decisions${CAN_DRAFT_EMAIL ? ', Email' : ''}) in a single multi-page A4 PDF.</div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Official multi-page A4 PDF with decisions, full action schedule, open items, and risks ready to open on your device.</div>
               </div>
-              <button class="btn sm navy" data-act="modal-save-all-pdf" style="flex:none">${ic('print')}<span>Save all PDF</span></button>
-            </div>
-
-            <div class="cmo-export-card">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('print')}</span>
-                  <span>Current document as PDF (.pdf)</span>
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">Save the currently active view (${esc(currentName)}) as an A4 PDF.</div>
-              </div>
-              <button class="btn sm" data-act="modal-print-current" style="flex:none">${ic('print')}<span>Save PDF</span></button>
+              <button class="btn sm navy" data-act="modal-dl-pdf" style="flex:none">${ic('download')}<span>Download PDF</span></button>
             </div>
 
             <div class="cmo-export-card">
@@ -1124,7 +1170,7 @@ export function mountMeetingStudio(root, opts = {}) {
                   <span>${ic('download')}</span>
                   <span>Complete archive (.zip)</span>
                 </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">All formats bundled together: Markdown, CSV action schedule, JSON record${CAN_DRAFT_EMAIL ? ', Email text' : ''}, and Standalone HTML report.</div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">All formats bundled together: Meeting PDF report (.pdf), Markdown (.md), Action schedule (.csv), and Record (.json).</div>
               </div>
               <button class="btn sm" data-act="modal-dl-zip" style="flex:none">${ic('download')}<span>Download ZIP</span></button>
             </div>
@@ -1383,14 +1429,53 @@ export function mountMeetingStudio(root, opts = {}) {
     if (act === 'print') printCurrentDocument();
     if (act === 'save-all-pdf') saveAllAsPdf();
     if (act === 'export-options') modalExport();
-    if (act === 'modal-save-all-pdf') { root.querySelector('.modal-bg')?.remove(); saveAllAsPdf(); }
-    if (act === 'modal-print-current') { root.querySelector('.modal-bg')?.remove(); printCurrentDocument(); }
+    if (act === 'modal-dl-pdf') { root.querySelector('.modal-bg')?.remove(); downloadMeetingPdf(); }
     if (act === 'modal-dl-zip') { root.querySelector('.modal-bg')?.remove(); downloadExportZip(); }
     if (act === 'modal-dl-md') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.md`, CE.toMarkdown(S.model), 'text/markdown'); toast('Markdown (.md) downloaded'); }
     if (act === 'modal-dl-csv') { root.querySelector('.modal-bg')?.remove(); downloadCsvActions(); }
     if (act === 'modal-dl-json') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.concludo.json`, JSON.stringify(S.model, null, 2), 'application/json'); toast('Record (.json) downloaded'); }
     if (act === 'modal-dl-email') { root.querySelector('.modal-bg')?.remove(); downloadFollowUpEmailTxt(); }
     if (act === 'modal-locked-email') { toast('Follow-up email drafts are included in Pro and Team.'); }
+    if (act === 'add-custom-owner-btn') {
+      const id = t.dataset.id;
+      const a = S.model.actions.find((i) => i.id === id);
+      if (a) {
+        a._editingCustom = true;
+        rerenderKeepScroll();
+        setTimeout(() => {
+          const inp = root.querySelector(`[data-custom-input="${id}"]`);
+          if (inp) { inp.focus(); inp.select?.(); }
+        }, 50);
+      }
+    }
+    if (act === 'save-custom-owner') {
+      const id = t.dataset.id;
+      const inp = root.querySelector(`[data-custom-input="${id}"]`);
+      const val = (inp?.value || '').trim();
+      const a = S.model.actions.find((i) => i.id === id);
+      if (a) {
+        if (val) {
+          a.owner = val;
+          a.ownerBasis = 'custom';
+          if (!S.customOwners) S.customOwners = [];
+          if (!S.customOwners.includes(val)) S.customOwners.push(val);
+        } else {
+          a.owner = undefined;
+          a.ownerBasis = 'none';
+        }
+        delete a._editingCustom;
+        CE.refresh(S.model);
+        rerenderKeepScroll();
+      }
+    }
+    if (act === 'cancel-custom-owner') {
+      const id = t.dataset.id;
+      const a = S.model.actions.find((i) => i.id === id);
+      if (a) {
+        delete a._editingCustom;
+        rerenderKeepScroll();
+      }
+    }
 
     if (act === 'set-deck-aud') { S.deckAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
     if (act === 'toggle-deck-quotes') { S.deckQuotes = t.checked; buildDocument(); }
@@ -1477,12 +1562,41 @@ export function mountMeetingStudio(root, opts = {}) {
     if (t.dataset.edit) {
       const [kind, id, field] = t.dataset.edit.split(':');
       const x = listFor(kind).find((i) => i.id === id);
-      if (field === 'owner') { x.owner = t.value || undefined; x.ownerBasis = t.value ? 'stated' : 'none'; }
+      if (field === 'owner') {
+        if (t.value === '__add_custom__') {
+          x._editingCustom = true;
+          rerenderKeepScroll();
+          setTimeout(() => {
+            const inp = root.querySelector(`[data-custom-input="${id}"]`);
+            if (inp) { inp.focus(); inp.select?.(); }
+          }, 50);
+          return;
+        }
+        x.owner = t.value || undefined;
+        x.ownerBasis = t.value ? (t.value === 'Under review' ? 'custom' : 'stated') : 'none';
+        delete x._editingCustom;
+      }
       else if (field === 'due') { x.due = t.value || undefined; x.dueApprox = false; x.dueText = undefined; }
       else if (field === 'likelihood' || field === 'consequence') { x[field] = +t.value; const s = x.likelihood * x.consequence; x.rating = s >= 15 ? 'high' : s >= 9 ? 'medium' : 'low'; }
       else x[field] = t.value;
       CE.refresh(S.model);
       rerenderKeepScroll();
+    }
+  });
+  on(root, 'keydown', (e) => {
+    const t = e.target;
+    if (t && t.dataset && t.dataset.customInput) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const id = t.dataset.customInput;
+        const saveBtn = root.querySelector(`[data-act="save-custom-owner"][data-id="${id}"]`);
+        if (saveBtn) saveBtn.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        const id = t.dataset.customInput;
+        const cancelBtn = root.querySelector(`[data-act="cancel-custom-owner"][data-id="${id}"]`);
+        if (cancelBtn) cancelBtn.click();
+      }
     }
   });
   on(root, 'dragover', (e) => { const d = e.target.closest && e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });

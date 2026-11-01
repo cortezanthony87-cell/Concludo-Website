@@ -1268,6 +1268,7 @@ export function refresh(m: MeetingModel): MeetingModel {
       a.horizon = days <= 7 ? 'now' : days <= 30 ? 'next' : 'later';
     }
     if (!a.owner) a.gaps.push('No owner named');
+    else if (a.owner === 'Under review') a.gaps.push('Owner under review');
     if (!a.due) a.gaps.push('No date stated');
     else if (a.dueApprox) a.gaps.push('Date is approximate');
     if (!a.doneDefinition) a.gaps.push('Definition of done not stated');
@@ -1278,7 +1279,7 @@ export function refresh(m: MeetingModel): MeetingModel {
   });
 
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : null);
-  const owned = actions.filter((a) => a.owner).length;
+  const owned = actions.filter((a) => a.owner && a.owner !== 'Under review').length;
   const dated = actions.filter((a) => a.due).length;
   const mitigated = risks.filter((r) => r.mitigation).length;
   const { balance, speakers, dateConfirmed } = m.signals;
@@ -1293,7 +1294,7 @@ export function refresh(m: MeetingModel): MeetingModel {
   const checks: GateCheck[] = [
     { label: 'Every item traces to the source', pass: true, detail: 'Each item links to a quote, source and line.' },
     { label: 'Decisions recorded', pass: decisions.length > 0, detail: decisions.length ? `${decisions.length} decision${decisions.length === 1 ? '' : 's'} on record.` : 'No decisions found. Check the record before circulating.' },
-    { label: 'Every action has an owner', pass: actions.length > 0 && owned === actions.length, detail: actions.length - owned ? `${actions.length - owned} without an owner.` : 'All owned.' },
+    { label: 'Every action has an owner', pass: actions.length > 0 && owned === actions.length, detail: actions.length - owned ? `${actions.length - owned} without a confirmed owner.` : 'All owned.' },
     { label: 'Every action has a date', pass: actions.length > 0 && dated === actions.length, detail: actions.length - dated ? `${actions.length - dated} without a date.` : 'All dated.' },
     { label: 'Attendees recorded', pass: m.participants.length > 0, detail: m.participants.length ? `${m.participants.filter((p) => p.present).length} present, ${m.participants.filter((p) => !p.present).length} ${m.participants.filter((p) => !p.present).length === 1 ? 'apology' : 'apologies'}.` : 'No attendee list or speaker labels.' },
     { label: 'Meeting date confirmed', pass: dateConfirmed, detail: dateConfirmed ? fmtDate(m.meta.meetingDate) : 'Date assumed. Confirm it.' },
@@ -1305,7 +1306,8 @@ export function refresh(m: MeetingModel): MeetingModel {
   openItems.filter((o) => o.kind === 'approval').forEach((o) => recs.push({ priority: 'Critical', title: `Secure ${lowerFirst(o.question.split(', needed before')[0])}`, why: `A decision stays conditional until this is given: ${o.question.split('final: ')[1] ?? o.question}.`, ref: o.id }));
   risks.filter((r) => r.rating === 'high' && !r.mitigation).forEach((r) => recs.push({ priority: 'Critical', title: `Agree a response and an owner for ${r.id}`, why: `Rated high from the wording used, and no response is on record.`, ref: r.id }));
   actions.filter((a) => !a.owner).forEach((a) => recs.push({ priority: 'High', title: `Name an owner for ${a.id}: ${lowerFirst(shorten(stripEnd(a.task), 70))}`, why: `${m.risks.some((r) => r.linkedAction === a.id && r.rating === 'high') ? 'This is the response to a high risk. ' : ''}Work without an owner is the most common reason an agreed action stalls.`, ref: a.id }));
-  actions.filter((a) => a.owner && !a.due).forEach((a) => recs.push({ priority: 'High', title: `Set a date for ${a.id}: ${lowerFirst(shorten(stripEnd(a.task), 70))}`, why: `${a.owner} owns it, but no date was stated.`, ref: a.id }));
+  actions.filter((a) => a.owner === 'Under review').forEach((a) => recs.push({ priority: 'Medium', title: `Assign owner for ${a.id}: ${lowerFirst(shorten(stripEnd(a.task), 70))}`, why: `Action owner is currently marked under review.`, ref: a.id }));
+  actions.filter((a) => a.owner && a.owner !== 'Under review' && !a.due).forEach((a) => recs.push({ priority: 'High', title: `Set a date for ${a.id}: ${lowerFirst(shorten(stripEnd(a.task), 70))}`, why: `${a.owner} owns it, but no date was stated.`, ref: a.id }));
   openItems.filter((o) => o.kind !== 'approval').forEach((o) => recs.push({ priority: 'Medium', title: `Put ${o.id} on the next agenda with a decision owner`, why: `Left open: “${shorten(o.question, 90)}”`, ref: o.id }));
   risks.filter((r) => r.rating !== 'high' && !r.mitigation).forEach((r) => recs.push({ priority: 'Medium', title: `Confirm how ${r.id} will be managed`, why: shorten(riskHeadline(r.risk), 110), ref: r.id }));
   m.recommendations = recs;

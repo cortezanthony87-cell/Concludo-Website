@@ -267,6 +267,10 @@
 .cmo .cmo-export-card.featured { background: var(--sand-50, #FCFBF9); border-color: var(--navy); }
 .cmo .cmo-export-card.cmo-card-locked { background: var(--light); opacity: 0.88; }
 .cmo .cmo-badge-rec { font-size: 10px; background: var(--navy); color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: 600; letter-spacing: 0.04em; }
+.cmo .gold-border { border-color: var(--gold) !important; background-color: var(--gold-tint, #FDF9EE); }
+.cmo .cmo-custom-input:focus { border-color: var(--navy) !important; outline: none; box-shadow: 0 0 0 2px rgba(22, 38, 63, 0.1); }
+.cmo .btn-link { font-family: inherit; }
+.cmo .btn-link:hover { color: var(--gold-dark, #BC8A1C) !important; }
 .cmo .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: var(--white); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow-2); z-index: 200; display: flex; gap: 8px; align-items: center; }
 
 /* ============================================================ A4 DOCUMENT */
