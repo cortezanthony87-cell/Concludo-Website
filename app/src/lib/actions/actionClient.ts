@@ -73,6 +73,14 @@ export async function saveAction(
         team_id: teamId,
         assigned_user_id: input.assigned_user_id || null,
         assigned_user_name: input.assigned_user_name || null,
+        priority: input.priority || null,
+        due_time: input.due_time || null,
+        due_timezone: input.due_timezone || 'Australia/Melbourne',
+        all_day: input.all_day ?? true,
+        source_type: input.source_type || null,
+        source_id: input.source_id || null,
+        source_url: input.source_url || null,
+        origin_marker: input.origin_marker || null,
       })
       .select('*, projects(id, title, client_name, project_name, meeting_date, deleted_at, ownership_type, team_id)')
       .single();
@@ -256,6 +264,15 @@ export async function updateAction(
     if (input.assigned_user_name !== undefined) updatePayload.assigned_user_name = input.assigned_user_name;
     if (input.ownership_type !== undefined) updatePayload.ownership_type = input.ownership_type;
     if (input.team_id !== undefined) updatePayload.team_id = input.team_id;
+    if (input.priority !== undefined) updatePayload.priority = input.priority;
+    if (input.due_time !== undefined) updatePayload.due_time = input.due_time;
+    if (input.due_timezone !== undefined) updatePayload.due_timezone = input.due_timezone;
+    if (input.all_day !== undefined) updatePayload.all_day = input.all_day;
+    if (input.completed_at !== undefined) updatePayload.completed_at = input.completed_at;
+    if (input.completed_by !== undefined) updatePayload.completed_by = input.completed_by;
+    if (input.archived_at !== undefined) updatePayload.archived_at = input.archived_at;
+    if (input.archived_by !== undefined) updatePayload.archived_by = input.archived_by;
+    if (input.origin_marker !== undefined) updatePayload.origin_marker = input.origin_marker;
 
     const { data, error } = await supabase
       .from('action_tracker')

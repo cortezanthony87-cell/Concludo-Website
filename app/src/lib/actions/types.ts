@@ -32,6 +32,22 @@ export interface ActionRecord {
   deleted_at: string | null;
   deleted_by: string | null;
   purge_after: string | null;
+  priority?: 'high' | 'medium' | 'low' | null;
+  due_time?: string | null;
+  due_timezone?: string;
+  all_day?: boolean;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_url?: string | null;
+  approval_state?: 'manual' | 'approved_from_candidate';
+  approved_by?: string | null;
+  approved_at?: string | null;
+  version?: number;
+  origin_marker?: string | null;
   projects?: {
     id: string;
     title: string;
@@ -61,6 +77,14 @@ export interface CreateActionInput {
   team_id?: string | null;
   assigned_user_id?: string | null;
   assigned_user_name?: string | null;
+  priority?: 'high' | 'medium' | 'low' | null;
+  due_time?: string | null;
+  due_timezone?: string;
+  all_day?: boolean;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_url?: string | null;
+  origin_marker?: string | null;
 }
 
 export interface UpdateActionInput {
@@ -73,6 +97,16 @@ export interface UpdateActionInput {
   team_id?: string | null;
   assigned_user_id?: string | null;
   assigned_user_name?: string | null;
+  priority?: 'high' | 'medium' | 'low' | null;
+  due_time?: string | null;
+  due_timezone?: string;
+  all_day?: boolean;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  version?: number;
+  origin_marker?: string | null;
 }
 
 /**

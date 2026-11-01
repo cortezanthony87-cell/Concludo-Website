@@ -39,6 +39,7 @@ const routes = [
   'settings/deleted',
   'decision-memory',
   'actions',
+  'work/actions',
   'insight',
   'insight/overview',
   'insight/stats',

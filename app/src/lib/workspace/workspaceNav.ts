@@ -134,6 +134,7 @@ export interface WorkspaceDestination {
  *   render the old views. One line, and it is reversible by changing it back.
  */
 export const MERGED_PAGES_READY = true;
+export const ACTION_HUB_V1 = true;
 
 const DESTINATIONS: WorkspaceDestination[] = [
   /* ---------------------------------------------------------------- Work
@@ -214,6 +215,19 @@ const DESTINATIONS: WorkspaceDestination[] = [
     pinned: true,
     badge: 'blocking',
   },
+  ...(ACTION_HUB_V1
+    ? [
+        {
+          path: '/work/actions',
+          label: 'Actions',
+          iconName: 'ListChecks',
+          accessibleDescription: 'Action Command Hub: one trusted place to see, prioritise and complete pending work.',
+          group: 'Work' as const,
+          feature: 'action_tracker' as const,
+          pinned: true,
+        },
+      ]
+    : []),
 
   /* -------------------------------------------------------- Connectivity */
   {
@@ -275,14 +289,18 @@ const DESTINATIONS: WorkspaceDestination[] = [
     group: 'Automation',
     feature: 'workflow_orchestration',
   },
-  {
-    path: '/actions',
-    label: 'Actions',
-    iconName: 'ListChecks',
-    accessibleDescription: 'What is to be done, and by when.',
-    group: 'Automation',
-    feature: 'action_tracker',
-  },
+  ...(!ACTION_HUB_V1
+    ? [
+        {
+          path: '/actions',
+          label: 'Actions',
+          iconName: 'ListChecks',
+          accessibleDescription: 'What is to be done, and by when.',
+          group: 'Automation' as const,
+          feature: 'action_tracker' as const,
+        },
+      ]
+    : []),
   { path: '/agents/dashboard', label: 'Agent Dashboard', iconName: 'Gauge', accessibleDescription: 'How the agents are running.', group: 'Automation', feature: 'ai_agents' },
 
   /* -------------------------------------------------------- Intelligence

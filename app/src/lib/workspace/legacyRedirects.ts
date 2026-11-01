@@ -69,10 +69,11 @@ export const SPELLING_PATHS: Record<string, string> = {
 };
 
 /** Everything that should resolve, for the router and the checker. */
-export function activeRedirects(mergedPagesReady: boolean): Record<string, string> {
+export function activeRedirects(mergedPagesReady: boolean, actionHubReady: boolean = false): Record<string, string> {
   return {
     ...REMOVED_PATHS,
     ...SPELLING_PATHS,
     ...(mergedPagesReady ? MERGED_PATHS : {}),
+    ...(actionHubReady ? { '/actions': '/work/actions' } : {}),
   };
 }

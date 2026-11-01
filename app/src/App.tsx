@@ -26,6 +26,7 @@ import { DecisionMemoryPage } from './pages/DecisionMemoryPage';
 import { DecisionDetailPage } from './pages/DecisionDetailPage';
 import { ActionsPage } from './pages/ActionsPage';
 import { ActionDetailPage } from './pages/ActionDetailPage';
+import { ActionHubPage } from './pages/actions/ActionHubPage';
 import { InsightOverviewPage } from './pages/InsightOverviewPage';
 import { StatsOverviewPage } from './pages/StatsOverviewPage';
 import { fetchUserInsights, fetchUserStats } from './lib/intelligence/intelligenceClient';
@@ -106,7 +107,7 @@ import { CrmModuleLayout } from './components/crm/CrmModuleLayout';
 import { CRM_ROUTES, CRM_DETAIL_ROUTES } from './pages/crm/crmRouteTable';
 import { CommHubPage } from './pages/crm/hub/CommHubPage';
 import { activeRedirects } from './lib/workspace/legacyRedirects';
-import { MERGED_PAGES_READY } from './lib/workspace/workspaceNav';
+import { MERGED_PAGES_READY, ACTION_HUB_V1 } from './lib/workspace/workspaceNav';
 
 // Billing & Checkout Pages
 import { CheckoutPage } from './pages/CheckoutPage';
@@ -170,8 +171,10 @@ export const App: React.FC = () => {
             <Route path="/settings/deleted" element={<RecentlyDeletedPage />} />
             <Route path="/decision-memory" element={<Navigate to="/memory/decisions" replace />} />
             <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
-            <Route path="/actions" element={<ActionsPage />} />
-            <Route path="/actions/:id" element={<ActionDetailPage />} />
+            <Route path="/work/actions" element={<ActionHubPage />} />
+            <Route path="/work/actions/:id" element={<ActionDetailPage />} />
+            <Route path="/actions" element={ACTION_HUB_V1 ? <Navigate to="/work/actions" replace /> : <ActionsPage />} />
+            <Route path="/actions/:id" element={ACTION_HUB_V1 ? <Navigate to="/work/actions" replace /> : <ActionDetailPage />} />
             <Route path="/endpoint-report" element={<EndpointReportPage />} />
             <Route path="/endpoint-report/:id" element={<EndpointReportPage />} />
 
@@ -293,7 +296,7 @@ export const App: React.FC = () => {
               ))}
             </Route>
 
-            {Object.entries(activeRedirects(MERGED_PAGES_READY)).map(([from, to]) => (
+            {Object.entries(activeRedirects(MERGED_PAGES_READY, ACTION_HUB_V1)).map(([from, to]) => (
               <Route key={from} path={from} element={<Navigate to={to} replace />} />
             ))}
 
