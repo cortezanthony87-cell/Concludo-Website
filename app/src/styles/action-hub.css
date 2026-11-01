@@ -218,7 +218,7 @@
 .ach-table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1100px;
+  min-width: 1380px;
   table-layout: fixed;
   background: #ffffff;
   font-size: 13px;
@@ -227,7 +227,7 @@
 .ach-table th {
   background: #EEF1F7;
   text-align: left;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid var(--ach-line);
   font-weight: 600;
   color: var(--ach-navy);
@@ -235,7 +235,7 @@
 }
 
 .ach-table td {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid #E4E8EF;
   vertical-align: middle;
   color: var(--ach-navy);
@@ -246,12 +246,13 @@
 .ach-table td:nth-child(2),
 .ach-table th:nth-child(2) {
   font-weight: 600;
-  min-width: 260px;
+  min-width: 340px;
+  width: 360px;
   white-space: normal;
   word-break: normal;
   overflow-wrap: break-word;
   line-height: 1.5;
-  letter-spacing: 0.01em;
+  letter-spacing: normal;
 }
 
 .ach-task-title {
@@ -262,7 +263,7 @@
   word-break: normal;
   overflow-wrap: break-word;
   white-space: normal;
-  letter-spacing: 0.01em;
+  letter-spacing: normal;
 }
 
 .ach-table tr:nth-child(even) td {
@@ -429,4 +430,24 @@
   display: none;
 }
 
-@media (max-width: 768px) {\n  .ach-container {\n    padding: 12px;\n  }\n  .ach-sum {\n    grid-template-columns: 1fr;\n  }\n  .ach-cnt {\n    grid-template-columns: repeat(2, 1fr);\n  }\n  .ach-table-wrapper {\n    display: none;\n  }\n  .ach-mobile-cards {\n    display: block;\n  }\n  .ach-panel,\n  .ach-modal-box {\n    width: 100%;\n  }\n}
+@media (max-width: 768px) {
+  .ach-container {
+    padding: 12px;
+  }
+  .ach-sum {
+    grid-template-columns: 1fr;
+  }
+  .ach-cnt {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ach-table-wrapper {
+    display: none;
+  }
+  .ach-mobile-cards {
+    display: block;
+  }
+  .ach-panel,
+  .ach-modal-box {
+    width: 100%;
+  }
+}

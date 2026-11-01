@@ -1,4 +1,14 @@
-export type ActionStatus = 'not_started' | 'in_progress' | 'blocked' | 'completed';
+export type ActionStatus = 'not_started' | 'in_progress' | 'blocked' | 'completed' | 'overdue';
+
+export const STATUS_LABELS: Record<ActionStatus, string> = {
+  not_started: 'Not Started',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  blocked: 'Blocked',
+  overdue: 'Overdue',
+};
+
+export { isActionOverdue } from '../intel/actionStatus';
 
 export type ActionPriority = 'high' | 'medium' | 'low';
 

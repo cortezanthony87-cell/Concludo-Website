@@ -47,12 +47,48 @@ export const ActionHubPage: React.FC = () => {
   const [createProject, setCreateProject] = useState('General');
   const [createSaving, setCreateSaving] = useState(false);
 
-  // Suggestions state: Empty by default; only authentic candidates from Supabase
+  // Suggestions state
   const [candidates, setCandidates] = useState<CandidateSuggestion[]>([]);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Record<string, boolean>>({});
 
   const now = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => melbourneToday(now), [now]);
+
+  // Load real candidates from Supabase (only if any exist)
+  const loadCandidates = useCallback(async () => {
+    if (!user?.id) {
+      setCandidates([]);
+      return;
+    }
+    try {
+      const { data, error: cErr } = await supabase
+        .from('action_candidates')
+        .select('*')
+        .eq('state', 'pending')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (!cErr && Array.isArray(data) && data.length > 0) {
+        setCandidates(
+          data.map((c: any) => ({
+            id: c.id,
+            title: c.title || 'Untitled task',
+            ownerLabel: c.proposed_owner_label || 'unassigned',
+            ownerBasis: c.owner_basis || 'inferred',
+            priority: c.proposed_priority || 'medium',
+            dueText: c.proposed_due || 'none found',
+            dueBasis: c.due_basis || 'none',
+            project: 'General',
+            quote: c.source_excerpt || '',
+            isDuplicate: !!c.duplicate_of_action_id,
+          }))
+        );
+      } else {
+        setCandidates([]);
+      }
+    } catch {
+      setCandidates([]);
+    }
+  }, [supabase, user?.id]);
 
   // Load actions from Supabase
   const loadActions = useCallback(async () => {
@@ -69,37 +105,6 @@ export const ActionHubPage: React.FC = () => {
       setError(err?.message || 'Failed to load actions');
     } finally {
       setLoading(false);
-    }
-  }, [supabase]);
-
-  // Load real candidates from Supabase (only if any exist)
-  const loadCandidates = useCallback(async () => {
-    try {
-      const { data, error: cErr } = await supabase
-        .from('action_candidates')
-        .select('*')
-        .eq('decision', 'pending')
-        .order('created_at', { ascending: false });
-      if (!cErr && Array.isArray(data) && data.length > 0) {
-        setCandidates(
-          data.map((c: any) => ({
-            id: c.id,
-            title: c.candidate_title || 'Untitled task',
-            ownerLabel: c.owner_raw || 'unassigned',
-            ownerBasis: c.owner_confidence >= 0.8 ? 'stated' : 'inferred',
-            priority: c.suggested_priority || 'medium',
-            dueText: c.due_raw || 'none found',
-            dueBasis: c.due_date ? 'stated' : 'none',
-            project: 'General',
-            quote: c.source_quote || '',
-            isDuplicate: !!c.duplicate_of_action_id,
-          }))
-        );
-      } else {
-        setCandidates([]);
-      }
-    } catch {
-      setCandidates([]);
     }
   }, [supabase]);
 
@@ -173,7 +178,7 @@ export const ActionHubPage: React.FC = () => {
     if (!createTitle.trim()) return;
     setCreateSaving(true);
     try {
-      // Use current project or null (never hardcode demo UUIDs)
+      // Pick first project or null
       const projId = actions[0]?.project_id || null;
       const { data, error: saveErr } = await saveAction(supabase, {
         project_id: projId,
@@ -243,29 +248,30 @@ export const ActionHubPage: React.FC = () => {
   }, [bucketCounts, CIR, GAP]);
 
   return (
-    <div className=\"ach-container\">
+    <div className="ach-container">
       {/* Top Header */}
-      <div className=\"ach-top\">
+      <div className="ach-top">
         <div>
-          <h1 className=\"ach-heading\" style={{ fontSize: '24px' }}>
+          <h1 className="ach-heading" style={{ fontSize: '24px' }}>
             Action Command Hub
           </h1>
-          <div className=\"ach-note\" style={{ marginTop: '2px' }}>
-            Scope: {scope === 'my' ? 'My Actions' : 'All permitted actions'}. Timezone: Australia/Melbourne. Showing live verified records.
+          <div className="ach-note">
+            Scope: {scope === 'my' ? 'My Actions' : 'All permitted actions'}. Timezone: Australia/Melbourne.
+            Showing live verified records.
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
-            className=\"ach-btn-secondary\"
+            className="ach-btn-secondary"
             onClick={() => setScope(scope === 'my' ? 'all' : 'my')}
-            aria-label=\"Toggle action scope\"
+            aria-label="Toggle action scope"
           >
             {scope === 'my' ? 'My Actions ▾' : 'All permitted actions ▾'}
           </button>
           <button
-            className=\"ach-btn-primary\"
+            className="ach-btn-primary"
             onClick={() => setShowCreateModal(true)}
-            aria-label=\"Create new item\"
+            aria-label="Create new item"
           >
             + Create new item
           </button>
@@ -274,24 +280,24 @@ export const ActionHubPage: React.FC = () => {
 
       {/* Suggested Actions Banner */}
       {!bannerDismissed && candidates.length > 0 && (
-        <div className=\"ach-banner\">
+        <div className="ach-banner">
           <b>Actions assigned to you were found.</b> Do you want to save them to your Action Command Hub?
           <button
-            className=\"ach-btn-primary\"
+            className="ach-btn-primary"
             style={{ padding: '6px 12px', fontSize: '13px' }}
             onClick={() => setShowReviewPanel(true)}
           >
             Review actions
           </button>
           <button
-            className=\"ach-btn-secondary\"
+            className="ach-btn-secondary"
             style={{ padding: '6px 12px', fontSize: '13px' }}
             onClick={() => setBannerDismissed(true)}
           >
             Not now
           </button>
           <button
-            className=\"ach-btn-secondary\"
+            className="ach-btn-secondary"
             style={{ padding: '6px 12px', fontSize: '13px' }}
             onClick={() => {
               setCandidates([]);
@@ -303,108 +309,129 @@ export const ActionHubPage: React.FC = () => {
         </div>
       )}
 
-      {/* Metrics Row: Doughnut + Buckets */}
-      <div className=\"ach-sum\">
-        {/* Doughnut Widget */}
-        <div className=\"ach-card ach-dn\">
-          <svg width=\"112\" height=\"112\" viewBox=\"0 0 112 112\" aria-hidden=\"true\">
-            <circle cx=\"56\" cy=\"56\" r={RAD} fill=\"none\" stroke=\"#E4E8EF\" strokeWidth=\"12\" />
-            {donutSlices.map((s) => (
+      {/* Summary Strip (Doughnut and Counters) */}
+      <div className="ach-sum">
+        {/* Left: SVG Doughnut Chart */}
+        <div className="ach-card ach-dn">
+          <svg
+            width="132"
+            height="132"
+            viewBox="-60 -60 120 120"
+            role="img"
+            aria-label={`Doughnut chart of actions: ${bucketCounts.total} total`}
+          >
+            <circle r={RAD} fill="none" stroke="#EEF1F7" strokeWidth="16" />
+            {donutSlices.map((sl) => (
               <circle
-                key={s.key}
-                cx=\"56\"
-                cy=\"56\"
+                key={sl.key}
                 r={RAD}
-                fill=\"none\"
-                stroke={s.stroke}
-                strokeWidth=\"12\"
-                strokeDasharray={s.dashArray}
-                strokeDashoffset={s.dashOffset}
-                strokeLinecap=\"round\"
-                transform=\"rotate(-90 56 56)\"
+                fill="none"
+                stroke={sl.stroke}
+                strokeWidth="16"
+                strokeDasharray={sl.dashArray}
+                strokeDashoffset={sl.dashOffset}
+                transform="rotate(-90)"
               />
             ))}
-            <text x=\"56\" y=\"52\" textAnchor=\"middle\" fill=\"#16263F\" fontSize=\"18\" fontWeight=\"700\" fontFamily=\"Poppins, sans-serif\">
+            <text
+              y="4"
+              textAnchor="middle"
+              fontFamily="Poppins, Arial, sans-serif"
+              fontWeight="700"
+              fontSize="24"
+              fill="#16263F"
+            >
               {bucketCounts.total}
             </text>
-            <text x=\"56\" y=\"66\" textAnchor=\"middle\" fill=\"#5A6478\" fontSize=\"10\" fontFamily=\"Inter, sans-serif\">
+            <text
+              y="19"
+              textAnchor="middle"
+              fontFamily="Inter, Arial, sans-serif"
+              fontSize="9"
+              fill="#5A6478"
+            >
               actions
             </text>
           </svg>
 
-          <div className=\"ach-lg\">
-            <div className=\"ach-lg-row\">
-              <i style={{ background: C.Completed }} />
-              <span>Completed</span>
-              <b>{bucketCounts.completed} <em>{bucketCounts.total ? Math.round((bucketCounts.completed / bucketCounts.total) * 100) : 0}%</em></b>
-            </div>
-            <div className=\"ach-lg-row\">
-              <i style={{ background: C.Overdue }} />
+          {/* Legend */}
+          <div className="ach-lg">
+            {(['Completed', 'Overdue', 'Due today', 'Pending'] as const).map((k) => {
+              let cnt = 0;
+              if (k === 'Completed') cnt = bucketCounts.completed;
+              if (k === 'Overdue') cnt = bucketCounts.overdue;
+              if (k === 'Due today') cnt = bucketCounts.dueToday;
+              if (k === 'Pending') cnt = bucketCounts.pending;
+              const pct = bucketCounts.total > 0 ? Math.round((cnt / bucketCounts.total) * 100) : 0;
+              return (
+                <div className="ach-lg-row" key={k}>
+                  <i style={{ background: C[k] }}></i>
+                  <span>{k}</span>
+                  <span>
+                    <b>{cnt}</b>
+                    <em>{pct}%</em>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: Counter Grid */}
+        <div className="ach-card">
+          <div className="ach-cnt">
+            <div>
+              <b>{bucketCounts.overdue}</b>
               <span>Overdue</span>
-              <b>{bucketCounts.overdue} <em>{bucketCounts.total ? Math.round((bucketCounts.overdue / bucketCounts.total) * 100) : 0}%</em></b>
             </div>
-            <div className=\"ach-lg-row\">
-              <i style={{ background: C['Due today'] }} />
+            <div>
+              <b>{bucketCounts.dueToday}</b>
               <span>Due today</span>
-              <b>{bucketCounts.dueToday} <em>{bucketCounts.total ? Math.round((bucketCounts.dueToday / bucketCounts.total) * 100) : 0}%</em></b>
             </div>
-            <div className=\"ach-lg-row\">
-              <i style={{ background: C.Pending }} />
-              <span>Pending</span>
-              <b>{bucketCounts.pending} <em>{bucketCounts.total ? Math.round((bucketCounts.pending / bucketCounts.total) * 100) : 0}%</em></b>
+            <div>
+              <b>{bucketCounts.upcoming}</b>
+              <span>Upcoming</span>
+            </div>
+            <div>
+              <b>{bucketCounts.unscheduled}</b>
+              <span>Unscheduled</span>
+            </div>
+            <div>
+              <b>{bucketCounts.inProgress}</b>
+              <span>In progress</span>
+            </div>
+            <div>
+              <b>{bucketCounts.blocked}</b>
+              <span>Blocked</span>
+            </div>
+            <div>
+              <b>{bucketCounts.completed}</b>
+              <span>Completed</span>
             </div>
           </div>
-        </div>
-
-        {/* 8 Buckets Grid */}
-        <div className=\"ach-card ach-cnt\">
-          <div>
-            <b>{bucketCounts.overdue}</b>
-            <span>Overdue</span>
+          <div className="ach-note" style={{ padding: '0 12px 10px' }}>
+            Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
           </div>
-          <div>
-            <b>{bucketCounts.dueToday}</b>
-            <span>Due today</span>
-          </div>
-          <div>
-            <b>{bucketCounts.upcoming}</b>
-            <span>Upcoming</span>
-          </div>
-          <div>
-            <b>{bucketCounts.unscheduled}</b>
-            <span>Unscheduled</span>
-          </div>
-          <div>
-            <b>{bucketCounts.inProgress}</b>
-            <span>In progress</span>
-          </div>
-          <div>
-            <b>{bucketCounts.blocked}</b>
-            <span>Blocked</span>
-          </div>
-          <div>
-            <b>{bucketCounts.completed}</b>
-            <span>Completed</span>
-          </div>
-          <div style={{ display: 'none' }} />
         </div>
       </div>
 
-      <div className=\"ach-note\" style={{ margin: '6px 0 12px 0' }}>
-        Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
-      </div>
-
-      {/* Tabs */}
-      <div className=\"ach-tabs\">
+      {/* Saved View Tabs */}
+      <div className="ach-tabs">
         <button
           className={activeTab === 'my' ? 'active' : ''}
-          onClick={() => setActiveTab('my')}
+          onClick={() => {
+            setActiveTab('my');
+            setScope('my');
+          }}
         >
           My Actions
         </button>
         <button
           className={activeTab === 'all' ? 'active' : ''}
-          onClick={() => setActiveTab('all')}
+          onClick={() => {
+            setActiveTab('all');
+            setScope('all');
+          }}
         >
           All permitted actions
         </button>
@@ -438,41 +465,39 @@ export const ActionHubPage: React.FC = () => {
         >
           Completed
         </button>
-        {candidates.length > 0 && (
-          <button
-            className={activeTab === 'review' ? 'active' : ''}
-            onClick={() => setShowReviewPanel(true)}
-          >
-            Review suggestions <b className=\"ach-pill ach-pill-me\" style={{ marginLeft: '4px' }}>{candidates.length}</b>
-          </button>
-        )}
+        <button
+          className={activeTab === 'review' ? 'active' : ''}
+          onClick={() => setShowReviewPanel(true)}
+        >
+          Review suggestions <b className="ach-pill ach-pill-me" style={{ marginLeft: '4px' }}>{candidates.length}</b>
+        </button>
       </div>
 
       {/* Toolbar */}
-      <div className=\"ach-tb\">
+      <div className="ach-tb">
         <input
-          placeholder=\"Search actions\"
-          aria-label=\"Search actions\"
+          placeholder="Search actions"
+          aria-label="Search actions"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <button className=\"ach-btn-secondary\">Filters</button>
-        <button className=\"ach-btn-secondary\">Sort</button>
-        <button className=\"ach-btn-secondary\">Columns (2 hidden)</button>
+        <button className="ach-btn-secondary">Filters</button>
+        <button className="ach-btn-secondary">Sort</button>
+        <button className="ach-btn-secondary">Columns (2 hidden)</button>
       </div>
 
       {/* Grid: Desktop Table View */}
-      <div className=\"ach-card ach-table-wrapper\">
-        <table className=\"ach-table\">
+      <div className="ach-card ach-table-wrapper">
+        <table className="ach-table">
           <colgroup>
             <col style={{ width: '44px' }} />
-            <col style={{ width: '320px', minWidth: '260px' }} />
+            <col style={{ width: '360px', minWidth: '340px' }} />
             <col style={{ width: '90px' }} />
             <col style={{ width: '150px' }} />
             <col style={{ width: '120px' }} />
             <col style={{ width: '110px' }} />
             <col style={{ width: '150px' }} />
-            <col style={{ width: '90px' }} />
+            <col style={{ width: '84px' }} />
             <col style={{ width: '120px' }} />
             <col style={{ width: '100px' }} />
             <col style={{ width: '44px' }} />
@@ -480,7 +505,7 @@ export const ActionHubPage: React.FC = () => {
           <thead>
             <tr>
               <th>
-                <input type=\"checkbox\" aria-label=\"Select all\" />
+                <input type="checkbox" aria-label="Select all" />
               </th>
               <th>Task title</th>
               <th>Priority</th>
@@ -495,7 +520,8 @@ export const ActionHubPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {loading ? (\n              <tr>
+            {loading ? (
+              <tr>
                 <td colSpan={11} style={{ textAlign: 'center', padding: '24px' }}>
                   Loading actions...
                 </td>
@@ -517,17 +543,13 @@ export const ActionHubPage: React.FC = () => {
                   <tr key={row.id}>
                     <td>
                       <input
-                        type=\"checkbox\"
+                        type="checkbox"
                         checked={row.status === 'completed'}
                         onChange={() => handleToggleComplete(row)}
                         aria-label={`Select task ${row.action_title}`}
                       />
                     </td>
-                    <td>
-                      <span className=\"ach-task-title\" title={row.action_title}>
-                        {row.action_title}
-                      </span>
-                    </td>
+                    <td>{row.action_title}</td>
                     <td>
                       <span className={`ach-pill ${pClass}`}>{p}</span>
                     </td>
@@ -539,15 +561,15 @@ export const ActionHubPage: React.FC = () => {
                         : row.status === 'blocked'
                         ? 'Blocked'
                         : 'Not started'}
-                      {isOverdue && <span className=\"ach-overdue-badge\"> ⚠ Overdue</span>}
+                      {isOverdue && <span className="ach-overdue-badge"> ⚠ Overdue</span>}
                     </td>
-                    <td>{row.assigned_user_name || row.owner_name || 'Unassigned'}</td>
+                    <td>{row.assigned_user_name || row.owner_name || 'Anthony'}</td>
                     <td>{row.due_date ? row.due_date : 'Unscheduled'}</td>
                     <td>{row.projects?.title || row.projects?.project_name || 'Internal'}</td>
                     <td>{row.source_type || 'Meeting'}</td>
                     <td>Not linked</td>
                     <td>{row.updated_at ? row.updated_at.slice(0, 10) : 'Today'}</td>
-                    <td style={{ textAlign: 'center' }}>⋯</td>
+                    <td>⋯</td>
                   </tr>
                 );
               })
@@ -557,7 +579,7 @@ export const ActionHubPage: React.FC = () => {
       </div>
 
       {/* Mobile Card List (< 768px and 390px viewport) */}
-      <div className=\"ach-mobile-cards\">
+      <div className="ach-mobile-cards">
         {displayedActions.map((row) => {
           const b = getActionBucket(row, now);
           const isOverdue = b === 'Overdue';
@@ -565,13 +587,13 @@ export const ActionHubPage: React.FC = () => {
           const pClass = p === 'High' ? 'ach-pill-hi' : p === 'Medium' ? 'ach-pill-me' : 'ach-pill-lo';
 
           return (
-            <div className=\"ach-row-card\" key={row.id}>
+            <div className="ach-row-card" key={row.id}>
               <b>{row.action_title}</b>
-              <div className=\"f\">
+              <div className="f">
                 <span className={`ach-pill ${pClass}`}>{p}</span>
-                <span className=\"ach-tag\">{row.status}</span>
-                <span className=\"ach-tag\">{row.due_date || 'Unscheduled'}</span>
-                {isOverdue && <span className=\"ach-overdue-badge\">⚠ Overdue</span>}
+                <span className="ach-tag">{row.status}</span>
+                <span className="ach-tag">{row.due_date || 'Unscheduled'}</span>
+                {isOverdue && <span className="ach-overdue-badge">⚠ Overdue</span>}
               </div>
             </div>
           );
@@ -580,34 +602,29 @@ export const ActionHubPage: React.FC = () => {
 
       {/* Review Suggested Actions Drawer */}
       {showReviewPanel && (
-        <aside className=\"ach-panel\" aria-label=\"Review suggested actions\">
+        <aside className="ach-panel" aria-label="Review suggested actions">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 className=\"ach-heading\" style={{ fontSize: '18px' }}>
+            <h2 className="ach-heading" style={{ fontSize: '18px' }}>
               Review suggested actions
             </h2>
             <button
-              className=\"ach-btn-secondary\"
+              className="ach-btn-secondary"
               style={{ border: 0, fontSize: '16px', padding: '4px 8px' }}
               onClick={() => setShowReviewPanel(false)}
-              aria-label=\"Close review panel\"
+              aria-label="Close review panel"
             >
               ✕
             </button>
           </div>
-          {candidates.length === 0 ? (
-            <div style={{ padding: '32px 16px', textAlign: 'center', color: '#5A6478' }}>
-              No pending suggestions to review.
-            </div>
-          ) : (
-            <>
-              <div className=\"ach-note\" style={{ marginTop: '4px' }}>
-                From: Client check-in meeting. Rule-based drafting, may miss or misread items. Nothing is saved until you press Save. None selected by default.
-              </div>
-              {candidates.map((c) => (
+          <div className="ach-note" style={{ marginTop: '4px' }}>
+            From: Client check-in meeting. Rule-based drafting, may miss or misread items. Nothing is saved until you press Save. None selected by default.
+          </div>
+
+          {candidates.map((c) => (
             <div className={`ach-row-card ${c.isDuplicate || c.ownerBasis === 'unresolved' ? 'warn' : ''}`} key={c.id}>
               <label style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
-                  type=\"checkbox\"
+                  type="checkbox"
                   checked={!!selectedCandidateIds[c.id]}
                   onChange={(e) =>
                     setSelectedCandidateIds({
@@ -618,54 +635,78 @@ export const ActionHubPage: React.FC = () => {
                 />
                 <b>{c.title}</b>
               </label>
-              <div className=\"f\">
-                <span className=\"ach-tag\">Owner: {c.ownerLabel} ({c.ownerBasis})</span>
-                <span className=\"ach-tag\">Suggested priority: {c.priority}</span>
-                <span className=\"ach-tag\">Due: {c.dueText}</span>
-                <span className=\"ach-tag\">Project: {c.project}</span>
-                {c.isDuplicate && <span className=\"ach-tag warn\">Possible duplicate</span>}
+              <div className="f">
+                <span className="ach-tag">Owner: {c.ownerLabel} ({c.ownerBasis})</span>
+                <span className="ach-tag">Suggested priority: {c.priority}</span>
+                <span className="ach-tag">Due: {c.dueText}</span>
+                <span className="ach-tag">Project: {c.project}</span>
+                {c.isDuplicate && <span className="ach-tag warn">Possible duplicate</span>}
               </div>
-              <div className=\"ach-note\" style={{ marginTop: '6px' }}>
+              <div className="ach-note" style={{ marginTop: '6px' }}>
                 &ldquo;{c.quote}&rdquo;
               </div>
               {c.isDuplicate && (
-                <div className=\"f\" style={{ marginTop: '8px' }}>
-                  <button className=\"ach-btn-secondary\" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                <div className="f" style={{ marginTop: '8px' }}>
+                  <button className="ach-btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }}>
                     Link to existing
                   </button>
-                  <button className=\"ach-btn-secondary\" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                  <button className="ach-btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }}>
                     Update existing
                   </button>
-                  <button className=\"ach-btn-secondary\" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                  <button className="ach-btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }}>
                     Keep separate
                   </button>
                 </div>
               )}
             </div>
           ))}
-            </>
-          )}
 
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
             <button
-              className=\"ach-btn-primary\"
-              onClick={() => {
-                alert('Selected actions saved to Action Command Hub');
+              className="ach-btn-primary"
+              onClick={async () => {
+                const toSave = candidates.filter((c) => selectedCandidateIds[c.id]);
+                if (toSave.length === 0) {
+                  setShowReviewPanel(false);
+                  return;
+                }
+                for (const c of toSave) {
+                  await saveAction(supabase, {
+                    action_title: c.title,
+                    priority: c.priority as any,
+                    due_date: c.dueBasis === 'stated' && c.dueText !== 'none found' ? c.dueText : null,
+                    owner_name: c.ownerLabel !== 'unassigned' ? c.ownerLabel : null,
+                    status: 'not_started',
+                  });
+                  await supabase
+                    .from('action_candidates')
+                    .update({ state: 'accepted' })
+                    .eq('id', c.id);
+                }
                 setShowReviewPanel(false);
+                loadActions();
+                loadCandidates();
               }}
             >
               Save selected actions
             </button>
             <button
-              className=\"ach-btn-secondary\"
-              onClick={() => {
-                setCandidates([]);
+              className="ach-btn-secondary"
+              onClick={async () => {
+                const toDismiss = candidates.filter((c) => selectedCandidateIds[c.id]);
+                for (const c of toDismiss) {
+                  await supabase
+                    .from('action_candidates')
+                    .update({ state: 'dismissed' })
+                    .eq('id', c.id);
+                }
                 setShowReviewPanel(false);
+                loadCandidates();
               }}
             >
               Dismiss selected
             </button>
-            <button className=\"ach-btn-secondary\" onClick={() => setShowReviewPanel(false)}>
+            <button className="ach-btn-secondary" onClick={() => setShowReviewPanel(false)}>
               Not now
             </button>
           </div>
@@ -674,23 +715,12 @@ export const ActionHubPage: React.FC = () => {
 
       {/* Create New Item Modal */}
       {showCreateModal && (
-        <div className=\"ach-modal-backdrop\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Create new item\">
-          <div className=\"ach-modal-box\">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 className=\"ach-heading\" style={{ fontSize: '18px' }}>
-                Create new item
-              </h2>
-              <button
-                className=\"ach-btn-secondary\"
-                style={{ border: 0, fontSize: '16px', padding: '4px 8px' }}
-                onClick={() => setShowCreateModal(false)}
-                aria-label=\"Close modal\"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className=\"ach-seg\">
+        <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Create new item">
+          <div className="ach-modal-box">
+            <h2 className="ach-heading" style={{ fontSize: '18px' }}>
+              Create new item
+            </h2>
+            <div className="ach-seg">
               <button
                 className={createKind === 'task' ? 'active' : ''}
                 onClick={() => setCreateKind('task')}
@@ -701,7 +731,7 @@ export const ActionHubPage: React.FC = () => {
                 className={createKind === 'event' ? 'active' : ''}
                 onClick={() => setCreateKind('event')}
               >
-                Calendar event
+                Event
               </button>
               <button
                 className={createKind === 'reminder' ? 'active' : ''}
@@ -710,92 +740,118 @@ export const ActionHubPage: React.FC = () => {
                 Reminder
               </button>
             </div>
+            <div className="ach-note">
+              Event and Reminder use the existing Calendar. Anything not supported is disabled with a reason.
+            </div>
 
-            <label className=\"ach-field\">
-              Title *
+            <label className="ach-field">
+              Title (required)
               <input
-                className=\"ach-field-input\"
-                placeholder=\"e.g. Follow up with lender on offset account setup\"
+                className="ach-field-input"
+                placeholder="Prepare Q4 workshop pack"
                 value={createTitle}
                 onChange={(e) => setCreateTitle(e.target.value)}
-                autoFocus
               />
             </label>
 
-            <label className=\"ach-field\">
+            <label className="ach-field">
               Description
-              <textarea
-                className=\"ach-field-input\"
-                rows={2}
-                placeholder=\"Optional context or background\"
+              <input
+                className="ach-field-input"
+                placeholder="Optional"
                 value={createDescription}
                 onChange={(e) => setCreateDescription(e.target.value)}
               />
             </label>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <label className=\"ach-field\">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+              <label className="ach-field">
                 Priority
                 <select
-                  className=\"ach-field-input\"
+                  className="ach-field-input"
                   value={createPriority}
                   onChange={(e) => setCreatePriority(e.target.value as any)}
                 >
-                  <option value=\"high\">High</option>
-                  <option value=\"medium\">Medium</option>
-                  <option value=\"low\">Low</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
                 </select>
               </label>
 
-              <label className=\"ach-field\">
+              <label className="ach-field">
+                Assignee
+                <div className="ach-field-input" style={{ background: '#F4F6FA', cursor: 'not-allowed' }}>
+                  Anthony Cortez (you)
+                </div>
+              </label>
+
+              <label className="ach-field">
                 Due date
                 <input
-                  type=\"date\"
-                  className=\"ach-field-input\"
+                  type="date"
+                  className="ach-field-input"
                   value={createDueDate}
                   onChange={(e) => setCreateDueDate(e.target.value)}
                 />
               </label>
+
+              <label className="ach-field">
+                Project
+                <select
+                  className="ach-field-input"
+                  value={createProject}
+                  onChange={(e) => setCreateProject(e.target.value)}
+                >
+                  <option value="General">General</option>
+                  {Array.from(new Set(actions.map((a) => a.projects?.title).filter(Boolean))).map((pName) => (
+                    <option key={pName} value={pName as string}>{pName}</option>
+                  ))}
+                </select>
+              </label>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', marginTop: '10px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+            <div style={{ marginTop: '10px' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
                 <input
-                  type=\"checkbox\"
+                  type="checkbox"
                   checked={createAllDay}
                   onChange={(e) => setCreateAllDay(e.target.checked)}
                 />
                 All day
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+            </div>
+
+            <div style={{ marginTop: '6px' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
                 <input
-                  type=\"checkbox\"
+                  type="checkbox"
                   checked={createCalendarReminder}
                   onChange={(e) => setCreateCalendarReminder(e.target.checked)}
                 />
-                Add to calendar
+                Also add a calendar reminder
               </label>
             </div>
 
-            <label className=\"ach-field\">
-              Project
-              <input
-                className=\"ach-field-input\"
-                value={createProject}
-                onChange={(e) => setCreateProject(e.target.value)}
-              />
-            </label>
+            <div className="ach-banner" style={{ marginTop: '12px' }}>
+              <div>
+                <b>Preview</b>
+                <br />
+                Hub task: will be created when you press Save.
+                <br />
+                Calendar item: {createCalendarReminder ? 'will be created.' : 'will not be created.'}
+              </div>
+            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
-              <button className=\"ach-btn-secondary\" onClick={() => setShowCreateModal(false)}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
+              <button className="ach-btn-secondary" onClick={() => setShowCreateModal(false)}>
                 Cancel
               </button>
               <button
-                className=\"ach-btn-primary\"
+                className="ach-btn-primary"
+                disabled={!createTitle.trim() || createSaving}
                 onClick={handleSaveCreate}
-                disabled={createSaving || !createTitle.trim()}
               >
-                {createSaving ? 'Saving...' : 'Save item'}
+                {createSaving ? 'Saving...' : 'Save task'}
               </button>
             </div>
           </div>
@@ -804,3 +860,5 @@ export const ActionHubPage: React.FC = () => {
     </div>
   );
 };
+
+export default ActionHubPage;
