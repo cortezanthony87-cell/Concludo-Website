@@ -133,7 +133,7 @@ export interface WorkspaceDestination {
  *   Stage B: true, on the day the four merged pages are built and their tabs
  *   render the old views. One line, and it is reversible by changing it back.
  */
-export const MERGED_PAGES_READY = false;
+export const MERGED_PAGES_READY = true;
 
 const DESTINATIONS: WorkspaceDestination[] = [
   /* ---------------------------------------------------------------- Work
