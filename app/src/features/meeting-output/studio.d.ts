@@ -44,3 +44,5 @@ export interface StudioOptions {
 
 export function mountMeetingStudio(root: HTMLElement, options?: StudioOptions): () => void;
 export function mountMeetingDocument(root: HTMLElement, model: MeetingModel, options?: Pick<StudioOptions, 'logo' | 'logoReversed' | 'template' | 'canFile' | 'canDraftEmail' | 'canExportDeck'>): () => void;
+export function exportActionsToCsv(actions: any[]): string;
+export function exportStandaloneHtml(model: any): string;

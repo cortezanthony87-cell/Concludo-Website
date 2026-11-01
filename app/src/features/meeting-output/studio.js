@@ -9,6 +9,60 @@ import * as CE from '../../lib/intelligence/meetingEngine';
 import { fromEngineRecord, renderDeckHtml, renderDeckPptx, validateDeck } from '../../lib/outputs/deck';
 import { SAMPLE_TRANSCRIPT, SAMPLE_DOC } from './samples';
 
+
+export function exportActionsToCsv(actions) {
+  const escCsv = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+  const headers = ['ID', 'Task', 'Owner', 'Due Date', 'Horizon', 'Definition of Done', 'Gaps', 'Evidence Quote', 'Source Line'];
+  const rows = (actions || []).map((a) => {
+    const ev = a.evidence && a.evidence[0];
+    const src = ev ? `${ev.sourceId || ''} L${ev.line || ''}` : '';
+    const gaps = (a.gaps || []).join('; ');
+    return [
+      escCsv(a.id),
+      escCsv(a.task),
+      escCsv(a.owner || ''),
+      escCsv(a.due || ''),
+      escCsv(a.horizon || ''),
+      escCsv(a.doneDefinition || ''),
+      escCsv(gaps),
+      escCsv(ev ? ev.quote : ''),
+      escCsv(src),
+    ].join(',');
+  });
+  return [headers.join(','), ...rows].join('\r\n');
+}
+
+export function exportStandaloneHtml(model) {
+  const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const title = escHtml(model?.meta?.title || 'Meeting Output');
+  const date = escHtml(model?.meta?.meetingDate || '');
+  const org = escHtml(model?.meta?.organisation || '');
+  const md = CE.toMarkdown(model);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title} · Concludo Meeting Record</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif; line-height: 1.6; color: #16263F; max-width: 900px; margin: 0 auto; padding: 40px 20px; background: #FAF9F6; }
+  .card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  h1 { font-size: 26px; color: #16263F; margin-top: 0; }
+  .meta { color: #64748B; font-size: 14px; margin-bottom: 24px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; }
+  pre { background: #F1F5F9; padding: 20px; border-radius: 8px; overflow-x: auto; font-family: "JetBrains Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  @media print { body { background: #fff; padding: 0; } .card { border: none; box-shadow: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>${title}</h1>
+  <div class="meta">${org ? `${org} · ` : ''}${date} · Commercial in confidence</div>
+  <pre>${escHtml(md)}</pre>
+</div>
+</body>
+</html>`;
+}
+
 export function mountMeetingStudio(root, opts = {}) {
   root.classList.add('cmo');
   if (opts.embedded) root.classList.add('cmo-embedded');
@@ -144,7 +198,11 @@ export function mountMeetingStudio(root, opts = {}) {
             .map(([n, l], i) => `${i ? '<span class="step-sep"></span>' : ''}<button class="step ${S.step === n ? 'active' : S.step > n ? 'done' : ''}" data-go="${n}" ${canGo(n) ? '' : 'disabled'} aria-current="${S.step === n ? 'step' : 'false'}"><span class="n">${S.step > n ? ic('check') : n}</span><span class="l">${l}</span></button>`)
             .join('')}
         </nav>
-        <div class="top-actions">${S.model ? `<button class="btn sm" data-act="save">${ic('save')}<span>Save to project</span></button>` : ''}</div>
+        <div class="top-actions">${S.model ? `
+          <button class="btn sm" data-act="save">${ic('save')}<span>Save to project</span></button>
+          <button class="btn sm navy" data-act="save-all-pdf" title="Save all documents as a complete PDF pack">${ic('print')}<span>Save all as PDF</span></button>
+          <button class="btn sm" data-act="export-options" title="Export formats to your device">${ic('download')}<span>Export</span></button>
+        ` : ''}</div>
       </header>
       <main id="main">${S.step === 1 ? viewImport() : S.step === 2 ? viewReview() : viewDocument()}</main>`;
     if (S.step === 3) buildDocument();
@@ -694,6 +752,438 @@ export function mountMeetingStudio(root, opts = {}) {
     };
     return fromEngineRecord(m, ctx);
   }
+
+  const actionsToCsv = exportActionsToCsv;
+  const generateStandaloneHtml = (m) => exportStandaloneHtml(m);
+
+  function tplEmailPage() {
+    const present = (S.model?.participants || []).filter((p) => p.present);
+    const absent = (S.model?.participants || []).filter((p) => !p.present);
+    const fmtP = (p) => (S.emailAudience === 'client' && p.role ? `${p.name} (${p.role})` : p.name);
+    const presentNames = present.map(fmtP).join(', ');
+    const absentNames = absent.map(fmtP).join(', ');
+    const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model?.meta?.meetingDate);
+    const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
+    const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
+
+    const b = [];
+    b.push({
+      html: `<div class="bl" data-anchor="email" data-label="Follow-up email"><span class="lab">Follow-up communication</span>Circulation drafts for client and internal stakeholders. Draft only: review and copy into your email client before sending.</div>`
+    });
+    b.push({
+      html: `<div style="margin-top:4mm"><div class="d-h"><span class="no">1</span><h2>Client follow-up email draft</h2></div>
+        <div style="background:#F9FAFB;border:1px solid var(--line);border-radius:2mm;padding:4mm;margin-top:2mm;font-size:8.8pt">
+          <div style="margin-bottom:2mm"><b>To:</b> ${esc(presentNames || 'Attendees')} ${absentNames ? `&nbsp;·&nbsp; <b>Cc:</b> ${esc(absentNames)}` : ''}</div>
+          <div style="margin-bottom:3mm;padding-bottom:2mm;border-bottom:1px solid var(--line)"><b>Subject:</b> ${esc(emailClient.subject)}</div>
+          <pre style="white-space:pre-wrap;font-family:inherit;font-size:8.6pt;line-height:1.45;color:var(--navy);margin:0">${esc(emailClient.body)}</pre>
+        </div></div>`
+    });
+    b.push({
+      pageBreak: true,
+      html: `<div style="margin-top:2mm"><div class="d-h"><span class="no">2</span><h2>Internal follow-up email draft</h2></div>
+        <div style="background:#F9FAFB;border:1px solid var(--line);border-radius:2mm;padding:4mm;margin-top:2mm;font-size:8.8pt">
+          <div style="margin-bottom:2mm"><b>To:</b> ${esc(presentNames || 'Internal team')}</div>
+          <div style="margin-bottom:3mm;padding-bottom:2mm;border-bottom:1px solid var(--line)"><b>Subject:</b> ${esc(emailInternal.subject)}</div>
+          <pre style="white-space:pre-wrap;font-family:inherit;font-size:8.6pt;line-height:1.45;color:var(--navy);margin:0">${esc(emailInternal.body)}</pre>
+        </div></div>`
+    });
+    b.push({ html: fine() });
+    return { kind: 'Follow-up email · Communication drafts', blocks: b };
+  }
+
+  function paginateSpecToHost(specOrMaker, host) {
+    let fit = 0;
+    for (;;) {
+      const spec = typeof specOrMaker === 'function' ? specOrMaker(fit) : specOrMaker;
+      host.innerHTML = '';
+      const pages = [];
+      const runHtml = `<div class="pg-run"><img src="${A.lockup}" alt="Concludo"><div class="rt">${esc(spec.kind.split(' · ')[0])}<br><b>${esc(S.model.meta.title)}</b></div></div>`;
+      const newPage = (first) => {
+        const p = document.createElement('div');
+        p.className = 'page' + (spec.compact ? ' compact' : '');
+        p.innerHTML = `${first ? coverHtml(spec.kind) : runHtml}<div class="pg-body"></div><div class="pg-foot"><span>${esc(S.model.meta.organisation || 'Concludo')} · ${esc(fmt(S.model.meta.meetingDate))} · Commercial in confidence</span><span class="pn"></span></div>`;
+        host.appendChild(p);
+        pages.push(p);
+        return p.querySelector('.pg-body');
+      };
+      const over = (body) => body.scrollHeight > body.clientHeight + 1;
+      let body = newPage(true);
+      const frag = (html) => {
+        const t = document.createElement('div');
+        t.innerHTML = html;
+        return t;
+      };
+      const moveKeep = (fromBody, toBody) => {
+        const last = fromBody.lastElementChild;
+        if (last && last.dataset.keep === '1' && fromBody.children.length > 1) toBody.appendChild(last);
+      };
+      for (const blk of spec.blocks) {
+        if (blk.type === 'table') {
+          if (blk.pageBreak && body.children.length) body = newPage(false);
+          const mk = (cont) => frag(`${cont ? `<div class="d-h"><h2 style="font-size:9.5pt;color:var(--slate)">${esc(blk.label || 'Continued')}, continued</h2></div>` : blk.pre}<table class="dt"><thead>${blk.head}</thead><tbody></tbody></table>`);
+          let wrap = mk(false);
+          body.appendChild(wrap);
+          if (!blk.rows.length) {
+            wrap.querySelector('table').outerHTML = `<p class="d-intro">${esc(blk.empty || 'None.')}</p>`;
+            if (over(body)) { body.removeChild(wrap); const nb = newPage(false); moveKeep(body, nb); body = nb; body.appendChild(wrap); }
+            continue;
+          }
+          let tb = wrap.querySelector('tbody');
+          let placedHere = 0;
+          for (const r of blk.rows) {
+            const tmp = document.createElement('tbody');
+            tmp.innerHTML = r;
+            const tr = tmp.firstElementChild;
+            tb.appendChild(tr);
+            if (over(body)) {
+              tb.removeChild(tr);
+              const nb = newPage(false);
+              if (placedHere === 0) {
+                body.removeChild(wrap);
+                moveKeep(body, nb);
+                body = nb;
+                body.appendChild(wrap);
+              } else {
+                body = nb;
+                wrap = mk(true);
+                body.appendChild(wrap);
+                tb = wrap.querySelector('tbody');
+              }
+              tb.appendChild(tr);
+              placedHere = 0;
+            }
+            placedHere++;
+          }
+        } else {
+          if (blk.pageBreak && body.children.length) body = newPage(false);
+          if (!blk.html) continue;
+          const el = frag(blk.html);
+          if (blk.keepNext) el.dataset.keep = '1';
+          body.appendChild(el);
+          if (over(body) && body.children.length > 1) {
+            body.removeChild(el);
+            const nb = newPage(false);
+            moveKeep(body, nb);
+            body = nb;
+            body.appendChild(el);
+          }
+        }
+      }
+      if (spec.fitLevels && pages.length > 1 && fit < spec.fitLevels - 1) {
+        fit++;
+        continue;
+      }
+      pages.forEach((p, i) => {
+        const pn = p.querySelector('.pn');
+        if (pn) pn.textContent = `Page ${i + 1} of ${pages.length}`;
+        p.id = `pg-${i + 1}`;
+      });
+      return pages;
+    }
+  }
+
+  async function saveAllAsPdf() {
+    if (!S.model) return;
+    if (finishPrint) finishPrint();
+    toast('Preparing all documents for PDF export...');
+    await (document.fonts ? document.fonts.ready : Promise.resolve());
+
+    // Temporary measuring container on body with .cmo styles
+    const measureHost = document.createElement('div');
+    measureHost.className = 'cmo';
+    measureHost.style.cssText = 'position:fixed;left:-99999px;top:0;width:210mm;background:#fff;opacity:0;pointer-events:none;z-index:-1;';
+    document.body.appendChild(measureHost);
+
+    const makers = [
+      tplExec,
+      tplBoard,
+      tplActions,
+      tplDecisions,
+      ...(CAN_DRAFT_EMAIL ? [() => tplEmailPage()] : [])
+    ];
+
+    const allPages = [];
+    for (const make of makers) {
+      const secHost = document.createElement('div');
+      secHost.className = 'pages';
+      measureHost.appendChild(secHost);
+      const pages = paginateSpecToHost(make, secHost);
+      allPages.push(...pages);
+    }
+
+    // Renumber sequentially across the whole pack
+    allPages.forEach((p, i) => {
+      const pn = p.querySelector('.pn');
+      if (pn) pn.textContent = `Page ${i + 1} of ${allPages.length}`;
+    });
+
+    // Create print root
+    const portal = document.createElement('div');
+    portal.className = 'cmo cmo-print-root';
+    const pagesContainer = document.createElement('div');
+    pagesContainer.className = 'pages';
+    allPages.forEach((p) => pagesContainer.appendChild(p));
+    portal.appendChild(pagesContainer);
+    document.body.appendChild(portal);
+
+    measureHost.remove();
+
+    document.documentElement.classList.add('cmo-printing');
+    const pg = document.createElement('style');
+    pg.textContent = '@page { size: A4; margin: 0; }';
+    document.head.appendChild(pg);
+
+    const done = () => {
+      document.documentElement.classList.remove('cmo-printing');
+      pg.remove();
+      portal.remove();
+      window.removeEventListener('afterprint', done);
+      finishPrint = null;
+    };
+    finishPrint = done;
+    window.addEventListener('afterprint', done);
+
+    try {
+      window.print();
+    } catch (error) {
+      done();
+      toast('Print canceled or failed');
+    }
+  }
+
+  function printCurrentDocument() {
+    if (!S.model) return;
+    if (S.template === 'email' && !CAN_DRAFT_EMAIL) {
+      toast('Follow-up email drafts are included in Pro and Team.');
+      return;
+    }
+    if (S.template === 'deck' && !CAN_EXPORT_DECK) {
+      toast('Client decks are included in Pro and Team.');
+      return;
+    }
+    if (finishPrint) finishPrint();
+    const portal = document.createElement('div');
+    portal.className = 'cmo cmo-print-root';
+
+    const pagesHost = root.querySelector('.pages');
+    if (pagesHost && pagesHost.children.length && S.step === 3 && S.template !== 'email' && S.template !== 'deck') {
+      portal.appendChild(pagesHost.cloneNode(true));
+      document.body.appendChild(portal);
+      document.documentElement.classList.add('cmo-printing');
+      const pg = document.createElement('style');
+      pg.textContent = '@page { size: A4; margin: 0; }';
+      document.head.appendChild(pg);
+      const done = () => {
+        document.documentElement.classList.remove('cmo-printing');
+        pg.remove();
+        portal.remove();
+        window.removeEventListener('afterprint', done);
+        finishPrint = null;
+      };
+      finishPrint = done;
+      window.addEventListener('afterprint', done);
+      try { window.print(); } catch (error) { done(); throw error; }
+    } else {
+      document.body.appendChild(portal);
+      const pagesContainer = document.createElement('div');
+      pagesContainer.className = 'pages';
+      portal.appendChild(pagesContainer);
+      const make = S.template === 'email' ? () => tplEmailPage() : tplBoard;
+      paginateSpecToHost(make, pagesContainer);
+      document.documentElement.classList.add('cmo-printing');
+      const pg = document.createElement('style');
+      pg.textContent = '@page { size: A4; margin: 0; }';
+      document.head.appendChild(pg);
+      const done = () => {
+        document.documentElement.classList.remove('cmo-printing');
+        pg.remove();
+        portal.remove();
+        window.removeEventListener('afterprint', done);
+        finishPrint = null;
+      };
+      finishPrint = done;
+      window.addEventListener('afterprint', done);
+      try { window.print(); } catch (error) { done(); throw error; }
+    }
+  }
+
+  function downloadCsvActions() {
+    if (!S.model) return;
+    const baseName = (S.model.meta.title || 'actions').replace(/[^\w]+/g, '-');
+    const csvContent = actionsToCsv(S.model.actions);
+    download(`${baseName}-actions.csv`, csvContent, 'text/csv;charset=utf-8;');
+    toast('Action schedule (.csv) downloaded');
+  }
+
+  function downloadFollowUpEmailTxt() {
+    if (!S.model) return;
+    if (!CAN_DRAFT_EMAIL) {
+      toast('Follow-up email drafts are included in Pro and Team.');
+      return;
+    }
+    const baseName = (S.model.meta.title || 'follow-up-email').replace(/[^\w]+/g, '-');
+    const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
+    const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
+    const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
+    const emailText = `=== CLIENT FOLLOW-UP EMAIL ===\nSubject: ${emailClient.subject}\n\n${emailClient.body}\n\n\n=== INTERNAL FOLLOW-UP EMAIL ===\nSubject: ${emailInternal.subject}\n\n${emailInternal.body}\n`;
+    download(`${baseName}-follow-up-email.txt`, emailText, 'text/plain;charset=utf-8;');
+    toast('Follow-up email (.txt) downloaded');
+  }
+
+  async function downloadExportZip() {
+    if (!S.model) return;
+    toast('Building export archive (.zip)...');
+    try {
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const baseName = (S.model.meta.title || 'meeting-output').replace(/[^\w]+/g, '-');
+
+      // 1. Markdown
+      zip.file(`${baseName}.md`, CE.toMarkdown(S.model));
+
+      // 2. CSV actions
+      zip.file(`${baseName}-actions.csv`, actionsToCsv(S.model.actions));
+
+      // 3. JSON record
+      zip.file(`${baseName}.concludo.json`, JSON.stringify(S.model, null, 2));
+
+      // 4. Follow-up emails (if entitled)
+      if (CAN_DRAFT_EMAIL) {
+        const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
+        const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
+        const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
+        const emailText = `=== CLIENT FOLLOW-UP EMAIL ===\nSubject: ${emailClient.subject}\n\n${emailClient.body}\n\n\n=== INTERNAL FOLLOW-UP EMAIL ===\nSubject: ${emailInternal.subject}\n\n${emailInternal.body}\n`;
+        zip.file(`${baseName}-follow-up-email.txt`, emailText);
+      }
+
+      // 5. Standalone HTML printable report
+      zip.file(`${baseName}-report.html`, generateStandaloneHtml(S.model));
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u;
+      a.download = `${baseName}-export.zip`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
+      toast('Complete export package (.zip) downloaded');
+    } catch (err) {
+      console.error('ZIP export failed:', err);
+      toast('Failed to create ZIP: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  function modalExport() {
+    const m = S.model;
+    if (!m) return;
+    const div = document.createElement('div');
+    div.className = 'modal-bg';
+    const currentTpl = TEMPLATES.find((x) => x[0] === S.template);
+    const currentName = currentTpl ? currentTpl[1] : 'Current document';
+
+    div.innerHTML = `
+      <div class="modal cmo-modal-export" role="dialog" aria-modal="true" aria-label="Export meeting record">
+        <div class="mh">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="display:inline-flex;color:var(--navy)">${ic('download')}</span>
+            <h2 style="font-size:16px;margin:0;font-weight:700;color:var(--navy)">Export &amp; save to device</h2>
+          </div>
+          <button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button>
+        </div>
+        <div class="mb" style="gap:12px;max-height:calc(85vh - 120px);overflow-y:auto">
+          <p style="margin:0;color:var(--slate);font-size:13px">Save the reviewed meeting documents, action register, and structured data directly to your device.</p>
+          
+          <div class="cmo-export-grid">
+            <div class="cmo-export-card featured">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('print')}</span>
+                  <span>Save all as PDF (.pdf)</span>
+                  <span class="cmo-badge-rec">RECOMMENDED</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">All document templates (Board briefing, Exec summary, Actions, Decisions${CAN_DRAFT_EMAIL ? ', Email' : ''}) in a single multi-page A4 PDF.</div>
+              </div>
+              <button class="btn sm navy" data-act="modal-save-all-pdf" style="flex:none">${ic('print')}<span>Save all PDF</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('print')}</span>
+                  <span>Current document as PDF (.pdf)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Save the currently active view (${esc(currentName)}) as an A4 PDF.</div>
+              </div>
+              <button class="btn sm" data-act="modal-print-current" style="flex:none">${ic('print')}<span>Save PDF</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Complete archive (.zip)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">All formats bundled together: Markdown, CSV action schedule, JSON record${CAN_DRAFT_EMAIL ? ', Email text' : ''}, and Standalone HTML report.</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-zip" style="flex:none">${ic('download')}<span>Download ZIP</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Markdown document (.md)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Full outcome record with decisions, action table, timeline, and open items formatted in clean Markdown.</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-md" style="flex:none">${ic('download')}<span>Download .md</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Action schedule (.csv)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Spreadsheet of actions with IDs, tasks, owners, due dates, definition of done, and gaps for Excel or Numbers.</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-csv" style="flex:none">${ic('download')}<span>Download .csv</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Full meeting record (.json)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Complete v2 data payload with all evidence citations, speaker labels, line numbers, and audit data.</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-json" style="flex:none">${ic('download')}<span>Download .json</span></button>
+            </div>
+
+            <div class="cmo-export-card ${!CAN_DRAFT_EMAIL ? 'cmo-card-locked' : ''}">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Follow-up email (.txt)</span>
+                  ${!CAN_DRAFT_EMAIL ? '<span class="cmo-badge-pro" style="background:#EEF2F6;color:#64748B;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">PRO &amp; TEAM</span>' : ''}
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">${CAN_DRAFT_EMAIL ? 'Plain text email draft with subject, attendees, agreed actions, and correction deadline.' : 'Follow-up email drafts are included in Pro and Team plans.'}</div>
+              </div>
+              <button class="btn sm" data-act="${CAN_DRAFT_EMAIL ? 'modal-dl-email' : 'modal-locked-email'}" ${!CAN_DRAFT_EMAIL ? 'disabled' : ''} style="flex:none">${ic('download')}<span>Download .txt</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" data-act="close">Close</button>
+        </div>
+      </div>
+    `;
+    div.addEventListener('click', (e) => e.target === div && div.remove());
+    root.appendChild(div);
+  }
+
   /* --------------------------------------- paginator */
   async function buildDocument() {
     const host = $('#pages');
@@ -838,86 +1328,7 @@ export function mountMeetingStudio(root, opts = {}) {
     }
     await (document.fonts ? document.fonts.ready : Promise.resolve());
     const make = { board: tplBoard, exec: tplExec, actions: tplActions, decisions: tplDecisions }[S.template];
-    let fit = 0;
-    let spec = make(fit);
-    for (;;) {
-    host.innerHTML = '';
-    const pages = [];
-    const runHtml = `<div class="pg-run"><img src="${A.lockup}" alt="Concludo"><div class="rt">${esc(spec.kind.split(' · ')[0])}<br><b>${esc(S.model.meta.title)}</b></div></div>`;
-    const newPage = (first) => {
-      const p = document.createElement('div');
-      p.className = 'page';
-      p.className = 'page' + (spec.compact ? ' compact' : '');
-      p.innerHTML = `${first ? coverHtml(spec.kind) : runHtml}<div class="pg-body"></div><div class="pg-foot"><span>${esc(S.model.meta.organisation || 'Concludo')} · ${esc(fmt(S.model.meta.meetingDate))} · Commercial in confidence</span><span class="pn"></span></div>`;
-      host.appendChild(p);
-      pages.push(p);
-      return p.querySelector('.pg-body');
-    };
-    const over = (body) => body.scrollHeight > body.clientHeight + 1;
-    let body = newPage(true);
-    const frag = (html) => {
-      const t = document.createElement('div');
-      t.innerHTML = html;
-      return t;
-    };
-    const moveKeep = (fromBody, toBody) => {
-      const last = fromBody.lastElementChild;
-      if (last && last.dataset.keep === '1' && fromBody.children.length > 1) toBody.appendChild(last);
-    };
-    for (const blk of spec.blocks) {
-      if (blk.type === 'table') {
-        if (blk.pageBreak && body.children.length) body = newPage(false);
-        const mk = (cont) => frag(`${cont ? `<div class="d-h"><h2 style="font-size:9.5pt;color:var(--slate)">${esc(blk.label || 'Continued')}, continued</h2></div>` : blk.pre}<table class="dt"><thead>${blk.head}</thead><tbody></tbody></table>`);
-        let wrap = mk(false);
-        body.appendChild(wrap);
-        if (!blk.rows.length) {
-          wrap.querySelector('table').outerHTML = `<p class="d-intro">${esc(blk.empty || 'None.')}</p>`;
-          if (over(body)) { body.removeChild(wrap); const nb = newPage(false); moveKeep(body, nb); body = nb; body.appendChild(wrap); }
-          continue;
-        }
-        let tb = wrap.querySelector('tbody');
-        let placedHere = 0;
-        for (const r of blk.rows) {
-          const tmp = document.createElement('tbody');
-          tmp.innerHTML = r;
-          const tr = tmp.firstElementChild;
-          tb.appendChild(tr);
-          if (over(body)) {
-            tb.removeChild(tr);
-            const nb = newPage(false);
-            if (placedHere === 0) {
-              body.removeChild(wrap);
-              moveKeep(body, nb);
-              body = nb;
-              body.appendChild(wrap);
-            } else {
-              body = nb;
-              wrap = mk(true);
-              body.appendChild(wrap);
-              tb = wrap.querySelector('tbody');
-            }
-            tb.appendChild(tr);
-            placedHere = 0;
-          }
-          placedHere++;
-        }
-      } else {
-        if (!blk.html) continue;
-        const el = frag(blk.html);
-        if (blk.keepNext) el.dataset.keep = '1';
-        body.appendChild(el);
-        if (over(body) && body.children.length > 1) {
-          body.removeChild(el);
-          const nb = newPage(false);
-          moveKeep(body, nb);
-          body = nb;
-          body.appendChild(el);
-        }
-      }
-    }
-    if (spec.fitLevels && pages.length > 1 && fit < spec.fitLevels - 1) { fit++; spec = make(fit); continue; }
-    pages.forEach((p, i) => (p.querySelector('.pn').textContent = `Page ${i + 1} of ${pages.length}`));
-    pages.forEach((p, i) => (p.id = `pg-${i + 1}`));
+    const pages = paginateSpecToHost(make, host);
     // outline
     const out = [];
     pages.forEach((p, i) => p.querySelectorAll('[data-anchor]').forEach((a) => out.push({ label: a.dataset.label, page: i + 1, el: a })));
@@ -925,8 +1336,6 @@ export function mountMeetingStudio(root, opts = {}) {
     S.outline = out;
     $('#pgcount').textContent = `${pages.length} page${pages.length === 1 ? '' : 's'} · A4`;
     fitPreview();
-    break;
-    }
   }
 
   /* ======================================================= events */
@@ -971,27 +1380,17 @@ export function mountMeetingStudio(root, opts = {}) {
       CE.refresh(S.model);
       rerenderKeepScroll();
     }
-    if (act === 'print') {
-      if (finishPrint) finishPrint();
-      // Print outside the fixed-height Workspace shell, which clips after page one.
-      const portal = document.createElement('div');
-      portal.className = 'cmo cmo-print-root';
-      portal.appendChild($('.pages').cloneNode(true));
-      document.body.appendChild(portal);
-      document.documentElement.classList.add('cmo-printing');
-      const pg = document.createElement('style');
-      pg.textContent = '@page { size: A4; margin: 0; }';
-      document.head.appendChild(pg);
-      const done = () => {
-        document.documentElement.classList.remove('cmo-printing');
-        pg.remove(); portal.remove();
-        window.removeEventListener('afterprint', done);
-        finishPrint = null;
-      };
-      finishPrint = done;
-      window.addEventListener('afterprint', done);
-      try { window.print(); } catch (error) { done(); throw error; }
-    }
+    if (act === 'print') printCurrentDocument();
+    if (act === 'save-all-pdf') saveAllAsPdf();
+    if (act === 'export-options') modalExport();
+    if (act === 'modal-save-all-pdf') { root.querySelector('.modal-bg')?.remove(); saveAllAsPdf(); }
+    if (act === 'modal-print-current') { root.querySelector('.modal-bg')?.remove(); printCurrentDocument(); }
+    if (act === 'modal-dl-zip') { root.querySelector('.modal-bg')?.remove(); downloadExportZip(); }
+    if (act === 'modal-dl-md') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.md`, CE.toMarkdown(S.model), 'text/markdown'); toast('Markdown (.md) downloaded'); }
+    if (act === 'modal-dl-csv') { root.querySelector('.modal-bg')?.remove(); downloadCsvActions(); }
+    if (act === 'modal-dl-json') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.concludo.json`, JSON.stringify(S.model, null, 2), 'application/json'); toast('Record (.json) downloaded'); }
+    if (act === 'modal-dl-email') { root.querySelector('.modal-bg')?.remove(); downloadFollowUpEmailTxt(); }
+    if (act === 'modal-locked-email') { toast('Follow-up email drafts are included in Pro and Team.'); }
 
     if (act === 'set-deck-aud') { S.deckAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
     if (act === 'toggle-deck-quotes') { S.deckQuotes = t.checked; buildDocument(); }
