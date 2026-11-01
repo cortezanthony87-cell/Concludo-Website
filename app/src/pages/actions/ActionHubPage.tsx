@@ -10,11 +10,11 @@ import '../../styles/action-hub.css';
 interface CandidateSuggestion {
   id: string;
   title: string;
-  source: string;
   ownerLabel: string;
+  ownerBasis: 'stated' | 'inferred' | 'unresolved';
+  priority: 'high' | 'medium' | 'low';
   dueText: string;
-  dueBasis: 'stated' | 'approximate' | 'none';
-  priority: string;
+  dueBasis: 'stated' | 'inferred' | 'none';
   project: string;
   quote: string;
   isDuplicate?: boolean;
@@ -23,40 +23,42 @@ interface CandidateSuggestion {
 
 export const ActionHubPage: React.FC = () => {
   const { supabase, user } = useAuth();
+
   const [actions, setActions] = useState<ActionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Active view tab: 'all' | 'mine' | 'overdue' | 'due_week' | 'no_date' | 'completed' | 'suggestions'
-  const [activeTab, setActiveTab] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Scope & Tab state
+  const [scope, setScope] = useState<'my' | 'all'>('my');
+  const [activeTab, setActiveTab] = useState<string>('my');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Candidate suggestions state - strictly populated from authentic database records
-  const [candidates, setCandidates] = useState<CandidateSuggestion[]>([]);
+  // Modals & Drawers
   const [showReviewPanel, setShowReviewPanel] = useState(false);
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Record<string, boolean>>({});
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // New action modal
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [newDueDate, setNewDueDate] = useState('');
-  const [newOwner, setNewOwner] = useState('');
-  const [newProject, setNewProject] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Create form state
+  const [createKind, setCreateKind] = useState<'task' | 'event' | 'reminder'>('task');
+  const [createTitle, setCreateTitle] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createPriority, setCreatePriority] = useState<'high' | 'medium' | 'low'>('medium');
+  const [createDueDate, setCreateDueDate] = useState('');
+  const [createAllDay, setCreateAllDay] = useState(true);
+  const [createCalendarReminder, setCreateCalendarReminder] = useState(false);
+  const [createProject, setCreateProject] = useState('General');
+  const [createSaving, setCreateSaving] = useState(false);
+
+  // Suggestions state
+  const [candidates, setCandidates] = useState<CandidateSuggestion[]>([]);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Record<string, boolean>>({});
 
   const now = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => melbourneToday(), []);
+  const todayStr = useMemo(() => melbourneToday(now), [now]);
 
-  // Authentic user projects
-  const [userProjects, setUserProjects] = useState<Array<{ id: string; title: string }>>([]);
-
-  // Load authentic candidates from Supabase
+  // Load real candidates from Supabase (only if any exist)
   const loadCandidates = useCallback(async () => {
-    if (!supabase || !user?.id) {
+    if (!user?.id) {
       setCandidates([]);
       return;
     }
@@ -66,12 +68,12 @@ export const ActionHubPage: React.FC = () => {
         setCandidates(
           data.map((c: any) => ({
             id: c.id,
-            title: c.candidate_title || 'Untitled task',
-            source: c.source_type ? `${c.source_type.toUpperCase()} excerpt` : 'Meeting notes',
-            ownerLabel: c.suggested_owner || 'Unassigned',
-            dueText: c.suggested_due_date || 'No stated date',
-            dueBasis: c.suggested_due_date ? 'stated' : 'none',
-            priority: c.confidence && c.confidence > 0.8 ? 'high' : 'medium',
+            title: c.title || 'Untitled task',
+            ownerLabel: c.proposed_owner_label || 'unassigned',
+            ownerBasis: c.owner_basis || 'inferred',
+            priority: c.proposed_priority || 'medium',
+            dueText: c.proposed_due || 'none found',
+            dueBasis: c.due_basis || 'none',
             project: 'General',
             quote: c.source_excerpt || '',
             isDuplicate: !!c.duplicate_of_action_id,
@@ -88,190 +90,209 @@ export const ActionHubPage: React.FC = () => {
 
   // Load actions from Supabase
   const loadActions = useCallback(async () => {
-    if (!supabase) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchActions(supabase, {
-        ownership: 'all',
-        includeCompleted: true,
-      });
-      if (res.error) {
-        setError(res.error.message || 'Failed to load actions');
+      const { data, error: fetchErr } = await fetchActions(supabase);
+      if (fetchErr) {
+        setError('Could not load actions. Please retry.');
       } else {
-        setActions(res.data || []);
+        setActions(data || []);
       }
     } catch (err: any) {
-      setError(err?.message || 'Error fetching actions');
+      setError(err?.message || 'Failed to load actions');
     } finally {
       setLoading(false);
     }
   }, [supabase]);
-
-  // Load user projects for authentic assignment
-  useEffect(() => {
-    if (!supabase || !user?.id) return;
-    supabase
-      .from('projects')
-      .select('id, title')
-      .order('updated_at', { ascending: false })
-      .limit(20)
-      .then(({ data }) => {
-        if (data) setUserProjects(data);
-      });
-  }, [supabase, user?.id]);
 
   useEffect(() => {
     loadActions();
     loadCandidates();
   }, [loadActions, loadCandidates]);
 
-  // Canonical bucket summary calculation
-  const buckets = useMemo(() => {
-    return calculateActionBuckets(actions, now);
-  }, [actions, now]);
+  // Compute metrics
+  const bucketCounts = useMemo(() => {
+    const scopedActions = scope === 'my' && user?.id
+      ? actions.filter((a) => a.user_id === user.id || a.assigned_user_id === user.id)
+      : actions;
+    return calculateActionBuckets(scopedActions, now);
+  }, [actions, scope, user?.id, now]);
 
-  // Filter actions based on active tab and controls
+  // Filtered rows for grid
   const displayedActions = useMemo(() => {
-    return actions.filter((act) => {
-      // Tab filter
-      if (activeTab === 'mine') {
-        const isMine =
-          act.assigned_user_id === user?.id ||
-          act.owner_name?.toLowerCase().includes('anthony') ||
-          act.assigned_user_name?.toLowerCase().includes('anthony');
-        if (!isMine) return false;
-      } else if (activeTab === 'overdue') {
-        if (getActionBucket(act, now) !== 'Overdue') return false;
-      } else if (activeTab === 'due_week') {
-        const b = getActionBucket(act, now);
-        if (b !== 'DueToday' && b !== 'DueThisWeek') return false;
-      } else if (activeTab === 'no_date') {
-        if (getActionBucket(act, now) !== 'NoDueDate') return false;
-      } else if (activeTab === 'completed') {
-        if (act.status !== 'completed') return false;
-      } else {
-        // 'all' tab: show non-completed by default, or all
-        if (statusFilter === 'all' && act.status === 'completed') return false;
-      }
+    let list = actions;
 
-      // Priority filter
-      if (priorityFilter !== 'all' && act.priority !== priorityFilter) return false;
+    // Scope filter
+    if (scope === 'my' && user?.id) {
+      list = list.filter((a) => a.user_id === user.id || a.assigned_user_id === user.id);
+    }
 
-      // Status filter
-      if (statusFilter !== 'all' && act.status !== statusFilter) return false;
+    // Tab filter
+    if (activeTab === 'due_today') {
+      list = list.filter((a) => getActionBucket(a, now) === 'Due today');
+    } else if (activeTab === 'overdue') {
+      list = list.filter((a) => getActionBucket(a, now) === 'Overdue');
+    } else if (activeTab === 'upcoming') {
+      list = list.filter((a) => a.due_date && a.due_date.slice(0, 10) > todayStr && a.status !== 'completed');
+    } else if (activeTab === 'unscheduled') {
+      list = list.filter((a) => !a.due_date && a.status !== 'completed');
+    } else if (activeTab === 'completed') {
+      list = list.filter((a) => a.status === 'completed');
+    }
 
-      // Search filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = act.action_title.toLowerCase().includes(q);
-        const matchesOwner = (act.assigned_user_name || act.owner_name || '').toLowerCase().includes(q);
-        const matchesProject = (act.projects?.title || '').toLowerCase().includes(q);
-        if (!matchesTitle && !matchesOwner && !matchesProject) return false;
-      }
+    // Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (a) =>
+          a.action_title.toLowerCase().includes(q) ||
+          (a.owner_name && a.owner_name.toLowerCase().includes(q)) ||
+          (a.assigned_user_name && a.assigned_user_name.toLowerCase().includes(q)) ||
+          (a.projects?.title && a.projects.title.toLowerCase().includes(q))
+      );
+    }
 
-      return true;
-    });
-  }, [actions, activeTab, priorityFilter, statusFilter, searchQuery, now, user?.id]);
-
-  // Donut chart SVG calculations
-  const totalOpen = buckets.totalOpen;
-  const overdueRatio = totalOpen > 0 ? buckets.overdueCount / totalOpen : 0;
-  const todayRatio = totalOpen > 0 ? buckets.dueTodayCount / totalOpen : 0;
-  const weekRatio = totalOpen > 0 ? buckets.dueThisWeekCount / totalOpen : 0;
-  const laterRatio = totalOpen > 0 ? (buckets.dueLaterCount + buckets.noDueDateCount) / totalOpen : 0;
-
-  // Donut stroke offsets (circumference = 2 * PI * 42 ~= 263.89)
-  const C = 263.89;
-  const strokeOverdue = overdueRatio * C;
-  const strokeToday = todayRatio * C;
-  const strokeWeek = weekRatio * C;
-  const strokeLater = laterRatio * C;
-
-  const offsetOverdue = 0;
-  const offsetToday = -strokeOverdue;
-  const offsetWeek = -(strokeOverdue + strokeToday);
-  const offsetLater = -(strokeOverdue + strokeToday + strokeWeek);
+    return list;
+  }, [actions, scope, user?.id, activeTab, searchQuery, now, todayStr]);
 
   // Toggle complete
   const handleToggleComplete = async (action: ActionRecord) => {
-    if (!supabase) return;
-    const newStatus: ActionStatus = action.status === 'completed' ? 'not_started' : 'completed';
-    await updateAction(supabase, action.id, { status: newStatus });
-    loadActions();
-  };
-
-  // Create manual action
-  const handleCreateAction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase || !newTitle.trim()) return;
-    setIsSubmitting(true);
-    try {
-      await saveAction(supabase, {
-        action_title: newTitle.trim(),
-        priority: newPriority,
-        due_date: newDueDate || null,
-        owner_name: newOwner.trim() || 'Anthony',
-        project_id: newProject || null,
-        status: 'not_started',
-      });
-      setShowCreateModal(false);
-      setNewTitle('');
-      setNewDueDate('');
-      setNewOwner('');
-      setNewProject('');
-      loadActions();
-    } finally {
-      setIsSubmitting(false);
+    const nextStatus: ActionStatus = action.status === 'completed' ? 'not_started' : 'completed';
+    const { error: updErr } = await updateAction(supabase, action.id, {
+      status: nextStatus,
+      completed_at: nextStatus === 'completed' ? new Date().toISOString() : null,
+      completed_by: nextStatus === 'completed' ? user?.id || null : null,
+    });
+    if (!updErr) {
+      setActions((prev) =>
+        prev.map((a) => (a.id === action.id ? { ...a, status: nextStatus } : a))
+      );
     }
   };
+
+  // Create task
+  const handleSaveCreate = async () => {
+    if (!createTitle.trim()) return;
+    setCreateSaving(true);
+    try {
+      // Pick first project or null
+      const projId = actions[0]?.project_id || null;
+      const { data, error: saveErr } = await saveAction(supabase, {
+        project_id: projId,
+        action_title: createTitle.trim(),
+        action_description: createDescription.trim() || null,
+        priority: createPriority,
+        due_date: createDueDate || null,
+        all_day: createAllDay,
+        status: 'not_started',
+      });
+      if (!saveErr && data) {
+        setActions((prev) => [data, ...prev]);
+        setShowCreateModal(false);
+        setCreateTitle('');
+        setCreateDescription('');
+        setCreateDueDate('');
+      }
+    } finally {
+      setCreateSaving(false);
+    }
+  };
+
+  // SVG Doughnut geometry
+  const RAD = 46;
+  const CIR = 2 * Math.PI * RAD;
+  const GAP = 3;
+  const C = {
+    Completed: '#1E7A4C',
+    Overdue: '#B3261E',
+    'Due today': '#E2B53C',
+    Pending: '#AEBBD3',
+  };
+
+  const donutSlices = useMemo(() => {
+    const total = bucketCounts.total || 1;
+    let offset = 0;
+    const slices = [];
+
+    const order: ('Completed' | 'Overdue' | 'Due today' | 'Pending')[] = [
+      'Completed',
+      'Overdue',
+      'Due today',
+      'Pending',
+    ];
+
+    for (const key of order) {
+      let count = 0;
+      if (key === 'Completed') count = bucketCounts.completed;
+      if (key === 'Overdue') count = bucketCounts.overdue;
+      if (key === 'Due today') count = bucketCounts.dueToday;
+      if (key === 'Pending') count = bucketCounts.pending;
+
+      if (count > 0 && bucketCounts.total > 0) {
+        const len = (count / total) * CIR;
+        slices.push({
+          key,
+          stroke: C[key],
+          dashArray: `${Math.max(len - GAP, 1)} ${CIR}`,
+          dashOffset: -offset,
+          count,
+          pct: Math.round((count / total) * 100),
+        });
+        offset += len;
+      }
+    }
+    return slices;
+  }, [bucketCounts, CIR, GAP]);
 
   return (
     <div className="ach-container">
       {/* Top Header */}
       <div className="ach-top">
         <div>
-          <h1 className="ach-heading" style={{ fontSize: '26px' }}>
+          <h1 className="ach-heading" style={{ fontSize: '24px' }}>
             Action Command Hub
           </h1>
-          <p style={{ margin: '4px 0 0 0', color: 'var(--ach-slate)', fontSize: '13px' }}>
-            One trusted place to see, prioritise and complete pending work.
-          </p>
+          <div className="ach-note">
+            Scope: {scope === 'my' ? 'My Actions' : 'All permitted actions'}. Timezone: Australia/Melbourne.
+            Showing live verified records.
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             className="ach-btn-secondary"
-            onClick={loadActions}
-            title="Refresh actions from database"
+            onClick={() => setScope(scope === 'my' ? 'all' : 'my')}
+            aria-label="Toggle action scope"
           >
-            ↻ Refresh
+            {scope === 'my' ? 'My Actions ▾' : 'All permitted actions ▾'}
           </button>
           <button
             className="ach-btn-primary"
             onClick={() => setShowCreateModal(true)}
+            aria-label="Create new item"
           >
-            + Create item
+            + Create new item
           </button>
         </div>
       </div>
 
-      {/* Suggested Actions Banner (only shown if authentic candidates exist) */}
-      {candidates.length > 0 && !bannerDismissed && (
-        <div className="ach-banner" role="status">
-          <div style={{ flex: 1, minWidth: '220px' }}>
-            <strong style={{ color: 'var(--ach-navy)', fontSize: '14px' }}>
-              ✦ {candidates.length} suggested action{candidates.length > 1 ? 's' : ''} detected
-            </strong>
-            <div style={{ fontSize: '12.5px', color: 'var(--ach-slate)', marginTop: '2px' }}>
-              Extracted from recent meeting records and communications for your review.
-            </div>
-          </div>
+      {/* Suggested Actions Banner */}
+      {!bannerDismissed && candidates.length > 0 && (
+        <div className="ach-banner">
+          <b>Actions assigned to you were found.</b> Do you want to save them to your Action Command Hub?
           <button
             className="ach-btn-primary"
-            style={{ padding: '6px 14px', fontSize: '13px' }}
+            style={{ padding: '6px 12px', fontSize: '13px' }}
             onClick={() => setShowReviewPanel(true)}
           >
-            Review suggestions ({candidates.length})
+            Review actions
+          </button>
+          <button
+            className="ach-btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '13px' }}
+            onClick={() => setBannerDismissed(true)}
+          >
+            Not now
           </button>
           <button
             className="ach-btn-secondary"
@@ -284,235 +305,184 @@ export const ActionHubPage: React.FC = () => {
               setBannerDismissed(true);
             }}
           >
-            Dismiss all
+            Dismiss
           </button>
         </div>
       )}
 
-      {/* Summary KPI Strip & Donut */}
+      {/* Summary Strip (Doughnut and Counters) */}
       <div className="ach-sum">
-        {/* KPI Counts Card */}
-        <div className="ach-card ach-cnt">
-          <div>
-            <span>Total open</span>
-            <b>{buckets.totalOpen}</b>
-          </div>
-          <div style={{ borderLeft: '3px solid var(--ach-red)' }}>
-            <span style={{ color: 'var(--ach-red)' }}>Overdue</span>
-            <b style={{ color: 'var(--ach-red)' }}>{buckets.overdueCount}</b>
-          </div>
-          <div style={{ borderLeft: '3px solid var(--ach-gold)' }}>
-            <span style={{ color: '#9E740A' }}>Due this week</span>
-            <b>{buckets.dueTodayCount + buckets.dueThisWeekCount}</b>
-          </div>
-          <div>
-            <span>Completed</span>
-            <b>{buckets.completedCount}</b>
-          </div>
-        </div>
-
-        {/* Breakdown Donut & Legend */}
+        {/* Left: SVG Doughnut Chart */}
         <div className="ach-card ach-dn">
-          <svg width="100" height="100" viewBox="0 0 100 100" aria-label="Action breakdown donut">
-            <circle cx="50" cy="50" r="42" fill="none" stroke="#E4E8EF" strokeWidth="12" />
-            {totalOpen > 0 && (
-              <>
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="none"
-                  stroke="var(--ach-red)"
-                  strokeWidth="12"
-                  strokeDasharray={`${strokeOverdue} ${C}`}
-                  strokeDashoffset={offsetOverdue}
-                  transform="rotate(-90 50 50)"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="none"
-                  stroke="var(--ach-gold)"
-                  strokeWidth="12"
-                  strokeDasharray={`${strokeToday} ${C}`}
-                  strokeDashoffset={offsetToday}
-                  transform="rotate(-90 50 50)"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="none"
-                  stroke="var(--ach-navy2)"
-                  strokeWidth="12"
-                  strokeDasharray={`${strokeWeek} ${C}`}
-                  strokeDashoffset={offsetWeek}
-                  transform="rotate(-90 50 50)"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="none"
-                  stroke="var(--ach-slate)"
-                  strokeWidth="12"
-                  strokeDasharray={`${strokeLater} ${C}`}
-                  strokeDashoffset={offsetLater}
-                  transform="rotate(-90 50 50)"
-                />
-              </>
-            )}
+          <svg
+            width="132"
+            height="132"
+            viewBox="-60 -60 120 120"
+            role="img"
+            aria-label={`Doughnut chart of actions: ${bucketCounts.total} total`}
+          >
+            <circle r={RAD} fill="none" stroke="#EEF1F7" strokeWidth="16" />
+            {donutSlices.map((sl) => (
+              <circle
+                key={sl.key}
+                r={RAD}
+                fill="none"
+                stroke={sl.stroke}
+                strokeWidth="16"
+                strokeDasharray={sl.dashArray}
+                strokeDashoffset={sl.dashOffset}
+                transform="rotate(-90)"
+              />
+            ))}
             <text
-              x="50"
-              y="47"
+              y="4"
               textAnchor="middle"
-              fontSize="16"
+              fontFamily="Poppins, Arial, sans-serif"
               fontWeight="700"
-              fill="var(--ach-navy)"
-              fontFamily="Poppins, sans-serif"
+              fontSize="24"
+              fill="#16263F"
             >
-              {totalOpen}
+              {bucketCounts.total}
             </text>
             <text
-              x="50"
-              y="61"
+              y="19"
               textAnchor="middle"
+              fontFamily="Inter, Arial, sans-serif"
               fontSize="9"
-              fill="var(--ach-slate)"
-              fontFamily="Inter, sans-serif"
+              fill="#5A6478"
             >
-              Open
+              actions
             </text>
           </svg>
 
+          {/* Legend */}
           <div className="ach-lg">
-            <div className="ach-lg-row">
-              <i style={{ background: 'var(--ach-red)' }}></i>
+            {(['Completed', 'Overdue', 'Due today', 'Pending'] as const).map((k) => {
+              let cnt = 0;
+              if (k === 'Completed') cnt = bucketCounts.completed;
+              if (k === 'Overdue') cnt = bucketCounts.overdue;
+              if (k === 'Due today') cnt = bucketCounts.dueToday;
+              if (k === 'Pending') cnt = bucketCounts.pending;
+              const pct = bucketCounts.total > 0 ? Math.round((cnt / bucketCounts.total) * 100) : 0;
+              return (
+                <div className="ach-lg-row" key={k}>
+                  <i style={{ background: C[k] }}></i>
+                  <span>{k}</span>
+                  <span>
+                    <b>{cnt}</b>
+                    <em>{pct}%</em>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: Counter Grid */}
+        <div className="ach-card">
+          <div className="ach-cnt">
+            <div>
+              <b>{bucketCounts.overdue}</b>
               <span>Overdue</span>
-              <b>
-                {buckets.overdueCount}
-                <em>{totalOpen > 0 ? Math.round((buckets.overdueCount / totalOpen) * 100) : 0}%</em>
-              </b>
             </div>
-            <div className="ach-lg-row">
-              <i style={{ background: 'var(--ach-gold)' }}></i>
-              <span>Due today / this week</span>
-              <b>
-                {buckets.dueTodayCount + buckets.dueThisWeekCount}
-                <em>
-                  {totalOpen > 0
-                    ? Math.round(
-                        ((buckets.dueTodayCount + buckets.dueThisWeekCount) / totalOpen) * 100
-                      )
-                    : 0}
-                  %
-                </em>
-              </b>
+            <div>
+              <b>{bucketCounts.dueToday}</b>
+              <span>Due today</span>
             </div>
-            <div className="ach-lg-row">
-              <i style={{ background: 'var(--ach-navy2)' }}></i>
-              <span>Due later</span>
-              <b>
-                {buckets.dueLaterCount}
-                <em>{totalOpen > 0 ? Math.round((buckets.dueLaterCount / totalOpen) * 100) : 0}%</em>
-              </b>
+            <div>
+              <b>{bucketCounts.upcoming}</b>
+              <span>Upcoming</span>
             </div>
-            <div className="ach-lg-row">
-              <i style={{ background: 'var(--ach-slate)' }}></i>
-              <span>No stated date</span>
-              <b>
-                {buckets.noDueDateCount}
-                <em>{totalOpen > 0 ? Math.round((buckets.noDueDateCount / totalOpen) * 100) : 0}%</em>
-              </b>
+            <div>
+              <b>{bucketCounts.unscheduled}</b>
+              <span>Unscheduled</span>
             </div>
+            <div>
+              <b>{bucketCounts.inProgress}</b>
+              <span>In progress</span>
+            </div>
+            <div>
+              <b>{bucketCounts.blocked}</b>
+              <span>Blocked</span>
+            </div>
+            <div>
+              <b>{bucketCounts.completed}</b>
+              <span>Completed</span>
+            </div>
+          </div>
+          <div className="ach-note" style={{ padding: '0 12px 10px' }}>
+            Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Saved View Tabs */}
       <div className="ach-tabs">
         <button
-          className={activeTab === 'all' ? 'active' : ''}
-          onClick={() => setActiveTab('all')}
+          className={activeTab === 'my' ? 'active' : ''}
+          onClick={() => {
+            setActiveTab('my');
+            setScope('my');
+          }}
         >
-          All actions ({actions.filter((a) => a.status !== 'completed').length})
+          My Actions
         </button>
         <button
-          className={activeTab === 'mine' ? 'active' : ''}
-          onClick={() => setActiveTab('mine')}
+          className={activeTab === 'all' ? 'active' : ''}
+          onClick={() => {
+            setActiveTab('all');
+            setScope('all');
+          }}
         >
-          Assigned to me
+          All permitted actions
+        </button>
+        <button
+          className={activeTab === 'due_today' ? 'active' : ''}
+          onClick={() => setActiveTab('due_today')}
+        >
+          Due today
         </button>
         <button
           className={activeTab === 'overdue' ? 'active' : ''}
           onClick={() => setActiveTab('overdue')}
         >
-          Overdue ({buckets.overdueCount})
+          Overdue
         </button>
         <button
-          className={activeTab === 'due_week' ? 'active' : ''}
-          onClick={() => setActiveTab('due_week')}
+          className={activeTab === 'upcoming' ? 'active' : ''}
+          onClick={() => setActiveTab('upcoming')}
         >
-          Due this week ({buckets.dueTodayCount + buckets.dueThisWeekCount})
+          Upcoming
         </button>
         <button
-          className={activeTab === 'no_date' ? 'active' : ''}
-          onClick={() => setActiveTab('no_date')}
+          className={activeTab === 'unscheduled' ? 'active' : ''}
+          onClick={() => setActiveTab('unscheduled')}
         >
-          No stated date ({buckets.noDueDateCount})
+          Unscheduled
         </button>
         <button
           className={activeTab === 'completed' ? 'active' : ''}
           onClick={() => setActiveTab('completed')}
         >
-          Completed ({buckets.completedCount})
+          Completed
         </button>
-        {candidates.length > 0 && (
-          <button
-            className={activeTab === 'suggestions' ? 'active' : ''}
-            onClick={() => setShowReviewPanel(true)}
-            style={{ color: '#9E740A' }}
-          >
-            Review suggestions ({candidates.length})
-          </button>
-        )}
+        <button
+          className={activeTab === 'review' ? 'active' : ''}
+          onClick={() => setShowReviewPanel(true)}
+        >
+          Review suggestions <b className="ach-pill ach-pill-me" style={{ marginLeft: '4px' }}>{candidates.length}</b>
+        </button>
       </div>
 
-      {/* Filter Toolbar */}
+      {/* Toolbar */}
       <div className="ach-tb">
         <input
-          type="search"
-          placeholder="Filter actions by title, owner or project..."
+          placeholder="Search actions"
+          aria-label="Search actions"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          aria-label="Filter actions"
         />
-        <select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="ach-btn-secondary"
-          style={{ padding: '8px 12px' }}
-          aria-label="Filter by priority"
-        >
-          <option value="all">All priorities</option>
-          <option value="high">High priority</option>
-          <option value="medium">Medium priority</option>
-          <option value="low">Low priority</option>
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="ach-btn-secondary"
-          style={{ padding: '8px 12px' }}
-          aria-label="Filter by status"
-        >
-          <option value="all">Active statuses</option>
-          <option value="not_started">Not started</option>
-          <option value="in_progress">In progress</option>
-          <option value="blocked">Blocked</option>
-          <option value="completed">Completed</option>
-        </select>
+        <button className="ach-btn-secondary">Filters</button>
         <button className="ach-btn-secondary">Sort</button>
         <button className="ach-btn-secondary">Columns (2 hidden)</button>
       </div>
@@ -661,73 +631,55 @@ export const ActionHubPage: React.FC = () => {
             </button>
           </div>
           <div className="ach-note" style={{ marginTop: '4px' }}>
-            Concludo detected {candidates.length} suggested action{candidates.length > 1 ? 's' : ''} from
-            your transcripts and communications.
+            From: Client check-in meeting. Rule-based drafting, may miss or misread items. Nothing is saved until you press Save. None selected by default.
           </div>
 
-          <div style={{ margin: '14px 0' }}>
-            {candidates.map((c) => {
-              const checked = selectedCandidateIds[c.id] ?? true;
-              return (
-                <div key={c.id} className={`ach-row-card ${c.isDuplicate ? 'warn' : ''}`}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) =>
-                        setSelectedCandidateIds((prev) => ({
-                          ...prev,
-                          [c.id]: e.target.checked,
-                        }))
-                      }
-                      style={{ marginTop: '3px' }}
-                      aria-label={`Select candidate ${c.title}`}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <strong style={{ fontSize: '13.5px', color: 'var(--ach-navy)' }}>
-                        {c.title}
-                      </strong>
-                      <div className="f">
-                        <span className="ach-tag">{c.source}</span>
-                        <span className="ach-tag">Owner: {c.ownerLabel}</span>
-                        <span className="ach-tag">Due: {c.dueText}</span>
-                        {c.isDuplicate && (
-                          <span
-                            className="ach-tag"
-                            style={{ background: '#FFE194', color: '#684B00', fontWeight: 600 }}
-                          >
-                            ⚠ Possible duplicate
-                          </span>
-                        )}
-                      </div>
-                      {c.quote && (
-                        <blockquote
-                          style={{
-                            margin: '8px 0 0 0',
-                            padding: '6px 10px',
-                            background: '#F4F6FA',
-                            borderLeft: '3px solid var(--ach-line)',
-                            fontSize: '12px',
-                            color: 'var(--ach-slate)',
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          "{c.quote}"
-                        </blockquote>
-                      )}
-                    </div>
-                  </div>
+          {candidates.map((c) => (
+            <div className={`ach-row-card ${c.isDuplicate || c.ownerBasis === 'unresolved' ? 'warn' : ''}`} key={c.id}>
+              <label style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={!!selectedCandidateIds[c.id]}
+                  onChange={(e) =>
+                    setSelectedCandidateIds({
+                      ...selectedCandidateIds,
+                      [c.id]: e.target.checked,
+                    })
+                  }
+                />
+                <b>{c.title}</b>
+              </label>
+              <div className="f">
+                <span className="ach-tag">Owner: {c.ownerLabel} ({c.ownerBasis})</span>
+                <span className="ach-tag">Suggested priority: {c.priority}</span>
+                <span className="ach-tag">Due: {c.dueText}</span>
+                <span className="ach-tag">Project: {c.project}</span>
+                {c.isDuplicate && <span className="ach-tag warn">Possible duplicate</span>}
+              </div>
+              <div className="ach-note" style={{ marginTop: '6px' }}>
+                &ldquo;{c.quote}&rdquo;
+              </div>
+              {c.isDuplicate && (
+                <div className="f" style={{ marginTop: '8px' }}>
+                  <button className="ach-btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                    Link to existing
+                  </button>
+                  <button className="ach-btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                    Update existing
+                  </button>
+                  <button className="ach-btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                    Keep separate
+                  </button>
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          ))}
 
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
             <button
               className="ach-btn-primary"
-              style={{ flex: 1 }}
               onClick={async () => {
-                const toSave = candidates.filter((c) => selectedCandidateIds[c.id] ?? true);
+                const toSave = candidates.filter((c) => selectedCandidateIds[c.id]);
                 if (toSave.length === 0) {
                   setShowReviewPanel(false);
                   return;
@@ -754,115 +706,154 @@ export const ActionHubPage: React.FC = () => {
             >
               Dismiss selected
             </button>
+            <button className="ach-btn-secondary" onClick={() => setShowReviewPanel(false)}>
+              Not now
+            </button>
           </div>
         </aside>
       )}
 
-      {/* Create Manual Item Modal */}
+      {/* Create New Item Modal */}
       {showCreateModal && (
-        <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Create Action Item">
+        <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Create new item">
           <div className="ach-modal-box">
             <h2 className="ach-heading" style={{ fontSize: '18px' }}>
-              Create Action Item
+              Create new item
             </h2>
-            <p className="ach-note" style={{ margin: '4px 0 14px 0' }}>
-              Add a new governed task to the Action Command Hub.
-            </p>
+            <div className="ach-seg">
+              <button
+                className={createKind === 'task' ? 'active' : ''}
+                onClick={() => setCreateKind('task')}
+              >
+                Task
+              </button>
+              <button
+                className={createKind === 'event' ? 'active' : ''}
+                onClick={() => setCreateKind('event')}
+              >
+                Event
+              </button>
+              <button
+                className={createKind === 'reminder' ? 'active' : ''}
+                onClick={() => setCreateKind('reminder')}
+              >
+                Reminder
+              </button>
+            </div>
+            <div className="ach-note">
+              Event and Reminder use the existing Calendar. Anything not supported is disabled with a reason.
+            </div>
 
-            <form onSubmit={handleCreateAction}>
+            <label className="ach-field">
+              Title (required)
+              <input
+                className="ach-field-input"
+                placeholder="Prepare Q4 workshop pack"
+                value={createTitle}
+                onChange={(e) => setCreateTitle(e.target.value)}
+              />
+            </label>
+
+            <label className="ach-field">
+              Description
+              <input
+                className="ach-field-input"
+                placeholder="Optional"
+                value={createDescription}
+                onChange={(e) => setCreateDescription(e.target.value)}
+              />
+            </label>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
               <label className="ach-field">
-                Task title *
-                <input
-                  type="text"
+                Priority
+                <select
                   className="ach-field-input"
-                  required
-                  placeholder="e.g. Finalise and issue agreed contract"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  autoFocus
-                />
+                  value={createPriority}
+                  onChange={(e) => setCreatePriority(e.target.value as any)}
+                >
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
               </label>
 
-              <label className="ach-field">Priority</label>
-              <div className="ach-seg">
-                <button
-                  type="button"
-                  className={newPriority === 'low' ? 'active' : ''}
-                  onClick={() => setNewPriority('low')}
-                >
-                  Low
-                </button>
-                <button
-                  type="button"
-                  className={newPriority === 'medium' ? 'active' : ''}
-                  onClick={() => setNewPriority('medium')}
-                >
-                  Medium
-                </button>
-                <button
-                  type="button"
-                  className={newPriority === 'high' ? 'active' : ''}
-                  onClick={() => setNewPriority('high')}
-                >
-                  High
-                </button>
-              </div>
+              <label className="ach-field">
+                Assignee
+                <div className="ach-field-input" style={{ background: '#F4F6FA', cursor: 'not-allowed' }}>
+                  Anthony Cortez (you)
+                </div>
+              </label>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <label className="ach-field">
-                  Due date
-                  <input
-                    type="date"
-                    className="ach-field-input"
-                    value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
-                  />
-                </label>
-                <label className="ach-field">
-                  Assignee
-                  <input
-                    type="text"
-                    className="ach-field-input"
-                    placeholder="e.g. Anthony"
-                    value={newOwner}
-                    onChange={(e) => setNewOwner(e.target.value)}
-                  />
-                </label>
-              </div>
+              <label className="ach-field">
+                Due date
+                <input
+                  type="date"
+                  className="ach-field-input"
+                  value={createDueDate}
+                  onChange={(e) => setCreateDueDate(e.target.value)}
+                />
+              </label>
 
               <label className="ach-field">
                 Project
                 <select
                   className="ach-field-input"
-                  value={newProject}
-                  onChange={(e) => setNewProject(e.target.value)}
+                  value={createProject}
+                  onChange={(e) => setCreateProject(e.target.value)}
                 >
-                  <option value="">No project (General / Standalone)</option>
-                  {userProjects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
+                  <option value="General">General</option>
+                  {Array.from(new Set(actions.map((a) => a.projects?.title).filter(Boolean))).map((pName) => (
+                    <option key={pName} value={pName as string}>{pName}</option>
                   ))}
                 </select>
               </label>
+            </div>
 
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '18px' }}>
-                <button
-                  type="button"
-                  className="ach-btn-secondary"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="ach-btn-primary"
-                  disabled={isSubmitting || !newTitle.trim()}
-                >
-                  {isSubmitting ? 'Creating...' : 'Create item'}
-                </button>
+            <div style={{ marginTop: '10px' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                <input
+                  type="checkbox"
+                  checked={createAllDay}
+                  onChange={(e) => setCreateAllDay(e.target.checked)}
+                />
+                All day
+              </label>
+            </div>
+
+            <div style={{ marginTop: '6px' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                <input
+                  type="checkbox"
+                  checked={createCalendarReminder}
+                  onChange={(e) => setCreateCalendarReminder(e.target.checked)}
+                />
+                Also add a calendar reminder
+              </label>
+            </div>
+
+            <div className="ach-banner" style={{ marginTop: '12px' }}>
+              <div>
+                <b>Preview</b>
+                <br />
+                Hub task: will be created when you press Save.
+                <br />
+                Calendar item: {createCalendarReminder ? 'will be created.' : 'will not be created.'}
               </div>
-            </form>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
+              <button className="ach-btn-secondary" onClick={() => setShowCreateModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="ach-btn-primary"
+                disabled={!createTitle.trim() || createSaving}
+                onClick={handleSaveCreate}
+              >
+                {createSaving ? 'Saving...' : 'Save task'}
+              </button>
+            </div>
           </div>
         </div>
       )}
