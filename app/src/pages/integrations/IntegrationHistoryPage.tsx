@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { fetchSyncLogs } from '../../lib/integrations/integrationClient';
 import { IntegrationSyncLog } from '../../lib/integrations/types';
+import { isConnectivityBrightV1 } from '../../lib/workspace/workspaceNav';
+import { ConnectionHistoryBrightView } from '../../components/workspace/connectivity/bright/ConnectionHistoryBrightView';
 
 export const IntegrationHistoryPage: React.FC = () => {
   const [logs, setLogs] = useState<IntegrationSyncLog[]>([]);
@@ -34,6 +36,10 @@ export const IntegrationHistoryPage: React.FC = () => {
   useEffect(() => {
     loadLogs();
   }, []);
+
+  if (isConnectivityBrightV1()) {
+    return <ConnectionHistoryBrightView />;
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

@@ -25,6 +25,8 @@ import {
   rotateApiKey,
 } from '../../lib/integrations/integrationClient';
 import { ApiKey } from '../../lib/integrations/types';
+import { isConnectivityBrightV1 } from '../../lib/workspace/workspaceNav';
+import { ApiAccessBrightView } from '../../components/workspace/connectivity/bright/ApiAccessBrightView';
 
 export const ApiAccessPage: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -146,6 +148,10 @@ export const ApiAccessPage: React.FC = () => {
       desc: 'Access aggregated metrics, completion rates, and meeting volume trends.',
     },
   ];
+
+  if (isConnectivityBrightV1()) {
+    return <ApiAccessBrightView />;
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">

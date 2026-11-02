@@ -33,6 +33,8 @@ import {
 import { IntegrationCard } from '../../components/integrations/IntegrationCard';
 import { IntegrationDetailDrawer } from '../../components/integrations/IntegrationDetailDrawer';
 import { RealConnectionModal } from '../../components/integrations/RealConnectionModal';
+import { isConnectivityBrightV1 } from '../../lib/workspace/workspaceNav';
+import { ConnectAppBrightView } from '../../components/workspace/connectivity/bright/ConnectAppBrightView';
 
 export const IntegrationsPage: React.FC = () => {
   const navigate = useNavigate();

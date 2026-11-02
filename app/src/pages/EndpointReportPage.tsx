@@ -33,6 +33,8 @@ import {
   softDeleteEndpointReport,
 } from '../lib/reports/reportClient';
 import { EndpointReport, ReportPeriod, EndpointReportContent } from '../lib/reports/types';
+import { isConnectivityBrightV1 } from '../lib/workspace/workspaceNav';
+import { EndpointReportBrightView } from '../components/workspace/connectivity/bright/EndpointReportBrightView';
 
 export const EndpointReportPage: React.FC = () => {
   const { user } = useAuth();
@@ -114,6 +116,10 @@ export const EndpointReportPage: React.FC = () => {
       setDeletingId(null);
     }
   };
+
+  if (isConnectivityBrightV1()) {
+    return <EndpointReportBrightView isStarterTier={!checkingPermissions && !hasAccess} />;
+  }
 
   // Permission Gate
   if (!checkingPermissions && !hasAccess) {
