@@ -1,16 +1,31 @@
-export type ActionStatus = 'not_started' | 'in_progress' | 'blocked' | 'completed' | 'overdue';
+export type ActionStatus = 'not_started' | 'in_progress' | 'blocked' | 'completed' | 'waiting' | 'overdue';
 
 export const STATUS_LABELS: Record<ActionStatus, string> = {
-  not_started: 'Not Started',
-  in_progress: 'In Progress',
-  completed: 'Completed',
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  completed: 'Complete',
+  waiting: 'Waiting on someone else',
   blocked: 'Blocked',
   overdue: 'Overdue',
 };
 
 export { isActionOverdue } from '../intel/actionStatus';
 
-export type ActionPriority = 'high' | 'medium' | 'low';
+export type ActionPriority = 'high' | 'medium' | 'normal' | 'low';
+
+export const PRIORITY_LABELS: Record<ActionPriority, string> = {
+  high: 'High',
+  medium: 'Medium',
+  normal: 'Normal',
+  low: 'Low',
+};
+
+export const PRIORITY_RANK: Record<string, number> = {
+  high: 0,
+  medium: 1,
+  normal: 2,
+  low: 3,
+};
 
 export type ActionBucket = 'Completed' | 'Overdue' | 'Due today' | 'Pending';
 
@@ -110,4 +125,6 @@ export interface UpdateActionInput {
   archived_at?: string | null;
   archived_by?: string | null;
   origin_marker?: string | null;
+  old_status?: ActionStatus;
+  old_priority?: ActionPriority | null;
 }

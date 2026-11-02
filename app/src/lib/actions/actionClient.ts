@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { ActionRecord, CreateActionInput, UpdateActionInput, ActionStatus } from './types';
+import { ActionRecord, CreateActionInput, UpdateActionInput, ActionStatus, ActionPriority, PRIORITY_RANK } from './types';
 import { isActionOverdue } from '../intel/actionStatus';
 import { logTeamActivity } from '../teams/teamClient';
 
@@ -16,6 +16,71 @@ export interface FetchActionsOptions {
   limit?: number;
   teamId?: string;
   workspaceScope?: 'all' | 'personal' | 'team';
+}
+
+/**
+ * Default priority and due-date comparator (Section 1.3):
+ * 1. High -> Medium -> Normal -> Low
+ * 2. Earliest due date first, unscheduled last
+ * 3. Oldest created first
+ */
+export function compareActionsByPriorityAndDue(a: ActionRecord, b: ActionRecord): number {
+  const pA = PRIORITY_RANK[(a.priority || 'normal').toLowerCase()] ?? 2;
+  const pB = PRIORITY_RANK[(b.priority || 'normal').toLowerCase()] ?? 2;
+  if (pA !== pB) return pA - pB;
+
+  const dueA = a.due_date ? a.due_date.slice(0, 10) : '9999-99-99';
+  const dueB = b.due_date ? b.due_date.slice(0, 10) : '9999-99-99';
+  if (dueA !== dueB) return dueA.localeCompare(dueB);
+
+  const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
+  const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
+  return createdA - createdB;
+}
+
+/**
+ * Client-side permission check for edit/delete controls.
+ * Viewers or non-owners without edit rights see controls disabled with a reason.
+ */
+export function canUserEditAction(
+  action: ActionRecord,
+  currentUserId?: string | null,
+  userRole?: string | null
+): { allowed: boolean; reason?: string } {
+  if (!currentUserId) {
+    return { allowed: false, reason: 'View only: sign in to edit this action' };
+  }
+  if (userRole === 'viewer') {
+    return { allowed: false, reason: 'View only: team viewers cannot edit actions' };
+  }
+  if (action.ownership_type === 'personal') {
+    if (action.user_id !== currentUserId && action.assigned_user_id !== currentUserId) {
+      return { allowed: false, reason: 'View only: you do not have permission to edit this action' };
+    }
+  }
+  return { allowed: true };
+}
+
+/** Helper to record action audit events */
+async function logActionEvent(
+  supabase: SupabaseClient,
+  actionId: string,
+  event: string,
+  changedFields: Record<string, any>
+): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) {
+      await supabase.from('action_audit_events').insert({
+        action_id: actionId,
+        actor_id: user.id,
+        event,
+        changed_fields: changedFields,
+      });
+    }
+  } catch {
+    // Audit log non-blocking
+  }
 }
 
 /**
@@ -73,7 +138,7 @@ export async function saveAction(
         team_id: teamId,
         assigned_user_id: input.assigned_user_id || null,
         assigned_user_name: input.assigned_user_name || null,
-        priority: input.priority || null,
+        priority: input.priority || 'normal',
         due_time: input.due_time || null,
         due_timezone: input.due_timezone || 'Australia/Melbourne',
         all_day: input.all_day ?? true,
@@ -197,25 +262,8 @@ export async function fetchActions(
       records = records.filter((act) => isActionOverdue(act));
     }
 
-    // Sort: Incomplete first -> Nearest due date -> Most recent
-    records.sort((a, b) => {
-      const aComplete = a.status === 'completed' ? 1 : 0;
-      const bComplete = b.status === 'completed' ? 1 : 0;
-      if (aComplete !== bComplete) return aComplete - bComplete;
-
-      // Both incomplete or both complete: sort by due date
-      if (a.due_date && b.due_date) {
-        const timeDiff = new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-        if (timeDiff !== 0) return timeDiff;
-      } else if (a.due_date && !b.due_date) {
-        return -1;
-      } else if (!a.due_date && b.due_date) {
-        return 1;
-      }
-
-      // Then by created_at descending
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    // Default ordering (Section 1.3): High -> Medium -> Normal -> Low, earliest due first (unscheduled last), oldest created
+    records.sort(compareActionsByPriorityAndDue);
 
     if (options?.limit) {
       records = records.slice(0, options.limit);
@@ -267,6 +315,10 @@ export async function updateAction(
   input: UpdateActionInput
 ): Promise<ActionQueryResult<ActionRecord>> {
   try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     const updatePayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
@@ -278,6 +330,13 @@ export async function updateAction(
     if (input.status !== undefined) {
       // Overdue is computed from due_date, never stored in status.
       updatePayload.status = input.status === 'overdue' ? 'not_started' : input.status;
+      if (input.status === 'completed') {
+        updatePayload.completed_at = input.completed_at || new Date().toISOString();
+        updatePayload.completed_by = input.completed_by || user?.id || null;
+      } else {
+        updatePayload.completed_at = null;
+        updatePayload.completed_by = null;
+      }
     }
     if (input.assigned_user_id !== undefined) updatePayload.assigned_user_id = input.assigned_user_id;
     if (input.assigned_user_name !== undefined) updatePayload.assigned_user_name = input.assigned_user_name;
@@ -324,6 +383,24 @@ export async function updateAction(
       }
     }
 
+    // Record in action_audit_events with who, when, field, old value, and new value (Section 2.6)
+    if (input.status !== undefined) {
+      await logActionEvent(
+        supabase,
+        id,
+        'status_updated',
+        { field: 'status', old_value: input.old_status ?? null, new_value: input.status }
+      );
+    }
+    if (input.priority !== undefined) {
+      await logActionEvent(
+        supabase,
+        id,
+        'priority_updated',
+        { field: 'priority', old_value: input.old_priority ?? null, new_value: input.priority }
+      );
+    }
+
     return { data: data as ActionRecord, error: null };
   } catch (err: any) {
     return { data: null, error: err instanceof Error ? err : new Error('Failed to update action') };
@@ -354,12 +431,17 @@ export async function softDeleteAction(
     });
 
     if (!rpcErr) {
+      await logActionEvent(supabase, id, 'action_deleted', {
+        field: 'deleted_at',
+        old_value: null,
+        deleted_at: new Date().toISOString(),
+      });
       return { success: true, error: null };
     }
 
     // Direct fallback
     const {
-      data: { user },
+      data: { user: currentUser },
     } = await supabase.auth.getUser();
 
     const now = new Date();
@@ -369,7 +451,7 @@ export async function softDeleteAction(
       .from('action_tracker')
       .update({
         deleted_at: now.toISOString(),
-        deleted_by: user?.id || null,
+        deleted_by: currentUser?.id || null,
         purge_after: purgeAfter.toISOString(),
         updated_at: now.toISOString(),
       })
@@ -378,6 +460,12 @@ export async function softDeleteAction(
     if (error) {
       return { success: false, error: new Error(error.message) };
     }
+
+    await logActionEvent(supabase, id, 'action_deleted', {
+      field: 'deleted_at',
+      old_value: null,
+      deleted_at: now.toISOString(),
+    });
 
     return { success: true, error: null };
   } catch (err: any) {
@@ -398,6 +486,11 @@ export async function restoreAction(
     });
 
     if (!rpcErr) {
+      await logActionEvent(supabase, id, 'action_restored', {
+        field: 'deleted_at',
+        old_value: 'deleted',
+        restored_at: new Date().toISOString(),
+      });
       return { success: true, error: null };
     }
 
@@ -414,6 +507,12 @@ export async function restoreAction(
     if (error) {
       return { success: false, error: new Error(error.message) };
     }
+
+    await logActionEvent(supabase, id, 'action_restored', {
+      field: 'deleted_at',
+      old_value: 'deleted',
+      restored_at: new Date().toISOString(),
+    });
 
     return { success: true, error: null };
   } catch (err: any) {
