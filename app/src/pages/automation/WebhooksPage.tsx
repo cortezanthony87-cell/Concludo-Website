@@ -28,6 +28,8 @@ import {
   WebhookEventType,
   WebhookLog,
 } from '../../lib/integrations/types';
+import { isConnectivityBrightV1 } from '../../lib/workspace/workspaceNav';
+import { WebhooksBrightView } from '../../components/workspace/connectivity/bright/WebhooksBrightView';
 
 export const WebhooksPage: React.FC = () => {
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
@@ -159,6 +161,10 @@ export const WebhooksPage: React.FC = () => {
       prev.includes(eventId) ? prev.filter((e) => e !== eventId) : [...prev, eventId]
     );
   };
+
+  if (isConnectivityBrightV1()) {
+    return <WebhooksBrightView />;
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

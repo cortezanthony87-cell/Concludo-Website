@@ -42,6 +42,8 @@ import {
   ProviderMeta,
 } from '../../lib/integrations/types';
 import { OAuthConnectModal } from '../../components/integrations/OAuthConnectModal';
+import { isConnectivityBrightV1 } from '../../lib/workspace/workspaceNav';
+import { AutomationExportBrightView } from '../../components/workspace/connectivity/bright/AutomationExportBrightView';
 
 export const AutomationExportPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -311,6 +313,10 @@ export const AutomationExportPage: React.FC = () => {
 
   const currentConnected = getConnectedIntegration(selectedDestination);
   const isConnected = isDestinationConnected(selectedDestination);
+
+  if (isConnectivityBrightV1()) {
+    return <AutomationExportBrightView />;
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
