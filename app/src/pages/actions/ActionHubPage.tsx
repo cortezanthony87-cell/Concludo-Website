@@ -1,7 +1,21 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../../lib/auth/AuthContext';
-import { fetchActions, saveAction, updateAction } from '../../lib/actions/actionClient';
-import { ActionRecord, ActionStatus } from '../../lib/actions/types';
+import {
+  fetchActions,
+  saveAction,
+  updateAction,
+  softDeleteAction,
+  restoreAction,
+  compareActionsByPriorityAndDue,
+  canUserEditAction,
+} from '../../lib/actions/actionClient';
+import {
+  ActionRecord,
+  ActionStatus,
+  ActionPriority,
+  STATUS_LABELS,
+  PRIORITY_LABELS,
+} from '../../lib/actions/types';
 import { approveCandidate, dismissCandidate, fetchCandidates } from '../../lib/actions/actionCandidates';
 import { calculateActionBuckets, getActionBucket } from '../../lib/actions/actionBuckets';
 import { melbourneToday } from '../../lib/intel/actionStatus';
@@ -48,6 +62,48 @@ export const ActionHubPage: React.FC = () => {
   const [createCalendarReminder, setCreateCalendarReminder] = useState(false);
   const [createProject, setCreateProject] = useState('General');
   const [createSaving, setCreateSaving] = useState(false);
+
+  // Action Command Hub Edit Controls state
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [deleteModalTask, setDeleteModalTask] = useState<ActionRecord | null>(null);
+  const [deleteCalendarItem, setDeleteCalendarItem] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastUndo, setToastUndo] = useState(false);
+  const toastTimerRef = React.useRef<any>(null);
+  const deletedActionsRef = React.useRef<ActionRecord[]>([]);
+  const activeTriggerRef = React.useRef<HTMLElement | null>(null);
+
+  const showToast = useCallback((msg: string, undo: boolean = false) => {
+    setToastMsg(msg);
+    setToastUndo(undo);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMsg(null);
+      setToastUndo(false);
+    }, 4500);
+  }, []);
+
+  // Close open dropdown when clicking outside
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.ach-dd')) {
+        setOpenMenu(null);
+        activeTriggerRef.current?.focus();
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener('click', handleGlobalClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleGlobalClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Suggestions state
   const [candidates, setCandidates] = useState<CandidateSuggestion[]>([]);
@@ -159,15 +215,122 @@ export const ActionHubPage: React.FC = () => {
   // Toggle complete
   const handleToggleComplete = async (action: ActionRecord) => {
     const nextStatus: ActionStatus = action.status === 'completed' ? 'not_started' : 'completed';
-    const { error: updErr } = await updateAction(supabase, action.id, {
+    await handleSetStatus(action, nextStatus);
+  };
+
+  // Set status handler with optimistic UI and rollback
+  const handleSetStatus = async (action: ActionRecord, nextStatus: ActionStatus) => {
+    if (action.status === nextStatus) {
+      setOpenMenu(null);
+      return;
+    }
+    const prevActions = [...actions];
+    const updated = {
+      ...action,
       status: nextStatus,
       completed_at: nextStatus === 'completed' ? new Date().toISOString() : null,
       completed_by: nextStatus === 'completed' ? user?.id || null : null,
+      updated_at: new Date().toISOString(),
+    };
+    setActions((prev) => prev.map((a) => (a.id === action.id ? updated : a)));
+    setOpenMenu(null);
+
+    activeTriggerRef.current?.focus();
+    const { error: updErr } = await updateAction(supabase, action.id, {
+      status: nextStatus,
+      old_status: action.status,
+      completed_at: nextStatus === 'completed' ? new Date().toISOString() : null,
+      completed_by: nextStatus === 'completed' ? user?.id || null : null,
     });
-    if (!updErr) {
-      setActions((prev) =>
-        prev.map((a) => (a.id === action.id ? { ...a, status: nextStatus } : a))
-      );
+    if (updErr) {
+      setActions(prevActions);
+      showToast(`Could not save status: ${updErr.message}`);
+    } else {
+      const label = STATUS_LABELS[nextStatus] || nextStatus;
+      showToast(`Status saved: ${label}. Dashboard updated.`);
+    }
+  };
+
+  // Set priority handler with optimistic UI, re-sort, and rollback
+  const handleSetPriority = async (action: ActionRecord, nextPriority: ActionPriority) => {
+    if (action.priority === nextPriority) {
+      setOpenMenu(null);
+      return;
+    }
+    const prevActions = [...actions];
+    const updated = {
+      ...action,
+      priority: nextPriority,
+      updated_at: new Date().toISOString(),
+    };
+    const sorted = prevActions
+      .map((a) => (a.id === action.id ? updated : a))
+      .sort(compareActionsByPriorityAndDue);
+
+    setActions(sorted);
+    setOpenMenu(null);
+
+    activeTriggerRef.current?.focus();
+    const { error: updErr } = await updateAction(supabase, action.id, {
+      priority: nextPriority,
+      old_priority: action.priority,
+    });
+    if (updErr) {
+      setActions(prevActions);
+      showToast(`Could not save priority: ${updErr.message}`);
+    } else {
+      const label = PRIORITY_LABELS[nextPriority] || nextPriority;
+      showToast(`Priority saved: ${label}. List re-ordered. Dashboard updated.`);
+    }
+  };
+
+  // Delete task handler with soft delete, 30-day retention, and toast undo
+  const handleDeleteTask = async () => {
+    if (!deleteModalTask) return;
+    const target = deleteModalTask;
+    const prevActions = [...actions];
+    deletedActionsRef.current.push(target);
+    setActions((prev) => prev.filter((a) => a.id !== target.id));
+    setDeleteModalTask(null);
+    setOpenMenu(null);
+
+    const { success, error: delErr } = await softDeleteAction(supabase, target.id);
+    if (!success || delErr) {
+      setActions(prevActions);
+      deletedActionsRef.current = deletedActionsRef.current.filter((a) => a.id !== target.id);
+      showToast(`Could not delete task: ${delErr?.message || 'Server error'}`);
+      return;
+    }
+
+    if (deleteCalendarItem && target.id) {
+      try {
+        await supabase
+          .from('calendar_items')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('source_id', target.id);
+      } catch {}
+    }
+    showToast('Task deleted. Dashboard updated.', true);
+  };
+
+  // Undo delete
+  const handleUndoDelete = async () => {
+    const restored = deletedActionsRef.current.pop();
+    if (!restored) return;
+    const { success, error: resErr } = await restoreAction(supabase, restored.id);
+    if (success && !resErr) {
+      if (restored.id) {
+        try {
+          await supabase
+            .from('calendar_items')
+            .update({ deleted_at: null })
+            .eq('source_id', restored.id);
+        } catch {}
+      }
+      setActions((prev) => [...prev, restored].sort(compareActionsByPriorityAndDue));
+      showToast('Task restored.');
+    } else {
+      showToast(`Could not restore task: ${resErr?.message || 'Server error'}`);
     }
   };
 
@@ -188,7 +351,7 @@ export const ActionHubPage: React.FC = () => {
         status: 'not_started',
       });
       if (!saveErr && data) {
-        setActions((prev) => [data, ...prev]);
+        setActions((prev) => [...prev, data].sort(compareActionsByPriorityAndDue));
         setShowCreateModal(false);
         setCreateTitle('');
         setCreateDescription('');
@@ -402,6 +565,10 @@ export const ActionHubPage: React.FC = () => {
               <span>In progress</span>
             </div>
             <div>
+              <b>{bucketCounts.waiting}</b>
+              <span>Waiting</span>
+            </div>
+            <div>
               <b>{bucketCounts.blocked}</b>
               <span>Blocked</span>
             </div>
@@ -491,32 +658,32 @@ export const ActionHubPage: React.FC = () => {
       <div className="ach-card ach-table-wrapper">
         <table className="ach-table">
           <colgroup>
-            <col style={{ width: '48px' }} />
+            <col style={{ width: '44px' }} />
             <col style={{ minWidth: '420px', width: 'auto' }} />
-            <col style={{ width: '90px' }} />
-            <col style={{ width: '150px' }} />
-            <col style={{ width: '120px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '150px' }} />
+            <col style={{ width: '104px' }} />
+            <col style={{ width: '200px' }} />
             <col style={{ width: '84px' }} />
-            <col style={{ width: '120px' }} />
-            <col style={{ width: '100px' }} />
+            <col style={{ width: '104px' }} />
+            <col style={{ width: '136px' }} />
+            <col style={{ width: '84px' }} />
+            <col style={{ width: '110px' }} />
+            <col style={{ width: '84px' }} />
             <col style={{ width: '48px' }} />
           </colgroup>
           <thead>
             <tr>
-              <th style={{ width: '48px', textAlign: 'center' }}>
+              <th style={{ width: '44px', textAlign: 'center' }}>
                 <input type="checkbox" aria-label="Select all" />
               </th>
               <th style={{ minWidth: '420px', whiteSpace: 'nowrap' }}>Task title</th>
-              <th style={{ width: '90px', whiteSpace: 'nowrap' }}>Priority</th>
-              <th style={{ width: '150px', whiteSpace: 'nowrap' }}>Status</th>
-              <th style={{ width: '120px', whiteSpace: 'nowrap' }}>Assignee</th>
-              <th style={{ width: '110px', whiteSpace: 'nowrap' }}>Due</th>
-              <th style={{ width: '150px', whiteSpace: 'nowrap' }}>Project</th>
+              <th style={{ width: '104px', whiteSpace: 'nowrap' }}>Priority</th>
+              <th style={{ width: '200px', whiteSpace: 'nowrap' }}>Status</th>
+              <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Assignee</th>
+              <th style={{ width: '104px', whiteSpace: 'nowrap' }}>Due</th>
+              <th style={{ width: '136px', whiteSpace: 'nowrap' }}>Project</th>
               <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Source</th>
-              <th style={{ width: '120px', whiteSpace: 'nowrap' }}>Calendar sync</th>
-              <th style={{ width: '100px', whiteSpace: 'nowrap' }}>Updated</th>
+              <th style={{ width: '110px', whiteSpace: 'nowrap' }}>Calendar sync</th>
+              <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Updated</th>
               <th style={{ width: '48px' }}></th>
             </tr>
           </thead>
@@ -537,8 +704,23 @@ export const ActionHubPage: React.FC = () => {
               displayedActions.map((row) => {
                 const b = getActionBucket(row, now);
                 const isOverdue = b === 'Overdue';
-                const p = row.priority === 'high' ? 'High' : row.priority === 'low' ? 'Low' : 'Medium';
-                const pClass = p === 'High' ? 'ach-pill-hi' : p === 'Medium' ? 'ach-pill-me' : 'ach-pill-lo';
+                const pRaw = (row.priority || 'normal').toLowerCase();
+                const pLabel = pRaw === 'high' ? 'High' : pRaw === 'medium' ? 'Medium' : pRaw === 'low' ? 'Low' : 'Normal';
+                const pClass = pRaw === 'high' ? 'ach-pill-hi' : pRaw === 'medium' ? 'ach-pill-me' : pRaw === 'low' ? 'ach-pill-lo' : 'ach-pill-no';
+                const sLabel = row.status === 'completed'
+                  ? 'Complete'
+                  : row.status === 'in_progress'
+                  ? 'In progress'
+                  : row.status === 'blocked'
+                  ? 'Blocked'
+                  : row.status === 'waiting'
+                  ? 'Waiting on someone else'
+                  : 'Not started';
+
+                const isStatusMenuOpen = openMenu === 's-' + row.id;
+                const isPriorityMenuOpen = openMenu === 'p-' + row.id;
+                const isDotsMenuOpen = openMenu === 'm-' + row.id;
+                const canEdit = canUserEditAction(row, user?.id);
 
                 return (
                   <tr key={row.id}>
@@ -564,18 +746,128 @@ export const ActionHubPage: React.FC = () => {
                     >
                       <span className="ach-task-title">{row.action_title}</span>
                     </td>
-                    <td>
-                      <span className={`ach-pill ${pClass}`}>{p}</span>
+                    <td style={{ overflow: 'visible' }}>
+                      <div className="ach-dd">
+                        <button
+                          className="ach-ddb"
+                          aria-haspopup="listbox"
+                          aria-expanded={isPriorityMenuOpen}
+                          disabled={!canEdit.allowed}
+                          title={canEdit.reason}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            activeTriggerRef.current = e.currentTarget;
+                            setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              activeTriggerRef.current = e.currentTarget;
+                              setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                            }
+                          }}
+                        >
+                          <span className={`ach-pill ${pClass}`}>{pLabel}</span>
+                          <span className="ach-car">&#9662;</span>
+                        </button>
+                        {isPriorityMenuOpen && (
+                          <div className="ach-ddm" role="listbox">
+                            {(['high', 'medium', 'normal', 'low'] as ActionPriority[]).map((pr) => {
+                              const isSel = pRaw === pr;
+                              return (
+                                <div
+                                  key={pr}
+                                  role="option"
+                                  aria-selected={isSel}
+                                  tabIndex={0}
+                                  className={`ach-ddm-item ${isSel ? 'sel' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetPriority(row, pr);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleSetPriority(row, pr);
+                                    }
+                                  }}
+                                >
+                                  {isSel ? '✓ ' : ''}
+                                  {PRIORITY_LABELS[pr]}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </td>
-                    <td>
-                      {row.status === 'completed'
-                        ? 'Completed'
-                        : row.status === 'in_progress'
-                        ? 'In progress'
-                        : row.status === 'blocked'
-                        ? 'Blocked'
-                        : 'Not started'}
-                      {isOverdue && <span className="ach-overdue-badge"> ⚠ Overdue</span>}
+                    <td style={{ overflow: 'visible' }}>
+                      <div className="ach-dd">
+                        <button
+                          className="ach-ddb"
+                          aria-haspopup="listbox"
+                          aria-expanded={isStatusMenuOpen}
+                          disabled={!canEdit.allowed}
+                          title={canEdit.reason}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            activeTriggerRef.current = e.currentTarget;
+                            setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              activeTriggerRef.current = e.currentTarget;
+                              setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                            }
+                          }}
+                        >
+                          <span>{sLabel}</span>
+                          <span className="ach-car">&#9662;</span>
+                        </button>
+                        {isStatusMenuOpen && (
+                          <div className="ach-ddm" role="listbox">
+                            {([
+                              ['not_started', 'Not started'],
+                              ['in_progress', 'In progress'],
+                              ['completed', 'Complete'],
+                              ['waiting', 'Waiting on someone else'],
+                              ['blocked', 'Blocked'],
+                            ] as [ActionStatus, string][]).map(([stVal, stText]) => {
+                              const isSel = row.status === stVal;
+                              return (
+                                <div
+                                  key={stVal}
+                                  role="option"
+                                  aria-selected={isSel}
+                                  tabIndex={0}
+                                  className={`ach-ddm-item ${isSel ? 'sel' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetStatus(row, stVal);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleSetStatus(row, stVal);
+                                    }
+                                  }}
+                                >
+                                  {isSel ? '✓ ' : ''}
+                                  {stText}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {isOverdue && row.status !== 'completed' && (
+                        <div className="ach-od-line">&#9888; Overdue</div>
+                      )}
                     </td>
                     <td>{row.assigned_user_name || row.owner_name || 'Anthony'}</td>
                     <td>{row.due_date ? row.due_date : 'Unscheduled'}</td>
@@ -583,7 +875,57 @@ export const ActionHubPage: React.FC = () => {
                     <td>{row.source_type || 'Meeting'}</td>
                     <td>Not linked</td>
                     <td>{row.updated_at ? row.updated_at.slice(0, 10) : 'Today'}</td>
-                    <td>⋯</td>
+                    <td style={{ overflow: 'visible', textAlign: 'center' }}>
+                      <div className="ach-dd">
+                        <button
+                          className="ach-ddb-dots"
+                          aria-label="More actions"
+                          aria-haspopup="menu"
+                          aria-expanded={isDotsMenuOpen}
+                          disabled={!canEdit.allowed}
+                          title={canEdit.reason}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            activeTriggerRef.current = e.currentTarget;
+                            setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              activeTriggerRef.current = e.currentTarget;
+                              setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                            }
+                          }}
+                        >
+                          &#8943;
+                        </button>
+                        {isDotsMenuOpen && (
+                          <div className="ach-ddm ach-ddm-right" role="menu">
+                            <div
+                              role="menuitem"
+                              tabIndex={0}
+                              className="ach-ddm-item danger"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenu(null);
+                                setDeleteModalTask(row);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOpenMenu(null);
+                                  setDeleteModalTask(row);
+                                }
+                              }}
+                            >
+                              Delete task
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })
@@ -597,17 +939,191 @@ export const ActionHubPage: React.FC = () => {
         {displayedActions.map((row) => {
           const b = getActionBucket(row, now);
           const isOverdue = b === 'Overdue';
-          const p = row.priority === 'high' ? 'High' : row.priority === 'low' ? 'Low' : 'Medium';
-          const pClass = p === 'High' ? 'ach-pill-hi' : p === 'Medium' ? 'ach-pill-me' : 'ach-pill-lo';
+          const pRaw = (row.priority || 'normal').toLowerCase();
+          const pLabel = pRaw === 'high' ? 'High' : pRaw === 'medium' ? 'Medium' : pRaw === 'low' ? 'Low' : 'Normal';
+          const pClass = pRaw === 'high' ? 'ach-pill-hi' : pRaw === 'medium' ? 'ach-pill-me' : pRaw === 'low' ? 'ach-pill-lo' : 'ach-pill-no';
+          const sLabel = row.status === 'completed'
+            ? 'Complete'
+            : row.status === 'in_progress'
+            ? 'In progress'
+            : row.status === 'blocked'
+            ? 'Blocked'
+            : row.status === 'waiting'
+            ? 'Waiting on someone else'
+            : 'Not started';
+
+          const isStatusMenuOpen = openMenu === 's-' + row.id;
+          const isPriorityMenuOpen = openMenu === 'p-' + row.id;
+          const isDotsMenuOpen = openMenu === 'm-' + row.id;
+          const canEdit = canUserEditAction(row, user?.id);
 
           return (
             <div className="ach-row-card" key={row.id}>
               <b>{row.action_title}</b>
               <div className="f">
-                <span className={`ach-pill ${pClass}`}>{p}</span>
-                <span className="ach-tag">{row.status}</span>
+                <div className="ach-dd">
+                  <button
+                    className="ach-ddb"
+                    aria-haspopup="listbox"
+                    aria-expanded={isPriorityMenuOpen}
+                    disabled={!canEdit.allowed}
+                    title={canEdit.reason}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      activeTriggerRef.current = e.currentTarget;
+                      setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        activeTriggerRef.current = e.currentTarget;
+                        setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                      }
+                    }}
+                  >
+                    <span className={`ach-pill ${pClass}`}>{pLabel}</span>
+                    <span className="ach-car">&#9662;</span>
+                  </button>
+                  {isPriorityMenuOpen && (
+                    <div className="ach-ddm" role="listbox">
+                      {(['high', 'medium', 'normal', 'low'] as ActionPriority[]).map((pr) => (
+                        <div
+                          key={pr}
+                          role="option"
+                          aria-selected={pRaw === pr}
+                          tabIndex={0}
+                          className={`ach-ddm-item ${pRaw === pr ? 'sel' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetPriority(row, pr);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleSetPriority(row, pr);
+                            }
+                          }}
+                        >
+                          {pRaw === pr ? '✓ ' : ''}
+                          {PRIORITY_LABELS[pr]}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="ach-dd">
+                  <button
+                    className="ach-ddb"
+                    aria-haspopup="listbox"
+                    aria-expanded={isStatusMenuOpen}
+                    disabled={!canEdit.allowed}
+                    title={canEdit.reason}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      activeTriggerRef.current = e.currentTarget;
+                      setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        activeTriggerRef.current = e.currentTarget;
+                        setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                      }
+                    }}
+                  >
+                    <span>{sLabel}</span>
+                    <span className="ach-car">&#9662;</span>
+                  </button>
+                  {isStatusMenuOpen && (
+                    <div className="ach-ddm" role="listbox">
+                      {([
+                        ['not_started', 'Not started'],
+                        ['in_progress', 'In progress'],
+                        ['completed', 'Complete'],
+                        ['waiting', 'Waiting on someone else'],
+                        ['blocked', 'Blocked'],
+                      ] as [ActionStatus, string][]).map(([stVal, stText]) => (
+                        <div
+                          key={stVal}
+                          role="option"
+                          aria-selected={row.status === stVal}
+                          tabIndex={0}
+                          className={`ach-ddm-item ${row.status === stVal ? 'sel' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetStatus(row, stVal);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleSetStatus(row, stVal);
+                            }
+                          }}
+                        >
+                          {row.status === stVal ? '✓ ' : ''}
+                          {stText}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <span className="ach-tag">{row.due_date || 'Unscheduled'}</span>
-                {isOverdue && <span className="ach-overdue-badge">⚠ Overdue</span>}
+                {isOverdue && row.status !== 'completed' && (
+                  <span className="ach-overdue-badge">&#9888; Overdue</span>
+                )}
+                <div className="ach-dd" style={{ marginLeft: 'auto' }}>
+                  <button
+                    className="ach-ddb-dots"
+                    aria-label="More actions"
+                    aria-haspopup="menu"
+                    aria-expanded={isDotsMenuOpen}
+                    disabled={!canEdit.allowed}
+                    title={canEdit.reason}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      activeTriggerRef.current = e.currentTarget;
+                      setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        activeTriggerRef.current = e.currentTarget;
+                        setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                      }
+                    }}
+                  >
+                    &#8943;
+                  </button>
+                  {isDotsMenuOpen && (
+                    <div className="ach-ddm ach-ddm-right" role="menu">
+                      <div
+                        role="menuitem"
+                        tabIndex={0}
+                        className="ach-ddm-item danger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenu(null);
+                          setDeleteModalTask(row);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpenMenu(null);
+                            setDeleteModalTask(row);
+                          }
+                        }}
+                      >
+                        Delete task
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -855,6 +1371,54 @@ export const ActionHubPage: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal (Section 1.4) */}
+      {deleteModalTask && (
+        <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Delete task">
+          <div className="ach-modal-box" style={{ width: '460px' }}>
+            <h2 className="ach-heading" style={{ fontSize: '18px' }}>
+              Delete this task?
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--ach-navy)', lineHeight: 1.5, margin: '12px 0' }}>
+              &ldquo;{deleteModalTask.action_title}&rdquo; will be removed from your Actions, the Dashboard and any linked project view. You can restore it for 30 days.
+            </p>
+            {(deleteModalTask.source_type === 'calendar' || Boolean(deleteModalTask.source_id)) && (
+              <div style={{ margin: '12px 0' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--ach-slate)' }}>
+                  <input
+                    type="checkbox"
+                    checked={deleteCalendarItem}
+                    onChange={(e) => setDeleteCalendarItem(e.target.checked)}
+                  />
+                  Also remove linked calendar item
+                </label>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button className="ach-btn-secondary" onClick={() => setDeleteModalTask(null)}>
+                Cancel
+              </button>
+              <button
+                className="ach-btn-primary"
+                style={{ background: 'var(--ach-red)', color: '#ffffff' }}
+                onClick={handleDeleteTask}
+              >
+                Delete task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Toast (Section 2.8) */}
+      {toastMsg && (
+        <div className="ach-toast" role="status">
+          <span>{toastMsg}</span>
+          {toastUndo && (
+            <button onClick={handleUndoDelete}>Undo</button>
+          )}
         </div>
       )}
     </div>

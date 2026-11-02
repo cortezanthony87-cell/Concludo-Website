@@ -177,7 +177,7 @@ export const App: React.FC = () => {
             <Route path="/settings/deleted" element={<RecentlyDeletedPage />} />
             <Route path="/decision-memory" element={<Navigate to="/memory/decisions" replace />} />
             <Route path="/decision-memory/:id" element={<DecisionDetailPage />} />
-            <Route path="/work/actions" element={<ActionHubPage />} />
+            <Route path="/work/actions" element={ACTION_HUB_V1 ? <ActionHubPage /> : <ActionsPage />} />
             <Route path="/work/actions/:id" element={<ActionDetailPage />} />
             <Route path="/actions" element={ACTION_HUB_V1 ? <ActionsRedirect /> : <ActionsPage />} />
             <Route path="/actions/:id" element={ACTION_HUB_V1 ? <ActionsRedirect /> : <ActionDetailPage />} />
