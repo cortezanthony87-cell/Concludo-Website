@@ -6,7 +6,63 @@
    mountMeetingStudio(root, options) renders the three-step studio into root and returns an unmount function.
    Styles are scoped under .cmo (meeting-output.css). Nothing is sent anywhere unless options.onSave is supplied. */
 import * as CE from '../../lib/intelligence/meetingEngine';
+import { generateMeetingPdf } from '../../lib/reporting/meetingPdfGenerator';
+import { fromEngineRecord, renderDeckHtml, renderDeckPptx, validateDeck } from '../../lib/outputs/deck';
 import { SAMPLE_TRANSCRIPT, SAMPLE_DOC } from './samples';
+
+
+export function exportActionsToCsv(actions) {
+  const escCsv = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+  const headers = ['ID', 'Task', 'Owner', 'Due Date', 'Horizon', 'Definition of Done', 'Gaps', 'Evidence Quote', 'Source Line'];
+  const rows = (actions || []).map((a) => {
+    const ev = a.evidence && a.evidence[0];
+    const src = ev ? `${ev.sourceId || ''} L${ev.line || ''}` : '';
+    const gaps = (a.gaps || []).join('; ');
+    return [
+      escCsv(a.id),
+      escCsv(a.task),
+      escCsv(a.owner || ''),
+      escCsv(a.due || ''),
+      escCsv(a.horizon || ''),
+      escCsv(a.doneDefinition || ''),
+      escCsv(gaps),
+      escCsv(ev ? ev.quote : ''),
+      escCsv(src),
+    ].join(',');
+  });
+  return [headers.join(','), ...rows].join('\r\n');
+}
+
+export function exportStandaloneHtml(model) {
+  const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const title = escHtml(model?.meta?.title || 'Meeting Output');
+  const date = escHtml(model?.meta?.meetingDate || '');
+  const org = escHtml(model?.meta?.organisation || '');
+  const md = CE.toMarkdown(model);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title} · Concludo Meeting Record</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif; line-height: 1.6; color: #16263F; max-width: 900px; margin: 0 auto; padding: 40px 20px; background: #FAF9F6; }
+  .card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  h1 { font-size: 26px; color: #16263F; margin-top: 0; }
+  .meta { color: #64748B; font-size: 14px; margin-bottom: 24px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; }
+  pre { background: #F1F5F9; padding: 20px; border-radius: 8px; overflow-x: auto; font-family: "JetBrains Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  @media print { body { background: #fff; padding: 0; } .card { border: none; box-shadow: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>${title}</h1>
+  <div class="meta">${org ? `${org} · ` : ''}${date} · Commercial in confidence</div>
+  <pre>${escHtml(md)}</pre>
+</div>
+</body>
+</html>`;
+}
 
 export function mountMeetingStudio(root, opts = {}) {
   root.classList.add('cmo');
@@ -103,10 +159,20 @@ export function mountMeetingStudio(root, opts = {}) {
     filter: 'all',
     section: 'bottom',
     template: 'board',
+    emailAudience: opts.model?.followUp?.audience || 'client',
+    correctionDeadline: opts.model?.followUp?.correctionDeadline || '',
+    deckAudience: 'client',
+    deckQuotes: false,
+    deckPreparedWith: true,
+    deckFonts: 'brand',
     error: '',
     outline: [],
+    draftingMethod: opts.draftingMethod || null,
+    draftingReason: null,
   };
   const CAN_FILE = opts.canFile !== false;
+  const CAN_DRAFT_EMAIL = opts.canDraftEmail !== false;
+  const CAN_EXPORT_DECK = opts.canExportDeck !== false;
   const MEETING_TYPES = ['Leadership meeting', 'Board meeting', 'Steering committee', 'Project kick-off', 'Client meeting', 'Status meeting', 'Workshop', 'Meeting'];
 
   const allSources = () => {
@@ -127,13 +193,17 @@ export function mountMeetingStudio(root, opts = {}) {
     const canGo = (n) => n === 1 || !!S.model;
     app.innerHTML = `
       <header class="topbar">
-        <div class="brand">${opts.embedded ? '' : `<img src="${A.lockup}" alt="Concludo">`}<div class="crumb">${opts.embedded ? '' : 'Workspace &nbsp;/&nbsp; '}<b>Meeting output</b></div></div>
+        <div class="brand">${opts.embedded ? '' : `<img src="${A.lockup}" alt="Concludo">`}<div class="crumb">${opts.embedded ? '' : 'Workspace &nbsp;/&nbsp; '}<b>${opts.crumbTitle || 'Meeting output'}</b></div></div>
         <nav class="stepper" aria-label="Progress">
           ${steps
             .map(([n, l], i) => `${i ? '<span class="step-sep"></span>' : ''}<button class="step ${S.step === n ? 'active' : S.step > n ? 'done' : ''}" data-go="${n}" ${canGo(n) ? '' : 'disabled'} aria-current="${S.step === n ? 'step' : 'false'}"><span class="n">${S.step > n ? ic('check') : n}</span><span class="l">${l}</span></button>`)
             .join('')}
         </nav>
-        <div class="top-actions">${S.model ? `<button class="btn sm" data-act="save">${ic('save')}<span>Save to project</span></button>` : ''}</div>
+        <div class="top-actions">${S.model ? `
+          <button class="btn sm" data-act="save">${ic('save')}<span>Save to project</span></button>
+          <button class="btn sm navy" data-act="save-all-pdf" title="Save all documents as a complete PDF pack">${ic('print')}<span>Save all as PDF</span></button>
+          <button class="btn sm" data-act="export-options" title="Export formats to your device">${ic('download')}<span>Export</span></button>
+        ` : ''}</div>
       </header>
       <main id="main">${S.step === 1 ? viewImport() : S.step === 2 ? viewReview() : viewDocument()}</main>`;
     if (S.step === 3) buildDocument();
@@ -149,7 +219,7 @@ export function mountMeetingStudio(root, opts = {}) {
     const det = (k) => (S.detected[k] && S.meta[k] === S.detected[k] ? '<span class="detected">Detected</span>' : '');
     return `<div class="wrap">
       <div class="page-head">
-        <div><div class="eyebrow">Step 1 of 3</div><h1>Add the meeting</h1>
+        <div><div class="eyebrow">Step 1 of 3</div><h1>${opts.step1Title || 'Add the meeting'}</h1>
         <p>Paste a transcript, add your notes or import files. Concludo works from what you give it, whatever recorded the meeting. Nothing leaves this browser until you save.</p></div>
         <button class="btn" data-act="sample">${ic('spark')}<span>Load fictional sample</span></button>
       </div>
@@ -231,12 +301,38 @@ export function mountMeetingStudio(root, opts = {}) {
     }, 350);
   }
 
-  function generate() {
+  async function generate() {
     S.error = '';
     try {
       const meta = {};
       Object.entries(S.meta).forEach(([k, v]) => v && (meta[k] = v));
-      S.model = CE.analyseMeeting(allSources(), meta);
+      const srcs = allSources();
+      if (opts.draftMeetingRecord) {
+        try {
+          const res = await opts.draftMeetingRecord(srcs, meta);
+          if (res && res.drafting_method === 'model' && res.record) {
+            S.model = CE.buildModelFromRecord(res.record, srcs, meta);
+            S.draftingMethod = 'model';
+            S.draftingReason = null;
+          } else if (res && res.model) {
+            S.model = res.model;
+            S.draftingMethod = res.draftingMethod || 'model';
+            S.draftingReason = res.reason || null;
+          } else {
+            S.model = CE.analyseMeeting(srcs, meta);
+            S.draftingMethod = 'basic';
+            S.draftingReason = res && res.reason ? res.reason : null;
+          }
+        } catch (err) {
+          S.model = CE.analyseMeeting(srcs, meta);
+          S.draftingMethod = 'basic';
+          S.draftingReason = 'model_api_unavailable';
+        }
+      } else {
+        S.model = CE.analyseMeeting(srcs, meta);
+        S.draftingMethod = 'basic';
+        S.draftingReason = null;
+      }
       S.step = 2;
       S.section = 'bottom';
       setY(0);
@@ -345,6 +441,13 @@ export function mountMeetingStudio(root, opts = {}) {
           <div class="progress"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>Reviewed</span><span>${reviewed} of ${all.length}</span></div><div class="bar"><i style="width:${all.length ? (reviewed / all.length) * 100 : 0}%"></i></div><button class="btn sm" style="width:100%;margin-top:6px" data-act="confirm-all">${ic('check')}<span>Confirm all remaining</span></button></div>
         </aside>
         <div>
+          ${S.draftingMethod === 'basic' && S.draftingReason === 'missing_meeting_date' && opts.canUseModelDrafting
+            ? `<div class="warn">${ic('alert')}<span>Add the meeting date to use full drafting.</span></div>`
+            : S.draftingMethod === 'basic' && S.draftingReason === 'limit_reached'
+            ? `<div class="warn">${ic('alert')}<span>You have used this month's full drafts. Drafted with the basic method. Review each item carefully.</span></div>`
+            : S.draftingMethod === 'basic' && S.draftingReason && S.draftingReason !== 'flag_off' && S.draftingReason !== 'missing_meeting_date'
+            ? `<div class="warn">${ic('alert')}<span>Drafted with the basic method. Review each item carefully.</span></div>`
+            : ''}
           ${m.warnings.map((w) => `<div class="warn">${ic('alert')}<span>${esc(w)}</span></div>`).join('')}
           <div class="toolbar"><div class="chipset"><button class="chip ${S.filter === 'all' ? 'on' : ''}" data-filter="all">All items</button><button class="chip ${S.filter === 'attn' ? 'on' : ''}" data-filter="attn">Needs attention (${attn})</button></div><span style="font-size:12.5px;color:var(--slate)">Edits update the record and the document straight away.</span></div>
           <section class="section" id="sec-bottom"><header><div><h2>Bottom line</h2><p>Written from the items below. It updates as you review.</p></div></header><div class="answer">${esc(m.bottomLine)}</div></section>
@@ -375,10 +478,41 @@ export function mountMeetingStudio(root, opts = {}) {
   function sectionActions(m) {
     const xs = m.actions.filter((x) => show('actions', x));
     const people = m.participants.map((p) => p.name);
+    S.customOwners = S.customOwners || [];
+    xs.forEach((a) => {
+      if (a.owner && a.owner !== 'Under review' && !people.includes(a.owner) && !S.customOwners.includes(a.owner)) {
+        S.customOwners.push(a.owner);
+      }
+    });
     return `<section class="section" id="sec-actions"><header><div><h2>Actions</h2><p>Who does what, by when. Gaps are flagged, never filled in.</p></div></header><div class="items">${xs.length ? xs.map((a) => `<article class="${cls(a)}"><span class="id">${a.id}</span><div><div class="txt">${esc(a.task)}</div>
-      <div class="meta">${a.gaps.filter((g) => g !== 'Definition of done not stated').map((g) => `<span class="tag high">${ic('alert')}${esc(g)}</span>`).join('') || '<span class="tag ok">' + ic('check') + 'Owned and dated</span>'}${a.dueText ? `<span class="tag line">Said: “${esc(a.dueText)}”</span>` : ''}<span class="tag line">${a.horizon === 'now' ? 'This week' : a.horizon === 'next' ? 'Within 30 days' : a.horizon === 'later' ? 'Later' : 'Undated'}</span></div>
+      <div class="meta">${a.gaps.filter((g) => g !== 'Definition of done not stated').map((g) => `<span class="tag ${g === 'Owner under review' ? 'gold' : 'high'}">${ic(g === 'Owner under review' ? 'clock' : 'alert')}${esc(g)}</span>`).join('') || '<span class="tag ok">' + ic('check') + 'Owned and dated</span>'}${a.dueText ? `<span class="tag line">Said: “${esc(a.dueText)}”</span>` : ''}<span class="tag line">${a.horizon === 'now' ? 'This week' : a.horizon === 'next' ? 'Within 30 days' : a.horizon === 'later' ? 'Later' : 'Undated'}</span></div>
       <div class="edit"><label style="flex:1;min-width:220px">Task<input data-edit="actions:${a.id}:task" value="${esc(a.task)}" style="width:100%"></label>
-      <label>Owner<select data-edit="actions:${a.id}:owner" class="${a.owner ? '' : 'miss'}"><option value="">Not named</option>${people.map((p) => `<option ${p === a.owner ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+      ${a._editingCustom ? `
+        <div class="field" style="min-width:210px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span style="font-size:12px;font-weight:600;color:var(--navy)">Custom assignee</span>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center">
+            <input type="text" placeholder="Enter assignee name..." class="cmo-custom-input" data-custom-input="${a.id}" value="${esc(a.owner && a.owner !== 'Under review' ? a.owner : '')}" style="height:34px;padding:4px 8px;font-size:13px;border-radius:6px;border:1px solid var(--gold);flex:1">
+            <button type="button" class="btn sm navy" data-act="save-custom-owner" data-id="${a.id}">Assign</button>
+            <button type="button" class="btn ghost sm" data-act="cancel-custom-owner" data-id="${a.id}" title="Cancel">✕</button>
+          </div>
+        </div>
+      ` : `
+        <label style="min-width:190px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span>Owner</span>
+            <button type="button" class="btn-link" data-act="add-custom-owner-btn" data-id="${a.id}" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;padding:0;font-weight:600;text-decoration:underline" title="Assign custom name">+ Custom name</button>
+          </div>
+          <select data-edit="actions:${a.id}:owner" class="${a.owner ? (a.owner === 'Under review' ? 'gold-border' : '') : 'miss'}">
+            <option value="">Not named</option>
+            <option value="Under review" ${a.owner === 'Under review' ? 'selected' : ''}>Under review</option>
+            ${people.length ? `<optgroup label="Meeting Attendees">${people.map((p) => `<option value="${esc(p)}" ${p === a.owner ? 'selected' : ''}>${esc(p)}</option>`).join('')}</optgroup>` : ''}
+            ${S.customOwners.length ? `<optgroup label="Custom Assignees">${S.customOwners.map((c) => `<option value="${esc(c)}" ${c === a.owner ? 'selected' : ''}>${esc(c)}</option>`).join('')}</optgroup>` : ''}
+            <option value="__add_custom__">+ Add custom name...</option>
+          </select>
+        </label>
+      `}
       <label>Due<input type="date" data-edit="actions:${a.id}:due" value="${a.due || ''}" class="${a.due ? '' : 'miss'}"></label></div>${evid(a.evidence[0])}</div>${decideBtns('actions', a)}</article>`).join('') : '<p class="note">Nothing needs attention here.</p>'}</div></section>`;
   }
   function sectionRisks(m) {
@@ -415,6 +549,7 @@ export function mountMeetingStudio(root, opts = {}) {
   }
 
   /* ======================================================= STEP 3: DOCUMENT */
+  // Client deck is hidden from the selector until explicit written release ("release the deck").
   const TEMPLATES = [
     ['board', 'Board briefing', 'Full record for directors and leadership', 'board'],
     ['exec', 'Executive summary', 'One page: the answer, decisions, next steps', 'one'],
@@ -427,7 +562,10 @@ export function mountMeetingStudio(root, opts = {}) {
     return `<div class="doc-shell">
       <aside class="doc-side">
         <h3>Template</h3>
-        <div class="tpls">${TEMPLATES.map(([k, n, d, i]) => `<button class="tpl ${S.template === k ? 'on' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span><b>${n}</b><span>${d}</span></span></button>`).join('')}</div>
+        <div class="tpls">${TEMPLATES.map(([k, n, d, i]) => {
+          const locked = (k === 'deck' && !CAN_EXPORT_DECK) || (k === 'email' && !CAN_DRAFT_EMAIL);
+          return `<button class="tpl ${S.template === k ? 'on' : ''} ${locked ? 'locked' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span><b>${n}${locked ? ' <span style="font-size:10px;color:var(--gold-deep);font-weight:600">PRO</span>' : ''}</b><span>${d}</span></span></button>`;
+        }).join('')}</div>
         <h3>On this document</h3>
         <ul class="outline" id="outline"></ul>
         <div class="note cmo-hide-viewer" style="margin-top:18px">Built from ${plural(S.model.stats.decisions, 'decision')}, ${plural(S.model.stats.actions, 'action')}, ${plural(S.model.stats.risks, 'risk')} and ${plural(S.model.stats.openItems, 'open item')} you kept. <a href="#" data-go="2">Back to review</a></div>
@@ -435,7 +573,7 @@ export function mountMeetingStudio(root, opts = {}) {
       <section class="doc-main">
         <div class="doc-bar"><div class="t">${t[1]}<span id="pgcount"></span></div><div class="acts">
           ${S.template !== 'email' ? `<label class="preview-size">Preview<select data-preview-size aria-label="Document preview size"><option value="fit" ${previewMode === 'fit' ? 'selected' : ''}>Fit width</option><option value="actual" ${previewMode === 'actual' ? 'selected' : ''}>Actual size (100%)</option></select></label>` : ''}
-          ${S.template === 'email' ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button>` : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
+          ${S.template === 'deck' ? (CAN_EXPORT_DECK ? `<span id="deck-acts-slot"></span>` : '') : S.template === 'email' ? (CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button>` : '') : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
         </div></div>
         <div class="pages" id="pages"></div>
       </section>
@@ -463,7 +601,7 @@ export function mountMeetingStudio(root, opts = {}) {
   }
   const H = (no, title, intro, id) => `<div class="d-h" data-anchor="${id}" data-label="${esc(title)}"><span class="no">${no}</span><h2>${esc(title)}</h2></div>${intro ? `<p class="d-intro">${esc(intro)}</p>` : ''}`;
   const pillDue = (a) => (a.due ? `${short(a.due)}${a.dueApprox ? ' (approx.)' : ''}` : '<span class="miss">Not stated</span>');
-  const owner = (a) => (a.owner ? esc(a.owner) : '<span class="miss">Not named</span>');
+  const owner = (a) => (a.owner ? (a.owner === 'Under review' ? '<span class="tag gold" style="font-size:11px;padding:2px 6px">Under review</span>' : esc(a.owner)) : '<span class="miss">Not named</span>');
   const horizonLabel = { now: 'This week', next: '30 days', later: 'Later', undated: 'Undated' };
 
   function kpis({ D, Ac, R, Q }) {
@@ -624,99 +762,619 @@ export function mountMeetingStudio(root, opts = {}) {
     return { kind: 'Decision pack · Governance record', blocks: b };
   }
 
+
+  function buildStudioDeckPayload() {
+    const m = S.model;
+    const review = {};
+    [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].forEach((x) => {
+      review[x.id] = x.review;
+    });
+    const unapproved = m.gate.status !== 'Ready to circulate' && [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].some((x) => x.review === 'proposed');
+    const ctx = {
+      review,
+      approval: unapproved ? null : { by: m.meta.chair || 'Reviewed and approved', atISO: new Date().toISOString() },
+      audience: S.deckAudience || 'client',
+      version: 1,
+      preparedBy: { name: m.meta.chair || 'Reviewer', organisation: m.meta.organisation || null },
+      clientOrganisation: m.meta.organisation || null,
+      outcomeConfirmed: true,
+      nothingLeftOpenConfirmed: false,
+      nextMeeting: null,
+      correctionDeadline: { label: S.correctionDeadline || CE.defaultCorrectionDeadline(m.meta.meetingDate), contact: m.meta.chair || 'Chair' },
+    };
+    return fromEngineRecord(m, ctx);
+  }
+
+  const actionsToCsv = exportActionsToCsv;
+  const generateStandaloneHtml = (m) => exportStandaloneHtml(m);
+
+  function tplEmailPage() {
+    const present = (S.model?.participants || []).filter((p) => p.present);
+    const absent = (S.model?.participants || []).filter((p) => !p.present);
+    const fmtP = (p) => (S.emailAudience === 'client' && p.role ? `${p.name} (${p.role})` : p.name);
+    const presentNames = present.map(fmtP).join(', ');
+    const absentNames = absent.map(fmtP).join(', ');
+    const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model?.meta?.meetingDate);
+    const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
+    const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
+
+    const b = [];
+    b.push({
+      html: `<div class="bl" data-anchor="email" data-label="Follow-up email"><span class="lab">Follow-up communication</span>Circulation drafts for client and internal stakeholders. Draft only: review and copy into your email client before sending.</div>`
+    });
+    b.push({
+      html: `<div style="margin-top:4mm"><div class="d-h"><span class="no">1</span><h2>Client follow-up email draft</h2></div>
+        <div style="background:#F9FAFB;border:1px solid var(--line);border-radius:2mm;padding:4mm;margin-top:2mm;font-size:8.8pt">
+          <div style="margin-bottom:2mm"><b>To:</b> ${esc(presentNames || 'Attendees')} ${absentNames ? `&nbsp;·&nbsp; <b>Cc:</b> ${esc(absentNames)}` : ''}</div>
+          <div style="margin-bottom:3mm;padding-bottom:2mm;border-bottom:1px solid var(--line)"><b>Subject:</b> ${esc(emailClient.subject)}</div>
+          <pre style="white-space:pre-wrap;font-family:inherit;font-size:8.6pt;line-height:1.45;color:var(--navy);margin:0">${esc(emailClient.body)}</pre>
+        </div></div>`
+    });
+    b.push({
+      pageBreak: true,
+      html: `<div style="margin-top:2mm"><div class="d-h"><span class="no">2</span><h2>Internal follow-up email draft</h2></div>
+        <div style="background:#F9FAFB;border:1px solid var(--line);border-radius:2mm;padding:4mm;margin-top:2mm;font-size:8.8pt">
+          <div style="margin-bottom:2mm"><b>To:</b> ${esc(presentNames || 'Internal team')}</div>
+          <div style="margin-bottom:3mm;padding-bottom:2mm;border-bottom:1px solid var(--line)"><b>Subject:</b> ${esc(emailInternal.subject)}</div>
+          <pre style="white-space:pre-wrap;font-family:inherit;font-size:8.6pt;line-height:1.45;color:var(--navy);margin:0">${esc(emailInternal.body)}</pre>
+        </div></div>`
+    });
+    b.push({ html: fine() });
+    return { kind: 'Follow-up email · Communication drafts', blocks: b };
+  }
+
+  function paginateSpecToHost(specOrMaker, host) {
+    let fit = 0;
+    for (;;) {
+      const spec = typeof specOrMaker === 'function' ? specOrMaker(fit) : specOrMaker;
+      host.innerHTML = '';
+      const pages = [];
+      const runHtml = `<div class="pg-run"><img src="${A.lockup}" alt="Concludo"><div class="rt">${esc(spec.kind.split(' · ')[0])}<br><b>${esc(S.model.meta.title)}</b></div></div>`;
+      const newPage = (first) => {
+        const p = document.createElement('div');
+        p.className = 'page' + (spec.compact ? ' compact' : '');
+        p.innerHTML = `${first ? coverHtml(spec.kind) : runHtml}<div class="pg-body"></div><div class="pg-foot"><span>${esc(S.model.meta.organisation || 'Concludo')} · ${esc(fmt(S.model.meta.meetingDate))} · Commercial in confidence</span><span class="pn"></span></div>`;
+        host.appendChild(p);
+        pages.push(p);
+        return p.querySelector('.pg-body');
+      };
+      const over = (body) => body.scrollHeight > body.clientHeight + 1;
+      let body = newPage(true);
+      const frag = (html) => {
+        const t = document.createElement('div');
+        t.innerHTML = html;
+        return t;
+      };
+      const moveKeep = (fromBody, toBody) => {
+        const last = fromBody.lastElementChild;
+        if (last && last.dataset.keep === '1' && fromBody.children.length > 1) toBody.appendChild(last);
+      };
+      for (const blk of spec.blocks) {
+        if (blk.type === 'table') {
+          if (blk.pageBreak && body.children.length) body = newPage(false);
+          const mk = (cont) => frag(`${cont ? `<div class="d-h"><h2 style="font-size:9.5pt;color:var(--slate)">${esc(blk.label || 'Continued')}, continued</h2></div>` : blk.pre}<table class="dt"><thead>${blk.head}</thead><tbody></tbody></table>`);
+          let wrap = mk(false);
+          body.appendChild(wrap);
+          if (!blk.rows.length) {
+            wrap.querySelector('table').outerHTML = `<p class="d-intro">${esc(blk.empty || 'None.')}</p>`;
+            if (over(body)) { body.removeChild(wrap); const nb = newPage(false); moveKeep(body, nb); body = nb; body.appendChild(wrap); }
+            continue;
+          }
+          let tb = wrap.querySelector('tbody');
+          let placedHere = 0;
+          for (const r of blk.rows) {
+            const tmp = document.createElement('tbody');
+            tmp.innerHTML = r;
+            const tr = tmp.firstElementChild;
+            tb.appendChild(tr);
+            if (over(body)) {
+              tb.removeChild(tr);
+              const nb = newPage(false);
+              if (placedHere === 0) {
+                body.removeChild(wrap);
+                moveKeep(body, nb);
+                body = nb;
+                body.appendChild(wrap);
+              } else {
+                body = nb;
+                wrap = mk(true);
+                body.appendChild(wrap);
+                tb = wrap.querySelector('tbody');
+              }
+              tb.appendChild(tr);
+              placedHere = 0;
+            }
+            placedHere++;
+          }
+        } else {
+          if (blk.pageBreak && body.children.length) body = newPage(false);
+          if (!blk.html) continue;
+          const el = frag(blk.html);
+          if (blk.keepNext) el.dataset.keep = '1';
+          body.appendChild(el);
+          if (over(body) && body.children.length > 1) {
+            body.removeChild(el);
+            const nb = newPage(false);
+            moveKeep(body, nb);
+            body = nb;
+            body.appendChild(el);
+          }
+        }
+      }
+      if (spec.fitLevels && pages.length > 1 && fit < spec.fitLevels - 1) {
+        fit++;
+        continue;
+      }
+      pages.forEach((p, i) => {
+        const pn = p.querySelector('.pn');
+        if (pn) pn.textContent = `Page ${i + 1} of ${pages.length}`;
+        p.id = `pg-${i + 1}`;
+      });
+      return pages;
+    }
+  }
+
+  async function saveAllAsPdf() {
+    if (!S.model) return;
+    if (finishPrint) finishPrint();
+    toast('Preparing all documents for PDF export...');
+    await (document.fonts ? document.fonts.ready : Promise.resolve());
+
+    // Temporary measuring container on body with .cmo styles
+    const measureHost = document.createElement('div');
+    measureHost.className = 'cmo';
+    measureHost.style.cssText = 'position:fixed;left:-99999px;top:0;width:210mm;background:#fff;opacity:0;pointer-events:none;z-index:-1;';
+    document.body.appendChild(measureHost);
+
+    const makers = [
+      tplExec,
+      tplBoard,
+      tplActions,
+      tplDecisions,
+      ...(CAN_DRAFT_EMAIL ? [() => tplEmailPage()] : [])
+    ];
+
+    const allPages = [];
+    for (const make of makers) {
+      const secHost = document.createElement('div');
+      secHost.className = 'pages';
+      measureHost.appendChild(secHost);
+      const pages = paginateSpecToHost(make, secHost);
+      allPages.push(...pages);
+    }
+
+    // Renumber sequentially across the whole pack
+    allPages.forEach((p, i) => {
+      const pn = p.querySelector('.pn');
+      if (pn) pn.textContent = `Page ${i + 1} of ${allPages.length}`;
+    });
+
+    // Create print root
+    const portal = document.createElement('div');
+    portal.className = 'cmo cmo-print-root';
+    const pagesContainer = document.createElement('div');
+    pagesContainer.className = 'pages';
+    allPages.forEach((p) => pagesContainer.appendChild(p));
+    portal.appendChild(pagesContainer);
+    document.body.appendChild(portal);
+
+    measureHost.remove();
+
+    document.documentElement.classList.add('cmo-printing');
+    const pg = document.createElement('style');
+    pg.textContent = '@page { size: A4; margin: 0; }';
+    document.head.appendChild(pg);
+
+    const done = () => {
+      document.documentElement.classList.remove('cmo-printing');
+      pg.remove();
+      portal.remove();
+      window.removeEventListener('afterprint', done);
+      finishPrint = null;
+    };
+    finishPrint = done;
+    window.addEventListener('afterprint', done);
+
+    try {
+      window.print();
+    } catch (error) {
+      done();
+      toast('Print canceled or failed');
+    }
+  }
+
+  function printCurrentDocument() {
+    if (!S.model) return;
+    if (S.template === 'email' && !CAN_DRAFT_EMAIL) {
+      toast('Follow-up email drafts are included in Pro and Team.');
+      return;
+    }
+    if (S.template === 'deck' && !CAN_EXPORT_DECK) {
+      toast('Client decks are included in Pro and Team.');
+      return;
+    }
+    if (finishPrint) finishPrint();
+    const portal = document.createElement('div');
+    portal.className = 'cmo cmo-print-root';
+
+    const pagesHost = root.querySelector('.pages');
+    if (pagesHost && pagesHost.children.length && S.step === 3 && S.template !== 'email' && S.template !== 'deck') {
+      portal.appendChild(pagesHost.cloneNode(true));
+      document.body.appendChild(portal);
+      document.documentElement.classList.add('cmo-printing');
+      const pg = document.createElement('style');
+      pg.textContent = '@page { size: A4; margin: 0; }';
+      document.head.appendChild(pg);
+      const done = () => {
+        document.documentElement.classList.remove('cmo-printing');
+        pg.remove();
+        portal.remove();
+        window.removeEventListener('afterprint', done);
+        finishPrint = null;
+      };
+      finishPrint = done;
+      window.addEventListener('afterprint', done);
+      try { window.print(); } catch (error) { done(); throw error; }
+    } else {
+      document.body.appendChild(portal);
+      const pagesContainer = document.createElement('div');
+      pagesContainer.className = 'pages';
+      portal.appendChild(pagesContainer);
+      const make = S.template === 'email' ? () => tplEmailPage() : tplBoard;
+      paginateSpecToHost(make, pagesContainer);
+      document.documentElement.classList.add('cmo-printing');
+      const pg = document.createElement('style');
+      pg.textContent = '@page { size: A4; margin: 0; }';
+      document.head.appendChild(pg);
+      const done = () => {
+        document.documentElement.classList.remove('cmo-printing');
+        pg.remove();
+        portal.remove();
+        window.removeEventListener('afterprint', done);
+        finishPrint = null;
+      };
+      finishPrint = done;
+      window.addEventListener('afterprint', done);
+      try { window.print(); } catch (error) { done(); throw error; }
+    }
+  }
+
+  function downloadCsvActions() {
+    if (!S.model) return;
+    const baseName = (S.model.meta.title || 'actions').replace(/[^\w]+/g, '-');
+    const csvContent = actionsToCsv(S.model.actions);
+    download(`${baseName}-actions.csv`, csvContent, 'text/csv;charset=utf-8;');
+    toast('Action schedule (.csv) downloaded');
+  }
+
+  function downloadFollowUpEmailTxt() {
+    if (!S.model) return;
+    if (!CAN_DRAFT_EMAIL) {
+      toast('Follow-up email drafts are included in Pro and Team.');
+      return;
+    }
+    const baseName = (S.model.meta.title || 'follow-up-email').replace(/[^\w]+/g, '-');
+    const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
+    const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
+    const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
+    const emailText = `=== CLIENT FOLLOW-UP EMAIL ===\nSubject: ${emailClient.subject}\n\n${emailClient.body}\n\n\n=== INTERNAL FOLLOW-UP EMAIL ===\nSubject: ${emailInternal.subject}\n\n${emailInternal.body}\n`;
+    download(`${baseName}-follow-up-email.txt`, emailText, 'text/plain;charset=utf-8;');
+    toast('Follow-up email (.txt) downloaded');
+  }
+
+  async function downloadMeetingPdf() {
+    if (!S.model) return;
+    toast('Generating PDF document...');
+    try {
+      const pdfBytes = await generateMeetingPdf(S.model);
+      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u;
+      a.download = `${baseName}-boardroom-pack.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
+      toast('Meeting PDF downloaded to device');
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast('Failed to generate PDF: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  async function downloadExportZip() {
+    if (!S.model) return;
+    toast('Building export archive (.zip)...');
+    try {
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
+
+      // 1. Official PDF Document
+      const pdfBytes = await generateMeetingPdf(S.model);
+      zip.file(`${baseName}-boardroom-pack.pdf`, pdfBytes);
+
+      // 2. Markdown
+      zip.file(`${baseName}.md`, CE.toMarkdown(S.model));
+
+      // 3. CSV actions
+      zip.file(`${baseName}-actions.csv`, actionsToCsv(S.model.actions));
+
+      // 4. JSON record
+      zip.file(`${baseName}.concludo.json`, JSON.stringify(S.model, null, 2));
+
+      // 5. Follow-up emails (if entitled)
+      if (CAN_DRAFT_EMAIL) {
+        const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
+        const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
+        const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
+        const emailText = `=== CLIENT FOLLOW-UP EMAIL ===\nSubject: ${emailClient.subject}\n\n${emailClient.body}\n\n\n=== INTERNAL FOLLOW-UP EMAIL ===\nSubject: ${emailInternal.subject}\n\n${emailInternal.body}\n`;
+        zip.file(`${baseName}-follow-up-email.txt`, emailText);
+      }
+
+      // 6. Standalone HTML printable report
+      zip.file(`${baseName}-report.html`, generateStandaloneHtml(S.model));
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u;
+      a.download = `${baseName}-export.zip`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
+      toast('Complete export package (.zip) downloaded');
+    } catch (err) {
+      console.error('ZIP export failed:', err);
+      toast('Failed to create ZIP: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  function modalExport() {
+    const m = S.model;
+    if (!m) return;
+    const div = document.createElement('div');
+    div.className = 'modal-bg';
+    const currentTpl = TEMPLATES.find((x) => x[0] === S.template);
+    const currentName = currentTpl ? currentTpl[1] : 'Current document';
+
+    div.innerHTML = `
+      <div class="modal cmo-modal-export" role="dialog" aria-modal="true" aria-label="Export meeting record">
+        <div class="mh">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="display:inline-flex;color:var(--navy)">${ic('download')}</span>
+            <h2 style="font-size:16px;margin:0;font-weight:700;color:var(--navy)">Export &amp; save to device</h2>
+          </div>
+          <button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button>
+        </div>
+        <div class="mb" style="gap:12px;max-height:calc(85vh - 120px);overflow-y:auto">
+          <p style="margin:0;color:var(--slate);font-size:13px">Save the reviewed meeting documents, action register, and structured data directly to your device.</p>
+          
+          <div class="cmo-export-grid">
+            <div class="cmo-export-card featured">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Meeting PDF document (.pdf)</span>
+                  <span class="cmo-badge-rec">RECOMMENDED</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Official multi-page A4 PDF with decisions, full action schedule, open items, and risks ready to open on your device.</div>
+              </div>
+              <button class="btn sm navy" data-act="modal-dl-pdf" style="flex:none">${ic('download')}<span>Download PDF</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Complete archive (.zip)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">All formats bundled together: Meeting PDF report (.pdf), Markdown (.md), Action schedule (.csv), and Record (.json).</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-zip" style="flex:none">${ic('download')}<span>Download ZIP</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Markdown document (.md)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Full outcome record with decisions, action table, timeline, and open items formatted in clean Markdown.</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-md" style="flex:none">${ic('download')}<span>Download .md</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Action schedule (.csv)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Spreadsheet of actions with IDs, tasks, owners, due dates, definition of done, and gaps for Excel or Numbers.</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-csv" style="flex:none">${ic('download')}<span>Download .csv</span></button>
+            </div>
+
+            <div class="cmo-export-card">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Full meeting record (.json)</span>
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">Complete v2 data payload with all evidence citations, speaker labels, line numbers, and audit data.</div>
+              </div>
+              <button class="btn sm" data-act="modal-dl-json" style="flex:none">${ic('download')}<span>Download .json</span></button>
+            </div>
+
+            <div class="cmo-export-card ${!CAN_DRAFT_EMAIL ? 'cmo-card-locked' : ''}">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Follow-up email (.txt)</span>
+                  ${!CAN_DRAFT_EMAIL ? '<span class="cmo-badge-pro" style="background:#EEF2F6;color:#64748B;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">PRO &amp; TEAM</span>' : ''}
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">${CAN_DRAFT_EMAIL ? 'Plain text email draft with subject, attendees, agreed actions, and correction deadline.' : 'Follow-up email drafts are included in Pro and Team plans.'}</div>
+              </div>
+              <button class="btn sm" data-act="${CAN_DRAFT_EMAIL ? 'modal-dl-email' : 'modal-locked-email'}" ${!CAN_DRAFT_EMAIL ? 'disabled' : ''} style="flex:none">${ic('download')}<span>Download .txt</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" data-act="close">Close</button>
+        </div>
+      </div>
+    `;
+    div.addEventListener('click', (e) => e.target === div && div.remove());
+    root.appendChild(div);
+  }
+
   /* --------------------------------------- paginator */
   async function buildDocument() {
     const host = $('#pages');
     if (!host) return;
+    if (S.template === 'deck') {
+      if (!CAN_EXPORT_DECK) {
+        host.innerHTML = `<div class="email-card email-locked"><p style="font-size:15px;color:var(--navy);font-weight:500;margin:32px 24px;text-align:center">Client decks are included in Pro and Team.</p></div>`;
+        $('#outline').innerHTML = '';
+        $('#pgcount').textContent = '';
+        const actsSlot = $('#deck-acts-slot');
+        if (actsSlot) actsSlot.innerHTML = '';
+        return;
+      }
+      const payload = buildStudioDeckPayload();
+      const val = validateDeck(payload);
+      const actsSlot = $('#deck-acts-slot');
+      if (actsSlot) {
+        if (!val.ok) {
+          actsSlot.innerHTML = `<span style="font-size:12px;font-weight:600;color:var(--sig-high)">${esc(val.errors[0])}</span>`;
+        } else {
+          actsSlot.innerHTML = `<button class="btn sm navy" data-act="dl-deck-pptx">${ic('download')}<span>Download PowerPoint</span></button><button class="btn sm" data-act="print-deck">${ic('print')}<span>Print or save PDF</span></button>`;
+        }
+      }
+      const deckOptions = {
+        fonts: S.deckFonts || 'brand',
+        quotes: !!S.deckQuotes,
+        preparedWith: S.deckPreparedWith !== false,
+      };
+      let rendered;
+      try {
+        rendered = renderDeckHtml(payload, deckOptions);
+      } catch (err) {
+        // When unapproved or items still proposed, construct a valid preview payload from confirmed items or sample items so user can see preview
+        const previewPayload = JSON.parse(JSON.stringify(payload));
+        previewPayload.approval = previewPayload.approval || { by: 'Review in progress', atISO: new Date().toISOString() };
+        [...previewPayload.decisions, ...previewPayload.actions, ...previewPayload.openQuestions, ...previewPayload.risks].forEach((x) => {
+          if (x.review === 'proposed') x.review = 'confirmed';
+        });
+        rendered = renderDeckHtml(previewPayload, deckOptions);
+      }
+      const bodyContent = rendered.html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+      host.innerHTML = `<div class="deck-ctrls" style="width:100%;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 18px;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;background:var(--sand-50, #FDFCFB)">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Audience</span>
+            <div class="seg-btn" style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+              <button class="btn sm ${payload.audience === 'client' ? 'navy' : ''}" data-act="set-deck-aud" data-aud="client" style="border-radius:0;border:none">Client</button>
+              <button class="btn sm ${payload.audience === 'internal' ? 'navy' : ''}" data-act="set-deck-aud" data-aud="internal" style="border-radius:0;border:none">Internal</button>
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--navy);font-weight:500;cursor:pointer">
+            <input type="checkbox" data-act="toggle-deck-quotes" ${S.deckQuotes ? 'checked' : ''} />
+            <span>Verbatim quotes</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--navy);font-weight:500;cursor:pointer">
+            <input type="checkbox" data-act="toggle-deck-prep" ${S.deckPreparedWith !== false ? 'checked' : ''} />
+            <span>Prepared with Concludo</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Fonts</span>
+            <select data-act="set-deck-fonts" style="padding:4px 8px;font-size:12.5px;border-radius:6px;border:1px solid var(--border)">
+              <option value="brand" ${S.deckFonts !== 'safe' ? 'selected' : ''}>Brand fonts</option>
+              <option value="safe" ${S.deckFonts === 'safe' ? 'selected' : ''}>System fonts</option>
+            </select>
+          </div>
+        </div>
+      </div><div class="deck-pages-host" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px">${bodyContent}</div>`;
+
+      const deckPages = host.querySelectorAll('.pg');
+      $('#pgcount').textContent = `${deckPages.length} slides · 16:9`;
+      const out = [];
+      deckPages.forEach((p, i) => {
+        const titleEl = p.querySelector('h1') || p.querySelector('.ctitle');
+        const titleText = titleEl ? titleEl.textContent.trim() : (i === 0 ? 'Cover' : `Slide ${i + 1}`);
+        out.push({ label: titleText, page: i + 1, el: p });
+      });
+      $('#outline').innerHTML = out.map((o, k) => `<li><a href="#" data-jump="${k}">${esc(o.label)}<span>s. ${o.page}</span></a></li>`).join('');
+      S.outline = out;
+
+      const style = getComputedStyle(host);
+      const hostWidth = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      deckPages.forEach((page) => {
+        let frame = page.parentElement;
+        if (!frame.classList.contains('page-frame')) {
+          frame = document.createElement('div');
+          frame.className = 'page-frame';
+          page.before(frame);
+          frame.appendChild(page);
+        }
+        const pw = 1280;
+        const ph = 720;
+        page.style.width = `${pw}px`;
+        page.style.height = `${ph}px`;
+        page.style.transformOrigin = 'top left';
+        const scale = previewMode === 'actual' ? 1 : Math.min(1, Math.max(0.1, (hostWidth - 40) / pw));
+        frame.style.width = `${pw * scale}px`;
+        frame.style.height = `${ph * scale}px`;
+        page.style.transform = `scale(${scale})`;
+      });
+      return;
+    }
     if (S.template === 'email') {
-      const e = CE.followUpEmail(S.model);
-      host.innerHTML = `<div class="email-card"><div class="eh"><div><b>To</b>${esc(S.model.participants.filter((p) => p.present).map((p) => p.name).join(', '))}</div><div><b>Subject</b>${esc(e.subject)}</div></div><pre>${esc(e.body)}</pre><div class="ef">Draft only. Concludo never sends email. Copy it into your mail app, check it, then send.</div></div>`;
+      if (!CAN_DRAFT_EMAIL) {
+        host.innerHTML = `<div class="email-card email-locked"><p style="font-size:15px;color:var(--navy);font-weight:500;margin:32px 24px;text-align:center">Follow-up email drafts are included in Pro and Team.</p></div>`;
+        $('#outline').innerHTML = '';
+        $('#pgcount').textContent = '';
+        return;
+      }
+      S.emailAudience = S.emailAudience || S.model?.followUp?.audience || 'client';
+      S.correctionDeadline = S.correctionDeadline || S.model?.followUp?.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
+      const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline });
+      const present = S.model.participants.filter((p) => p.present);
+      const absent = S.model.participants.filter((p) => !p.present);
+      const fmtP = (p) => (S.emailAudience === 'client' && p.role ? `${p.name} (${p.role})` : p.name);
+      const presentNames = present.map(fmtP).join(', ');
+      const absentNames = absent.map(fmtP).join(', ');
+      host.innerHTML = `<div class="email-card">
+        <div class="email-ctrls" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--sand-50, #FDFCFB)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Audience</span>
+            <div class="seg-btn" style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+              <button class="btn sm ${S.emailAudience === 'client' ? 'navy' : ''}" data-act="set-audience" data-aud="client" style="border-radius:0;border:none">Client</button>
+              <button class="btn sm ${S.emailAudience === 'internal' ? 'navy' : ''}" data-act="set-audience" data-aud="internal" style="border-radius:0;border:none">Internal</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label for="cmo-deadline-inp" style="font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.04em">Correction deadline</label>
+            <input id="cmo-deadline-inp" class="cmo-input" data-field="correction-deadline" value="${esc(S.correctionDeadline)}" style="width:220px;padding:4px 8px;font-size:13px;height:30px" />
+          </div>
+        </div>
+        <div class="eh">
+          <div><b>To</b>${esc(presentNames || 'Not recorded')}</div>
+          ${absentNames ? `<div><b>Cc</b>${esc(absentNames)}</div>` : ''}
+          <div><b>Subject</b>${esc(e.subject)}</div>
+        </div>
+        <pre>${esc(e.body)}</pre>
+        <div class="ef">Draft only. Concludo never sends email. Copy it into your mail app, check it, then send.</div>
+      </div>`;
       $('#outline').innerHTML = '';
       $('#pgcount').textContent = '';
       return;
     }
     await (document.fonts ? document.fonts.ready : Promise.resolve());
     const make = { board: tplBoard, exec: tplExec, actions: tplActions, decisions: tplDecisions }[S.template];
-    let fit = 0;
-    let spec = make(fit);
-    for (;;) {
-    host.innerHTML = '';
-    const pages = [];
-    const runHtml = `<div class="pg-run"><img src="${A.lockup}" alt="Concludo"><div class="rt">${esc(spec.kind.split(' · ')[0])}<br><b>${esc(S.model.meta.title)}</b></div></div>`;
-    const newPage = (first) => {
-      const p = document.createElement('div');
-      p.className = 'page';
-      p.className = 'page' + (spec.compact ? ' compact' : '');
-      p.innerHTML = `${first ? coverHtml(spec.kind) : runHtml}<div class="pg-body"></div><div class="pg-foot"><span>${esc(S.model.meta.organisation || 'Concludo')} · ${esc(fmt(S.model.meta.meetingDate))} · Commercial in confidence</span><span class="pn"></span></div>`;
-      host.appendChild(p);
-      pages.push(p);
-      return p.querySelector('.pg-body');
-    };
-    const over = (body) => body.scrollHeight > body.clientHeight + 1;
-    let body = newPage(true);
-    const frag = (html) => {
-      const t = document.createElement('div');
-      t.innerHTML = html;
-      return t;
-    };
-    const moveKeep = (fromBody, toBody) => {
-      const last = fromBody.lastElementChild;
-      if (last && last.dataset.keep === '1' && fromBody.children.length > 1) toBody.appendChild(last);
-    };
-    for (const blk of spec.blocks) {
-      if (blk.type === 'table') {
-        if (blk.pageBreak && body.children.length) body = newPage(false);
-        const mk = (cont) => frag(`${cont ? `<div class="d-h"><h2 style="font-size:9.5pt;color:var(--slate)">${esc(blk.label || 'Continued')}, continued</h2></div>` : blk.pre}<table class="dt"><thead>${blk.head}</thead><tbody></tbody></table>`);
-        let wrap = mk(false);
-        body.appendChild(wrap);
-        if (!blk.rows.length) {
-          wrap.querySelector('table').outerHTML = `<p class="d-intro">${esc(blk.empty || 'None.')}</p>`;
-          if (over(body)) { body.removeChild(wrap); const nb = newPage(false); moveKeep(body, nb); body = nb; body.appendChild(wrap); }
-          continue;
-        }
-        let tb = wrap.querySelector('tbody');
-        let placedHere = 0;
-        for (const r of blk.rows) {
-          const tmp = document.createElement('tbody');
-          tmp.innerHTML = r;
-          const tr = tmp.firstElementChild;
-          tb.appendChild(tr);
-          if (over(body)) {
-            tb.removeChild(tr);
-            const nb = newPage(false);
-            if (placedHere === 0) {
-              body.removeChild(wrap);
-              moveKeep(body, nb);
-              body = nb;
-              body.appendChild(wrap);
-            } else {
-              body = nb;
-              wrap = mk(true);
-              body.appendChild(wrap);
-              tb = wrap.querySelector('tbody');
-            }
-            tb.appendChild(tr);
-            placedHere = 0;
-          }
-          placedHere++;
-        }
-      } else {
-        if (!blk.html) continue;
-        const el = frag(blk.html);
-        if (blk.keepNext) el.dataset.keep = '1';
-        body.appendChild(el);
-        if (over(body) && body.children.length > 1) {
-          body.removeChild(el);
-          const nb = newPage(false);
-          moveKeep(body, nb);
-          body = nb;
-          body.appendChild(el);
-        }
-      }
-    }
-    if (spec.fitLevels && pages.length > 1 && fit < spec.fitLevels - 1) { fit++; spec = make(fit); continue; }
-    pages.forEach((p, i) => (p.querySelector('.pn').textContent = `Page ${i + 1} of ${pages.length}`));
-    pages.forEach((p, i) => (p.id = `pg-${i + 1}`));
+    const pages = paginateSpecToHost(make, host);
     // outline
     const out = [];
     pages.forEach((p, i) => p.querySelectorAll('[data-anchor]').forEach((a) => out.push({ label: a.dataset.label, page: i + 1, el: a })));
@@ -724,8 +1382,6 @@ export function mountMeetingStudio(root, opts = {}) {
     S.outline = out;
     $('#pgcount').textContent = `${pages.length} page${pages.length === 1 ? '' : 's'} · A4`;
     fitPreview();
-    break;
-    }
   }
 
   /* ======================================================= events */
@@ -770,30 +1426,104 @@ export function mountMeetingStudio(root, opts = {}) {
       CE.refresh(S.model);
       rerenderKeepScroll();
     }
-    if (act === 'print') {
-      if (finishPrint) finishPrint();
-      // Print outside the fixed-height Workspace shell, which clips after page one.
-      const portal = document.createElement('div');
-      portal.className = 'cmo cmo-print-root';
-      portal.appendChild($('.pages').cloneNode(true));
-      document.body.appendChild(portal);
-      document.documentElement.classList.add('cmo-printing');
-      const pg = document.createElement('style');
-      pg.textContent = '@page { size: A4; margin: 0; }';
-      document.head.appendChild(pg);
-      const done = () => {
-        document.documentElement.classList.remove('cmo-printing');
-        pg.remove(); portal.remove();
-        window.removeEventListener('afterprint', done);
-        finishPrint = null;
-      };
-      finishPrint = done;
-      window.addEventListener('afterprint', done);
-      try { window.print(); } catch (error) { done(); throw error; }
+    if (act === 'print') printCurrentDocument();
+    if (act === 'save-all-pdf') saveAllAsPdf();
+    if (act === 'export-options') modalExport();
+    if (act === 'modal-dl-pdf') { root.querySelector('.modal-bg')?.remove(); downloadMeetingPdf(); }
+    if (act === 'modal-dl-zip') { root.querySelector('.modal-bg')?.remove(); downloadExportZip(); }
+    if (act === 'modal-dl-md') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.md`, CE.toMarkdown(S.model), 'text/markdown'); toast('Markdown (.md) downloaded'); }
+    if (act === 'modal-dl-csv') { root.querySelector('.modal-bg')?.remove(); downloadCsvActions(); }
+    if (act === 'modal-dl-json') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.concludo.json`, JSON.stringify(S.model, null, 2), 'application/json'); toast('Record (.json) downloaded'); }
+    if (act === 'modal-dl-email') { root.querySelector('.modal-bg')?.remove(); downloadFollowUpEmailTxt(); }
+    if (act === 'modal-locked-email') { toast('Follow-up email drafts are included in Pro and Team.'); }
+    if (act === 'add-custom-owner-btn') {
+      const id = t.dataset.id;
+      const a = S.model.actions.find((i) => i.id === id);
+      if (a) {
+        a._editingCustom = true;
+        rerenderKeepScroll();
+        setTimeout(() => {
+          const inp = root.querySelector(`[data-custom-input="${id}"]`);
+          if (inp) { inp.focus(); inp.select?.(); }
+        }, 50);
+      }
     }
+    if (act === 'save-custom-owner') {
+      const id = t.dataset.id;
+      const inp = root.querySelector(`[data-custom-input="${id}"]`);
+      const val = (inp?.value || '').trim();
+      const a = S.model.actions.find((i) => i.id === id);
+      if (a) {
+        if (val) {
+          a.owner = val;
+          a.ownerBasis = 'custom';
+          if (!S.customOwners) S.customOwners = [];
+          if (!S.customOwners.includes(val)) S.customOwners.push(val);
+        } else {
+          a.owner = undefined;
+          a.ownerBasis = 'none';
+        }
+        delete a._editingCustom;
+        CE.refresh(S.model);
+        rerenderKeepScroll();
+      }
+    }
+    if (act === 'cancel-custom-owner') {
+      const id = t.dataset.id;
+      const a = S.model.actions.find((i) => i.id === id);
+      if (a) {
+        delete a._editingCustom;
+        rerenderKeepScroll();
+      }
+    }
+
+    if (act === 'set-deck-aud') { S.deckAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
+    if (act === 'toggle-deck-quotes') { S.deckQuotes = t.checked; buildDocument(); }
+    if (act === 'toggle-deck-prep') { S.deckPreparedWith = t.checked; buildDocument(); }
+    if (act === 'set-deck-fonts') { S.deckFonts = t.value; buildDocument(); }
+    if (act === 'print-deck') {
+      const payload = buildStudioDeckPayload();
+      const val = validateDeck(payload);
+      if (!val.ok) { toast(val.errors[0]); return; }
+      const rendered = renderDeckHtml(payload, { fonts: S.deckFonts || 'brand', quotes: !!S.deckQuotes, preparedWith: S.deckPreparedWith !== false });
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.open();
+        w.document.write(rendered.html);
+        w.document.close();
+        w.focus();
+        setTimeout(() => w.print(), 350);
+      } else {
+        toast('Popup blocked. Allow popups to print PDF.');
+      }
+    }
+    if (act === 'dl-deck-pptx') {
+      const payload = buildStudioDeckPayload();
+      const val = validateDeck(payload);
+      if (!val.ok) { toast(val.errors[0]); return; }
+      toast('Generating PowerPoint deck...');
+      try {
+        const { default: PptxGenJS } = await import('pptxgenjs');
+        const { data, fileName } = await renderDeckPptx(PptxGenJS, payload, { fonts: S.deckFonts || 'brand', quotes: !!S.deckQuotes, preparedWith: S.deckPreparedWith !== false }, 'blob');
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('PowerPoint downloaded');
+      } catch (err) {
+        toast(err.message || 'Failed to export deck');
+      }
+    }
+
     if (act === 'copy-md') { await copy(CE.toMarkdown(S.model)); toast('Copied as text'); }
     if (act === 'dl-md') download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.md`, CE.toMarkdown(S.model), 'text/markdown');
-    if (act === 'copy-email') { const e = CE.followUpEmail(S.model); await copy(`Subject: ${e.subject}\n\n${e.body}`); toast('Email draft copied'); }
+    if (act === 'set-audience') { S.emailAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
+    if (act === 'copy-email') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); await copy(`Subject: ${e.subject}\n\n${e.body}`); toast('Email draft copied'); }
+    if (act === 'dl-email-txt') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); download(`${(S.model.meta.title || 'follow-up-email').replace(/[^\w]+/g, '-')}.txt`, `Subject: ${e.subject}\n\n${e.body}`, 'text/plain'); }
     if (act === 'save') (opts.onSave ? modalSaveWired() : modalSave());
     if (act === 'do-save') doSave(t);
     if (act === 'copy-json') { await copy(JSON.stringify(S.model, null, 2)); root.querySelector('.modal-bg')?.remove(); toast('Record copied'); }
@@ -804,6 +1534,14 @@ export function mountMeetingStudio(root, opts = {}) {
     const t = ev.target;
     if (t.dataset.bind) { S[t.dataset.bind] = t.value; detectMeta(); updateSignals(); }
     if (t.dataset.meta) { S.meta[t.dataset.meta] = t.value; }
+    if (t.dataset.field === 'correction-deadline') {
+      S.correctionDeadline = t.value;
+      const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline });
+      const pre = root.querySelector('.email-card pre');
+      if (pre) pre.textContent = e.body;
+      const subjEl = root.querySelector('.email-card .eh div:last-child');
+      if (subjEl) subjEl.innerHTML = `<b>Subject</b>${esc(e.subject)}`;
+    }
   });
   function updateSignals() {
     // keep focus while typing: only refresh the Generate button state
@@ -824,12 +1562,41 @@ export function mountMeetingStudio(root, opts = {}) {
     if (t.dataset.edit) {
       const [kind, id, field] = t.dataset.edit.split(':');
       const x = listFor(kind).find((i) => i.id === id);
-      if (field === 'owner') { x.owner = t.value || undefined; x.ownerBasis = t.value ? 'stated' : 'none'; }
+      if (field === 'owner') {
+        if (t.value === '__add_custom__') {
+          x._editingCustom = true;
+          rerenderKeepScroll();
+          setTimeout(() => {
+            const inp = root.querySelector(`[data-custom-input="${id}"]`);
+            if (inp) { inp.focus(); inp.select?.(); }
+          }, 50);
+          return;
+        }
+        x.owner = t.value || undefined;
+        x.ownerBasis = t.value ? (t.value === 'Under review' ? 'custom' : 'stated') : 'none';
+        delete x._editingCustom;
+      }
       else if (field === 'due') { x.due = t.value || undefined; x.dueApprox = false; x.dueText = undefined; }
       else if (field === 'likelihood' || field === 'consequence') { x[field] = +t.value; const s = x.likelihood * x.consequence; x.rating = s >= 15 ? 'high' : s >= 9 ? 'medium' : 'low'; }
       else x[field] = t.value;
       CE.refresh(S.model);
       rerenderKeepScroll();
+    }
+  });
+  on(root, 'keydown', (e) => {
+    const t = e.target;
+    if (t && t.dataset && t.dataset.customInput) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const id = t.dataset.customInput;
+        const saveBtn = root.querySelector(`[data-act="save-custom-owner"][data-id="${id}"]`);
+        if (saveBtn) saveBtn.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        const id = t.dataset.customInput;
+        const cancelBtn = root.querySelector(`[data-act="cancel-custom-owner"][data-id="${id}"]`);
+        if (cancelBtn) cancelBtn.click();
+      }
     }
   });
   on(root, 'dragover', (e) => { const d = e.target.closest && e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });
@@ -861,9 +1628,9 @@ export function mountMeetingStudio(root, opts = {}) {
     const proposed = [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].filter((x) => x.review === 'proposed').length;
     div.querySelector('.modal').innerHTML = `<div class="mh"><h2 style="font-size:16px">Save to project</h2><button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button></div>
       <div class="mb">
-        <div class="chipset"><button class="chip ${projects.length ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${projects.length ? '' : 'on'}" data-savemode="new">New project</button></div>
-        <div class="field" data-pane="existing" ${projects.length ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
-        <div data-pane="new" ${projects.length ? 'hidden' : ''}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
+        <div class="chipset"><button class="chip ${opts.defaultSaveMode !== 'new' && projects.length ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${opts.defaultSaveMode === 'new' || !projects.length ? 'on' : ''}" data-savemode="new">New project</button></div>
+        <div class="field" data-pane="existing" ${opts.defaultSaveMode !== 'new' && projects.length ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
+        <div data-pane="new" ${opts.defaultSaveMode === 'new' || !projects.length ? '' : 'hidden'}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
         <div class="mini-stats" style="margin:0"><div><b>${m.stats.decisions}</b><span>to Decision memory</span></div><div><b>${m.stats.actions}</b><span>to the Action tracker</span></div><div><b>${m.sources.length}</b><span>source files</span></div><div><b>4</b><span>outputs</span></div></div>
         ${unowned.length ? `<div class="warn" style="margin:0">${ic('alert')}<span>${plural(unowned.length, 'action has', 'actions have')} no owner (${unowned.map((a) => a.id).join(', ')}). ${unowned.length === 1 ? 'It' : 'They'} will be saved as unassigned, not given a placeholder name. <a href="#" data-go="2">Name an owner first</a></span></div>` : ''}
         ${proposed ? `<div class="note" style="margin:0">${plural(proposed, 'item is', 'items are')} not yet confirmed. Saving keeps everything you have not excluded.</div>` : ''}
@@ -883,7 +1650,7 @@ export function mountMeetingStudio(root, opts = {}) {
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
-      const res = await opts.onSave(S.model, target, { sources: allSources(), markdown: CE.toMarkdown(S.model), email: CE.followUpEmail(S.model) });
+      const res = await opts.onSave(S.model, target, { sources: allSources(), markdown: CE.toMarkdown(S.model), email: CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }) });
       div.remove();
       toast('Saved to project');
       if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 700);

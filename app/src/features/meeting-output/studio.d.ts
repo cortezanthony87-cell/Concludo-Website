@@ -1,4 +1,4 @@
-import type { MeetingModel, SourceInput } from '../../lib/intelligence/meetingEngine';
+import type { MeetingModel, SourceInput, MeetingMetaInput } from '../../lib/intelligence/meetingEngine';
 
 export interface SaveTarget {
   mode: 'existing' | 'new';
@@ -21,6 +21,8 @@ export interface StudioOptions {
   logoReversed?: string;
   /** Use the Workspace file parser (pdfjs-dist, mammoth) instead of loading parsers from a CDN. */
   parseFile?: (file: File) => Promise<{ name: string; type: string; text: string }>;
+  /** Draft meeting record hook: calls Edge Function to obtain model draft or basic fallback. */
+  draftMeetingRecord?: (sources: SourceInput[], meta: MeetingMetaInput) => Promise<any>;
   /** Projects for the save dialog. */
   listProjects?: () => Promise<Array<{ id: string; title: string; client?: string | null }>>;
   /** Persist the record. Throw an Error with a readable message on failure. */
@@ -29,11 +31,24 @@ export interface StudioOptions {
   onSaved?: (projectId: string) => void;
   /** false hides print and file download buttons (for hosts that block them). Default true. */
   canFile?: boolean;
+  /** false locks follow-up email drafts with the Pro/Team upgrade notice. Default true. */
+  canDraftEmail?: boolean;
+  /** false locks client deck export with the Pro/Team upgrade notice. Default true. */
+  canExportDeck?: boolean;
+  canUseModelDrafting?: boolean;
   /** Open straight on the document step with this record. */
   model?: MeetingModel;
-  template?: 'board' | 'exec' | 'actions' | 'decisions' | 'email';
+  template?: 'board' | 'exec' | 'deck' | 'actions' | 'decisions' | 'email';
   viewer?: boolean;
+  /** Custom title for Step 1 import view. Default 'Add the meeting'. */
+  step1Title?: string;
+  /** Custom breadcrumb title for topbar. Default 'Meeting output'. */
+  crumbTitle?: string;
+  /** Default save mode in modal. Default 'existing' if projects exist else 'new'. */
+  defaultSaveMode?: 'existing' | 'new';
 }
 
 export function mountMeetingStudio(root: HTMLElement, options?: StudioOptions): () => void;
-export function mountMeetingDocument(root: HTMLElement, model: MeetingModel, options?: Pick<StudioOptions, 'logo' | 'logoReversed' | 'template' | 'canFile'>): () => void;
+export function mountMeetingDocument(root: HTMLElement, model: MeetingModel, options?: Pick<StudioOptions, 'logo' | 'logoReversed' | 'template' | 'canFile' | 'canDraftEmail' | 'canExportDeck'>): () => void;
+export function exportActionsToCsv(actions: any[]): string;
+export function exportStandaloneHtml(model: any): string;
