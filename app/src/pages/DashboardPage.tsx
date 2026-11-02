@@ -50,6 +50,7 @@ import { fetchDecisions } from '../lib/decisions/decisionClient';
 import { DecisionRecord } from '../lib/decisions/types';
 import { fetchActions } from '../lib/actions/actionClient';
 import { ActionRecord, isActionOverdue, STATUS_LABELS } from '../lib/actions/types';
+import { calculateActionBuckets, getActionBucket, ActionBucketCounts } from '../lib/actions/actionBuckets';
 import { fetchUserInsights, fetchUserStats } from '../lib/intelligence/intelligenceClient';
 import { InsightData, StatsData } from '../lib/intelligence/types';
 import { fetchEndpointReports } from '../lib/reports/reportClient';
@@ -58,6 +59,10 @@ import { fetchUserTeams } from '../lib/teams/teamClient';
 import { Team, TeamRole } from '../lib/teams/types';
 import { getPredictiveAnalysis } from '../lib/predictive/predictiveService';
 import { fetchCalendarItems } from '../lib/calendar/calendarClient';
+import { DashboardEmailCard } from '../components/dashboard/DashboardEmailCard';
+import { getWelcomeGreeting, formatDashboardDate } from '../lib/dashboard/greeting';
+import { DashboardQuickActionsToolbar } from '../components/dashboard/DashboardQuickActionsToolbar';
+
 import { PredictiveAnalysisResult } from '../lib/predictive/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -142,45 +147,88 @@ const PERF_CONFIG: Record<
   },
 };
 
-// ─── Week helpers ─────────────────────────────────────────────────────────────
+// ─── Week helpers (Australia/Melbourne) ────────────────────────────────────────
 
-function getWeekBounds() {
-  const now = new Date();
-  const day = now.getDay();
-  const diffToMon = (day === 0 ? -6 : 1 - day);
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMon);
-  monday.setHours(0, 0, 0, 0);
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-  friday.setHours(23, 59, 59, 999);
+export function getMelbourneDateParts(d: Date = new Date()): { year: number; month: number; day: number; dayOfWeek: number } {
+  const formatter = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Melbourne',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+  });
+  const parts = formatter.formatToParts(d);
+  let year = 0, month = 0, day = 0, weekday = '';
+  for (const p of parts) {
+    if (p.type === 'year') year = parseInt(p.value, 10);
+    if (p.type === 'month') month = parseInt(p.value, 10);
+    if (p.type === 'day') day = parseInt(p.value, 10);
+    if (p.type === 'weekday') weekday = p.value;
+  }
+  const dayOfWeekMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const dayOfWeek = dayOfWeekMap[weekday] ?? 0;
+  return { year, month, day, dayOfWeek };
+}
+
+export function getWeekBounds(now: Date = new Date()): { weekStart: string; weekEnd: string } {
+  const { year, month, day, dayOfWeek } = getMelbourneDateParts(now);
+  // On Saturday and Sunday, show the coming Monday to Friday in Melbourne
+  let daysToMonday = 0;
+  if (dayOfWeek === 6) { // Saturday
+    daysToMonday = 2;
+  } else if (dayOfWeek === 0) { // Sunday
+    daysToMonday = 1;
+  } else {
+    daysToMonday = 1 - dayOfWeek;
+  }
+
+  const baseUtc = Date.UTC(year, month - 1, day);
+  const mondayUtc = baseUtc + daysToMonday * 86400000;
+  const fridayUtc = mondayUtc + 4 * 86400000;
+
+  const toYmd = (ms: number) => {
+    const d = new Date(ms);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${dayStr}`;
+  };
+
   return {
-    weekStart: monday.toISOString().slice(0, 10),
-    weekEnd: friday.toISOString().slice(0, 10),
+    weekStart: toYmd(mondayUtc),
+    weekEnd: toYmd(fridayUtc),
   };
 }
 
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+export function getWeekDays(now: Date = new Date()): { label: string; date: Date; dateStr: string; isToday: boolean }[] {
+  const { year, month, day, dayOfWeek } = getMelbourneDateParts(now);
+  let daysToMonday = 0;
+  if (dayOfWeek === 6) {
+    daysToMonday = 2;
+  } else if (dayOfWeek === 0) {
+    daysToMonday = 1;
+  } else {
+    daysToMonday = 1 - dayOfWeek;
+  }
 
-function getWeekDays(): { label: string; date: Date; dateStr: string; isToday: boolean }[] {
-  const today = new Date();
-  const dow = today.getDay(); // 0=Sun
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((dow + 6) % 7));
-  monday.setHours(0, 0, 0, 0);
-  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((label, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const isToday =
-      d.getDate() === today.getDate() &&
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear();
-    return { label, date: d, dateStr: toLocalDateStr(d), isToday };
+  const baseUtc = Date.UTC(year, month - 1, day);
+  const mondayUtc = baseUtc + daysToMonday * 86400000;
+  const todayYmd = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  return labels.map((label, i) => {
+    const dayUtc = mondayUtc + i * 86400000;
+    const d = new Date(dayUtc);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getUTCDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${dayStr}`;
+    return {
+      label,
+      date: new Date(y, parseInt(m, 10) - 1, parseInt(dayStr, 10), 12, 0, 0),
+      dateStr,
+      isToday: dateStr === todayYmd,
+    };
   });
 }
 
@@ -377,6 +425,7 @@ export const DashboardPage: React.FC = () => {
   const [recentOutputs, setRecentOutputs] = useState<DashboardOutput[]>([]);
   const [recentDecisions, setRecentDecisions] = useState<DecisionRecord[]>([]);
   const [recentActions, setRecentActions] = useState<ActionRecord[]>([]);
+  const [actionBucketCounts, setActionBucketCounts] = useState<ActionBucketCounts | null>(null);
   const [insights, setInsights] = useState<InsightData | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentReports, setRecentReports] = useState<EndpointReport[]>([]);
@@ -406,25 +455,7 @@ export const DashboardPage: React.FC = () => {
   const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
 
-  interface EmailStats {
-    needReply: number;
-    unread: number;
-    flagged: number;
-    processedToday: number;
-  }
-  interface EmailPreviewItem {
-    id: string;
-    sender_name: string | null;
-    subject: string | null;
-    client_or_project: string | null;
-    received_at: string | null;
-    status: string | null;
-  }
-  const [emailStats, setEmailStats] = useState<EmailStats>({
-    needReply: 0, unread: 0, flagged: 0, processedToday: 0,
-  });
-  const [emailPreviews, setEmailPreviews] = useState<EmailPreviewItem[]>([]);
-  const [loadingEmail, setLoadingEmail] = useState(false);
+
 
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
@@ -467,8 +498,7 @@ export const DashboardPage: React.FC = () => {
       const { weekStart, weekEnd } = getWeekBounds();
 
       setLoadingCalendar(true);
-      setLoadingEmail(true);
-      setLoadingPermissions(true);
+            setLoadingPermissions(true);
 
       // Phase 1: Concurrently load core dashboard modules
       const [
@@ -476,7 +506,6 @@ export const DashboardPage: React.FC = () => {
         outputsRes,
         stageRowsRes,
         calItemsRes,
-        emailRes,
         permsRes,
       ] = await Promise.allSettled([
         supabase
@@ -501,35 +530,6 @@ export const DashboardPage: React.FC = () => {
           .eq('archived', false),
 
         fetchCalendarItems(supabase, user.id),
-
-        Promise.all([
-          supabase
-            .from('email_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .eq('status', 'needs_reply'),
-          supabase
-            .from('email_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .eq('is_read', false),
-          supabase
-            .from('email_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .eq('is_flagged', true),
-          supabase
-            .from('email_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .gte('processed_at', todayStart.toISOString()),
-          supabase
-            .from('email_items')
-            .select('id,sender_name,subject,client_or_project,received_at,status')
-            .eq('user_id', user.id)
-            .order('received_at', { ascending: false })
-            .limit(4),
-        ]),
 
         queryBackendPermissions(supabase),
       ]);
@@ -609,18 +609,7 @@ export const DashboardPage: React.FC = () => {
       }
       setLoadingCalendar(false);
 
-      // Unpack Email items
-      if (emailRes.status === 'fulfilled') {
-        const [needReplyRes, unreadRes, flaggedRes, processedTodayRes, previewRes] = emailRes.value;
-        setEmailStats({
-          needReply: needReplyRes.count ?? 0,
-          unread: unreadRes.count ?? 0,
-          flagged: flaggedRes.count ?? 0,
-          processedToday: processedTodayRes.count ?? 0,
-        });
-        setEmailPreviews((previewRes.data || []) as EmailPreviewItem[]);
-      }
-      setLoadingEmail(false);
+
 
       // Unpack Permissions
       let permDataResult: BackendPermissionsResponse | null = null;
@@ -655,7 +644,10 @@ export const DashboardPage: React.FC = () => {
             .then((actRes) => {
               if (actRes.error) setActionsError('Failed to load actions');
               else {
-                const openActions = (actRes.data || []).filter((a: ActionRecord) => a.status !== 'completed').slice(0, 5);
+                const allActions = actRes.data || [];
+                const counts = calculateActionBuckets(allActions, new Date());
+                setActionBucketCounts(counts);
+                const openActions = allActions.filter((a: ActionRecord) => getActionBucket(a, new Date()) !== 'Completed').slice(0, 5);
                 setRecentActions(openActions);
               }
             })
@@ -756,7 +748,9 @@ export const DashboardPage: React.FC = () => {
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const fullName = profile?.full_name?.trim();
-  const welcomeGreeting = fullName ? `Good day, ${fullName}` : 'Good day';
+  const userTimezone = profile?.timezone;
+  const welcomeGreeting = getWelcomeGreeting(fullName, new Date(), userTimezone);
+  const formattedToday = formatDashboardDate(new Date(), userTimezone);
   const currentPlan: PlanType = (profile?.plan as PlanType) || 'free_preview';
   const planBadgeText = PLAN_LABELS[currentPlan] || 'Free Preview';
 
@@ -853,7 +847,7 @@ export const DashboardPage: React.FC = () => {
                 {welcomeGreeting}
               </h1>
               <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-                {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {formattedToday}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -905,9 +899,12 @@ export const DashboardPage: React.FC = () => {
           </div>
           <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 700, color: '#16263f', marginBottom: '4px' }}>{welcomeGreeting}</h1>
           <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-            {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {formattedToday}
           </p>
         </div>
+
+        {/* ── Quick Actions Toolbar (Under Greeting) ── */}
+        <DashboardQuickActionsToolbar />
 
         {/* Empty prompt */}
         <div
@@ -939,26 +936,6 @@ export const DashboardPage: React.FC = () => {
             <span>Create Your First Project</span>
           </Link>
         </div>
-
-        {/* Quick actions compact */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {[
-            { to: '/projects', icon: <FolderKanban size={15} />, label: 'Projects' },
-            { to: '/actions', icon: <CheckCircle2 size={15} />, label: 'Actions' },
-            { to: '/decision-memory', icon: <BrainCircuit size={15} />, label: 'Decisions' },
-            { to: '/settings', icon: <Settings size={15} />, label: 'Settings' },
-          ].map((a) => (
-            <Link
-              key={a.to}
-              to={a.to}
-              className="btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}
-            >
-              {a.icon}
-              {a.label}
-            </Link>
-          ))}
-        </div>
       </div>
 </div>
     );
@@ -980,7 +957,7 @@ export const DashboardPage: React.FC = () => {
             {welcomeGreeting}
           </h1>
           <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-            {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {formattedToday}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -997,6 +974,9 @@ export const DashboardPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* ── Quick Actions Toolbar (Under Greeting) ── */}
+      <DashboardQuickActionsToolbar />
 
       {/* ── Error ── */}
       {hasAnyError && (
@@ -1308,102 +1288,7 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* ── Email Command Centre Snapshot ── */}
-      <div style={{ ...cardStyle, marginBottom: '24px' }}>
-        <div style={sectionHeadStyle}>
-          <Activity size={14} color="#e2b53c" />
-          Email Command Centre
-        </div>
-
-        {/* Four stat tiles */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
-          {[
-            { label: 'Need reply', value: emailStats.needReply, color: '#f87171' },
-            { label: 'Unread', value: emailStats.unread, color: '#f3c958' },
-            { label: 'Flagged', value: emailStats.flagged, color: '#fb923c' },
-            { label: 'Processed today', value: emailStats.processedToday, color: '#4ade80' },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '12px',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: stat.color, lineHeight: 1 }}>
-                {stat.value}
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Email preview rows */}
-        {loadingEmail ? (
-          <div style={{ color: '#475569', fontSize: '0.82rem' }}>Loading...</div>
-        ) : emailPreviews.length === 0 ? (
-          <div style={{ color: '#475569', fontSize: '0.82rem' }}>No recent emails.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-            {emailPreviews.map((email) => (
-              <div
-                key={email.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 0',
-                  borderBottom: '1px solid #f1f5f9',
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.83rem', color: '#16263f', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {email.sender_name || 'Unknown'}
-                    </span>
-                    {email.client_or_project && (
-                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                        · {email.client_or_project}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {email.subject || '(no subject)'}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '12px' }}>
-                  {email.received_at && (
-                    <span style={{ fontSize: '0.7rem', color: '#475569' }}>
-                      {new Date(email.received_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
-                  {email.status === 'needs_reply' && (
-                    <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#f87171', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '4px', padding: '2px 6px', whiteSpace: 'nowrap' }}>
-                      Reply
-                    </span>
-                  )}
-                  {email.status === 'flagged' && (
-                    <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#fb923c', background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.3)', borderRadius: '4px', padding: '2px 6px', whiteSpace: 'nowrap' }}>
-                      Flagged
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <Link
-          to="/email"
-          style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#e2b53c', textDecoration: 'none', fontWeight: 600 }}
-        >
-          Open Email Centre <ChevronRight size={13} />
-        </Link>
-      </div>
+      <DashboardEmailCard cardStyle={cardStyle} sectionHeadStyle={sectionHeadStyle} />
 
       {/* ── Active Projects (horizontal scroll with full context) ── */}
       {recentProjects.length > 0 && (
@@ -1670,9 +1555,9 @@ export const DashboardPage: React.FC = () => {
                 <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Decisions recorded</div>
               </div>
             )}
-            {recentActions.length > 0 && (
+            {actionBucketCounts && (actionBucketCounts.overdue + actionBucketCounts.dueToday + actionBucketCounts.pending > 0) && (
               <div style={cardStyle}>
-                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{recentActions.length}</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: '#f3c958' }}>{actionBucketCounts.overdue + actionBucketCounts.dueToday + actionBucketCounts.pending}</div>
                 <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>Open actions</div>
               </div>
             )}
@@ -1791,43 +1676,6 @@ export const DashboardPage: React.FC = () => {
           </section>
         );
       })()}
-
-      {/* ── Quick Actions (compact bottom bar) ── */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '14px 20px',
-          boxShadow: '0 1px 4px rgba(22,38,63,0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flexWrap: 'wrap',
-        }}
-      >
-        <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600, marginRight: '4px' }}>Quick actions:</span>
-        <Link to="/projects/new" className="btn-gold" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}>
-          <PlusCircle size={14} /> New Project
-        </Link>
-        {[
-          { to: '/projects', icon: <FolderKanban size={14} />, label: 'Projects' },
-          { to: '/actions', icon: <CheckCircle2 size={14} />, label: 'Actions' },
-          { to: '/decision-memory', icon: <BrainCircuit size={14} />, label: 'Decisions' },
-          { to: '/insight', icon: <Lightbulb size={14} />, label: 'Insight' },
-          { to: '/stats', icon: <BarChart3 size={14} />, label: 'Stats' },
-          { to: '/settings', icon: <Settings size={14} />, label: 'Settings' },
-        ].map((a) => (
-          <Link
-            key={a.to}
-            to={a.to}
-            className="btn-secondary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}
-          >
-            {a.icon} {a.label}
-          </Link>
-        ))}
-      </div>
 
     </div>
     </div>

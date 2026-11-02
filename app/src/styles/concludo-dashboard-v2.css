@@ -494,7 +494,7 @@
   display: inline-block; width: 1em; height: 1em; vertical-align: middle; fill: currentColor;
 }
 
-.dashboard-v2-page /* Bar chart percentage rows — planned above bars, .dashboard-v2-page active below */
+.dashboard-v2-page /* Bar chart percentage rows: planned above bars, .dashboard-v2-page active below */
 .pct-row {
   display: flex; gap: 24px;
 }
@@ -573,4 +573,91 @@
 
 .dashboard-v2-page .cal-event-time {
   font-size: 0.6rem; color: var(--text-muted); margin-bottom: 1px;
+}
+
+/* ── Quick Actions Toolbar (Under Greeting) ── */
+.dashboard-v2-page .dashboard-quick-actions-toolbar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 24px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.dashboard-v2-page .quick-action-label {
+  font-size: 0.88rem;
+  color: #334155;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dashboard-v2-page .quick-action-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #e2b53c;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 8px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.dashboard-v2-page .quick-action-primary-btn:hover {
+  background: #d4a329;
+  transform: translateY(-1px);
+}
+
+.dashboard-v2-page .quick-action-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.dashboard-v2-page .quick-action-nav-link:hover {
+  color: #e2b53c;
+}
+
+.dashboard-v2-page .quick-action-nav-link .quick-action-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #0f172a;
+  transition: color 0.15s ease;
+}
+
+.dashboard-v2-page .quick-action-nav-link:hover .quick-action-icon {
+  color: #e2b53c;
+}
+
+@media (max-width: 900px) {
+  .dashboard-v2-page .dashboard-quick-actions-toolbar {
+    gap: 16px 22px;
+    padding: 12px 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-v2-page .dashboard-quick-actions-toolbar {
+    gap: 12px 16px;
+    padding: 12px 14px;
+  }
+  .dashboard-v2-page .quick-action-primary-btn,
+  .dashboard-v2-page .quick-action-nav-link {
+    min-height: 40px;
+  }
 }
