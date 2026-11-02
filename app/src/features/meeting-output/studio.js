@@ -193,7 +193,7 @@ export function mountMeetingStudio(root, opts = {}) {
     const canGo = (n) => n === 1 || !!S.model;
     app.innerHTML = `
       <header class="topbar">
-        <div class="brand">${opts.embedded ? '' : `<img src="${A.lockup}" alt="Concludo">`}<div class="crumb">${opts.embedded ? '' : 'Workspace &nbsp;/&nbsp; '}<b>Meeting output</b></div></div>
+        <div class="brand">${opts.embedded ? '' : `<img src="${A.lockup}" alt="Concludo">`}<div class="crumb">${opts.embedded ? '' : 'Workspace &nbsp;/&nbsp; '}<b>${opts.crumbTitle || 'Meeting output'}</b></div></div>
         <nav class="stepper" aria-label="Progress">
           ${steps
             .map(([n, l], i) => `${i ? '<span class="step-sep"></span>' : ''}<button class="step ${S.step === n ? 'active' : S.step > n ? 'done' : ''}" data-go="${n}" ${canGo(n) ? '' : 'disabled'} aria-current="${S.step === n ? 'step' : 'false'}"><span class="n">${S.step > n ? ic('check') : n}</span><span class="l">${l}</span></button>`)
@@ -219,7 +219,7 @@ export function mountMeetingStudio(root, opts = {}) {
     const det = (k) => (S.detected[k] && S.meta[k] === S.detected[k] ? '<span class="detected">Detected</span>' : '');
     return `<div class="wrap">
       <div class="page-head">
-        <div><div class="eyebrow">Step 1 of 3</div><h1>Add the meeting</h1>
+        <div><div class="eyebrow">Step 1 of 3</div><h1>${opts.step1Title || 'Add the meeting'}</h1>
         <p>Paste a transcript, add your notes or import files. Concludo works from what you give it, whatever recorded the meeting. Nothing leaves this browser until you save.</p></div>
         <button class="btn" data-act="sample">${ic('spark')}<span>Load fictional sample</span></button>
       </div>
@@ -1628,9 +1628,9 @@ export function mountMeetingStudio(root, opts = {}) {
     const proposed = [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].filter((x) => x.review === 'proposed').length;
     div.querySelector('.modal').innerHTML = `<div class="mh"><h2 style="font-size:16px">Save to project</h2><button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button></div>
       <div class="mb">
-        <div class="chipset"><button class="chip ${projects.length ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${projects.length ? '' : 'on'}" data-savemode="new">New project</button></div>
-        <div class="field" data-pane="existing" ${projects.length ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
-        <div data-pane="new" ${projects.length ? 'hidden' : ''}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
+        <div class="chipset"><button class="chip ${opts.defaultSaveMode !== 'new' && projects.length ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${opts.defaultSaveMode === 'new' || !projects.length ? 'on' : ''}" data-savemode="new">New project</button></div>
+        <div class="field" data-pane="existing" ${opts.defaultSaveMode !== 'new' && projects.length ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
+        <div data-pane="new" ${opts.defaultSaveMode === 'new' || !projects.length ? '' : 'hidden'}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
         <div class="mini-stats" style="margin:0"><div><b>${m.stats.decisions}</b><span>to Decision memory</span></div><div><b>${m.stats.actions}</b><span>to the Action tracker</span></div><div><b>${m.sources.length}</b><span>source files</span></div><div><b>4</b><span>outputs</span></div></div>
         ${unowned.length ? `<div class="warn" style="margin:0">${ic('alert')}<span>${plural(unowned.length, 'action has', 'actions have')} no owner (${unowned.map((a) => a.id).join(', ')}). ${unowned.length === 1 ? 'It' : 'They'} will be saved as unassigned, not given a placeholder name. <a href="#" data-go="2">Name an owner first</a></span></div>` : ''}
         ${proposed ? `<div class="note" style="margin:0">${plural(proposed, 'item is', 'items are')} not yet confirmed. Saving keeps everything you have not excluded.</div>` : ''}

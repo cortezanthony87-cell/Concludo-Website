@@ -40,6 +40,12 @@ export interface StudioOptions {
   model?: MeetingModel;
   template?: 'board' | 'exec' | 'deck' | 'actions' | 'decisions' | 'email';
   viewer?: boolean;
+  /** Custom title for Step 1 import view. Default 'Add the meeting'. */
+  step1Title?: string;
+  /** Custom breadcrumb title for topbar. Default 'Meeting output'. */
+  crumbTitle?: string;
+  /** Default save mode in modal. Default 'existing' if projects exist else 'new'. */
+  defaultSaveMode?: 'existing' | 'new';
 }
 
 export function mountMeetingStudio(root: HTMLElement, options?: StudioOptions): () => void;
