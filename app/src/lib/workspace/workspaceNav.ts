@@ -137,6 +137,25 @@ export const MERGED_PAGES_READY = true;
 export const ACTION_HUB_V1 = true;
 export const SAVED_PROJECT_BRIGHT_V1 = true;
 export const WORKSPACE_PAGES_BRIGHT_V1 = true;
+export const CONNECTIVITY_BRIGHT_V1 = true;
+
+/**
+ * Returns whether the bright Connectivity redesign v1 is active.
+ * Evaluates URL parameter ?bright=1 / ?v=bright / ?cn_bright=1, localStorage, and falls back to CONNECTIVITY_BRIGHT_V1.
+ * Passing ?bright=0 or ?cn_bright=0 renders the legacy dark screen.
+ */
+export function isConnectivityBrightV1(): boolean {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cn_bright') === '1' || params.get('bright') === '1' || params.get('v') === 'bright') return true;
+    if (params.get('cn_bright') === '0' || params.get('bright') === '0') return false;
+    const stored = window.localStorage.getItem('connectivity_bright_v1');
+    if (stored === 'true') return true;
+    if (stored === 'false') return false;
+  }
+  return CONNECTIVITY_BRIGHT_V1;
+}
+
 
 /**
  * Returns whether the bright Workspace Pages redesign is active.
