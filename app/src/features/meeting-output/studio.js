@@ -1067,16 +1067,18 @@ export function mountMeetingStudio(root, opts = {}) {
     toast('Generating PDF document...');
     try {
       const pdfBytes = await generateMeetingPdf(S.model);
-      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
+      const rawTitle = (S.model.meta && S.model.meta.title) || 'meeting-record';
+      const baseName = rawTitle.replace(/[^\w\s-]+/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '') || 'meeting-record';
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const u = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = u;
-      a.download = `${baseName}-boardroom-pack.pdf`;
+      a.download = `${baseName}.pdf`;
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
-      toast('Meeting PDF downloaded to device');
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 60000);
+      toast('Meeting PDF report downloaded');
     } catch (err) {
       console.error('PDF export failed:', err);
       toast('Failed to generate PDF: ' + (err.message || 'unknown error'));
@@ -1087,9 +1089,11 @@ export function mountMeetingStudio(root, opts = {}) {
     if (!S.model) return;
     toast('Building export archive (.zip)...');
     try {
-      const { default: JSZip } = await import('jszip');
+      const jszipModule = await import('jszip');
+      const JSZip = jszipModule.default || jszipModule;
       const zip = new JSZip();
-      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
+      const rawTitle = (S.model.meta && S.model.meta.title) || 'meeting-record';
+      const baseName = rawTitle.replace(/[^\w\s-]+/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '') || 'meeting-record';
 
       // 1. Official PDF Document
       const pdfBytes = await generateMeetingPdf(S.model);
@@ -1119,11 +1123,12 @@ export function mountMeetingStudio(root, opts = {}) {
       const blob = await zip.generateAsync({ type: 'blob' });
       const u = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = u;
       a.download = `${baseName}-export.zip`;
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 60000);
       toast('Complete export package (.zip) downloaded');
     } catch (err) {
       console.error('ZIP export failed:', err);
@@ -1422,9 +1427,23 @@ export function mountMeetingStudio(root, opts = {}) {
     if (act === 'pick') $('#file').click();
     if (act === 'generate') generate();
     if (act === 'confirm-all') {
-      [...S.model.decisions, ...S.model.actions, ...S.model.risks, ...S.model.openItems].forEach((x) => x.review === 'proposed' && (x.review = 'confirmed'));
-      CE.refresh(S.model);
+      const allItems = [
+        ...(S.model.decisions || []),
+        ...(S.model.actions || []),
+        ...(S.model.risks || []),
+        ...(S.model.openItems || []),
+      ];
+      allItems.forEach((x) => {
+        if (x && x.review !== 'excluded') x.review = 'confirmed';
+      });
+      try {
+        CE.refresh(S.model);
+      } catch (err) {
+        console.error('Refresh error on confirm-all:', err);
+      }
       rerenderKeepScroll();
+      toast('All remaining items confirmed');
+      return;
     }
     if (act === 'print') printCurrentDocument();
     if (act === 'save-all-pdf') saveAllAsPdf();
@@ -1626,51 +1645,84 @@ export function mountMeetingStudio(root, opts = {}) {
     try { projects = opts.listProjects ? await opts.listProjects() : []; } catch (e) { projects = []; }
     const unowned = m.actions.filter((a) => a.review !== 'excluded' && !a.owner);
     const proposed = [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].filter((x) => x.review === 'proposed').length;
+    const defaultIsNew = opts.defaultSaveMode === 'new' || !projects.length;
     div.querySelector('.modal').innerHTML = `<div class="mh"><h2 style="font-size:16px">Save to project</h2><button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button></div>
       <div class="mb">
-        <div class="chipset"><button class="chip ${opts.defaultSaveMode !== 'new' && projects.length ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${opts.defaultSaveMode === 'new' || !projects.length ? 'on' : ''}" data-savemode="new">New project</button></div>
-        <div class="field" data-pane="existing" ${opts.defaultSaveMode !== 'new' && projects.length ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
-        <div data-pane="new" ${opts.defaultSaveMode === 'new' || !projects.length ? '' : 'hidden'}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
+        <div class="chipset"><button class="chip ${!defaultIsNew ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${defaultIsNew ? 'on' : ''}" data-savemode="new">${ic('save')}<span>Save New Project</span></button></div>
+        <div class="field" data-pane="existing" ${!defaultIsNew ? '' : 'hidden'} style="${!defaultIsNew ? '' : 'display:none;'}"><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
+        <div data-pane="new" ${defaultIsNew ? '' : 'hidden'} style="${defaultIsNew ? '' : 'display:none;'}"><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title || '')}" placeholder="Enter project title"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}" placeholder="Client or company name"></div></div>
         <div class="mini-stats" style="margin:0"><div><b>${m.stats.decisions}</b><span>to Decision memory</span></div><div><b>${m.stats.actions}</b><span>to the Action tracker</span></div><div><b>${m.sources.length}</b><span>source files</span></div><div><b>4</b><span>outputs</span></div></div>
         ${unowned.length ? `<div class="warn" style="margin:0">${ic('alert')}<span>${plural(unowned.length, 'action has', 'actions have')} no owner (${unowned.map((a) => a.id).join(', ')}). ${unowned.length === 1 ? 'It' : 'They'} will be saved as unassigned, not given a placeholder name. <a href="#" data-go="2">Name an owner first</a></span></div>` : ''}
         ${proposed ? `<div class="note" style="margin:0">${plural(proposed, 'item is', 'items are')} not yet confirmed. Saving keeps everything you have not excluded.</div>` : ''}
-        <div class="err" data-save-err hidden></div>
+        <div class="err" data-save-err hidden style="display:none;"></div>
       </div>
-      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save">${ic('save')}Save record</button></div>`;
+      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save" id="cmo-save-btn">${ic('save')}<span id="cmo-save-btn-text">${defaultIsNew ? 'Save New Project' : 'Save to Project'}</span></button></div>`;
     div.querySelectorAll('[data-savemode]').forEach((b) => b.addEventListener('click', () => {
+      const isAlreadyOn = b.classList.contains('on');
+      const mode = b.dataset.savemode;
       div.querySelectorAll('[data-savemode]').forEach((x) => x.classList.toggle('on', x === b));
-      div.querySelectorAll('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.savemode));
+      div.querySelectorAll('[data-pane]').forEach((p) => {
+        const matches = p.dataset.pane === mode;
+        if (matches) {
+          p.removeAttribute('hidden');
+          p.style.display = '';
+        } else {
+          p.setAttribute('hidden', '');
+          p.style.display = 'none';
+        }
+      });
+      const saveBtnText = div.querySelector('#cmo-save-btn-text');
+      if (saveBtnText) {
+        saveBtnText.textContent = mode === 'new' ? 'Save New Project' : 'Save to Project';
+      }
+      // Mode chip click strictly toggles between Existing and Save New Project
     }));
+    div.querySelectorAll('#cmo-ptitle, #cmo-pclient').forEach((inp) => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const saveBtn = div.querySelector('[data-act="do-save"]');
+          if (saveBtn && !saveBtn.disabled) doSave(saveBtn);
+        }
+      });
+    });
   }
   async function doSave(btn) {
     const div = root.querySelector('.modal-bg');
+    if (!div) return;
     const mode = div.querySelector('[data-savemode].on')?.dataset.savemode || 'new';
-    const target = mode === 'existing' ? { mode, projectId: div.querySelector('#cmo-proj').value } : { mode, title: div.querySelector('#cmo-ptitle').value.trim(), client: div.querySelector('#cmo-pclient').value.trim() };
-    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); e.hidden = false; e.textContent = 'Give the new project a title.'; return; }
+    const target = mode === 'existing'
+      ? { mode, projectId: div.querySelector('#cmo-proj')?.value }
+      : { mode, title: ((div.querySelector('#cmo-ptitle')?.value) || S.model?.meta?.title || 'Meeting Project').trim(), client: ((div.querySelector('#cmo-pclient')?.value) || S.model?.meta?.organisation || '').trim() };
+    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); if (e) { e.hidden = false; e.style.display = 'block'; e.textContent = 'Give the new project a title.'; } return; }
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
       const res = await opts.onSave(S.model, target, { sources: allSources(), markdown: CE.toMarkdown(S.model), email: CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }) });
       div.remove();
       toast('Saved to project');
-      if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 700);
+      if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 500);
     } catch (e) {
       const el = div.querySelector('[data-save-err]');
-      el.hidden = false;
-      el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.';
+      if (el) { el.hidden = false; el.style.display = 'block'; el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.'; }
       btn.disabled = false;
-      btn.innerHTML = `${ic('save')}Save record`;
+      const isNew = mode === 'new';
+      btn.innerHTML = `${ic('save')}<span>${isNew ? 'Save New Project' : 'Save to Project'}</span>`;
     }
   }
   async function copy(text) {
     try { await navigator.clipboard.writeText(text); } catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
   }
   function download(name, text, type) {
+    const blob = new Blob([text], { type });
+    const u = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.style.display = 'none';
+    a.href = u;
     a.download = name;
+    document.body.appendChild(a);
     a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 60000);
   }
   function toast(msg) {
     const t = document.createElement('div');

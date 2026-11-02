@@ -33,14 +33,15 @@ export async function saveMeetingRecord(
   let projectId = target.projectId || '';
 
   if (target.mode === 'new') {
-    const transcript = extras.sources.filter((s) => s.kind === 'transcript').map((s) => s.text).join('\n\n---\n\n');
-    const notes = extras.sources.filter((s) => s.kind !== 'transcript').map((s) => s.text).join('\n\n---\n\n');
+    const transcript = (extras.sources || []).filter((s) => s.kind === 'transcript').map((s) => s.text).join('\n\n---\n\n');
+    const notes = (extras.sources || []).filter((s) => s.kind !== 'transcript').map((s) => s.text).join('\n\n---\n\n');
+    const projectTitle = (target.title || m.meta?.title || 'Meeting Project').trim();
     const res = await createProject(supabase, {
-      title: target.title || m.meta.title,
-      meeting_type: m.meta.meetingType,
-      client_name: target.client || m.meta.organisation || null,
-      project_name: m.meta.project || target.title || m.meta.title,
-      meeting_date: m.meta.meetingDate,
+      title: projectTitle,
+      meeting_type: m.meta?.meetingType || null,
+      client_name: target.client || m.meta?.organisation || null,
+      project_name: m.meta?.project || target.title || m.meta?.title || null,
+      meeting_date: m.meta?.meetingDate || null,
       transcript: transcript || null,
       notes: notes || null,
     });
@@ -96,7 +97,7 @@ export async function saveMeetingRecord(
     }
   }
   if (canDraft) {
-    const email = await saveOutput(supabase, { project_id: projectId, output_type: 'follow_up_email', content: `Subject: ${extras.email.subject}\n\n${extras.email.body}`, model_used: MODEL });
+    const email = await saveOutput(supabase, { project_id: projectId, output_type: 'follow_up_email', content: `Subject: ${extras.email?.subject || ""}\n\n${extras.email?.body || ""}`, model_used: MODEL });
     if (email.error) fail('The follow-up email draft', email.error);
   }
 
@@ -107,7 +108,7 @@ export async function saveMeetingRecord(
       decision_title: d.title,
       decision_summary: d.status === 'conditional' && d.condition && !d.statement.includes(d.condition) ? `${d.statement} (conditional: ${d.condition})` : d.statement,
       decision_reasoning: null,
-      decision_date: m.meta.meetingDate,
+      decision_date: m.meta?.meetingDate || null,
       decision_owner: d.calledBy ?? null,
       source_output_id: log.data?.id ?? summary.data!.id,
       ownership_type,
@@ -130,7 +131,7 @@ export async function saveMeetingRecord(
         title: a.task,
         source_excerpt: ev ? `"${ev.quote}" (${ev.sourceName}, line ${ev.line}${ev.timestamp ? `, ${ev.timestamp}` : ''})` : a.task,
         proposed_owner_label: a.owner ?? null,
-        proposed_due: a.due ?? null,
+        proposed_due: a.due || null,
         source_type: 'meeting_output',
         source_id: plan.data?.id ?? summary.data!.id,
       });

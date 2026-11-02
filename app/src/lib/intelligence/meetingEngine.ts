@@ -207,15 +207,28 @@ function isoFromParts(y: number, m: number, d: number): string {
   return dt.toISOString().slice(0, 10);
 }
 function parseIso(iso: string): Date {
-  const [y, m, d] = iso.split('-').map(Number);
+  if (!iso || typeof iso !== 'string') return new Date();
+  const parts = iso.split('-').map(Number);
+  const y = parts[0] || new Date().getFullYear();
+  const m = parts[1] || 1;
+  const d = parts[2] || 1;
   return new Date(Date.UTC(y, m - 1, d));
 }
 function addDays(iso: string, n: number): string {
+  if (!iso || typeof iso !== 'string') {
+    const dt = new Date();
+    dt.setUTCDate(dt.getUTCDate() + n);
+    return dt.toISOString().slice(0, 10);
+  }
   const d = parseIso(iso);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
 function daysBetween(a: string, b: string): number {
+  if (!a || !b || typeof a !== 'string' || typeof b !== 'string') return 0;
+  const da = parseIso(a);
+  const db = parseIso(b);
+  if (isNaN(da.getTime()) || isNaN(db.getTime())) return 0;
   return Math.round((parseIso(b).getTime() - parseIso(a).getTime()) / 86400000);
 }
 function monthIndex(word: string): number {
@@ -1253,18 +1266,18 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
  * Call after a person confirms, edits or excludes items. Excluded items are ignored.
  */
 export function refresh(m: MeetingModel): MeetingModel {
-  KNOWN_NAMES = m.participants.flatMap((p) => p.name.split(' '));
-  const live = <T extends { review: Review }>(xs: T[]) => xs.filter((x) => x.review !== 'excluded');
-  const decisions = live(m.decisions);
-  const actions = live(m.actions);
-  const risks = live(m.risks);
-  const openItems = live(m.openItems);
+  KNOWN_NAMES = (m.participants || []).flatMap((p) => (p?.name ? p.name.split(' ') : []));
+  const live = <T extends { review: Review }>(xs: T[]) => (xs || []).filter((x) => x && x.review !== 'excluded');
+  const decisions = live(m.decisions || []);
+  const actions = live(m.actions || []);
+  const risks = live(m.risks || []);
+  const openItems = live(m.openItems || []);
 
   m.actions.forEach((a) => {
     a.gaps = [];
     a.horizon = 'undated';
     if (a.due) {
-      const days = daysBetween(m.meta.meetingDate, a.due);
+      const days = daysBetween(m.meta?.meetingDate, a.due);
       a.horizon = days <= 7 ? 'now' : days <= 30 ? 'next' : 'later';
     }
     if (!a.owner) a.gaps.push('No owner named');
