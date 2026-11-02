@@ -1,0 +1,589 @@
+/* ==========================================================================
+   Concludo Workspace Pages - Bright Redesign v1
+   Scoped styles under .ws- prefix for Projects, Settings, Team, Deleted, Account.
+   Does NOT touch global or Dashboard CSS.
+   ========================================================================== */
+
+.ws-shell {
+  --ws-yb: #F1DC96;
+  --ws-navy: #16263F;
+  --ws-navy2: #21395C;
+  --ws-gold: #E2B53C;
+  --ws-gold-hover: #D4A732;
+  --ws-light: #F4F6FA;
+  --ws-line: #C9D0DC;
+  --ws-slate: #5A6478;
+  --ws-red: #B3261E;
+  --ws-grn: #1E7A4C;
+  --ws-tint: #EEF1F7;
+  --ws-blue: #2F6FDE;
+  --ws-card-bg: #FFFFFF;
+  background: var(--ws-light);
+  color: var(--ws-navy);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  padding: 22px 28px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.ws-shell *, .ws-shell *::before, .ws-shell *::after {
+  box-sizing: border-box;
+}
+
+/* Typography */
+.ws-shell h1, .ws-shell h2, .ws-shell h3, .ws-shell h4 {
+  font-family: Poppins, Montserrat, Arial, sans-serif;
+  font-weight: 700;
+  color: var(--ws-navy);
+  margin: 0;
+}
+
+.ws-note {
+  font-size: 12px;
+  color: var(--ws-slate);
+  line-height: 1.7;
+}
+
+.ws-sub {
+  color: var(--ws-slate);
+  font-size: 13px;
+  margin: 2px 0 12px;
+}
+
+.ws-back {
+  color: var(--ws-slate);
+  margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+.ws-back:hover {
+  color: var(--ws-navy);
+}
+
+/* Eyebrow with gold marker */
+.ws-eyebrow {
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ws-slate);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.ws-eyebrow i {
+  width: 18px;
+  height: 3px;
+  background: var(--ws-gold);
+  display: block;
+  border-radius: 1px;
+}
+
+/* Top Section */
+.ws-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.ws-top h1 {
+  font-size: 28px;
+  line-height: 1.2;
+}
+.ws-top p {
+  margin: 4px 0 0;
+  color: var(--ws-slate);
+  font-size: 14px;
+}
+
+/* Buttons */
+.ws-btn {
+  background: var(--ws-gold);
+  color: var(--ws-navy);
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 14px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.ws-btn:hover:not(:disabled) {
+  background: var(--ws-gold-hover);
+}
+.ws-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ws-btn2 {
+  background: #FFFFFF;
+  color: var(--ws-navy);
+  border: 1px solid var(--ws-line);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.ws-btn2:hover:not(:disabled) {
+  background: var(--ws-light);
+  border-color: #AEB9CC;
+}
+.ws-btn2:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ws-btn3 {
+  background: var(--ws-navy);
+  color: #FFFFFF;
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 14px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.ws-btn3:hover:not(:disabled) {
+  background: var(--ws-navy2);
+}
+.ws-btn3:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ws-bd {
+  background: #FFFFFF;
+  color: var(--ws-red);
+  border: 1px solid var(--ws-red);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.ws-bd:hover:not(:disabled) {
+  background: #FDF2F2;
+}
+.ws-bd:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ws-bdf {
+  background: var(--ws-red);
+  color: #FFFFFF;
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 14px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.ws-bdf:hover:not(:disabled) {
+  background: #961E17;
+}
+.ws-bdf:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Cards with 1.5px light yellow border */
+.ws-card {
+  background: #FFFFFF;
+  border: 1.5px solid var(--ws-yb);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.ws-card h2 {
+  font-size: 17px;
+}
+.ws-card.ws-card-danger {
+  border-color: var(--ws-red);
+}
+
+/* Pills & Badges */
+.ws-tag {
+  background: var(--ws-tint);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 12px;
+  color: var(--ws-navy);
+}
+.ws-pill {
+  border-radius: 10px;
+  padding: 2px 9px;
+  font-size: 12px;
+  border: 1px solid var(--ws-navy);
+  white-space: nowrap;
+  display: inline-block;
+  font-weight: 500;
+}
+.ws-pill.ws-ok {
+  border-color: var(--ws-grn);
+  color: var(--ws-grn);
+}
+.ws-pill.ws-dg {
+  border-color: var(--ws-red);
+  color: var(--ws-red);
+}
+.ws-pill.ws-bl {
+  border-color: var(--ws-blue);
+  color: var(--ws-blue);
+}
+
+/* Segments & Filter Chips */
+.ws-seg {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #FFFFFF;
+  border: 1.5px solid var(--ws-yb);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.ws-seg b {
+  font-weight: 600;
+  margin-right: 4px;
+}
+.ws-chip {
+  border: 1px solid var(--ws-line);
+  border-radius: 16px;
+  padding: 6px 14px;
+  background: #FFFFFF;
+  color: var(--ws-navy);
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.ws-chip:hover {
+  border-color: var(--ws-navy);
+}
+.ws-chip.ws-on {
+  background: var(--ws-navy);
+  color: #FFFFFF;
+  border-color: var(--ws-navy);
+}
+
+/* Inputs & Labels */
+.ws-in {
+  border: 1px solid var(--ws-line);
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: #FFFFFF;
+  color: var(--ws-navy);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 14px;
+  margin-top: 4px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.ws-in:focus {
+  border-color: var(--ws-navy);
+}
+label.ws-label {
+  display: block;
+  font-size: 12px;
+  color: var(--ws-slate);
+  margin-top: 10px;
+  font-weight: 500;
+}
+
+/* Project Cards */
+.ws-proj {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1.5px solid var(--ws-yb);
+  border-radius: 10px;
+  background: #FFFFFF;
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.ws-proj:hover {
+  box-shadow: 0 2px 8px rgba(22, 38, 63, 0.06);
+}
+.ws-proj h3 {
+  font-size: 17px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ws-meta {
+  display: flex;
+  gap: 16px;
+  color: var(--ws-slate);
+  margin-top: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+/* Section Header in Lists */
+.ws-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--ws-line);
+  padding: 6px 0 8px;
+  margin: 6px 0 10px;
+}
+.ws-hd h2 {
+  font-size: 18px;
+}
+
+/* Stat 3-col Grid */
+.ws-stat {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 10px 0;
+}
+.ws-stat > div {
+  border: 1.5px solid var(--ws-yb);
+  border-radius: 8px;
+  padding: 12px;
+  background: #FFFFFF;
+}
+.ws-stat b {
+  display: block;
+  font-size: 12px;
+  color: var(--ws-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.ws-stat span {
+  font-family: Poppins, Montserrat, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ws-navy);
+}
+
+/* Banners */
+.ws-ban {
+  background: #FFFFFF;
+  border: 1.5px solid var(--ws-yb);
+  border-left: 4px solid var(--ws-gold);
+  padding: 12px 14px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.ws-ban.ws-red {
+  border-left-color: var(--ws-red);
+}
+.ws-ban.ws-grn {
+  border-left-color: var(--ws-grn);
+}
+
+/* Modals */
+.ws-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 38, 63, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+.ws-mb {
+  background: #FFFFFF;
+  border: 1.5px solid var(--ws-yb);
+  border-radius: 12px;
+  width: 480px;
+  max-width: 100%;
+  padding: 22px;
+  box-shadow: 0 10px 25px -5px rgba(22, 38, 63, 0.2);
+}
+.ws-mb h2 {
+  font-size: 19px;
+  margin: 0 0 8px 0;
+}
+.ws-mb p {
+  color: var(--ws-slate);
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+/* Tables */
+.ws-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.ws-table th {
+  background: var(--ws-tint);
+  text-align: left;
+  padding: 9px;
+  border: 1px solid var(--ws-line);
+  color: var(--ws-navy);
+  font-weight: 600;
+}
+.ws-table td {
+  padding: 9px;
+  border: 1px solid #E4E8EF;
+  color: var(--ws-navy);
+}
+
+/* Layout grids and rows */
+.ws-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.ws-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ws-tint);
+}
+.ws-row:last-child {
+  border: 0;
+}
+
+/* Days Remaining */
+.ws-days {
+  font-size: 12px;
+  color: var(--ws-slate);
+  font-weight: 500;
+}
+.ws-days.ws-low {
+  color: var(--ws-red);
+  font-weight: 600;
+}
+
+/* Avatar */
+.ws-av {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ws-navy);
+  color: var(--ws-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Poppins, Montserrat, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+/* Responsive styles */
+@media (max-width: 700px) {
+  .ws-shell {
+    padding: 14px;
+  }
+  .ws-row {
+    flex-wrap: wrap;
+  }
+  .ws-row > div:last-child {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .ws-stat, .ws-grid2 {
+    grid-template-columns: 1fr;
+  }
+  .ws-proj {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ws-table {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 390px) {
+  .ws-shell {
+    padding: 12px 8px;
+  }
+  .ws-top h1 {
+    font-size: 22px;
+  }
+  .ws-btn, .ws-btn2, .ws-btn3, .ws-bd, .ws-bdf {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+  .ws-card {
+    padding: 14px;
+  }
+  .ws-proj {
+    padding: 12px;
+  }
+  .ws-proj h3 {
+    font-size: 15px;
+  }
+  .ws-meta {
+    font-size: 12px;
+    gap: 8px;
+  }
+}

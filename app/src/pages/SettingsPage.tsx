@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { updateUserLocation } from '../lib/profiles/profileClient';
 import { useAuth } from '../lib/auth/AuthContext';
+import { isWorkspacePagesBrightV1 } from '../lib/workspace/workspaceNav';
+import { SettingsBrightView } from '../components/workspace/bright/SettingsBrightView';
 
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -71,6 +73,28 @@ export const SettingsPage: React.FC = () => {
     setLoggingOut(false);
     navigate('/', { replace: true });
   };
+
+  if (isWorkspacePagesBrightV1()) {
+    return (
+      <SettingsBrightView
+        user={user}
+        profile={profile}
+        country={country}
+        setCountry={setCountry}
+        city={city}
+        setCity={setCity}
+        timezone={timezone}
+        setTimezone={setTimezone}
+        savingLocation={savingLocation}
+        locationSavedFeedback={locationSavedFeedback}
+        locationError={locationError}
+        handleSaveLocation={handleSaveLocation}
+        handleLogout={handleLogout}
+        loggingOut={loggingOut}
+        authStatus={authStatus}
+      />
+    );
+  }
 
   return (
     <div>
