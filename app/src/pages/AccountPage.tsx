@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { PLAN_LABELS, ROLE_LABELS } from '../lib/profiles/types';
+import { isWorkspacePagesBrightV1 } from '../lib/workspace/workspaceNav';
+import { AccountBrightView } from '../components/workspace/bright/AccountBrightView';
 import {
   fetchUserWorkbookLicences,
   fetchUserSubscription,
@@ -223,6 +225,30 @@ export const AccountPage: React.FC = () => {
   const planLabel = PLAN_LABELS[profile.plan] || profile.plan;
   const roleLabel = ROLE_LABELS[profile.role] || profile.role;
   const userInitial = (profile.full_name?.trim() || profile.email || 'A')[0].toUpperCase();
+
+  if (isWorkspacePagesBrightV1()) {
+    return (
+      <AccountBrightView
+        user={user}
+        profile={profile}
+        fullName={fullNameInput}
+        setFullName={setFullNameInput}
+        savingName={saving}
+        nameSaved={!!successMessage}
+        nameError={errorMessage || null}
+        handleSaveName={handleUpdateFullName}
+        tierLabel={planLabel}
+        downloadLoading={downloadingId !== null}
+        handleDownloadPack={() => {
+          if (licences.length > 0) {
+            handleDownloadWorkbook(licences[0].id);
+          } else {
+            handleDownloadWorkbook('workbook_starter');
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div>

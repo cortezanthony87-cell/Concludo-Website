@@ -40,8 +40,11 @@ import {
   transferTeamOwnership,
   softDeleteTeam,
   declineInvitation,
+  resendInvitation,
 } from '../lib/teams/teamClient';
 import { PLAN_LABELS } from '../lib/profiles/types';
+import { isWorkspacePagesBrightV1 } from '../lib/workspace/workspaceNav';
+import { TeamSettingsBrightView } from '../components/workspace/bright/TeamSettingsBrightView';
 
 export const TeamSettingsPage: React.FC = () => {
   const { supabase, user, profile } = useAuth();
@@ -73,6 +76,7 @@ export const TeamSettingsPage: React.FC = () => {
   const [transferTargetId, setTransferTargetId] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
+  const [confirmTransferOpen, setConfirmTransferOpen] = useState(false);
 
   // Delete team modal state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -241,6 +245,73 @@ export const TeamSettingsPage: React.FC = () => {
 
   const isOwner = team?.currentRole === 'owner';
   const isAdmin = team?.currentRole === 'admin' || isOwner;
+
+  if (isWorkspacePagesBrightV1()) {
+    return (
+      <TeamSettingsBrightView
+        hasAccess={hasAccess}
+        permissionsLoading={permissionsLoading}
+        teams={teams}
+        selectedTeamId={selectedTeamId}
+        onSelectTeam={handleSelectTeam}
+        team={team}
+        members={members}
+        invitations={invitations}
+        loading={loading}
+        error={error}
+        newName={newName}
+        setNewName={setNewName}
+        renaming={renaming}
+        renameSuccess={renameSuccess}
+        handleRenameSubmit={handleRenameTeam}
+        inviteEmail={inviteEmail}
+        setInviteEmail={setInviteEmail}
+        inviteRole={inviteRole}
+        setInviteRole={setInviteRole}
+        inviting={inviting}
+        inviteError={inviteError}
+        inviteSuccess={inviteSuccess}
+        handleInviteSubmit={handleInviteMember}
+        transferTargetId={transferTargetId}
+        setTransferTargetId={setTransferTargetId}
+        transferring={transferring}
+        transferError={transferError}
+        handleTransferOwnership={handleTransferOwnership}
+        confirmTransferOpen={confirmTransferOpen}
+        setConfirmTransferOpen={setConfirmTransferOpen}
+        deleteConfirmOpen={deleteConfirmOpen}
+        setDeleteConfirmOpen={setDeleteConfirmOpen}
+        deleting={deleting}
+        deleteError={deleteError}
+        handleDeleteTeam={handleDeleteTeam}
+        user={user}
+        onUpdateRole={(mId, r) => {
+          const target = members.find((m) => m.id === mId);
+          if (target) handleRoleChange(target.user_id, r);
+        }}
+        onRemoveMember={(mId) => {
+          const target = members.find((m) => m.id === mId);
+          if (target) handleRemoveMember(target.user_id);
+        }}
+        onResendInvite={async (invId) => {
+          if (supabase && selectedTeamId) {
+            const res = await resendInvitation(supabase, invId);
+            if (!res.error) {
+              await loadTeamDetails(selectedTeamId);
+            }
+          }
+        }}
+        onRevokeInvite={handleRevokeInvitation}
+        formatDate={(d) => {
+          try {
+            return new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d));
+          } catch {
+            return d;
+          }
+        }}
+      />
+    );
+  }
 
   // Gate if user lacks permission
   if (!permissionsLoading && !hasAccess) {

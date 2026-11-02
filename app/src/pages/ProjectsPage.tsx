@@ -23,6 +23,8 @@ import { Project } from '../lib/projects/types';
 import { fetchProjects, softDeleteProject } from '../lib/projects/projectClient';
 import { fetchUserTeams } from '../lib/teams/teamClient';
 import { Team, TeamRole } from '../lib/teams/types';
+import { isWorkspacePagesBrightV1 } from '../lib/workspace/workspaceNav';
+import { ProjectsBrightView } from '../components/workspace/bright/ProjectsBrightView';
 
 export const ProjectsPage: React.FC = () => {
   const { supabase, user } = useAuth();
@@ -121,6 +123,30 @@ export const ProjectsPage: React.FC = () => {
       return dateStr;
     }
   };
+
+  if (isWorkspacePagesBrightV1()) {
+    return (
+      <ProjectsBrightView
+        projects={projects}
+        loading={loading}
+        loadError={loadError}
+        workspaceScope={workspaceScope}
+        setWorkspaceScope={setWorkspaceScope}
+        userTeams={userTeams}
+        selectedTeamId={selectedTeamId}
+        setSelectedTeamId={setSelectedTeamId}
+        onRetry={loadUserProjects}
+        onDelete={handleDelete}
+        deletingId={deletingId}
+        deleteError={deleteError}
+        setDeleteError={setDeleteError}
+        deleteConfirmId={deleteConfirmId}
+        setDeleteConfirmId={setDeleteConfirmId}
+        formatDate={formatDate}
+        formatTimestamp={formatTimestamp}
+      />
+    );
+  }
 
   return (
     <div>

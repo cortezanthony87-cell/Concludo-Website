@@ -57,6 +57,8 @@ import {
   formatDaysRemaining,
   formatDeletedDate,
 } from '../lib/retention';
+import { isWorkspacePagesBrightV1 } from '../lib/workspace/workspaceNav';
+import { RecentlyDeletedBrightView } from '../components/workspace/bright/RecentlyDeletedBrightView';
 
 interface ActionErrorState {
   action:
@@ -430,6 +432,37 @@ export const RecentlyDeletedPage: React.FC = () => {
     }
   };
 
+  // Handle Delete All Permanently
+  const handleDeleteAllPermanently = async () => {
+    if (!supabase) return;
+    setActionProgress({ type: 'deleting', id: 'all' });
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await Promise.all([
+        ...deletedProjects.map((p) => permanentDeleteProject(supabase, p.id)),
+        ...deletedOutputs.map((o) => permanentDeleteOutput(supabase, o.id)),
+        ...deletedDecisions.map((d) => permanentDeleteDecision(supabase, d.id)),
+        ...deletedActions.map((a) => permanentDeleteAction(supabase, a.id)),
+        ...deletedReports.map((r) => permanentDeleteEndpointReport(r.id, { supabase })),
+      ]);
+      setDeletedProjects([]);
+      setDeletedOutputs([]);
+      setDeletedDecisions([]);
+      setDeletedActions([]);
+      setDeletedReports([]);
+      setActionSuccess('All items were permanently deleted.');
+    } catch (err: any) {
+      setActionError({
+        action: 'delete_project',
+        title: 'Failed to delete item',
+        message: err.message || 'Failed to delete all items',
+      });
+    } finally {
+      setActionProgress(null);
+    }
+  };
+
   const isLoading =
     loadingProjects || loadingOutputs || loadingDecisions || loadingActions || loadingReports;
   const isOverallEmpty =
@@ -440,6 +473,36 @@ export const RecentlyDeletedPage: React.FC = () => {
     deletedDecisions.length === 0 &&
     deletedActions.length === 0 &&
     deletedReports.length === 0;
+
+  if (isWorkspacePagesBrightV1()) {
+    return (
+      <RecentlyDeletedBrightView
+        deletedProjects={deletedProjects}
+        deletedOutputs={deletedOutputs}
+        deletedDecisions={deletedDecisions}
+        deletedActions={deletedActions}
+        deletedReports={deletedReports}
+        loading={isLoading}
+        loadError={loadError}
+        actionSuccess={actionSuccess}
+        setActionSuccess={setActionSuccess}
+        actionError={actionError ? { title: actionError.title, message: actionError.message } : null}
+        onRetry={loadDeletedItems}
+        onRestoreProject={handleRestoreProject}
+        onRestoreOutput={handleRestoreOutput}
+        onRestoreDecision={handleRestoreDecision}
+        onRestoreAction={handleRestoreAction}
+        onRestoreReport={handleRestoreReport}
+        onPermanentDeleteProject={handlePermanentDeleteProject}
+        onPermanentDeleteOutput={handlePermanentDeleteOutput}
+        onPermanentDeleteDecision={handlePermanentDeleteDecision}
+        onPermanentDeleteAction={handlePermanentDeleteAction}
+        onPermanentDeleteReport={handlePermanentDeleteReport}
+        onDeleteAllPermanently={handleDeleteAllPermanently}
+        deletingAll={actionProgress?.type === 'deleting'}
+      />
+    );
+  }
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>

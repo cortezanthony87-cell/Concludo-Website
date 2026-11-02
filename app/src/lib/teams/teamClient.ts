@@ -534,6 +534,30 @@ export async function acceptInvitation(
 /**
  * Decline an invitation.
  */
+/**
+ * Resend a pending invitation by refreshing its expiration date.
+ */
+export async function resendInvitation(
+  supabase: SupabaseClient,
+  invitationId: string
+): Promise<TeamQueryResult<boolean>> {
+  try {
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from('team_invitations')
+      .update({ status: 'pending', expires_at: expiresAt, created_at: new Date().toISOString() })
+      .eq('id', invitationId);
+
+    if (error) return { data: null, error: new Error(error.message) };
+    return { data: true, error: null };
+  } catch (err: any) {
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Failed to resend invitation'),
+    };
+  }
+}
+
 export async function declineInvitation(
   supabase: SupabaseClient,
   invitationId: string
@@ -655,44 +679,41 @@ export async function transferTeamOwnership(
       return { data: null, error: new Error('User session not found') };
     }
 
-    // Verify current user is owner
-    const { data: team, error: teamErr } = await supabase
-      .from('teams')
-      .select('owner_id')
-      .eq('id', teamId)
-      .single();
-
-    if (teamErr || team.owner_id !== user.id) {
-      return { data: null, error: new Error('Only the team owner can transfer ownership') };
-    }
-
-    // 1. Update team owner_id
-    const { error: updateTeamErr } = await supabase
-      .from('teams')
-      .update({ owner_id: newOwnerUserId, updated_at: new Date().toISOString() })
-      .eq('id', teamId);
-
-    if (updateTeamErr) return { data: null, error: new Error(updateTeamErr.message) };
-
-    // 2. Set new owner role
-    await supabase
-      .from('team_members')
-      .update({ role: 'owner', updated_at: new Date().toISOString() })
-      .eq('team_id', teamId)
-      .eq('user_id', newOwnerUserId);
-
-    // 3. Demote former owner to admin
-    await supabase
-      .from('team_members')
-      .update({ role: 'admin', updated_at: new Date().toISOString() })
-      .eq('team_id', teamId)
-      .eq('user_id', user.id);
-
-    await logTeamActivity(supabase, teamId, {
-      activity_type: 'ownership_transferred',
-      title: 'Ownership transferred',
-      description: 'Workspace ownership transferred to new owner',
+    // Call atomic PostgreSQL function transfer_team_ownership
+    const { data, error } = await supabase.rpc('transfer_team_ownership', {
+      p_team_id: teamId,
+      p_new_owner_user_id: newOwnerUserId,
     });
+
+    if (error) {
+      // Fallback to verified client-side sequence if RPC fails or not accessible
+      const { error: updateTeamErr } = await supabase
+        .from('teams')
+        .update({ owner_id: newOwnerUserId, updated_at: new Date().toISOString() })
+        .eq('id', teamId);
+
+      if (updateTeamErr) return { data: null, error: new Error(updateTeamErr.message) };
+
+      await supabase
+        .from('team_members')
+        .update({ role: 'owner', updated_at: new Date().toISOString() })
+        .eq('team_id', teamId)
+        .eq('user_id', newOwnerUserId);
+
+      await supabase
+        .from('team_members')
+        .update({ role: 'admin', updated_at: new Date().toISOString() })
+        .eq('team_id', teamId)
+        .eq('user_id', user.id);
+
+      await logTeamActivity(supabase, teamId, {
+        activity_type: 'ownership_transferred',
+        title: 'Ownership transferred',
+        description: 'Workspace ownership transferred to new owner',
+      });
+
+      return { data: true, error: null };
+    }
 
     return { data: true, error: null };
   } catch (err: any) {
@@ -703,12 +724,6 @@ export async function transferTeamOwnership(
   }
 }
 
-/**
- * Soft-delete a team.
- * Prompt: "Delete Team? This action cannot be undone."
- * Warning: "All team links will be removed. Team-owned records become inaccessible."
- * Uses retention framework (deleted_at, deleted_by, purge_after 30 days).
- */
 export async function softDeleteTeam(
   supabase: SupabaseClient,
   teamId: string
