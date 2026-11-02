@@ -61,6 +61,7 @@ import { getPredictiveAnalysis } from '../lib/predictive/predictiveService';
 import { fetchCalendarItems } from '../lib/calendar/calendarClient';
 import { DashboardEmailCard } from '../components/dashboard/DashboardEmailCard';
 import { getWelcomeGreeting, formatDashboardDate } from '../lib/dashboard/greeting';
+import { DashboardQuickActionsToolbar } from '../components/dashboard/DashboardQuickActionsToolbar';
 
 import { PredictiveAnalysisResult } from '../lib/predictive/types';
 
@@ -902,6 +903,9 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
+        {/* ── Quick Actions Toolbar (Under Greeting) ── */}
+        <DashboardQuickActionsToolbar />
+
         {/* Empty prompt */}
         <div
           style={{
@@ -931,26 +935,6 @@ export const DashboardPage: React.FC = () => {
             <PlusCircle size={16} />
             <span>Create Your First Project</span>
           </Link>
-        </div>
-
-        {/* Quick actions compact */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {[
-            { to: '/projects', icon: <FolderKanban size={15} />, label: 'Projects' },
-            { to: '/actions', icon: <CheckCircle2 size={15} />, label: 'Actions' },
-            { to: '/decision-memory', icon: <BrainCircuit size={15} />, label: 'Decisions' },
-            { to: '/settings', icon: <Settings size={15} />, label: 'Settings' },
-          ].map((a) => (
-            <Link
-              key={a.to}
-              to={a.to}
-              className="btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}
-            >
-              {a.icon}
-              {a.label}
-            </Link>
-          ))}
         </div>
       </div>
 </div>
@@ -990,6 +974,9 @@ export const DashboardPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* ── Quick Actions Toolbar (Under Greeting) ── */}
+      <DashboardQuickActionsToolbar />
 
       {/* ── Error ── */}
       {hasAnyError && (
@@ -1689,43 +1676,6 @@ export const DashboardPage: React.FC = () => {
           </section>
         );
       })()}
-
-      {/* ── Quick Actions (compact bottom bar) ── */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '14px 20px',
-          boxShadow: '0 1px 4px rgba(22,38,63,0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flexWrap: 'wrap',
-        }}
-      >
-        <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600, marginRight: '4px' }}>Quick actions:</span>
-        <Link to="/projects/new" className="btn-gold" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}>
-          <PlusCircle size={14} /> New Project
-        </Link>
-        {[
-          { to: '/projects', icon: <FolderKanban size={14} />, label: 'Projects' },
-          { to: '/actions', icon: <CheckCircle2 size={14} />, label: 'Actions' },
-          { to: '/decision-memory', icon: <BrainCircuit size={14} />, label: 'Decisions' },
-          { to: '/insight', icon: <Lightbulb size={14} />, label: 'Insight' },
-          { to: '/stats', icon: <BarChart3 size={14} />, label: 'Stats' },
-          { to: '/settings', icon: <Settings size={14} />, label: 'Settings' },
-        ].map((a) => (
-          <Link
-            key={a.to}
-            to={a.to}
-            className="btn-secondary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '0.82rem', textDecoration: 'none' }}
-          >
-            {a.icon} {a.label}
-          </Link>
-        ))}
-      </div>
 
     </div>
     </div>
