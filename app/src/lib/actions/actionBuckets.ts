@@ -19,6 +19,7 @@ export interface ActionBucketCounts {
   total: number;
   // Filter counters (may overlap with buckets)
   inProgress: number;
+  waiting: number;
   blocked: number;
   unscheduled: number;
   upcoming: number;
@@ -67,6 +68,7 @@ export function calculateActionBuckets(
   let pending = 0;
 
   let inProgress = 0;
+  let waiting = 0;
   let blocked = 0;
   let unscheduled = 0;
   let upcoming = 0;
@@ -91,6 +93,7 @@ export function calculateActionBuckets(
     const st = effectiveStatus(action);
     if (st !== 'completed') {
       if (st === 'in_progress') inProgress++;
+      if (st === 'waiting') waiting++;
       if (st === 'blocked') blocked++;
 
       if (!action.due_date) {
@@ -108,6 +111,7 @@ export function calculateActionBuckets(
     pending,
     total: completed + overdue + dueToday + pending,
     inProgress,
+    waiting,
     blocked,
     unscheduled,
     upcoming,

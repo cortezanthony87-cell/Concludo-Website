@@ -294,9 +294,160 @@
   color: var(--ach-navy);
 }
 
+.ach-pill-no {
+  background: #EEF1F7;
+  color: var(--ach-navy);
+}
+
 .ach-pill-lo {
   background: #ffffff;
   color: var(--ach-navy);
+}
+
+/* Dropdowns & Action Controls */
+.ach-dd {
+  position: relative;
+  display: inline-block;
+}
+
+.ach-ddb {
+  background: #ffffff;
+  border: 1px solid var(--ach-line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ach-navy);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+  user-select: none;
+  transition: background 0.12s ease;
+}
+
+.ach-ddb:hover {
+  background: #F4F6FA;
+}
+
+.ach-ddb:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #EEF1F7;
+}
+
+.ach-ddb .ach-car {
+  font-size: 10px;
+  color: var(--ach-slate);
+}
+
+.ach-ddb-dots {
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ach-navy);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ach-ddb-dots:hover {
+  background: #EEF1F7;
+  border-color: var(--ach-line);
+}
+
+.ach-ddm {
+  position: absolute;
+  z-index: 100;
+  left: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: #ffffff;
+  border: 1px solid var(--ach-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(22, 38, 63, 0.16);
+  min-width: 210px;
+  padding: 4px;
+  text-align: left;
+}
+
+.ach-ddm.ach-ddm-right {
+  left: auto;
+  right: 0;
+  min-width: 150px;
+}
+
+.ach-ddm-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ach-navy);
+  user-select: none;
+}
+
+.ach-ddm-item:hover,
+.ach-ddm-item:focus {
+  background: #EEF1F7;
+  outline: none;
+}
+
+.ach-ddm-item.sel {
+  font-weight: 600;
+}
+
+.ach-ddm-item.danger {
+  color: var(--ach-red);
+  font-weight: 500;
+}
+
+.ach-ddm-item.danger:hover,
+.ach-ddm-item.danger:focus {
+  background: #FDF2F2;
+}
+
+.ach-od-line {
+  color: var(--ach-red);
+  font-weight: 600;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.ach-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--ach-navy);
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 1200;
+  box-shadow: 0 4px 16px rgba(22, 38, 63, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ach-toast button {
+  color: var(--ach-gold);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: underline;
+  font-size: 13px;
+  padding: 0;
 }
 
 .ach-overdue-badge {
