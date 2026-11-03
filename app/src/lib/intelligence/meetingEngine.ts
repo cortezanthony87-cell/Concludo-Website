@@ -36,6 +36,7 @@ export interface MeetingMetaInput {
   organisation?: string;
   project?: string;
   meetingDate?: string; // YYYY-MM-DD
+  sourceType?: 'transcript' | 'minutes' | 'document';
 }
 
 export interface Evidence {
@@ -67,11 +68,20 @@ export interface Action {
   task: string;
   owner?: string;
   ownerBasis: Basis;
+  ownerRaw?: string;
+  suggestedOwner?: string;
   due?: string;
   dueText?: string;
+  dueRaw?: string;
+  dueBasis?: 'stated' | 'stage_end' | 'none' | null;
   dueApprox: boolean;
   horizon: 'now' | 'next' | 'later' | 'undated';
   doneDefinition?: string;
+  doneWhen?: string;
+  stage?: string;
+  stageNo?: number;
+  sourceLine?: number;
+  sourceQuote?: string;
   evidence: Evidence[];
   confidence: 'explicit' | 'inferred';
   gaps: string[];
@@ -146,6 +156,35 @@ export interface SourceSummary {
   lastTimestamp?: string;
 }
 
+export interface GateRecord {
+  stage?: string;
+  date?: string;
+  passTest?: string;
+  ifMissedStop?: string;
+  ifExceededAccelerate?: string;
+}
+
+export interface ExcludedItem {
+  text: string;
+  reason: string;
+  sourceLine?: number;
+}
+
+export interface CoverageRecord {
+  candidates: number;
+  extracted: number;
+  excluded: number;
+  needsAttention: number;
+  unresolved: string[];
+}
+
+export interface DocumentMeta {
+  title?: string;
+  versionDate?: string;
+  anchor?: { label: string; date: string };
+  sourceType?: 'transcript' | 'minutes' | 'document';
+}
+
 export interface MeetingModel {
   version: '2.0';
   meta: Required<Pick<MeetingMetaInput, 'title' | 'meetingType' | 'meetingDate'>> & {
@@ -187,7 +226,19 @@ export interface MeetingModel {
     rawText?: string;
   };
   flags?: string[];
+  sourceType?: 'transcript' | 'minutes' | 'document';
+  documentMeta?: DocumentMeta;
+  gates?: GateRecord[];
+  excludedItems?: ExcludedItem[];
+  coverage?: CoverageRecord;
 }
+
+import {
+  detectSourceType,
+  analyseDocumentMode,
+  toDocumentModeRecord,
+} from './documentExtractor';
+export { detectSourceType, analyseDocumentMode, toDocumentModeRecord };
 
 /* -------------------------------------------------------------- constants */
 
@@ -207,28 +258,15 @@ function isoFromParts(y: number, m: number, d: number): string {
   return dt.toISOString().slice(0, 10);
 }
 function parseIso(iso: string): Date {
-  if (!iso || typeof iso !== 'string') return new Date();
-  const parts = iso.split('-').map(Number);
-  const y = parts[0] || new Date().getFullYear();
-  const m = parts[1] || 1;
-  const d = parts[2] || 1;
+  const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
 function addDays(iso: string, n: number): string {
-  if (!iso || typeof iso !== 'string') {
-    const dt = new Date();
-    dt.setUTCDate(dt.getUTCDate() + n);
-    return dt.toISOString().slice(0, 10);
-  }
   const d = parseIso(iso);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
 function daysBetween(a: string, b: string): number {
-  if (!a || !b || typeof a !== 'string' || typeof b !== 'string') return 0;
-  const da = parseIso(a);
-  const db = parseIso(b);
-  if (isNaN(da.getTime()) || isNaN(db.getTime())) return 0;
   return Math.round((parseIso(b).getTime() - parseIso(a).getTime()) / 86400000);
 }
 function monthIndex(word: string): number {
@@ -699,6 +737,11 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
   const warnings: string[] = [];
   const usable = inputs.filter((s) => s.text && s.text.trim().length > 0);
   if (!usable.length) throw new Error('Add a transcript, notes or a document before generating.');
+
+  const detectedType = detectSourceType(usable, metaIn);
+  if (detectedType === 'document') {
+    return analyseDocumentMode(usable, metaIn);
+  }
 
   const sources: SourceSummary[] = [];
   const allTurns: Turn[] = [];
@@ -1266,18 +1309,18 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
  * Call after a person confirms, edits or excludes items. Excluded items are ignored.
  */
 export function refresh(m: MeetingModel): MeetingModel {
-  KNOWN_NAMES = (m.participants || []).flatMap((p) => (p?.name ? p.name.split(' ') : []));
-  const live = <T extends { review: Review }>(xs: T[]) => (xs || []).filter((x) => x && x.review !== 'excluded');
-  const decisions = live(m.decisions || []);
-  const actions = live(m.actions || []);
-  const risks = live(m.risks || []);
-  const openItems = live(m.openItems || []);
+  KNOWN_NAMES = m.participants.flatMap((p) => p.name.split(' '));
+  const live = <T extends { review: Review }>(xs: T[]) => xs.filter((x) => x.review !== 'excluded');
+  const decisions = live(m.decisions);
+  const actions = live(m.actions);
+  const risks = live(m.risks);
+  const openItems = live(m.openItems);
 
   m.actions.forEach((a) => {
     a.gaps = [];
     a.horizon = 'undated';
     if (a.due) {
-      const days = daysBetween(m.meta?.meetingDate, a.due);
+      const days = daysBetween(m.meta.meetingDate, a.due);
       a.horizon = days <= 7 ? 'now' : days <= 30 ? 'next' : 'later';
     }
     if (!a.owner) a.gaps.push('No owner named');

@@ -428,7 +428,18 @@ export function mountMeetingStudio(root, opts = {}) {
       <div class="page-head">
         <div><div class="eyebrow">Step 2 of 3</div><h1>${esc(m.meta.title)}</h1>
         <p>${esc([m.meta.meetingType, fmt(m.meta.meetingDate, true), m.meta.organisation].filter(Boolean).join(' · '))}. Concludo proposes, you decide: confirm, edit or exclude each item. The document only uses what you keep.</p></div>
-        <div style="display:flex;gap:8px"><button class="btn" data-go="1">${ic('back')}<span>Sources</span></button><button class="btn primary" data-go="3"><span>Build the document</span>${ic('arrow')}</button></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--slate)">
+            <span>Source type:</span>
+            <select data-act="override-source-type" class="btn sm" style="padding:4px 8px;font-size:12px;font-weight:600" aria-label="Override source type">
+              <option value="document" ${m.sourceType === 'document' ? 'selected' : ''}>Plan document</option>
+              <option value="transcript" ${m.sourceType === 'transcript' ? 'selected' : ''}>Transcript</option>
+              <option value="minutes" ${m.sourceType === 'minutes' ? 'selected' : ''}>Minutes</option>
+            </select>
+          </div>
+          <button class="btn" data-go="1">${ic('back')}<span>Sources</span></button>
+          <button class="btn primary" data-go="3"><span>Build the document</span>${ic('arrow')}</button>
+        </div>
       </div>
       <div class="review-grid">
         <aside class="side">
@@ -558,11 +569,19 @@ export function mountMeetingStudio(root, opts = {}) {
     ['email', 'Follow-up email', 'Draft only. Never sent automatically', 'mail'],
   ];
   function viewDocument() {
-    const t = TEMPLATES.find((x) => x[0] === S.template);
+    const isDoc = S.model?.sourceType === 'document';
+    const activeTemplates = isDoc ? [
+      ['actions', 'Action plan', 'Five-field schedule, timeline, gates and coverage', 'list'],
+      ['exec', 'Executive summary', 'Boardroom one-page summary', 'file'],
+    ] : TEMPLATES;
+    if (isDoc && !['actions', 'exec'].includes(S.template)) {
+      S.template = 'actions';
+    }
+    const t = activeTemplates.find((x) => x[0] === S.template) || activeTemplates[0];
     return `<div class="doc-shell">
       <aside class="doc-side">
         <h3>Template</h3>
-        <div class="tpls">${TEMPLATES.map(([k, n, d, i]) => {
+        <div class="tpls">${activeTemplates.map(([k, n, d, i]) => {
           const locked = (k === 'deck' && !CAN_EXPORT_DECK) || (k === 'email' && !CAN_DRAFT_EMAIL);
           return `<button class="tpl ${S.template === k ? 'on' : ''} ${locked ? 'locked' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span><b>${n}${locked ? ' <span style="font-size:10px;color:var(--gold-deep);font-weight:600">PRO</span>' : ''}</b><span>${d}</span></span></button>`;
         }).join('')}</div>
@@ -589,15 +608,32 @@ export function mountMeetingStudio(root, opts = {}) {
   const citeShort = (e) => (e ? `${e.sourceId} · line ${e.line}${e.timestamp ? ` · ${e.timestamp}` : ''}${e.speaker ? ` · ${e.speaker}` : ''}` : '');
   function coverHtml(kind) {
     const m = S.model;
+    const isDoc = m.sourceType === 'document';
     const draft = m.gate.status !== 'Ready to circulate' || [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].some((x) => x.review === 'proposed');
-    return `<div class="cover"><img class="lg" src="${A.lockupRev}" alt="Concludo"><div class="stamp">${draft ? 'Draft for review' : 'Reviewed record'}</div>
-      <div class="kick">${esc(kind)}</div><h1>${esc(m.meta.title)}</h1><div class="sub">${esc([m.meta.organisation, m.meta.meetingType, fmt(m.meta.meetingDate)].filter(Boolean).join('  ·  '))}</div></div>
+    const kick = isDoc ? 'Action plan · Now, Next, Later' : kind;
+    const sub = isDoc ? [
+      'Source document',
+      fmt(m.meta.meetingDate),
+      m.documentMeta?.anchor ? `${m.documentMeta.anchor.label} is ${fmt(m.documentMeta.anchor.date)}` : ''
+    ].filter(Boolean).join('  ·  ') : [m.meta.organisation, m.meta.meetingType, fmt(m.meta.meetingDate)].filter(Boolean).join('  ·  ');
+
+    const metaStrip = isDoc ? `
+      <div class="meta-strip">
+        <div><span>Source type</span><b>Plan document</b><small>Not a meeting</small></div>
+        <div><span>Owner of record</span><b>Not stated</b><small>No chair or attendance</small></div>
+        <div><span>Actions found</span><b>${m.actions.length}</b><small>${m.gates && m.gates.length ? `${m.gates.length} gates` : 'Actions register'}</small></div>
+        <div><span>Coverage</span><b>${m.coverage ? `${m.coverage.extracted} of ${m.coverage.candidates}` : `${m.actions.length} of ${m.actions.length}`}</b><small>lines read</small></div>
+      </div>` : `
       <div class="meta-strip">
         <div><span>Date</span><b>${esc(fmt(m.meta.meetingDate))}</b><small>${esc(new Date(m.meta.meetingDate + 'T00:00:00Z').toLocaleDateString('en-AU', { weekday: 'long', timeZone: 'UTC' }))}${m.signals.dateConfirmed ? '' : ', assumed'}</small></div>
         <div><span>Chair</span><b>${esc(m.meta.chair || 'Not recorded')}</b><small>${esc((m.participants.find((p) => p.name === m.meta.chair) || {}).role || '')}</small></div>
         <div><span>Attendance</span><b>${m.participants.filter((p) => p.present).length} present</b><small>${plural(m.participants.filter((p) => !p.present).length, 'apology', 'apologies')}</small></div>
         <div><span>Sources</span><b>${plural(m.sources.length, 'source')}</b><small>${esc(m.meta.duration || m.sources.map((s) => s.id).join(', '))}</small></div>
       </div>`;
+
+    return `<div class="cover"><img class="lg" src="${A.lockupRev}" alt="Concludo" style="height:32px;width:auto;object-fit:contain"><div class="stamp">${draft ? 'Draft for review' : 'Reviewed record'}</div>
+      <div class="kick">${esc(kick)}</div><h1>${esc(m.meta.title)}</h1><div class="sub">${esc(sub)}</div></div>
+      ${metaStrip}`;
   }
   const H = (no, title, intro, id) => `<div class="d-h" data-anchor="${id}" data-label="${esc(title)}"><span class="no">${no}</span><h2>${esc(title)}</h2></div>${intro ? `<p class="d-intro">${esc(intro)}</p>` : ''}`;
   const pillDue = (a) => (a.due ? `${short(a.due)}${a.dueApprox ? ' (approx.)' : ''}` : '<span class="miss">Not stated</span>');
@@ -723,6 +759,9 @@ export function mountMeetingStudio(root, opts = {}) {
   function tplActions() {
     const d = docData();
     const { m, Ac, R } = d;
+    if (m.sourceType === 'document') {
+      return tplDocumentActions(d);
+    }
     const b = [
       { html: `<div class="bl" data-anchor="summary" data-label="Delivery brief"><span class="lab">Delivery brief</span>${plural(Ac.length, 'action')} came out of this meeting. ${Ac.filter((a) => a.horizon === 'now').length} are due this week and ${Ac.filter((a) => a.horizon === 'next').length} within 30 days. ${Ac.filter((a) => !a.owner).length ? `${plural(Ac.filter((a) => !a.owner).length, 'action has', 'actions have')} no owner. ` : ''}${Ac.filter((a) => !a.due).length ? `${plural(Ac.filter((a) => !a.due).length, 'action has', 'actions have')} no date.` : 'Every action is dated.'}</div>` },
       { html: H(1, 'Timeline', '', 'timeline') + timeline(Ac), keepNext: false },
@@ -735,6 +774,117 @@ export function mountMeetingStudio(root, opts = {}) {
     return { kind: 'Action plan · Now, next, later', blocks: b };
   }
 
+  function tplDocumentActions(d) {
+    const { m, Ac } = d;
+    const statedCount = Ac.filter((a) => a.dueBasis === 'stated').length;
+    const inheritedCount = Ac.filter((a) => a.dueBasis === 'stage_end').length;
+    const ownedCount = Ac.filter((a) => a.owner && a.owner !== 'Under review').length;
+    const nextGate = m.gates && m.gates.length > 0 ? m.gates[0] : null;
+
+    const b = [];
+    b.push({
+      html: `<div class="bl" data-anchor="summary" data-label="Delivery brief"><span class="lab">Delivery brief</span>${plural(Ac.length, 'action')} came out of this document. ${statedCount} carry their own date and ${inheritedCount} inherit the end date of their stage. ${ownedCount ? `${plural(ownedCount, 'action has', 'actions have')} an owner.` : 'None has a named owner yet.'}${nextGate ? ` The next gate is ${esc(nextGate.stage || 'Stage 1')}${nextGate.date ? ` on ${fmt(nextGate.date)}` : ''}.` : ''}</div>`,
+    });
+
+    const nowCount = Ac.filter((a) => a.horizon === 'now').length;
+    const nextCount = Ac.filter((a) => a.horizon === 'next').length;
+    const laterCount = Ac.filter((a) => a.horizon === 'later').length;
+
+    const stages = Array.from(new Set(Ac.map((a) => a.stage).filter(Boolean)));
+    const ribbonHtml = stages.length ? `<div class="ribbon" style="display:grid;grid-template-columns:repeat(${Math.min(stages.length, 9)},1fr);gap:4px;margin-top:14px">${stages.map((st, idx) => {
+      const count = Ac.filter((a) => a.stage === st).length;
+      const isCur = idx === 0;
+      const hasGate = m.gates?.some((g) => g.stage === st) || true;
+      return `<div class="${isCur ? 'cur ' : ''}${hasGate ? 'g' : ''}" style="background:${isCur ? 'var(--navy)' : 'var(--light)'};border-radius:6px;padding:8px 6px 6px;font-size:11px;text-align:center;color:${isCur ? '#C9D0DC' : 'var(--slate)'};border-bottom:4px solid ${hasGate ? 'var(--gold)' : '#C9D0DC'}"><b style="display:block;font:700 18px Poppins,Arial;color:${isCur ? '#fff' : 'var(--navy)'}">${count}</b>${esc(st.split(' ')[0] + ' ' + (st.split(' ')[1] || ''))}</div>`;
+    }).join('')}</div><div class="legend" style="font-size:12px;color:var(--slate);margin-top:8px">Gold underline marks a decision gate at the end of each stage. Counts are actions per stage.</div>` : '';
+
+    b.push({
+      html: H(1, 'Horizons', 'The same Now, Next, Later split the plan uses, with the action count in each.', 'horizons') +
+        `<div class="hz" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div class="now" style="border:1px solid var(--navy);border-radius:10px;padding:16px;box-shadow:inset 0 4px 0 var(--navy)"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Now · Days 1 to 90</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nowCount}</b><span style="font-size:13px;color:var(--slate)">Safe to sell: stages 1 to 4</span></div>
+          <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Next · Months 4 to 12</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nextCount}</b><span style="font-size:13px;color:var(--slate)">Worth paying for: stages 5 and 6</span></div>
+          <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Later · Year 2 onward</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${laterCount}</b><span style="font-size:13px;color:var(--slate)">Worth expanding: stages 7 to 9</span></div>
+        </div>${ribbonHtml}`,
+      keepNext: true,
+    });
+
+    const scheduleRows = Ac.map((a) => {
+      const dueNote = a.dueBasis === 'stated' && a.dueRaw ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px">Stated: ${esc(a.dueRaw)}</small>` : a.dueBasis === 'stage_end' ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px;font-style:italic">Inherited from stage end</small>` : '';
+      const ownerPill = a.owner && a.owner !== 'Under review' ? esc(a.owner) : '<span class="pill un" style="display:inline-block;border-radius:999px;padding:3px 10px;font:600 12px Inter;background:var(--redbg);color:var(--red)">Unassigned</span>';
+      return `<tr>
+        <td class="idc">${a.id}</td>
+        <td><span class="main">${esc(a.task)}</span><small class="src" style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px">${a.evidence[0] ? `Source line ${a.evidence[0].line}` : ''}${a.stage ? ` · ${esc(a.stage)}` : ''}</small></td>
+        <td>${ownerPill}</td>
+        <td><b>${pillDue(a)}</b>${dueNote}</td>
+        <td>${a.doneWhen || a.doneDefinition ? esc(a.doneWhen || a.doneDefinition) : '<span class="miss">Not stated</span>'}</td>
+      </tr>`;
+    });
+
+    b.push({
+      type: 'table',
+      label: 'Action schedule',
+      pre: H(2, 'Action schedule', 'Task, owner, due date, definition of done and source. Blank fields were not stated in the document.', 'schedule'),
+      head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
+      rows: scheduleRows,
+      empty: 'No actions were recorded.',
+    });
+
+    b.push({
+      html: `<div class="note" style="background:var(--amberbg);border-radius:8px;padding:12px 16px;font-size:13px;margin:12px 0 24px">Evidence class for every row: <b>Planned in source</b>. A plan is not a meeting, so nothing here is Confirmed until a person reviews it.</div>`,
+    });
+
+    if (m.gates && m.gates.length > 0) {
+      const gateRows = m.gates.map((g, i) => `<tr>
+        <td class="idc">${esc(g.stage || `Gate ${i + 1}`)}</td>
+        <td><b>${g.date ? fmt(g.date) : 'Not stated'}</b></td>
+        <td>${esc(g.passTest || '')}</td>
+        <td>${esc(g.ifMissedStop || '')}</td>
+      </tr>`);
+      b.push({
+        type: 'table',
+        label: 'Decision gates',
+        pre: H(3, 'Decision gates', 'A gate is a test with a stop rule. It is shown here and is not counted as an action.', 'gates'),
+        head: '<tr><th style="width:28mm">Gate</th><th style="width:22mm">Date</th><th>Pass test</th><th style="width:50mm">If missed, stop</th></tr>',
+        rows: gateRows,
+        empty: 'No gates recorded.',
+      });
+    }
+
+    const unownedCount = Ac.filter((a) => !a.owner || a.owner === 'Under review').length;
+    const inheritedDueCount = Ac.filter((a) => a.dueBasis === 'stage_end').length;
+    const noDoneCount = Ac.filter((a) => !a.doneWhen && !a.doneDefinition).length;
+    const gapRows = [
+      `<tr><td style="width:36%"><span style="font:700 18px Poppins,Arial">${unownedCount}</span> no named owner</td><td>Plan is written to the founder. Suggested owner: the director, to be confirmed. Nothing is assigned until a person confirms it.</td></tr>`,
+      `<tr><td style="width:36%"><span style="font:700 18px Poppins,Arial">${inheritedDueCount}</span> date inherited</td><td>The action sits in a stage with a stated end date. Set a real date for each.</td></tr>`,
+      `<tr><td style="width:36%"><span style="font:700 18px Poppins,Arial">${noDoneCount}</span> no definition of done</td><td>Each stage lists required outputs. Map them to actions during review.</td></tr>`,
+    ];
+    b.push({
+      type: 'table',
+      label: 'Gaps to close',
+      pre: H(4, 'Gaps to close', 'One row per gap type, with the count of actions affected.', 'gaps'),
+      head: '<tr><th style="width:36%">Gap type</th><th>Remediation</th></tr>',
+      rows: gapRows,
+      empty: 'No gaps to close.',
+    });
+
+    const cov = m.coverage || {
+      candidates: Ac.length,
+      extracted: Ac.length,
+      excluded: m.excludedItems ? m.excludedItems.length : 0,
+      unresolved: [],
+    };
+    const exclList = m.excludedItems && m.excludedItems.length > 0 ? `<br>${m.excludedItems.length} sentence was excluded because it describes a purpose and commits no one to anything:<div style="margin:8px 0;padding:8px 12px;background:#fff;border-radius:4px;border-left:3px solid var(--gold)"><q style="font-style:italic;color:var(--slate)">${esc(m.excludedItems[0].text)}</q></div>It sits in the review list as Not an action, so a person can overrule it.` : '';
+    b.push({
+      html: H(5, 'Coverage check', 'What the extraction read, and what it left out on purpose.', 'coverage') +
+        `<div class="excl" style="background:var(--light);border-radius:8px;padding:14px 18px;margin-top:10px;font-size:13.5px"><b>${cov.candidates} lines marked as a candidate in the source. ${cov.extracted} became actions. ${cov.unresolved.length} left unresolved.</b>${exclList}</div>`,
+    });
+
+    b.push({
+      html: `<div class="fineprint">Prepared with Concludo from the source listed above. Draft: ${plural(Ac.length, 'item has', 'items have')} not yet been confirmed by a person. The count matches the registers on this page. Where the document did not state an owner, a date or a definition of done, the record says so. Risk ratings and meeting measures are indicative and meeting level only: Concludo does not score individuals.</div>`,
+    });
+
+    return { kind: 'Action plan · Now, next, later', blocks: b };
+  }
   function tplDecisions() {
     const d = docData();
     const { m, D, Ac, Q } = d;
@@ -1067,18 +1217,16 @@ export function mountMeetingStudio(root, opts = {}) {
     toast('Generating PDF document...');
     try {
       const pdfBytes = await generateMeetingPdf(S.model);
-      const rawTitle = (S.model.meta && S.model.meta.title) || 'meeting-record';
-      const baseName = rawTitle.replace(/[^\w\s-]+/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '') || 'meeting-record';
+      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const u = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.style.display = 'none';
       a.href = u;
-      a.download = `${baseName}.pdf`;
+      a.download = `${baseName}-boardroom-pack.pdf`;
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 60000);
-      toast('Meeting PDF report downloaded');
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
+      toast('Meeting PDF downloaded to device');
     } catch (err) {
       console.error('PDF export failed:', err);
       toast('Failed to generate PDF: ' + (err.message || 'unknown error'));
@@ -1089,11 +1237,9 @@ export function mountMeetingStudio(root, opts = {}) {
     if (!S.model) return;
     toast('Building export archive (.zip)...');
     try {
-      const jszipModule = await import('jszip');
-      const JSZip = jszipModule.default || jszipModule;
+      const { default: JSZip } = await import('jszip');
       const zip = new JSZip();
-      const rawTitle = (S.model.meta && S.model.meta.title) || 'meeting-record';
-      const baseName = rawTitle.replace(/[^\w\s-]+/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '') || 'meeting-record';
+      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
 
       // 1. Official PDF Document
       const pdfBytes = await generateMeetingPdf(S.model);
@@ -1123,12 +1269,11 @@ export function mountMeetingStudio(root, opts = {}) {
       const blob = await zip.generateAsync({ type: 'blob' });
       const u = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.style.display = 'none';
       a.href = u;
       a.download = `${baseName}-export.zip`;
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 60000);
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
       toast('Complete export package (.zip) downloaded');
     } catch (err) {
       console.error('ZIP export failed:', err);
@@ -1427,23 +1572,9 @@ export function mountMeetingStudio(root, opts = {}) {
     if (act === 'pick') $('#file').click();
     if (act === 'generate') generate();
     if (act === 'confirm-all') {
-      const allItems = [
-        ...(S.model.decisions || []),
-        ...(S.model.actions || []),
-        ...(S.model.risks || []),
-        ...(S.model.openItems || []),
-      ];
-      allItems.forEach((x) => {
-        if (x && x.review !== 'excluded') x.review = 'confirmed';
-      });
-      try {
-        CE.refresh(S.model);
-      } catch (err) {
-        console.error('Refresh error on confirm-all:', err);
-      }
+      [...S.model.decisions, ...S.model.actions, ...S.model.risks, ...S.model.openItems].forEach((x) => x.review === 'proposed' && (x.review = 'confirmed'));
+      CE.refresh(S.model);
       rerenderKeepScroll();
-      toast('All remaining items confirmed');
-      return;
     }
     if (act === 'print') printCurrentDocument();
     if (act === 'save-all-pdf') saveAllAsPdf();
@@ -1569,6 +1700,13 @@ export function mountMeetingStudio(root, opts = {}) {
   }
   on(root, 'change', (ev) => {
     const t = ev.target;
+    if (t.dataset.act === 'override-source-type') {
+      const newType = t.value;
+      const srcs = allSources();
+      S.model = CE.analyseMeeting(srcs, { ...S.meta, sourceType: newType });
+      render();
+      return;
+    }
     if (t.hasAttribute('data-preview-size')) { previewMode = t.value === 'actual' ? 'actual' : 'fit'; fitPreview(); return; }
     if (t.dataset.meta) { S.meta[t.dataset.meta] = t.value; delete S.detected[t.dataset.meta]; }
     if (t.dataset.kind !== undefined && t.dataset.kind !== '') {
@@ -1645,84 +1783,51 @@ export function mountMeetingStudio(root, opts = {}) {
     try { projects = opts.listProjects ? await opts.listProjects() : []; } catch (e) { projects = []; }
     const unowned = m.actions.filter((a) => a.review !== 'excluded' && !a.owner);
     const proposed = [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].filter((x) => x.review === 'proposed').length;
-    const defaultIsNew = opts.defaultSaveMode === 'new' || !projects.length;
     div.querySelector('.modal').innerHTML = `<div class="mh"><h2 style="font-size:16px">Save to project</h2><button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button></div>
       <div class="mb">
-        <div class="chipset"><button class="chip ${!defaultIsNew ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${defaultIsNew ? 'on' : ''}" data-savemode="new">${ic('save')}<span>Save New Project</span></button></div>
-        <div class="field" data-pane="existing" ${!defaultIsNew ? '' : 'hidden'} style="${!defaultIsNew ? '' : 'display:none;'}"><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
-        <div data-pane="new" ${defaultIsNew ? '' : 'hidden'} style="${defaultIsNew ? '' : 'display:none;'}"><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title || '')}" placeholder="Enter project title"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}" placeholder="Client or company name"></div></div>
+        <div class="chipset"><button class="chip ${opts.defaultSaveMode !== 'new' && projects.length ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${opts.defaultSaveMode === 'new' || !projects.length ? 'on' : ''}" data-savemode="new">New project</button></div>
+        <div class="field" data-pane="existing" ${opts.defaultSaveMode !== 'new' && projects.length ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
+        <div data-pane="new" ${opts.defaultSaveMode === 'new' || !projects.length ? '' : 'hidden'}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
         <div class="mini-stats" style="margin:0"><div><b>${m.stats.decisions}</b><span>to Decision memory</span></div><div><b>${m.stats.actions}</b><span>to the Action tracker</span></div><div><b>${m.sources.length}</b><span>source files</span></div><div><b>4</b><span>outputs</span></div></div>
         ${unowned.length ? `<div class="warn" style="margin:0">${ic('alert')}<span>${plural(unowned.length, 'action has', 'actions have')} no owner (${unowned.map((a) => a.id).join(', ')}). ${unowned.length === 1 ? 'It' : 'They'} will be saved as unassigned, not given a placeholder name. <a href="#" data-go="2">Name an owner first</a></span></div>` : ''}
         ${proposed ? `<div class="note" style="margin:0">${plural(proposed, 'item is', 'items are')} not yet confirmed. Saving keeps everything you have not excluded.</div>` : ''}
-        <div class="err" data-save-err hidden style="display:none;"></div>
+        <div class="err" data-save-err hidden></div>
       </div>
-      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save" id="cmo-save-btn">${ic('save')}<span id="cmo-save-btn-text">${defaultIsNew ? 'Save New Project' : 'Save to Project'}</span></button></div>`;
+      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save">${ic('save')}Save record</button></div>`;
     div.querySelectorAll('[data-savemode]').forEach((b) => b.addEventListener('click', () => {
-      const isAlreadyOn = b.classList.contains('on');
-      const mode = b.dataset.savemode;
       div.querySelectorAll('[data-savemode]').forEach((x) => x.classList.toggle('on', x === b));
-      div.querySelectorAll('[data-pane]').forEach((p) => {
-        const matches = p.dataset.pane === mode;
-        if (matches) {
-          p.removeAttribute('hidden');
-          p.style.display = '';
-        } else {
-          p.setAttribute('hidden', '');
-          p.style.display = 'none';
-        }
-      });
-      const saveBtnText = div.querySelector('#cmo-save-btn-text');
-      if (saveBtnText) {
-        saveBtnText.textContent = mode === 'new' ? 'Save New Project' : 'Save to Project';
-      }
-      // Mode chip click strictly toggles between Existing and Save New Project
+      div.querySelectorAll('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.savemode));
     }));
-    div.querySelectorAll('#cmo-ptitle, #cmo-pclient').forEach((inp) => {
-      inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const saveBtn = div.querySelector('[data-act="do-save"]');
-          if (saveBtn && !saveBtn.disabled) doSave(saveBtn);
-        }
-      });
-    });
   }
   async function doSave(btn) {
     const div = root.querySelector('.modal-bg');
-    if (!div) return;
     const mode = div.querySelector('[data-savemode].on')?.dataset.savemode || 'new';
-    const target = mode === 'existing'
-      ? { mode, projectId: div.querySelector('#cmo-proj')?.value }
-      : { mode, title: ((div.querySelector('#cmo-ptitle')?.value) || S.model?.meta?.title || 'Meeting Project').trim(), client: ((div.querySelector('#cmo-pclient')?.value) || S.model?.meta?.organisation || '').trim() };
-    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); if (e) { e.hidden = false; e.style.display = 'block'; e.textContent = 'Give the new project a title.'; } return; }
+    const target = mode === 'existing' ? { mode, projectId: div.querySelector('#cmo-proj').value } : { mode, title: div.querySelector('#cmo-ptitle').value.trim(), client: div.querySelector('#cmo-pclient').value.trim() };
+    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); e.hidden = false; e.textContent = 'Give the new project a title.'; return; }
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
       const res = await opts.onSave(S.model, target, { sources: allSources(), markdown: CE.toMarkdown(S.model), email: CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }) });
       div.remove();
       toast('Saved to project');
-      if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 500);
+      if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 700);
     } catch (e) {
       const el = div.querySelector('[data-save-err]');
-      if (el) { el.hidden = false; el.style.display = 'block'; el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.'; }
+      el.hidden = false;
+      el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.';
       btn.disabled = false;
-      const isNew = mode === 'new';
-      btn.innerHTML = `${ic('save')}<span>${isNew ? 'Save New Project' : 'Save to Project'}</span>`;
+      btn.innerHTML = `${ic('save')}Save record`;
     }
   }
   async function copy(text) {
     try { await navigator.clipboard.writeText(text); } catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
   }
   function download(name, text, type) {
-    const blob = new Blob([text], { type });
-    const u = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = u;
+    a.href = URL.createObjectURL(new Blob([text], { type }));
     a.download = name;
-    document.body.appendChild(a);
     a.click();
-    setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 60000);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   function toast(msg) {
     const t = document.createElement('div');

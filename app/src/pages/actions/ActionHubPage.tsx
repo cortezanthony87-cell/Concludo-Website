@@ -19,6 +19,12 @@ import {
 import { approveCandidate, dismissCandidate, fetchCandidates } from '../../lib/actions/actionCandidates';
 import { calculateActionBuckets, getActionBucket } from '../../lib/actions/actionBuckets';
 import { melbourneToday } from '../../lib/intel/actionStatus';
+import {
+  parseActionRegisterCsv,
+  importActionBatch,
+  reverseImportBatch,
+  ImportedActionRow,
+} from '../../lib/actions/actionImport';
 import '../../styles/action-hub.css';
 
 interface CandidateSuggestion {
@@ -50,6 +56,10 @@ export const ActionHubPage: React.FC = () => {
   // Modals & Drawers
   const [showReviewPanel, setShowReviewPanel] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importRows, setImportRows] = useState<ImportedActionRow[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [lastBatchId, setLastBatchId] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Create form state
@@ -422,6 +432,13 @@ export const ActionHubPage: React.FC = () => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="ach-btn-secondary"
+            onClick={() => setShowImportModal(true)}
+            aria-label="Import action register from CSV"
+          >
+            Import register
+          </button>
           <button
             className="ach-btn-secondary"
             onClick={() => setScope(scope === 'my' ? 'all' : 'my')}
@@ -1370,6 +1387,155 @@ export const ActionHubPage: React.FC = () => {
                 {createSaving ? 'Saving...' : 'Save task'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Action Register Modal (D9) */}
+      {showImportModal && (
+        <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Import action register">
+          <div className="ach-modal-box" style={{ maxWidth: '720px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h2 className="ach-heading" style={{ fontSize: '18px', margin: 0 }}>
+                Import action register
+              </h2>
+              <button
+                className="ach-btn-secondary"
+                style={{ padding: '4px 8px' }}
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportRows([]);
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <p style={{ fontSize: '13px', color: '#5A6478', marginTop: 0 }}>
+              Upload an action plan CSV with stated and derived items. Each row carries its origin tag.
+            </p>
+
+            <div style={{ marginBottom: '14px' }}>
+              <input
+                type="file"
+                accept=".csv"
+                aria-label="Upload CSV file"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const r = new FileReader();
+                  r.onload = (ev) => {
+                    const txt = ev.target?.result as string;
+                    if (txt) {
+                      const parsed = parseActionRegisterCsv(txt);
+                      setImportRows(parsed);
+                    }
+                  };
+                  r.readAsText(f);
+                }}
+              />
+            </div>
+
+            {importRows.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                    Ready to import {importRows.length} actions ({importRows.filter((r) => r.origin === 'Stated in plan').length} stated, {importRows.filter((r) => r.origin === 'Derived by reviewer').length} derived)
+                  </span>
+                  <button
+                    className="ach-btn-primary"
+                    disabled={importing}
+                    onClick={async () => {
+                      if (!user?.id) return;
+                      setImporting(true);
+                      try {
+                        const res = await importActionBatch(supabase, user.id, importRows);
+                        if (res.success) {
+                          setLastBatchId(res.batchId);
+                          showToast(`Imported ${res.count} actions successfully.`);
+                          setShowImportModal(false);
+                          setImportRows([]);
+                          // Reload actions
+                          const { data: refreshed } = await fetchActions(supabase);
+                          if (refreshed) setActions(refreshed);
+                        } else {
+                          showToast(`Import error: ${res.error || 'Server error'}`);
+                        }
+                      } finally {
+                        setImporting(false);
+                      }
+                    }}
+                  >
+                    {importing ? 'Importing...' : `Import ${importRows.length} actions`}
+                  </button>
+                </div>
+                <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #E4E8EF', borderRadius: '6px', fontSize: '12px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#F4F6FA', borderBottom: '1px solid #E4E8EF', textAlign: 'left' }}>
+                        <th style={{ padding: '6px 8px' }}>ID</th>
+                        <th style={{ padding: '6px 8px' }}>Action</th>
+                        <th style={{ padding: '6px 8px' }}>Owner</th>
+                        <th style={{ padding: '6px 8px' }}>Due</th>
+                        <th style={{ padding: '6px 8px' }}>Origin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.slice(0, 20).map((r, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #F0F2F7' }}>
+                          <td style={{ padding: '6px 8px', fontWeight: 600 }}>{r.id}</td>
+                          <td style={{ padding: '6px 8px' }}>{r.action}</td>
+                          <td style={{ padding: '6px 8px' }}>{r.owner || 'Unassigned'}</td>
+                          <td style={{ padding: '6px 8px' }}>{r.due_date || r.due_text || 'Not stated'}</td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: r.origin === 'Stated in plan' ? '#EAF3EC' : '#FBF0D0',
+                              color: r.origin === 'Stated in plan' ? '#1E7A4C' : '#BC8A1C',
+                              fontWeight: 500,
+                              fontSize: '11px',
+                            }}>
+                              {r.origin}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {importRows.length > 20 && (
+                    <div style={{ padding: '6px 8px', color: '#5A6478', textAlign: 'center', background: '#FAFAFC' }}>
+                      + {importRows.length - 20} more rows
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {lastBatchId && (
+              <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #E4E8EF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: '#5A6478' }}>
+                  Last imported batch: {lastBatchId}
+                </span>
+                <button
+                  className="ach-btn-secondary"
+                  style={{ color: '#A32A2A', borderColor: '#E8A0A0' }}
+                  onClick={async () => {
+                    const res = await reverseImportBatch(supabase, lastBatchId);
+                    if (res.success) {
+                      showToast('Import batch removed.');
+                      setLastBatchId(null);
+                      const { data: refreshed } = await fetchActions(supabase);
+                      if (refreshed) setActions(refreshed);
+                    } else {
+                      showToast(`Could not reverse batch: ${res.error || 'Server error'}`);
+                    }
+                  }}
+                >
+                  Undo import batch
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
