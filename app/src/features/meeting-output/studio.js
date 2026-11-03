@@ -169,6 +169,7 @@ export function mountMeetingStudio(root, opts = {}) {
     outline: [],
     draftingMethod: opts.draftingMethod || null,
     draftingReason: null,
+    docView: 'chronological',
   };
   const CAN_FILE = opts.canFile !== false;
   const CAN_DRAFT_EMAIL = opts.canDraftEmail !== false;
@@ -798,7 +799,7 @@ export function mountMeetingStudio(root, opts = {}) {
           const count = Ac.filter((a) => a.stage === st).length;
           const isCur = idx === 0;
           const hasGate = m.gates?.some((g) => g.stage === st);
-          return `<div class="stage-ribbon-item ${isCur ? 'cur ' : ''}${hasGate ? 'g' : ''}" style="flex:0 0 auto;min-width:105px;background:${isCur ? 'var(--navy)' : 'var(--light)'};border-radius:6px;padding:8px 10px;text-align:center;color:${isCur ? '#C9D0DC' : 'var(--slate)'};border-bottom:4px solid ${hasGate ? 'var(--gold)' : '#C9D0DC'}"><b style="display:block;font:700 16px Poppins,Arial;color:${isCur ? '#fff' : 'var(--navy)'}">${count}</b><span style="font-size:11px">${esc(st.split(' ')[0] + ' ' + (st.split(' ')[1] || ''))}</span></div>`;
+          return `<div class="stage-ribbon-item ${isCur ? 'cur ' : ''}${hasGate ? 'g' : ''}" data-stage-idx="${idx}" style="cursor:pointer;flex:0 0 auto;min-width:105px;background:${isCur ? 'var(--navy)' : 'var(--light)'};border-radius:6px;padding:8px 10px;text-align:center;color:${isCur ? '#C9D0DC' : 'var(--slate)'};border-bottom:4px solid ${hasGate ? 'var(--gold)' : '#C9D0DC'}"><b style="display:block;font:700 16px Poppins,Arial;color:${isCur ? '#fff' : 'var(--navy)'}">${count}</b><span style="font-size:11px">${esc(st.split(' ')[0] + ' ' + (st.split(' ')[1] || ''))}</span></div>`;
         }).join('')}
       </div>
       <div class="stage-ribbon-mobile" style="margin-top:12px">
@@ -814,11 +815,20 @@ export function mountMeetingStudio(root, opts = {}) {
 
     if (hasHorizons) {
       b.push({
+        html: `<div class="doc-view-switcher" style="display:inline-flex;gap:4px;background:var(--light);border-radius:6px;padding:3px;margin:12px 0 16px;border:1px solid var(--rule)">
+          <button class="btn sm ${S.docView !== 'horizon' ? 'navy' : ''}" data-act="set-doc-view" data-val="chronological" style="padding:4px 10px;font-size:12px;font-weight:600">Chronological schedule</button>
+          <button class="btn sm ${S.docView === 'horizon' ? 'navy' : ''}" data-act="set-doc-view" data-val="horizon" style="padding:4px 10px;font-size:12px;font-weight:600">Horizon (Now, Next, Later)</button>
+        </div>`,
+      });
+    }
+
+    if (hasHorizons && S.docView === 'horizon') {
+      b.push({
         html: H(1, 'Horizons', 'The same Now, Next, Later split the plan uses, with the action count in each.', 'horizons') +
           `<div class="hz" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-            <div class="now" style="border:1px solid var(--navy);border-radius:10px;padding:16px;box-shadow:inset 0 4px 0 var(--navy)"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Now · Days 1 to 90</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nowCount}</b><span style="font-size:13px;color:var(--slate)">Safe to sell: stages 1 to 4</span></div>
-            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Next · Months 4 to 12</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nextCount}</b><span style="font-size:13px;color:var(--slate)">Worth paying for: stages 5 and 6</span></div>
-            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Later · Year 2 onward</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${laterCount}</b><span style="font-size:13px;color:var(--slate)">Worth expanding: stages 7 to 9</span></div>
+            <div class="now" style="border:1px solid var(--navy);border-radius:10px;padding:16px;box-shadow:inset 0 4px 0 var(--navy)"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Now · Within 30 days</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nowCount}</b><span style="font-size:13px;color:var(--slate)">Immediate priority actions</span></div>
+            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Next · 30 to 90 days</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nextCount}</b><span style="font-size:13px;color:var(--slate)">Secondary delivery window</span></div>
+            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Later · Beyond 90 days</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${laterCount}</b><span style="font-size:13px;color:var(--slate)">Longer term milestones</span></div>
           </div>${ribbonHtml}`,
         keepNext: true,
       });
@@ -829,7 +839,7 @@ export function mountMeetingStudio(root, opts = {}) {
       });
     }
 
-    const scheduleRows = Ac.map((a) => {
+    const renderRow = (a) => {
       const dueNote = a.dueBasis === 'stated' && a.dueRaw ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px">Stated: ${esc(a.dueRaw)}</small>` : a.dueBasis === 'stage_end' ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px;font-style:italic">Inherited from stage end</small>` : '';
       const ownerPill = a.owner && a.owner !== 'Under review' && a.owner !== 'Unassigned'
         ? esc(a.owner)
@@ -844,16 +854,46 @@ export function mountMeetingStudio(root, opts = {}) {
         <td>${duePill}</td>
         <td>${a.doneWhen || a.doneDefinition ? esc(a.doneWhen || a.doneDefinition) : '<span class="miss">Not stated</span>'}</td>
       </tr>`;
-    });
+    };
 
-    b.push({
-      type: 'table',
-      label: 'Action schedule',
-      pre: H(2, 'Action schedule', 'Task, owner, due date, definition of done and source. Blank fields were not stated in the document.', 'schedule'),
-      head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
-      rows: scheduleRows,
-      empty: 'No actions were recorded.',
-    });
+    if (S.docView !== 'horizon' && stages.length > 0) {
+      b.push({
+        html: H(2, 'Action schedule', 'Grouped chronologically by stage. Blank fields were not stated in the document.', 'schedule'),
+        keepNext: true,
+      });
+      stages.forEach((st, sIdx) => {
+        const stActions = Ac.filter((a) => a.stage === st);
+        if (!stActions.length) return;
+        b.push({
+          type: 'table',
+          label: st,
+          pre: `<div id="stage-sec-${sIdx}" style="font:600 15px Poppins,Arial;color:var(--navy);margin:18px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between"><span>${esc(st)}</span><span style="font-size:12px;color:var(--slate);font-weight:400">${stActions.length} ${plural(stActions.length, 'action')}</span></div>`,
+          head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
+          rows: stActions.map(renderRow),
+          empty: 'No actions for this stage.',
+        });
+      });
+      const unassignedStageAc = Ac.filter((a) => !a.stage);
+      if (unassignedStageAc.length > 0) {
+        b.push({
+          type: 'table',
+          label: 'Other actions',
+          pre: `<div style="font:600 15px Poppins,Arial;color:var(--navy);margin:18px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--rule)">Other actions</div>`,
+          head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
+          rows: unassignedStageAc.map(renderRow),
+          empty: 'No actions.',
+        });
+      }
+    } else {
+      b.push({
+        type: 'table',
+        label: 'Action schedule',
+        pre: H(2, 'Action schedule', 'Task, owner, due date, definition of done and source. Blank fields were not stated in the document.', 'schedule'),
+        head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
+        rows: Ac.map(renderRow),
+        empty: 'No actions were recorded.',
+      });
+    }
 
     b.push({
       html: `<div class="note" style="background:var(--amberbg);border-radius:8px;padding:12px 16px;font-size:13px;margin:12px 0 24px">Evidence class for every row: <b>Planned in source</b>. A plan is not a meeting, so nothing here is Confirmed until a person reviews it.</div>`,
@@ -902,15 +942,16 @@ export function mountMeetingStudio(root, opts = {}) {
     };
     const exclList = m.excludedItems && m.excludedItems.length > 0 ? `<br>${m.excludedItems.length} sentence was excluded because it describes a purpose and commits no one to anything:<div style="margin:8px 0;padding:8px 12px;background:#fff;border-radius:4px;border-left:3px solid var(--gold)"><q style="font-style:italic;color:var(--slate)">${esc(m.excludedItems[0].text)}</q></div>It sits in the review list as Not an action, so a person can overrule it.` : '';
     const attnMsg = cov.needsAttention > 0
-      ? `<div style="color:var(--red);font-weight:600;margin-top:8px">${cov.needsAttention} candidate items need attention (neither extracted nor explicitly excluded).</div>`
+      ? `<div style="color:var(--red);font-weight:600;margin-top:8px">${cov.needsAttention} candidate ${plural(cov.needsAttention, 'item needs', 'items need')} attention (neither extracted nor explicitly excluded).</div>`
       : '';
     b.push({
       html: H(5, 'Coverage check', 'What the extraction read, and what it left out on purpose.', 'coverage') +
         `<div class="excl" style="background:var(--light);border-radius:8px;padding:14px 18px;margin-top:10px;font-size:13.5px"><b>${cov.candidates} lines marked as a candidate in the source. ${cov.extracted} became actions. ${cov.excluded} excluded with reason. ${cov.needsAttention} left unresolved.</b>${attnMsg}${exclList}</div>`,
     });
 
+    const attnFoot = cov.needsAttention > 0 ? ` ${cov.needsAttention} candidate ${plural(cov.needsAttention, 'item needs', 'items need')} attention.` : '';
     b.push({
-      html: `<div class="fineprint">Prepared with Concludo from the source listed above. Draft: ${plural(Ac.length, 'item has', 'items have')} not yet been confirmed by a person. The count matches the registers on this page. Where the document did not state an owner, a date or a definition of done, the record says so. Risk ratings and meeting measures are indicative and meeting level only: Concludo does not score individuals.</div>`,
+      html: `<div class="fineprint">Prepared with Concludo from the source listed above. Draft: ${plural(Ac.length, 'item has', 'items have')} not yet been confirmed by a person. The count matches the registers on this page.${attnFoot} Where the document did not state an owner, a date or a definition of done, the record says so. Risk ratings and meeting measures are indicative and meeting level only: Concludo does not score individuals.</div>`,
     });
 
     return { kind: 'Action plan · Now, next, later', blocks: b };
@@ -1658,6 +1699,13 @@ export function mountMeetingStudio(root, opts = {}) {
     }
 
     if (act === 'set-deck-aud') { S.deckAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
+    if (act === 'set-doc-view') { S.docView = t.dataset.val === 'horizon' ? 'horizon' : 'chronological'; buildDocument(); }
+    const ribbonItem = t.closest && t.closest('.stage-ribbon-item[data-stage-idx]');
+    if (ribbonItem) {
+      const idx = ribbonItem.dataset.stageIdx;
+      const targetEl = root.querySelector(`#stage-sec-${idx}`);
+      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     if (act === 'toggle-deck-quotes') { S.deckQuotes = t.checked; buildDocument(); }
     if (act === 'toggle-deck-prep') { S.deckPreparedWith = t.checked; buildDocument(); }
     if (act === 'set-deck-fonts') { S.deckFonts = t.value; buildDocument(); }
@@ -1730,6 +1778,12 @@ export function mountMeetingStudio(root, opts = {}) {
   }
   on(root, 'change', (ev) => {
     const t = ev.target;
+    if (t.classList && t.classList.contains('stage-select-mobile')) {
+      const idx = t.value;
+      const targetEl = root.querySelector(`#stage-sec-${idx}`);
+      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     if (t.dataset.act === 'override-source-type') {
       const newType = t.value;
       const srcs = allSources();
@@ -1813,27 +1867,64 @@ export function mountMeetingStudio(root, opts = {}) {
     try { projects = opts.listProjects ? await opts.listProjects() : []; } catch (e) { projects = []; }
     const unowned = m.actions.filter((a) => a.review !== 'excluded' && !a.owner);
     const proposed = [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].filter((x) => x.review === 'proposed').length;
+    const defaultIsNew = opts.defaultSaveMode === 'new' || !projects.length;
     div.querySelector('.modal').innerHTML = `<div class="mh"><h2 style="font-size:16px">Save to project</h2><button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button></div>
       <div class="mb">
-        <div class="chipset"><button class="chip ${opts.defaultSaveMode !== 'new' && projects.length ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${opts.defaultSaveMode === 'new' || !projects.length ? 'on' : ''}" data-savemode="new">New project</button></div>
-        <div class="field" data-pane="existing" ${opts.defaultSaveMode !== 'new' && projects.length ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
-        <div data-pane="new" ${opts.defaultSaveMode === 'new' || !projects.length ? '' : 'hidden'}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
+        <div class="chipset"><button class="chip ${!defaultIsNew ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${defaultIsNew ? 'on' : ''}" data-savemode="new">${ic('save')}<span>Save New Project</span></button></div>
+        <div class="field" data-pane="existing" ${!defaultIsNew ? '' : 'hidden'} style="${!defaultIsNew ? '' : 'display:none;'}"><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
+        <div data-pane="new" ${defaultIsNew ? '' : 'hidden'} style="${defaultIsNew ? '' : 'display:none;'}"><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title || '')}" placeholder="Enter project title"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}" placeholder="Client or company name"></div></div>
         <div class="mini-stats" style="margin:0"><div><b>${m.stats.decisions}</b><span>to Decision memory</span></div><div><b>${m.stats.actions}</b><span>to the Action tracker</span></div><div><b>${m.sources.length}</b><span>source files</span></div><div><b>4</b><span>outputs</span></div></div>
         ${unowned.length ? `<div class="warn" style="margin:0">${ic('alert')}<span>${plural(unowned.length, 'action has', 'actions have')} no owner (${unowned.map((a) => a.id).join(', ')}). ${unowned.length === 1 ? 'It' : 'They'} will be saved as unassigned, not given a placeholder name. <a href="#" data-go="2">Name an owner first</a></span></div>` : ''}
         ${proposed ? `<div class="note" style="margin:0">${plural(proposed, 'item is', 'items are')} not yet confirmed. Saving keeps everything you have not excluded.</div>` : ''}
-        <div class="err" data-save-err hidden></div>
+        <div class="err" data-save-err hidden style="display:none;"></div>
       </div>
-      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save">${ic('save')}Save record</button></div>`;
+      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save" id="cmo-save-btn">${ic('save')}<span id="cmo-save-btn-text">${defaultIsNew ? 'Save New Project' : 'Save to Project'}</span></button></div>`;
     div.querySelectorAll('[data-savemode]').forEach((b) => b.addEventListener('click', () => {
+      const isAlreadyOn = b.classList.contains('on');
+      const mode = b.dataset.savemode;
       div.querySelectorAll('[data-savemode]').forEach((x) => x.classList.toggle('on', x === b));
-      div.querySelectorAll('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.savemode));
+      div.querySelectorAll('[data-pane]').forEach((p) => {
+        const matches = p.dataset.pane === mode;
+        if (matches) {
+          p.removeAttribute('hidden');
+          p.style.display = '';
+        } else {
+          p.setAttribute('hidden', '');
+          p.style.display = 'none';
+        }
+      });
+      const saveBtnText = div.querySelector('#cmo-save-btn-text');
+      if (saveBtnText) {
+        saveBtnText.textContent = mode === 'new' ? 'Save New Project' : 'Save to Project';
+      }
+    }));
+    div.querySelectorAll('#cmo-ptitle, #cmo-pclient').forEach((inp) => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const btn = div.querySelector('[data-act="do-save"]');
+          if (btn && !btn.disabled) doSave(btn);
+        }
+      });
+    });
+    const saveBtn = div.querySelector('[data-act="do-save"]');
+    if (saveBtn) saveBtn.addEventListener('click', () => doSave(saveBtn));
+    div.querySelectorAll('[data-act="close"]').forEach((b) => b.addEventListener('click', () => div.remove()));
+    div.querySelectorAll('[data-go]').forEach((a) => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      div.remove();
+      S.step = parseInt(a.dataset.go, 10);
+      render();
     }));
   }
   async function doSave(btn) {
     const div = root.querySelector('.modal-bg');
+    if (!div) return;
     const mode = div.querySelector('[data-savemode].on')?.dataset.savemode || 'new';
-    const target = mode === 'existing' ? { mode, projectId: div.querySelector('#cmo-proj').value } : { mode, title: div.querySelector('#cmo-ptitle').value.trim(), client: div.querySelector('#cmo-pclient').value.trim() };
-    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); e.hidden = false; e.textContent = 'Give the new project a title.'; return; }
+    const target = mode === 'existing'
+      ? { mode, projectId: div.querySelector('#cmo-proj')?.value }
+      : { mode, title: ((div.querySelector('#cmo-ptitle')?.value) || S.model?.meta?.title || 'Meeting Project').trim(), client: ((div.querySelector('#cmo-pclient')?.value) || S.model?.meta?.organisation || '').trim() };
+    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); if (e) { e.hidden = false; e.style.display = 'block'; e.textContent = 'Give the new project a title.'; } return; }
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
@@ -1843,10 +1934,10 @@ export function mountMeetingStudio(root, opts = {}) {
       if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 700);
     } catch (e) {
       const el = div.querySelector('[data-save-err]');
-      el.hidden = false;
-      el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.';
+      if (el) { el.hidden = false; el.style.display = 'block'; el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.'; }
       btn.disabled = false;
-      btn.innerHTML = `${ic('save')}Save record`;
+      const isNew = mode === 'new';
+      btn.innerHTML = `${ic('save')}<span>${isNew ? 'Save New Project' : 'Save to Project'}</span>`;
     }
   }
   async function copy(text) {

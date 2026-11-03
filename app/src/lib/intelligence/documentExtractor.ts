@@ -28,6 +28,65 @@ const WHOLE_MONTHS: Record<string, string> = {
   december: '12', dec: '12',
 };
 
+const COMMON_ACTION_VERBS = new Set([
+  'accept', 'acquire', 'action', 'activate', 'add', 'address', 'adjust', 'advise', 'allocate',
+  'analyse', 'analyze', 'apply', 'appoint', 'appraise', 'approve', 'arrange', 'assemble',
+  'assess', 'assign', 'assist', 'attach', 'audit', 'author', 'authorise', 'authorize',
+  'automate', 'backup', 'balance', 'benchmark', 'block', 'book', 'brief', 'build',
+  'calculate', 'calibrate', 'cancel', 'capture', 'categorise', 'categorize', 'certify',
+  'check', 'circulate', 'clarify', 'clean', 'cleanup', 'clear', 'close', 'coach',
+  'collect', 'combine', 'communicate', 'compare', 'compile', 'complete', 'comply',
+  'compose', 'compute', 'conduct', 'configure', 'confirm', 'connect', 'consolidate',
+  'construct', 'consult', 'contact', 'coordinate', 'copy', 'correct', 'counsel',
+  'create', 'customize', 'customise', 'debug', 'decide', 'define', 'delegate',
+  'delete', 'deliver', 'demonstrate', 'deploy', 'design', 'determine', 'develop',
+  'devise', 'diagnose', 'direct', 'disable', 'disclose', 'dispatch', 'distribute',
+  'document', 'download', 'draft', 'edit', 'eliminate', 'enable', 'engage', 'enforce',
+  'engineer', 'enhance', 'enquire', 'enroll', 'enrol', 'ensure', 'enter', 'equip',
+  'escalate', 'establish', 'estimate', 'evaluate', 'examine', 'execute', 'expand',
+  'expedite', 'explain', 'explore', 'export', 'extract', 'facilitate', 'finalize',
+  'finalise', 'find', 'fix', 'follow', 'forecast', 'formulate', 'forward', 'freeze',
+  'fulfill', 'fulfil', 'gather', 'generate', 'get', 'give', 'guide', 'handle',
+  'hire', 'hold', 'host', 'identify', 'implement', 'import', 'improve', 'index',
+  'inform', 'initiate', 'inspect', 'install', 'instruct', 'integrate', 'interview',
+  'introduce', 'investigate', 'issue', 'join', 'launch', 'lead', 'lease', 'liaise',
+  'license', 'licence', 'link', 'list', 'load', 'locate', 'lodge', 'log', 'maintain',
+  'manage', 'map', 'measure', 'meet', 'merge', 'migrate', 'mitigate', 'modify',
+  'monitor', 'move', 'negotiate', 'notify', 'obtain', 'open', 'operate', 'optimise',
+  'optimize', 'order', 'organise', 'organize', 'outsource', 'oversee', 'package',
+  'participate', 'perform', 'pilot', 'plan', 'post', 'prepare', 'present', 'print',
+  'prioritise', 'prioritize', 'process', 'procure', 'produce', 'programme', 'program',
+  'promote', 'propose', 'provide', 'publish', 'purchase', 'purge', 'qualify', 're-run',
+  'read', 'reassess', 'reconcile', 'record', 'recover', 'recruit', 'redesign', 'reduce',
+  'refactor', 'refer', 'refine', 'register', 'regulate', 'reiterate', 'release',
+  'relocate', 'remediate', 'remove', 'render', 'renegotiate', 'reorganise', 'reorganize',
+  'repair', 'replace', 'replicate', 'report', 'request', 'reschedule', 'research',
+  'reset', 'resolve', 'respond', 'restore', 'restructure', 'retain', 'retest',
+  'retrieve', 'review', 'revise', 'revoke', 'rework', 'rollout', 'route', 'run',
+  'safeguard', 'save', 'scale', 'scan', 'schedule', 'scope', 'screen', 'scrutinise',
+  'scrutinize', 'search', 'secure', 'select', 'send', 'separate', 'serve', 'service',
+  'set', 'setup', 'settle', 'share', 'ship', 'sign', 'simplify', 'simulate',
+  'solicit', 'solve', 'source', 'specify', 'split', 'stabilise', 'stabilize',
+  'staff', 'standardise', 'standardize', 'start', 'stop', 'streamline', 'structure',
+  'submit', 'supervise', 'supply', 'support', 'survey', 'switch', 'synchronise',
+  'synchronize', 'sync', 'synthesise', 'synthesize', 'systematise', 'systematize',
+  'table', 'target', 'test', 'track', 'train', 'transfer', 'transform', 'transition',
+  'translate', 'transmit', 'triage', 'trigger', 'tune', 'unblock', 'unify', 'uninstall',
+  'unlink', 'unlock', 'update', 'upgrade', 'upload', 'use', 'validate', 'verify',
+  'vet', 'view', 'visit', 'warn', 'wire', 'withdraw', 'withhold', 'witness', 'write',
+]);
+
+export function isVerbLed(text: string): boolean {
+  const clean = text.trim();
+  if (!clean) return false;
+  const firstWord = clean.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, '');
+  if (!firstWord) return false;
+  if (COMMON_ACTION_VERBS.has(firstWord)) return true;
+  if (firstWord.endsWith('ing') && COMMON_ACTION_VERBS.has(firstWord.slice(0, -3))) return true;
+  if (firstWord.endsWith('ed') && COMMON_ACTION_VERBS.has(firstWord.slice(0, -2))) return true;
+  return false;
+}
+
 const MONTH_WORD_REGEX = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/i;
 
 export function matchWholeMonth(str: string): { monthNum: string; raw: string } | null {
@@ -50,7 +109,7 @@ export function stripReasonClause(text: string): string {
 }
 
 const GROUP_OWNERS = new Set([
-  'team', 'all staff', 'we', 'everyone', 'board', 'committee', 'department', 'practice team', 'all'
+  'team', 'all staff', 'we', 'everyone', 'board', 'committee', 'department', 'all'
 ]);
 
 function parseIso(iso: string): Date {
@@ -190,6 +249,7 @@ export function isActionHeading(text: string): boolean {
 
 export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaInput = {}): MeetingModel {
   const fullText = inputs.map((s) => s.text).join('\n');
+  const lines = fullText.split(/\r?\n/);
   const sourceName = inputs[0]?.name || 'Document';
 
   // 1. Day 1 Anchor
@@ -218,7 +278,8 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     }
   }
   if (!docDate) {
-    const dM = fullText.match(/\b(\d{1,2}\s+[A-Za-z]+\s+\d{4})\b/);
+    const headerBlock = lines.slice(0, 20).join('\n');
+    const dM = headerBlock.match(/\b(?:dated|date|effective|published|prepared|held)?\s*[:·,]?\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})\b/i);
     if (dM) {
       const parts = dM[1].split(/\s+/);
       const d = parseInt(parts[0], 10);
@@ -246,14 +307,19 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     docTitle = sourceName.replace(/\.[^.]+$/, '');
   }
 
-  const lines = fullText.split(/\r?\n/);
 
   // Fix 3: Count candidates independently before extraction
-  let candidateCount = 0;
+  interface RawCandidate {
+    lineNum: number;
+    text: string;
+    kind: 'checkbox' | 'list_item' | 'table_row' | 'prose_commitment';
+  }
+  const rawCandidates: RawCandidate[] = [];
   let inActionSecCount = false;
   let inTableCount = false;
 
-  lines.forEach((line) => {
+  lines.forEach((line, idx) => {
+    const lineNum = idx + 1;
     const cl = line.trim();
     if (!cl) return;
 
@@ -271,7 +337,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
       }
       if (inTableCount) {
         if (cells.every((c) => c.replace(/-/g, '').trim() === '')) return; // separator
-        candidateCount++;
+        rawCandidates.push({ lineNum, text: cl, kind: 'table_row' });
         return;
       }
     } else {
@@ -280,13 +346,13 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
 
     // Checkbox lines
     if (/[☐☑]|\[\s*\]|\[x\]/i.test(cl)) {
-      candidateCount++;
+      rawCandidates.push({ lineNum, text: cl, kind: 'checkbox' });
       return;
     }
 
     // Plain list items under action heading (Fix 2 & 9)
     if (inActionSecCount && /^(?:[-*•]|\d+[\.)])\s+/.test(cl)) {
-      candidateCount++;
+      rawCandidates.push({ lineNum, text: cl, kind: 'list_item' });
       return;
     }
 
@@ -298,7 +364,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
         const isInanimate = /^(?:The|This|Our|Its|A|An|Every|Each)\s+/i.test(subj) ||
           /^(?:policy|document|statement|review|section|plan|team|board|committee|organisation|organization|company|department|group|all\s+staff)$/i.test(subj);
         if (!isInanimate) {
-          candidateCount++;
+          rawCandidates.push({ lineNum, text: cl, kind: 'prose_commitment' });
         }
       }
     }
@@ -307,6 +373,8 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
   const actions: Action[] = [];
   const excludedItems: ExcludedItem[] = [];
   const gates: GateRecord[] = [];
+  const extractedCandidateLines = new Set<number>();
+  const excludedCandidateLines = new Set<number>();
 
   let currentStageName: string | undefined;
   let currentStageEnd: string | null = null;
@@ -374,7 +442,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     // General structural rules based on heading context, grammatical tense, and modality
     const isPurePurposeSentence = (
       /^(?:(?:The|Our|Its|This|Each)\s+)?(?:[a-z\s]+'s\s+)?(?:(?:primary|main|key|stated|overall)\s+)?(?:goal|purpose|aim|objective|intent|principle|mission)\b(?:\s+of\s+[A-Za-z\s]+?)?\s+(?:is|was)\s+(?:to|for)\b/i.test(cleanLine) ||
-      /^Each\s+[a-z\s]+\s+has\s+a\s+(?:job|purpose|goal|role|mission|mitigation)\b/i.test(cleanLine) ||
+      /^Each\s+[a-z\s]+\s+has\s+a\s+(?:job|purpose|goal|role|mission|aim|objective)\b/i.test(cleanLine) ||
       /^(?:The\s+aim\s+is\s+to|The\s+goal\s+is\s+to|Its\s+purpose\s+is\s+to|The\s+purpose\s+(?:of\s+[^is]+)?is\s+to)\b/i.test(cleanLine) ||
       /^(?:In\s+order\s+to\s+[^,]+,\s*(?:the|this|all|our|we)\b)/i.test(cleanLine) ||
       /\b(?:is|are)\s+(?:intended|designed)\s+to\s+(?:reinforce|confirm|ensure|provide|support|guide)\b/i.test(cleanLine)
@@ -395,6 +463,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
         reason: isPurePurposeSentence ? 'purpose clause' : isOpenGapSentence ? 'unassigned gap' : 'policy description',
         sourceLine: lineNum,
       });
+      excludedCandidateLines.add(lineNum);
       return;
     }
 
@@ -465,6 +534,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
         sourceLine: lineNum,
         sourceQuote: cleanLine,
       });
+      extractedCandidateLines.add(lineNum);
       return;
     }
 
@@ -493,6 +563,8 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
           dueBasis = 'stage_end';
         }
 
+        // D2.2: Line is an action candidate when it begins with a verb
+        if (isVerbLed(taskText)) {
         actions.push({
           id: `X${String(actions.length + 1).padStart(2, '0')}`,
           task: stripReasonClause(taskText),
@@ -524,6 +596,22 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
           sourceLine: lineNum,
           sourceQuote: cleanLine,
         });
+        extractedCandidateLines.add(lineNum);
+        return;
+        }
+
+        // If not verb-led, check if it's an explicit purpose clause exclusion
+        if (isPurePurposeSentence || isPassiveDescriptiveSentence) {
+          excludedItems.push({
+            text: taskText,
+            reason: isPurePurposeSentence ? 'purpose clause' : 'policy description',
+            sourceLine: lineNum,
+          });
+          excludedCandidateLines.add(lineNum);
+          return;
+        }
+        // Otherwise, it was counted in rawCandidates, but is neither extracted nor excluded:
+        // It stays unresolved, so needsAttention will count it!
         return;
       }
     }
@@ -601,6 +689,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
               sourceLine: lineNum,
               sourceQuote: cleanLine,
             });
+            extractedCandidateLines.add(lineNum);
             return;
           }
         }
@@ -620,6 +709,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
           /^(?:policy|document|statement|review|section|plan|team|board|committee|organisation|organization|company|department|group|all\s+staff)$/i.test(person);
         if (!isInanimate) {
           let fullTask = `${verb} ${rest}`.replace(/\.\s*$/, '');
+          fullTask = stripReasonClause(fullTask);
           let dueDate: string | undefined;
           let dueRaw: string | undefined;
           let dueBasis: 'stated' | 'stage_end' | 'none' | null = null;
@@ -667,6 +757,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
             sourceLine: lineNum,
             sourceQuote: cleanLine,
           });
+          extractedCandidateLines.add(lineNum);
         }
       }
     }
@@ -711,11 +802,23 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
   }
 
   // Fix 3: Independent Candidate Reconciliation
-  const extractedCount = actions.length;
-  const excludedCount = excludedItems.length;
-  const independentCandidates = Math.max(candidateCount, extractedCount);
-  const needsAttention = Math.max(0, independentCandidates - extractedCount);
-  const totalCandidates = extractedCount + excludedCount + needsAttention;
+  const extractedCandidates = rawCandidates.filter((c) => extractedCandidateLines.has(c.lineNum));
+  const excludedCandidates = rawCandidates.filter((c) => excludedCandidateLines.has(c.lineNum));
+  const unresolvedCandidates = rawCandidates.filter(
+    (c) => !extractedCandidateLines.has(c.lineNum) && !excludedCandidateLines.has(c.lineNum)
+  );
+
+  const totalCandidates = rawCandidates.length;
+  const extractedCount = extractedCandidates.length;
+  const totalExcluded = excludedCandidates.length;
+  const needsAttention = unresolvedCandidates.length;
+  const unresolved = unresolvedCandidates.map((c) => `Line ${c.lineNum}: ${c.text}`);
+
+  const flags: string[] = [];
+  if (needsAttention > 0) {
+    flags.push('coverage_gap');
+    flags.push(`Coverage gap: ${needsAttention} candidate item(s) need attention.`);
+  }
 
   const model: MeetingModel = {
     version: '2.0',
@@ -768,11 +871,12 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     coverage: {
       candidates: totalCandidates,
       extracted: extractedCount,
-      excluded: excludedCount,
+      excluded: totalExcluded,
       needsAttention,
-      unresolved: [],
+      unresolved,
     },
     nextMeeting,
+    flags,
   };
 
   return model;
@@ -814,7 +918,13 @@ export function toDocumentModeRecord(m: MeetingModel) {
       reason: e.reason,
       source_line: e.sourceLine,
     })),
-    coverage: m.coverage || {
+    coverage: m.coverage ? {
+      candidates: m.coverage.candidates,
+      extracted: m.coverage.extracted,
+      excluded: m.coverage.excluded,
+      needs_attention: m.coverage.needsAttention,
+      unresolved: m.coverage.unresolved,
+    } : {
       candidates: m.actions.length,
       extracted: m.actions.length,
       excluded: m.excludedItems ? m.excludedItems.length : 0,

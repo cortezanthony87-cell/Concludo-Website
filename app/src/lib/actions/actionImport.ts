@@ -122,7 +122,7 @@ export async function importActionBatch(
 
   // Record batch
   try {
-    await supabase.from('import_batches').insert({
+    const { error: batchErr } = await supabase.from('import_batches').insert({
       id: batchId,
       user_id: userId,
       project_id: projectId || null,
@@ -131,6 +131,12 @@ export async function importActionBatch(
       row_count: rows.length,
       created_at: new Date().toISOString(),
     });
+    if (batchErr) {
+      console.warn('Could not insert import_batches record:', batchErr);
+      if (batchErr.code && batchErr.code !== '42P01') {
+        return { success: false, batchId, count: 0, error: `Batch creation failed: ${batchErr.message}` };
+      }
+    }
   } catch (err) {
     console.warn('Could not insert import_batches record (migration may be pending):', err);
   }
@@ -173,6 +179,9 @@ export async function importActionBatch(
 
   const { error } = await supabase.from('action_tracker').insert(recordsToInsert);
   if (error) {
+    try {
+      await supabase.from('import_batches').delete().eq('id', batchId);
+    } catch {}
     return { success: false, batchId, count: 0, error: error.message };
   }
   return { success: true, batchId, count: recordsToInsert.length, warning };

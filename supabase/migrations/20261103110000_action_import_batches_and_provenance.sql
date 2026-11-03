@@ -46,7 +46,9 @@ ALTER TABLE public.action_tracker
   ADD COLUMN IF NOT EXISTS origin public.action_origin DEFAULT 'stated_in_plan',
   ADD COLUMN IF NOT EXISTS source_line integer NULL,
   ADD COLUMN IF NOT EXISTS provenance jsonb NULL,
+  ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone NULL,
   ADD COLUMN IF NOT EXISTS deleted_by uuid NULL,
-  ADD COLUMN IF NOT EXISTS deleted_reason text NULL;
+  ADD COLUMN IF NOT EXISTS deleted_reason text NULL,
+  ADD COLUMN IF NOT EXISTS purge_after timestamp with time zone NULL;
 
 CREATE INDEX IF NOT EXISTS idx_action_tracker_batch ON public.action_tracker(batch_id) WHERE batch_id IS NOT NULL;

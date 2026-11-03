@@ -24,6 +24,8 @@ import {
   importActionBatch,
   reverseImportBatch,
   restoreImportBatch,
+  computeContentHash,
+  checkDuplicateBatch,
   ImportedActionRow,
 } from '../../lib/actions/actionImport';
 import '../../styles/action-hub.css';
@@ -1436,6 +1438,19 @@ export const ActionHubPage: React.FC = () => {
                       setImportRawCsv(txt);
                       const parsed = parseActionRegisterCsv(txt);
                       setImportRows(parsed);
+                      if (user?.id) {
+                        computeContentHash(txt).then((hash) => {
+                          checkDuplicateBatch(supabase, user.id, hash).then((dup) => {
+                            if (dup.isDuplicate) {
+                              setDuplicateWarning(
+                                `A batch with this exact CSV content was already imported on ${new Date(
+                                  dup.importedAt || ''
+                                ).toLocaleDateString('en-AU')}. Re-importing may create duplicate actions.`
+                              );
+                            }
+                          });
+                        });
+                      }
                     }
                   };
                   r.readAsText(f);

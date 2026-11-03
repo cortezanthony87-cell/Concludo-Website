@@ -169,7 +169,7 @@ describe('Document Mode Action Extraction (D1 - D6 Independent Unit Tests)', () 
     const cov = m.coverage;
     expect(cov).toBeDefined();
     expect(cov!.extracted).toBe(2);
-    expect(cov!.excluded).toBe(1);
+    expect(cov!.excluded).toBe(0);
     expect(cov!.candidates).toBe(cov!.extracted + cov!.excluded + cov!.needsAttention);
     expect(cov!.unresolved.length).toBe(0);
 
@@ -266,7 +266,11 @@ describe('Document Mode Action Extraction (D1 - D6 Independent Unit Tests)', () 
     const m = analyseMeeting([{ name: 'roadmap.md', kind: 'document', text }]);
     expect(m.coverage).toBeDefined();
     expect(m.coverage!.candidates).toBe(3);
-    expect(m.coverage!.extracted).toBe(3); // All 3 list items extracted under action heading
+    expect(m.coverage!.extracted).toBe(2);
+    expect(m.coverage!.needsAttention).toBe(1);
+    expect(m.coverage!.unresolved.length).toBe(1);
+    expect(m.coverage!.unresolved[0]).toContain('General note');
+    expect(m.flags).toContain('coverage_gap');
   });
 
   it('Multi-stage scaling: extracts 2, 6, and 12 stages accurately', () => {

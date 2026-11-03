@@ -775,8 +775,8 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     });
   });
 
-  const meetingDate = metaIn.meetingDate || header.date || '';
-  if (!metaIn.meetingDate && !header.date) warnings.push('Meeting date not found in the source: confirm it before circulating.');
+  const meetingDate = metaIn.meetingDate || header.date || todayIso();
+  if (!metaIn.meetingDate && !header.date) warnings.push('Meeting date not found in the source. Today’s date was used: confirm it before circulating.');
 
   /* participants: attendee list first, then any speaker not already listed */
   const participants: Participant[] = [];
@@ -1321,7 +1321,7 @@ export function refresh(m: MeetingModel): MeetingModel {
   m.actions.forEach((a) => {
     a.gaps = [];
     a.horizon = 'undated';
-    if (a.due) {
+    if (a.due && m.meta?.meetingDate) {
       const days = daysBetween(m.meta.meetingDate, a.due);
       a.horizon = days <= 7 ? 'now' : days <= 30 ? 'next' : 'later';
     }
