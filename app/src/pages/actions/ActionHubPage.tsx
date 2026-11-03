@@ -23,6 +23,7 @@ import {
   parseActionRegisterCsv,
   importActionBatch,
   reverseImportBatch,
+  restoreImportBatch,
   ImportedActionRow,
 } from '../../lib/actions/actionImport';
 import '../../styles/action-hub.css';
@@ -59,7 +60,11 @@ export const ActionHubPage: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importRows, setImportRows] = useState<ImportedActionRow[]>([]);
   const [importing, setImporting] = useState(false);
+  const [importFileName, setImportFileName] = useState('');
+  const [importRawCsv, setImportRawCsv] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [lastBatchId, setLastBatchId] = useState<string | null>(null);
+  const [lastBatchUndone, setLastBatchUndone] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Create form state
@@ -1422,10 +1427,13 @@ export const ActionHubPage: React.FC = () => {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (!f) return;
+                  setImportFileName(f.name);
+                  setDuplicateWarning(null);
                   const r = new FileReader();
                   r.onload = (ev) => {
                     const txt = ev.target?.result as string;
                     if (txt) {
+                      setImportRawCsv(txt);
                       const parsed = parseActionRegisterCsv(txt);
                       setImportRows(parsed);
                     }
@@ -1434,6 +1442,12 @@ export const ActionHubPage: React.FC = () => {
                 }}
               />
             </div>
+
+            {duplicateWarning && (
+              <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#16263F' }}>
+                ⚠️ {duplicateWarning}
+              </div>
+            )}
 
             {importRows.length > 0 && (
               <div>
@@ -1448,12 +1462,15 @@ export const ActionHubPage: React.FC = () => {
                       if (!user?.id) return;
                       setImporting(true);
                       try {
-                        const res = await importActionBatch(supabase, user.id, importRows);
+                        const res = await importActionBatch(supabase, user.id, importRows, null, importFileName || 'action_plan.csv', importRawCsv);
                         if (res.success) {
                           setLastBatchId(res.batchId);
-                          showToast(`Imported ${res.count} actions successfully.`);
+                          setLastBatchUndone(false);
+                          showToast(res.warning || `Imported ${res.count} actions successfully.`);
                           setShowImportModal(false);
                           setImportRows([]);
+                          setImportRawCsv('');
+                          setImportFileName('');
                           // Reload actions
                           const { data: refreshed } = await fetchActions(supabase);
                           if (refreshed) setActions(refreshed);
@@ -1515,16 +1532,18 @@ export const ActionHubPage: React.FC = () => {
             {lastBatchId && (
               <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #E4E8EF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', color: '#5A6478' }}>
-                  Last imported batch: {lastBatchId}
+                  {lastBatchUndone ? 'Batch undone (soft-deleted)' : `Last imported batch: ${lastBatchId}`}
                 </span>
+                {!lastBatchUndone ? (
                 <button
                   className="ach-btn-secondary"
                   style={{ color: '#A32A2A', borderColor: '#E8A0A0' }}
                   onClick={async () => {
-                    const res = await reverseImportBatch(supabase, lastBatchId);
+                    if (!user?.id) return;
+                    const res = await reverseImportBatch(supabase, lastBatchId, user.id);
                     if (res.success) {
-                      showToast('Import batch removed.');
-                      setLastBatchId(null);
+                        showToast('Import batch undone.');
+                        setLastBatchUndone(true);
                       const { data: refreshed } = await fetchActions(supabase);
                       if (refreshed) setActions(refreshed);
                     } else {
@@ -1534,6 +1553,26 @@ export const ActionHubPage: React.FC = () => {
                 >
                   Undo import batch
                 </button>
+                ) : (
+                  <button
+                    className="ach-btn-secondary"
+                    style={{ color: '#16263F', borderColor: '#E2B53C' }}
+                    onClick={async () => {
+                      if (!user?.id) return;
+                      const res = await restoreImportBatch(supabase, lastBatchId, user.id);
+                      if (res.success) {
+                        showToast('Import batch restored.');
+                        setLastBatchUndone(false);
+                        const { data: refreshed } = await fetchActions(supabase);
+                        if (refreshed) setActions(refreshed);
+                      } else {
+                        showToast(`Could not restore batch: ${res.error || 'Server error'}`);
+                      }
+                    }}
+                  >
+                    Restore import batch
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -270,9 +270,11 @@ function daysBetween(a: string, b: string): number {
   return Math.round((parseIso(b).getTime() - parseIso(a).getTime()) / 86400000);
 }
 function monthIndex(word: string): number {
-  const w = word.toLowerCase();
-  if (w.length < 3) return -1;
-  return MONTHS.findIndex((m) => m.startsWith(w.slice(0, 3)) && m.startsWith(w.replace(/\.$/, '')));
+  const w = word.toLowerCase().replace(/\.$/, '');
+  const exact = MONTHS.indexOf(w);
+  if (exact !== -1) return exact;
+  const ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  return ABBR.indexOf(w === 'sept' ? 'sep' : w);
 }
 export function todayIso(): string {
   const d = new Date();
@@ -773,8 +775,8 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     });
   });
 
-  const meetingDate = metaIn.meetingDate || header.date || todayIso();
-  if (!metaIn.meetingDate && !header.date) warnings.push('Meeting date not found in the source. Today’s date was used: confirm it before circulating.');
+  const meetingDate = metaIn.meetingDate || header.date || '';
+  if (!metaIn.meetingDate && !header.date) warnings.push('Meeting date not found in the source: confirm it before circulating.');
 
   /* participants: attendee list first, then any speaker not already listed */
   const participants: Participant[] = [];

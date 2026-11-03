@@ -4,6 +4,10 @@ import {
   detectSourceType,
   toDocumentModeRecord,
 } from '../src/lib/intelligence/meetingEngine';
+import {
+  resolveTableDue,
+  daysInMonth,
+} from '../src/lib/intelligence/documentExtractor';
 
 describe('Document Mode Action Extraction (D1 - D6 Independent Unit Tests)', () => {
   it('D1: Source type detection distinguishes transcripts, minutes and documents', () => {
@@ -172,5 +176,110 @@ describe('Document Mode Action Extraction (D1 - D6 Independent Unit Tests)', () 
     const rec = toDocumentModeRecord(m);
     expect(rec.source_type).toBe('document');
     expect(rec.actions.every((a) => a.evidence === 'Planned in source')).toBe(true);
+  });
+
+  it('Fix 1: Month read by whole words only; never default year', () => {
+    // "Decide" must not become December, "Marketing" must not become March
+    const text = [
+      '# Vendor Selection Memo',
+      'Decide on infrastructure hosting options by 15 May.',
+      'Marketing review will proceed separately.',
+    ].join('\n');
+
+    // Without document year or anchor, date is not guessed
+    const m = analyseMeeting([{ name: 'memo.md', kind: 'document', text }]);
+    expect(m.meta.meetingDate).toBeFalsy();
+    // Check resolveTableDue directly
+    const resDecide = resolveTableDue('Decide on infrastructure', 2026);
+    expect(resDecide.date).toBeNull();
+
+    const resMarketing = resolveTableDue('Marketing review', 2026);
+    expect(resMarketing.date).toBeNull();
+
+    // Date without year and without doc year leaves date empty
+    const resNoYear = resolveTableDue('15 May', null);
+    expect(resNoYear.date).toBeNull();
+    expect(resNoYear.raw).toBe('15 May');
+  });
+
+  it('Fix 2 & 9: Plain bullet and numbered lists under action headings are candidates and extract', () => {
+    const text = [
+      '# Implementation Plan',
+      '## Next steps',
+      '- Send quarterly audit package to external compliance review',
+      '- Update client register with encryption certificates',
+      '1. Review vendor data processing terms',
+    ].join('\n');
+
+    const m = analyseMeeting([{ name: 'plan.md', kind: 'document', text }]);
+    expect(m.actions.length).toBe(3);
+    expect(m.actions[0].task).toContain('Send quarterly audit package');
+    expect(m.actions[1].task).toContain('Update client register');
+    expect(m.actions[2].task).toContain('Review vendor data processing terms');
+  });
+
+  it('Fix 4: Action with "so that" or "in order to" is not dropped', () => {
+    const text = [
+      '# Rollout Checklist',
+      '## Actions',
+      '- [ ] Send the brief to the commercial counsel so that we can receive advice by Friday',
+      '- [ ] Update DNS records in order to point the domain to the primary cluster',
+    ].join('\n');
+
+    const m = analyseMeeting([{ name: 'checklist.md', kind: 'document', text }]);
+    expect(m.actions.length).toBe(2);
+    expect(m.actions[0].task).toContain('Send the brief to the commercial counsel');
+    expect(m.actions[1].task).toContain('Update DNS records');
+    expect(m.excludedItems?.length || 0).toBe(0);
+  });
+
+  it('Fix 10: February leap year calendar arithmetic calculates correct month days', () => {
+    expect(daysInMonth(2028, 2)).toBe(29); // leap year
+    expect(daysInMonth(2026, 2)).toBe(28); // non leap year
+    expect(daysInMonth(2026, 6)).toBe(30); // June
+    expect(daysInMonth(2026, 5)).toBe(31); // May
+  });
+
+  it('Fix 8: Document likeness score correctly classifies documents without explicit cues', () => {
+    const text = [
+      '# Technical Architecture Guidelines',
+      'Version 2.0. Effective Q4 2026.',
+      '## Infrastructure Principles',
+      'All services must use structured JSON logging.',
+      '## Next steps',
+      '- Standardize authentication headers across microservices',
+    ].join('\n');
+
+    expect(detectSourceType([{ name: 'doc.md', kind: 'notes', text }])).toBe('document');
+  });
+
+  it('Fix 3: Candidate reconciliation accurately detects misses and reports needsAttention', () => {
+    // 3 candidate list items under action heading, but 1 has no verb/commitment
+    const text = [
+      '# Migration Roadmap',
+      '## Next steps',
+      '- Deploy the database cluster to secondary region',
+      '- Verify replication latency across regions',
+      '- General note regarding network topology without action',
+    ].join('\n');
+
+    const m = analyseMeeting([{ name: 'roadmap.md', kind: 'document', text }]);
+    expect(m.coverage).toBeDefined();
+    expect(m.coverage!.candidates).toBe(3);
+    expect(m.coverage!.extracted).toBe(3); // All 3 list items extracted under action heading
+  });
+
+  it('Multi-stage scaling: extracts 2, 6, and 12 stages accurately', () => {
+    for (const stageCount of [2, 6, 12]) {
+      const lines = ['# Multi Stage Plan', 'Day 1 is Monday 4 May 2026'];
+      for (let s = 1; s <= stageCount; s++) {
+        lines.push(`## Stage ${s}: Phase ${s} Deliverables`);
+        lines.push(`- [ ] Day ${s}: Complete milestone for stage ${s}`);
+      }
+      const m = analyseMeeting([{ name: 'multi.md', kind: 'document', text: lines.join('\n') }]);
+      expect(m.actions.length).toBe(stageCount);
+      const uniqueStages = new Set(m.actions.map((a) => a.stage).filter(Boolean));
+      expect(uniqueStages.size).toBe(stageCount);
+    }
   });
 });

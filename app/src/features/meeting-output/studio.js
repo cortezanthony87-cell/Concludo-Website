@@ -610,12 +610,12 @@ export function mountMeetingStudio(root, opts = {}) {
     const m = S.model;
     const isDoc = m.sourceType === 'document';
     const draft = m.gate.status !== 'Ready to circulate' || [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].some((x) => x.review === 'proposed');
-    const kick = isDoc ? 'Action plan · Now, Next, Later' : kind;
+    const kick = isDoc ? (m.documentMeta?.anchor ? 'Action plan · Now, Next, Later' : 'Action plan · Chronological stage schedule') : kind;
     const sub = isDoc ? [
       'Source document',
-      fmt(m.meta.meetingDate),
+      m.meta.meetingDate ? fmt(m.meta.meetingDate) : 'Date not stated',
       m.documentMeta?.anchor ? `${m.documentMeta.anchor.label} is ${fmt(m.documentMeta.anchor.date)}` : ''
-    ].filter(Boolean).join('  ·  ') : [m.meta.organisation, m.meta.meetingType, fmt(m.meta.meetingDate)].filter(Boolean).join('  ·  ');
+    ].filter(Boolean).join('  ·  ') : [m.meta.organisation, m.meta.meetingType, m.meta.meetingDate ? fmt(m.meta.meetingDate) : 'Not stated'].filter(Boolean).join('  ·  ');
 
     const metaStrip = isDoc ? `
       <div class="meta-strip">
@@ -789,33 +789,59 @@ export function mountMeetingStudio(root, opts = {}) {
     const nowCount = Ac.filter((a) => a.horizon === 'now').length;
     const nextCount = Ac.filter((a) => a.horizon === 'next').length;
     const laterCount = Ac.filter((a) => a.horizon === 'later').length;
+    const hasHorizons = Boolean(m.documentMeta?.anchor || (nowCount + nextCount + laterCount > 0));
 
     const stages = Array.from(new Set(Ac.map((a) => a.stage).filter(Boolean)));
-    const ribbonHtml = stages.length ? `<div class="ribbon" style="display:grid;grid-template-columns:repeat(${Math.min(stages.length, 9)},1fr);gap:4px;margin-top:14px">${stages.map((st, idx) => {
-      const count = Ac.filter((a) => a.stage === st).length;
-      const isCur = idx === 0;
-      const hasGate = m.gates?.some((g) => g.stage === st) || true;
-      return `<div class="${isCur ? 'cur ' : ''}${hasGate ? 'g' : ''}" style="background:${isCur ? 'var(--navy)' : 'var(--light)'};border-radius:6px;padding:8px 6px 6px;font-size:11px;text-align:center;color:${isCur ? '#C9D0DC' : 'var(--slate)'};border-bottom:4px solid ${hasGate ? 'var(--gold)' : '#C9D0DC'}"><b style="display:block;font:700 18px Poppins,Arial;color:${isCur ? '#fff' : 'var(--navy)'}">${count}</b>${esc(st.split(' ')[0] + ' ' + (st.split(' ')[1] || ''))}</div>`;
-    }).join('')}</div><div class="legend" style="font-size:12px;color:var(--slate);margin-top:8px">Gold underline marks a decision gate at the end of each stage. Counts are actions per stage.</div>` : '';
+    const ribbonHtml = stages.length ? `
+      <div class="stage-ribbon-desktop" style="display:flex;overflow-x:auto;gap:6px;padding-bottom:6px;margin-top:14px;-webkit-overflow-scrolling:touch;">
+        ${stages.map((st, idx) => {
+          const count = Ac.filter((a) => a.stage === st).length;
+          const isCur = idx === 0;
+          const hasGate = m.gates?.some((g) => g.stage === st);
+          return `<div class="stage-ribbon-item ${isCur ? 'cur ' : ''}${hasGate ? 'g' : ''}" style="flex:0 0 auto;min-width:105px;background:${isCur ? 'var(--navy)' : 'var(--light)'};border-radius:6px;padding:8px 10px;text-align:center;color:${isCur ? '#C9D0DC' : 'var(--slate)'};border-bottom:4px solid ${hasGate ? 'var(--gold)' : '#C9D0DC'}"><b style="display:block;font:700 16px Poppins,Arial;color:${isCur ? '#fff' : 'var(--navy)'}">${count}</b><span style="font-size:11px">${esc(st.split(' ')[0] + ' ' + (st.split(' ')[1] || ''))}</span></div>`;
+        }).join('')}
+      </div>
+      <div class="stage-ribbon-mobile" style="margin-top:12px">
+        <label style="font:600 12px Inter;color:var(--slate);display:block;margin-bottom:4px">Stages (${stages.length}):</label>
+        <select class="btn sm stage-select-mobile" style="width:100%;padding:6px 10px;font-size:13px;border-radius:6px;background:var(--light);border:1px solid var(--rule)" aria-label="Select stage">
+          ${stages.map((st, idx) => {
+            const count = Ac.filter((a) => a.stage === st).length;
+            return `<option value="${idx}">Stage ${idx + 1} of ${stages.length}: ${esc(st)} (${count} ${count === 1 ? 'action' : 'actions'})</option>`;
+          }).join('')}
+        </select>
+      </div>
+      <div class="legend" style="font-size:12px;color:var(--slate);margin-top:8px">Gold underline marks a decision gate at the end of each stage. Counts are actions per stage.</div>` : '';
 
-    b.push({
-      html: H(1, 'Horizons', 'The same Now, Next, Later split the plan uses, with the action count in each.', 'horizons') +
-        `<div class="hz" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-          <div class="now" style="border:1px solid var(--navy);border-radius:10px;padding:16px;box-shadow:inset 0 4px 0 var(--navy)"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Now · Days 1 to 90</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nowCount}</b><span style="font-size:13px;color:var(--slate)">Safe to sell: stages 1 to 4</span></div>
-          <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Next · Months 4 to 12</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nextCount}</b><span style="font-size:13px;color:var(--slate)">Worth paying for: stages 5 and 6</span></div>
-          <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Later · Year 2 onward</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${laterCount}</b><span style="font-size:13px;color:var(--slate)">Worth expanding: stages 7 to 9</span></div>
-        </div>${ribbonHtml}`,
-      keepNext: true,
-    });
+    if (hasHorizons) {
+      b.push({
+        html: H(1, 'Horizons', 'The same Now, Next, Later split the plan uses, with the action count in each.', 'horizons') +
+          `<div class="hz" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <div class="now" style="border:1px solid var(--navy);border-radius:10px;padding:16px;box-shadow:inset 0 4px 0 var(--navy)"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Now · Days 1 to 90</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nowCount}</b><span style="font-size:13px;color:var(--slate)">Safe to sell: stages 1 to 4</span></div>
+            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Next · Months 4 to 12</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nextCount}</b><span style="font-size:13px;color:var(--slate)">Worth paying for: stages 5 and 6</span></div>
+            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Later · Year 2 onward</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${laterCount}</b><span style="font-size:13px;color:var(--slate)">Worth expanding: stages 7 to 9</span></div>
+          </div>${ribbonHtml}`,
+        keepNext: true,
+      });
+    } else if (stages.length > 0) {
+      b.push({
+        html: H(1, 'Stage breakdown', 'Chronological schedule by stage.', 'stages') + ribbonHtml,
+        keepNext: true,
+      });
+    }
 
     const scheduleRows = Ac.map((a) => {
       const dueNote = a.dueBasis === 'stated' && a.dueRaw ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px">Stated: ${esc(a.dueRaw)}</small>` : a.dueBasis === 'stage_end' ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px;font-style:italic">Inherited from stage end</small>` : '';
-      const ownerPill = a.owner && a.owner !== 'Under review' ? esc(a.owner) : '<span class="pill un" style="display:inline-block;border-radius:999px;padding:3px 10px;font:600 12px Inter;background:var(--redbg);color:var(--red)">Unassigned</span>';
+      const ownerPill = a.owner && a.owner !== 'Under review' && a.owner !== 'Unassigned'
+        ? esc(a.owner)
+        : '<span class="pill un" style="display:inline-block;border-radius:999px;padding:3px 10px;font:600 12px Inter;background:var(--redbg);color:var(--red)">Not stated</span>';
+      const duePill = a.due
+        ? `<b>${pillDue(a)}</b>${dueNote}`
+        : '<span class="miss">Not stated</span>';
       return `<tr>
         <td class="idc">${a.id}</td>
         <td><span class="main">${esc(a.task)}</span><small class="src" style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px">${a.evidence[0] ? `Source line ${a.evidence[0].line}` : ''}${a.stage ? ` · ${esc(a.stage)}` : ''}</small></td>
         <td>${ownerPill}</td>
-        <td><b>${pillDue(a)}</b>${dueNote}</td>
+        <td>${duePill}</td>
         <td>${a.doneWhen || a.doneDefinition ? esc(a.doneWhen || a.doneDefinition) : '<span class="miss">Not stated</span>'}</td>
       </tr>`;
     });
@@ -871,12 +897,16 @@ export function mountMeetingStudio(root, opts = {}) {
       candidates: Ac.length,
       extracted: Ac.length,
       excluded: m.excludedItems ? m.excludedItems.length : 0,
+      needsAttention: 0,
       unresolved: [],
     };
     const exclList = m.excludedItems && m.excludedItems.length > 0 ? `<br>${m.excludedItems.length} sentence was excluded because it describes a purpose and commits no one to anything:<div style="margin:8px 0;padding:8px 12px;background:#fff;border-radius:4px;border-left:3px solid var(--gold)"><q style="font-style:italic;color:var(--slate)">${esc(m.excludedItems[0].text)}</q></div>It sits in the review list as Not an action, so a person can overrule it.` : '';
+    const attnMsg = cov.needsAttention > 0
+      ? `<div style="color:var(--red);font-weight:600;margin-top:8px">${cov.needsAttention} candidate items need attention (neither extracted nor explicitly excluded).</div>`
+      : '';
     b.push({
       html: H(5, 'Coverage check', 'What the extraction read, and what it left out on purpose.', 'coverage') +
-        `<div class="excl" style="background:var(--light);border-radius:8px;padding:14px 18px;margin-top:10px;font-size:13.5px"><b>${cov.candidates} lines marked as a candidate in the source. ${cov.extracted} became actions. ${cov.unresolved.length} left unresolved.</b>${exclList}</div>`,
+        `<div class="excl" style="background:var(--light);border-radius:8px;padding:14px 18px;margin-top:10px;font-size:13.5px"><b>${cov.candidates} lines marked as a candidate in the source. ${cov.extracted} became actions. ${cov.excluded} excluded with reason. ${cov.needsAttention} left unresolved.</b>${attnMsg}${exclList}</div>`,
     });
 
     b.push({

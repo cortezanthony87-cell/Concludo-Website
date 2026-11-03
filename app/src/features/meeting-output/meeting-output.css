@@ -255,15 +255,12 @@
 .cmo .email-card pre { margin: 0; padding: 22px 24px; font-family: var(--f-body); white-space: pre-wrap; font-size: 14px; line-height: 1.65; }
 .cmo .email-card .ef { padding: 12px 24px; background: var(--light); font-size: 12px; color: var(--slate); }
 
-.cmo [hidden],
-.cmo [data-pane][hidden] { display: none !important; }
-
-.cmo .modal-bg { position: fixed; inset: 0; background: rgba(22, 38, 63, .45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; overflow-y: auto; }
-.cmo .modal { width: 100%; max-width: 540px; max-height: calc(100vh - 36px); background: var(--white); border-radius: 14px; box-shadow: 0 24px 60px rgba(22, 38, 63, .25); display: flex; flex-direction: column; overflow: hidden; }
-.cmo .modal .mh { padding: 16px 22px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-.cmo .modal .mb { padding: 18px 22px; display: grid; gap: 12px; font-size: 13.5px; overflow-y: auto; flex: 1; min-height: 0; }
-.cmo .modal .mf { padding: 14px 22px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; align-items: center; gap: 8px; background: var(--light); flex-shrink: 0; }
-.cmo .modal.cmo-modal-export { max-width: 640px; max-height: calc(100vh - 36px); }
+.cmo .modal-bg { position: fixed; inset: 0; background: rgba(22, 38, 63, .35); display: grid; place-items: center; z-index: 100; padding: 20px; }
+.cmo .modal { width: 100%; max-width: 520px; background: var(--white); border-radius: 14px; box-shadow: 0 24px 60px rgba(22, 38, 63, .25); overflow: hidden; }
+.cmo .modal .mh { padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+.cmo .modal .mb { padding: 18px 22px; display: grid; gap: 12px; font-size: 13.5px; }
+.cmo .modal .mf { padding: 14px 22px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; background: var(--light); }
+.cmo .modal.cmo-modal-export { max-width: 640px; }
 .cmo .cmo-export-grid { display: grid; gap: 10px; }
 .cmo .cmo-export-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: #fff; transition: border-color .15s ease, box-shadow .15s ease; }
 .cmo .cmo-export-card:hover { border-color: var(--navy); box-shadow: 0 2px 8px rgba(22, 38, 63, .06); }
@@ -592,6 +589,20 @@
   .cmo .doc-bar .acts { width: 100%; }
   .cmo .pages { padding: 20px 12px; gap: 24px; }
   .cmo .email-card .eh, .cmo .email-card pre, .cmo .email-card .ef { padding: 16px; }
+}
+
+/* Document mode stage ribbon responsive display */
+.cmo .stage-ribbon-desktop { display: flex !important; }
+.cmo .stage-ribbon-mobile { display: none !important; }
+
+@media (max-width: 640px) {
+  .cmo .stage-ribbon-desktop { display: none !important; }
+  .cmo .stage-ribbon-mobile { display: block !important; }
+}
+
+@container meeting-output (max-width: 640px) {
+  .cmo .stage-ribbon-desktop { display: none !important; }
+  .cmo .stage-ribbon-mobile { display: block !important; }
 }
 
 /* ---- print: only the document pages, wherever the studio is mounted ---- */

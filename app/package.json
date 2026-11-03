@@ -11,11 +11,13 @@
   "dependencies": {
     "@nangohq/frontend": "^0.71.12",
     "@supabase/supabase-js": "^2.116.0",
+    "@types/papaparse": "^5.5.2",
     "fontkit": "^2.0.4",
     "html2pdf.js": "^0.14.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.44.0",
     "mammoth": "^1.13.0",
+    "papaparse": "^5.7.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289",
     "pptxgenjs": "^3.12.0",

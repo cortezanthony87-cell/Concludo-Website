@@ -9,15 +9,45 @@ import {
   GateRecord,
   ExcludedItem,
   CoverageRecord,
-  todayIso,
 } from './meetingEngine';
 
 export type { GateRecord, ExcludedItem, CoverageRecord };
 
-const MONTH_MAP: Record<string, string> = {
-  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+const WHOLE_MONTHS: Record<string, string> = {
+  january: '01', jan: '01',
+  february: '02', feb: '02',
+  march: '03', mar: '03',
+  april: '04', apr: '04',
+  may: '05',
+  june: '06', jun: '06',
+  july: '07', jul: '07',
+  august: '08', aug: '08',
+  september: '09', sep: '09', sept: '09',
+  october: '10', oct: '10',
+  november: '11', nov: '11',
+  december: '12', dec: '12',
 };
+
+const MONTH_WORD_REGEX = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/i;
+
+export function matchWholeMonth(str: string): { monthNum: string; raw: string } | null {
+  const m = str.match(MONTH_WORD_REGEX);
+  if (!m) return null;
+  const key = m[1].toLowerCase();
+  const num = WHOLE_MONTHS[key];
+  return num ? { monthNum: num, raw: m[1] } : null;
+}
+
+export function daysInMonth(year: number, month1to12: number): number {
+  return new Date(Date.UTC(year, month1to12, 0)).getUTCDate();
+}
+
+export function stripReasonClause(text: string): string {
+  return text
+    .replace(/,\s*(?:so\s+that|in\s+order\s+to|in\s+order\s+that)\b.*$/i, '')
+    .replace(/\s+(?:so\s+that|in\s+order\s+to|in\s+order\s+that)\b.*$/i, '')
+    .trim();
+}
 
 const GROUP_OWNERS = new Set([
   'team', 'all staff', 'we', 'everyone', 'board', 'committee', 'department', 'practice team', 'all'
@@ -34,89 +64,128 @@ function addDays(iso: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Fix 8: Document-likeness scoring & Source Type Classification */
 export function detectSourceType(inputs: SourceInput[], metaIn?: MeetingMetaInput): 'transcript' | 'minutes' | 'document' {
   if (metaIn?.sourceType) return metaIn.sourceType;
-  if (inputs.length > 0 && inputs.every((s) => s.kind === 'document')) return 'document';
+  if (metaIn?.meetingType && /^(?:document|plan|policy|report|brief)$/i.test(metaIn.meetingType)) return 'document';
+  if (metaIn?.meetingType && /^(?:transcript|recording|call|meeting)$/i.test(metaIn.meetingType)) return 'transcript';
+  if (metaIn?.meetingType && /^(?:minutes|board)$/i.test(metaIn.meetingType)) return 'minutes';
 
   const fullText = inputs.map((s) => s.text).join('\n');
 
-  // Transcript cues: timestamped turns or alternating Name: turns
-  const hasTranscriptTurns = /^\s*(?:\[\d{1,2}:\d{2}\]|\d{1,2}:\d{2})\s+[A-Z][a-z]+/m.test(fullText) ||
-    /^(?:Speaker \d+|<v [^>]+>|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s*\(?\d*:\d*\)?\s*:)/m.test(fullText);
-
-  if (hasTranscriptTurns) {
-    return 'transcript';
-  }
-
-  const hasMinutesMarkers = /^(?:[-*•]\s*)?(?:RESOLVED|Resolved)\s*:/m.test(fullText) ||
-    /\bAttendees:\s*.*\(Chair\)/i.test(fullText);
-  if (hasMinutesMarkers) {
+  // Minutes / Notes markers take precedence (e.g. - Decision:, - Action:, - Risk:, RESOLVED:)
+  const minutesMatches = fullText.match(/^(?:[-*•]\s*)?(?:RESOLVED|Resolved|ACTION|Action|DECISION|Decision|RISK|Risk)\s*:/m) || fullText.match(/\bAttendees:\s*.*\(Chair\)/i);
+  if (minutesMatches) {
     return 'minutes';
   }
 
-  // Checkbox glyphs or explicit document indicators
-  const hasCheckboxes = /[☐☑]|\[\s*\]|\[x\]/.test(fullText);
-  const hasDayAnchor = /Day 1 is \b/i.test(fullText);
-  const hasActionTable = /\|\s*(?:ID\s*\|)?\s*(?:Action|Task)\s*\|\s*(?:Owner|Who|Due|When|Done)/i.test(fullText);
-  const hasPhaseHeadings = /##\s*(?:Phase|Stage)\s+\d+/i.test(fullText);
-  const hasStageHeaders = /\|\s*(?:First\s+\d+\s+days|Days\s+\d+\s+to\s+\d+|Months?\s+\d+\s+to\s+\d+|Years?\s+\d+)/i.test(fullText);
+  // Transcript cues: timestamped turns, VTT headers, or alternating Name: turns (excluding meta labels)
+  const rawTurns = fullText.match(/^[A-Z][A-Za-z\s]{1,25}:/gm) || [];
+  const speakerTurnMatches = rawTurns.filter(
+    (t) => !/^(?:attendees?|present|apologies|absent|chair|resolved|action|date|meeting|subject|agenda|notes):/i.test(t.trim())
+  );
+  const timestampMatches = fullText.match(/\b(?:\d{1,2}:\d{2}(?::\d{2})?)\b/g) || [];
+  const vttMatches = fullText.match(/^WEBVTT/m) || [];
+  const transcriptScore = (speakerTurnMatches.length * 3) + timestampMatches.length + (vttMatches.length * 20);
 
-  if (hasCheckboxes || hasDayAnchor || hasActionTable || hasPhaseHeadings || hasStageHeaders) {
+  // Document likeness score: markdown headings, lists, tables, checkboxes, plan keywords
+  const headingMatches = fullText.match(/^#{1,6}\s+.+$/gm) || [];
+  const listMatches = fullText.match(/^(?:[-*•]|\d+[\.)])\s+.+$/gm) || [];
+  const tableMatches = fullText.match(/\|.+?\|.+?\|/gm) || [];
+  const checkboxMatches = fullText.match(/[☐☑]|\[\s*\]|\[x\]/gi) || [];
+  const documentKeywords = fullText.match(/\b(?:version\s+\d|table of contents|executive summary|actions\s*\(measurable\)|deliverables|appendix|policy|work\s*plan|roadmap)\b/gi) || [];
+
+  const documentScore = (headingMatches.length * 2) + listMatches.length + (tableMatches.length * 2) + (checkboxMatches.length * 5) + (documentKeywords.length * 3);
+
+  if (documentScore > transcriptScore) {
+    return 'document';
+  }
+  if (transcriptScore > documentScore) {
+    return 'transcript';
+  }
+  if (transcriptScore === 0 && documentScore > 0) {
     return 'document';
   }
 
   return 'transcript';
 }
 
+/** Fix 1 & 10: Whole-word months only. Never default a year. */
 function parseStageEnd(sStr: string): { date: string; precision: 'day' | 'month' } | null {
-  // Day precision: to 24 November 2026, 9 to 24 November 2026, 4 to 15 May 2026
   const mDay = sStr.match(/(?:to|-|–)\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/i);
   if (mDay) {
     const d = parseInt(mDay[1], 10);
-    const mS = mDay[2].slice(0, 3).toLowerCase();
+    const mon = matchWholeMonth(mDay[2]);
     const y = mDay[3];
-    if (MONTH_MAP[mS]) {
-      return { date: `${y}-${MONTH_MAP[mS]}-${String(d).padStart(2, '0')}`, precision: 'day' };
+    if (mon) {
+      const maxDays = daysInMonth(parseInt(y, 10), parseInt(mon.monthNum, 10));
+      const validD = Math.min(d, maxDays);
+      return { date: `${y}-${mon.monthNum}-${String(validD).padStart(2, '0')}`, precision: 'day' };
     }
   }
-  // Month precision: to April 2027, to October 2028, to Dec 2029
+
   const mMon = sStr.match(/(?:to|-|–)\s*([A-Za-z]+)\s+(\d{4})/i);
   if (mMon) {
-    const mS = mMon[1].slice(0, 3).toLowerCase();
+    const mon = matchWholeMonth(mMon[1]);
     const y = mMon[2];
-    if (MONTH_MAP[mS]) {
-      return { date: `${y}-${MONTH_MAP[mS]}`, precision: 'month' };
+    if (mon) {
+      return { date: `${y}-${mon.monthNum}`, precision: 'month' };
     }
   }
   return null;
 }
 
-function resolveTableDue(cellText: string, baseYear = 2026): { date: string | null; raw: string | null } {
+/** Fix 1 & 10: Resolve due date without defaulting year. */
+export function resolveTableDue(
+  cellText: string,
+  baseYear: number | null
+): { date: string | null; raw: string | null } {
   const raw = cellText.trim();
   if (!raw) return { date: null, raw: null };
 
-  const m = raw.match(/(?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday),?\s+)?(?:by\s+the\s+end\s+of\s+)?(\d{1,2})?\s*([A-Za-z]+)(?:\s+(\d{4}))?/i);
-  if (m) {
-    const d = m[1];
-    const monStr = m[2].slice(0, 3).toLowerCase();
-    const y = m[3] || String(baseYear);
-    if (MONTH_MAP[monStr]) {
-      const mm = MONTH_MAP[monStr];
-      if (d) {
-        return { date: `${y}-${mm}-${String(parseInt(d, 10)).padStart(2, '0')}`, raw };
-      } else if (/end of/i.test(raw)) {
-        const lastDays: Record<string, number> = {
-          '01': 31, '02': 28, '03': 31, '04': 30, '05': 31, '06': 30,
-          '07': 31, '08': 31, '09': 30, '10': 31, '11': 30, '12': 31,
-        };
-        const ld = lastDays[mm] || 30;
-        return { date: `${y}-${mm}-${ld}`, raw };
-      } else {
-        return { date: `${y}-${mm}`, raw };
-      }
-    }
+  // Check for whole month in string
+  const mon = matchWholeMonth(raw);
+  if (!mon) {
+    return { date: null, raw };
   }
-  return { date: null, raw };
+
+  // 4-digit year in cell, or derived from document anchor/version
+  const yearM = raw.match(/\b(20\d{2})\b/);
+  const year = yearM ? parseInt(yearM[1], 10) : baseYear;
+  if (!year) {
+    // If no year stated or derivable, leave date empty
+    return { date: null, raw };
+  }
+
+  const monthInt = parseInt(mon.monthNum, 10);
+  const dayM = raw.match(/\b([12]\d|3[01]|0?[1-9])(?:st|nd|rd|th)?\b/);
+
+  if (dayM) {
+    const dd = parseInt(dayM[1], 10);
+    const maxDays = daysInMonth(year, monthInt);
+    const validDay = Math.min(dd, maxDays);
+    return {
+      date: `${year}-${mon.monthNum}-${String(validDay).padStart(2, '0')}`,
+      raw,
+    };
+  }
+
+  if (/end of/i.test(raw)) {
+    const lastDay = daysInMonth(year, monthInt);
+    return {
+      date: `${year}-${mon.monthNum}-${String(lastDay).padStart(2, '0')}`,
+      raw,
+    };
+  }
+
+  return {
+    date: `${year}-${mon.monthNum}`,
+    raw,
+  };
+}
+
+export function isActionHeading(text: string): boolean {
+  return /^(?:#+\s*)?(?:Actions(?:\s*\(.*?\))?|Action\s+items?|Next\s+steps?|To\s*do|Tasks?|Follow\s*ups?|Immediate\s+actions?|Agreed\s+actions?|Work\s+plan|Execution\s+plan|Key\s+tasks?|Do\s+now)\b/i.test(text.trim());
 }
 
 export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaInput = {}): MeetingModel {
@@ -129,23 +198,23 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
   if (anchorM) {
     const parts = anchorM[1].split(/\s+/);
     const d = parseInt(parts[0], 10);
-    const mS = parts[1].slice(0, 3).toLowerCase();
+    const mon = matchWholeMonth(parts[1]);
     const y = parts[2];
-    if (MONTH_MAP[mS]) {
-      anchorDate = `${y}-${MONTH_MAP[mS]}-${String(d).padStart(2, '0')}`;
+    if (mon) {
+      anchorDate = `${y}-${mon.monthNum}-${String(d).padStart(2, '0')}`;
     }
   }
 
-  // 2. Document Date
+  // 2. Document Date (Version header or explicit document date)
   let docDate: string | null = null;
   const vM = fullText.match(/(?:version\s+\d+(?:\.\d+)?\.?\s+.*?|source document\s+·\s+)(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i);
   if (vM) {
     const parts = vM[1].split(/\s+/);
     const d = parseInt(parts[0], 10);
-    const mS = parts[1].slice(0, 3).toLowerCase();
+    const mon = matchWholeMonth(parts[1]);
     const y = parts[2];
-    if (MONTH_MAP[mS]) {
-      docDate = `${y}-${MONTH_MAP[mS]}-${String(d).padStart(2, '0')}`;
+    if (mon) {
+      docDate = `${y}-${mon.monthNum}-${String(d).padStart(2, '0')}`;
     }
   }
   if (!docDate) {
@@ -153,15 +222,19 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     if (dM) {
       const parts = dM[1].split(/\s+/);
       const d = parseInt(parts[0], 10);
-      const mS = parts[1].slice(0, 3).toLowerCase();
+      const mon = matchWholeMonth(parts[1]);
       const y = parts[2];
-      if (MONTH_MAP[mS]) {
-        docDate = `${y}-${MONTH_MAP[mS]}-${String(d).padStart(2, '0')}`;
+      if (mon) {
+        docDate = `${y}-${mon.monthNum}-${String(d).padStart(2, '0')}`;
       }
     }
   }
-  const baseYear = docDate ? parseInt(docDate.split('-')[0], 10) : 2026;
-  const meetingDate = metaIn.meetingDate || docDate || todayIso();
+
+  // Fix 1 & Fix 6: Never default year, and never default meetingDate to today
+  const baseYear = docDate
+    ? parseInt(docDate.split('-')[0], 10)
+    : (anchorDate ? parseInt(anchorDate.split('-')[0], 10) : null);
+  const meetingDate = metaIn.meetingDate || docDate || undefined;
 
   // 3. Document Title
   let docTitle = metaIn.title;
@@ -173,6 +246,64 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     docTitle = sourceName.replace(/\.[^.]+$/, '');
   }
 
+  const lines = fullText.split(/\r?\n/);
+
+  // Fix 3: Count candidates independently before extraction
+  let candidateCount = 0;
+  let inActionSecCount = false;
+  let inTableCount = false;
+
+  lines.forEach((line) => {
+    const cl = line.trim();
+    if (!cl) return;
+
+    if (/^#{1,6}\s+/.test(cl)) {
+      inActionSecCount = isActionHeading(cl);
+    } else if (/^[A-Z][A-Za-z\s()]+:?$/.test(cl) && cl.length < 40 && isActionHeading(cl)) {
+      inActionSecCount = true;
+    }
+
+    if (cl.startsWith('|')) {
+      const cells = cl.split('|').slice(1, -1).map((c) => c.trim().toLowerCase());
+      if (cells.some((c) => c.includes('action') || c.includes('task'))) {
+        inTableCount = true;
+        return;
+      }
+      if (inTableCount) {
+        if (cells.every((c) => c.replace(/-/g, '').trim() === '')) return; // separator
+        candidateCount++;
+        return;
+      }
+    } else {
+      inTableCount = false;
+    }
+
+    // Checkbox lines
+    if (/[☐☑]|\[\s*\]|\[x\]/i.test(cl)) {
+      candidateCount++;
+      return;
+    }
+
+    // Plain list items under action heading (Fix 2 & 9)
+    if (inActionSecCount && /^(?:[-*•]|\d+[\.)])\s+/.test(cl)) {
+      candidateCount++;
+      return;
+    }
+
+    // Named person commitment in prose
+    if (!cl.includes('|') && !cl.startsWith('#')) {
+      const commitM = cl.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+(?:will|must)\s+([a-z]+)\b/);
+      if (commitM) {
+        const subj = commitM[1];
+        const isInanimate = /^(?:The|This|Our|Its|A|An|Every|Each)\s+/i.test(subj) ||
+          /^(?:policy|document|statement|review|section|plan|team|board|committee|organisation|organization|company|department|group|all\s+staff)$/i.test(subj);
+        if (!isInanimate) {
+          candidateCount++;
+        }
+      }
+    }
+  });
+
   const actions: Action[] = [];
   const excludedItems: ExcludedItem[] = [];
   const gates: GateRecord[] = [];
@@ -181,8 +312,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
   let currentStageEnd: string | null = null;
   let currentStagePrec: 'day' | 'month' | null = null;
   let currentStageNo = 0;
-
-  const lines = fullText.split(/\r?\n/);
+  let inActionSection = false;
   let inMarkdownTable = false;
   let colMap: Record<string, number | undefined> = {};
 
@@ -191,16 +321,26 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     const cleanLine = line.trim();
     if (!cleanLine) return;
 
+    // Heading context check
+    if (/^#{1,6}\s+/.test(cleanLine)) {
+      inActionSection = isActionHeading(cleanLine);
+    } else if (/^[A-Z][A-Za-z\s()]+:?$/.test(cleanLine) && cleanLine.length < 40 && isActionHeading(cleanLine)) {
+      inActionSection = true;
+    }
+
     // A. Detect Stage Header (General pattern)
     const stM = cleanLine.match(/^(?:\|\s*)?(?:##\s*)?((?:(?:Phase|Stage)\s+\d+|(?:First\s+\d+\s+days|Days\s+\d+\s+to\s+\d+|Months?\s+\d+\s+to\s+\d+|Years?\s+\d+(?:\s+(?:and|to)\s+\d+)?))[^|\n]*)/i);
     if (stM && !/\|\s*\d+\s*\|\s*\d+\s*\|/.test(cleanLine)) {
       const candidateSt = stM[1].trim().replace(/^\|\s*|\s*\|$/g, '');
+      currentStageName = candidateSt;
+      currentStageNo += 1;
       const endD = parseStageEnd(candidateSt);
       if (endD) {
-        currentStageName = candidateSt;
         currentStageEnd = endD.date;
         currentStagePrec = endD.precision;
-        currentStageNo += 1;
+      } else {
+        currentStageEnd = null;
+        currentStagePrec = null;
       }
     }
 
@@ -230,21 +370,32 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
       });
     }
 
-    // C. Purpose Clause / Non-Action Exclusions (D4: General linguistic patterns)
-    const isPurposeClause = /\b(?:each\s+(?:[a-z]+(?:\s+[a-z]+)?)\s+has\s+a\s+(?:job|purpose|goal|role|mitigation)|(?:the|our|its|this|each)?\s*(?:aim|goal|purpose|objective|intent|principle|mission)\s+(?:of\s+[a-z\s]+)?(?:is|was)\s+(?:to|for)|(?:is|are)\s+intended\s+to|in\s+order\s+to|so\s+that)\b/i.test(cleanLine);
-    const isPolicyDescription = /\b(?:this\s+(?:statement|document|policy|section)\s+describes|is\s+a\s+description,\s+not\s+a\s+work\s+plan|the\s+policy\s+will\s+be\s+reviewed|staff\s+are\s+expected\s+to|values\s+plain\s+language)\b/i.test(cleanLine);
-    const isOpenGap = /\b(?:nobody\s+has\s+yet\s+been\s+asked\s+to|has\s+not\s+yet\s+been\s+assigned|unresolved\s+gap)\b/i.test(cleanLine);
+    // C. Structural Purpose Clauses and Non-Action Exclusions (Fix 4 & 5)
+    // General structural rules based on heading context, grammatical tense, and modality
+    const isPurePurposeSentence = (
+      /^(?:(?:The|Our|Its|This|Each)\s+)?(?:[a-z\s]+'s\s+)?(?:(?:primary|main|key|stated|overall)\s+)?(?:goal|purpose|aim|objective|intent|principle|mission)\b(?:\s+of\s+[A-Za-z\s]+?)?\s+(?:is|was)\s+(?:to|for)\b/i.test(cleanLine) ||
+      /^Each\s+[a-z\s]+\s+has\s+a\s+(?:job|purpose|goal|role|mission|mitigation)\b/i.test(cleanLine) ||
+      /^(?:The\s+aim\s+is\s+to|The\s+goal\s+is\s+to|Its\s+purpose\s+is\s+to|The\s+purpose\s+(?:of\s+[^is]+)?is\s+to)\b/i.test(cleanLine) ||
+      /^(?:In\s+order\s+to\s+[^,]+,\s*(?:the|this|all|our|we)\b)/i.test(cleanLine) ||
+      /\b(?:is|are)\s+(?:intended|designed)\s+to\s+(?:reinforce|confirm|ensure|provide|support|guide)\b/i.test(cleanLine)
+    );
+    const isOpenGapSentence = /^(?:Nobody|No\s+one|No-one)\s+(?:has\s+(?:yet\s+)?been\s+asked\s+to|is\s+assigned\s+to|has\s+been\s+assigned\s+to)\b/i.test(cleanLine);
+    const isPassiveDescriptiveSentence = (
+      /^(?:This|The|Our)\s+[a-z\s]+(?:describes|outlines|records|sets\s+out|applies\s+to|consists|is\s+a\s+description)\b/i.test(cleanLine) ||
+      /^[A-Za-z\s]+\s+(?:are\s+expected\s+to|will\s+be\s+reviewed\s+(?:annually|each\s+year|periodically|quarterly|monthly))\b/i.test(cleanLine)
+    );
 
-    if (isPurposeClause || isPolicyDescription || isOpenGap) {
+    // Exclude only when NOT a table row, NOT a checkbox line, and NOT an action list item
+    const isCheckboxLine = /[☐☑]|\[\s*\]|\[x\]/i.test(cleanLine);
+    const isTableRow = cleanLine.startsWith('|');
+
+    if (!isTableRow && !isCheckboxLine && (isPurePurposeSentence || isOpenGapSentence || isPassiveDescriptiveSentence)) {
       excludedItems.push({
         text: cleanLine.replace(/^\|\s*|\s*\|$/g, ''),
-        reason: isPurposeClause ? 'purpose clause' : isOpenGap ? 'unassigned gap' : 'policy description',
+        reason: isPurePurposeSentence ? 'purpose clause' : isOpenGapSentence ? 'unassigned gap' : 'policy description',
         sourceLine: lineNum,
       });
-      // If this line is purely descriptive, do not treat as an action candidate
-      if (!cleanLine.match(/[☐☑]|\[\s*\]|\[x\]/)) {
-        return;
-      }
+      return;
     }
 
     // D. Action Candidates (D2)
@@ -282,9 +433,10 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
         dueBasis = 'stage_end';
       }
 
+      // Fix 4: Strip reason clause if present, but keep action
       actions.push({
         id: `X${String(actions.length + 1).padStart(2, '0')}`,
-        task: taskText,
+        task: stripReasonClause(taskText),
         owner: undefined,
         ownerBasis: 'none',
         ownerRaw: undefined,
@@ -314,6 +466,66 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
         sourceQuote: cleanLine,
       });
       return;
+    }
+
+    // D2.2 Plain list items under action headings (Fix 2 & 9)
+    if (inActionSection && !cleanLine.startsWith('|')) {
+      const listM = cleanLine.match(/^(?:[-*•]|\d+[\.)])\s+(.+)$/);
+      if (listM) {
+        const itemContent = listM[1].trim();
+        const dayM = itemContent.match(/^(Day\s+\d+|Days\s+\d+\s+to\s+\d+)[:\s-]+(.*)$/i);
+        let dueRaw: string | undefined;
+        let dueDate: string | undefined;
+        let dueBasis: 'stated' | 'stage_end' | 'none' | null = null;
+        let taskText = itemContent;
+
+        if (dayM) {
+          dueRaw = dayM[1];
+          taskText = dayM[2].trim();
+          if (anchorDate) {
+            const nums = dueRaw.match(/\d+/g)?.map(Number) || [1];
+            const targetDay = nums[nums.length - 1];
+            dueDate = addDays(anchorDate, targetDay - 1);
+            dueBasis = 'stated';
+          }
+        } else if (currentStageEnd) {
+          dueDate = currentStageEnd;
+          dueBasis = 'stage_end';
+        }
+
+        actions.push({
+          id: `X${String(actions.length + 1).padStart(2, '0')}`,
+          task: stripReasonClause(taskText),
+          owner: undefined,
+          ownerBasis: 'none',
+          ownerRaw: undefined,
+          suggestedOwner: undefined,
+          due: dueDate,
+          dueRaw: dueRaw,
+          dueText: dueRaw,
+          dueBasis,
+          dueApprox: false,
+          horizon: 'undated',
+          doneDefinition: undefined,
+          doneWhen: undefined,
+          stage: currentStageName,
+          stageNo: currentStageNo,
+          evidence: [
+            {
+              sourceId: 'S1',
+              sourceName,
+              line: lineNum,
+              quote: cleanLine,
+            },
+          ],
+          confidence: 'explicit',
+          gaps: ['owner', 'definition_of_done'],
+          review: 'proposed',
+          sourceLine: lineNum,
+          sourceQuote: cleanLine,
+        });
+        return;
+      }
     }
 
     // D2.3 Markdown Table Action Row
@@ -356,7 +568,7 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
 
             actions.push({
               id: `X${String(actions.length + 1).padStart(2, '0')}`,
-              task,
+              task: stripReasonClause(task),
               owner,
               ownerBasis: owner ? 'stated' : 'none',
               ownerRaw,
@@ -397,67 +609,70 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
       inMarkdownTable = false;
     }
 
-    // D2.4 Named Person Commitment in Prose
+    // D2.4 Named Person Commitment in Prose (Fix 5: structural check)
     if (!cleanLine.includes('|')) {
-      const commitM = cleanLine.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:will)\s+(send|prepare|audit|deliver|update|draft|publish|review|complete|book|contact|email|submit|produce|present|run|conduct|write|circulate)\b\s+([^.]+)/);
-      if (commitM && !/^(?:policy|document|plan|team|studio|clinic)$/i.test(commitM[1])) {
+      const commitM = cleanLine.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+(?:will|must)\s+([a-z]+)\b\s*(.*)$/);
+      if (commitM) {
         const person = commitM[1];
         const verb = commitM[2];
         const rest = commitM[3];
-        let fullTask = `${verb} ${rest}`;
+        const isInanimate = /^(?:The|This|Our|Its|A|An|Every|Each)\s+/i.test(person) ||
+          /^(?:policy|document|statement|review|section|plan|team|board|committee|organisation|organization|company|department|group|all\s+staff)$/i.test(person);
+        if (!isInanimate) {
+          let fullTask = `${verb} ${rest}`.replace(/\.\s*$/, '');
+          let dueDate: string | undefined;
+          let dueRaw: string | undefined;
+          let dueBasis: 'stated' | 'stage_end' | 'none' | null = null;
 
-        let dueDate: string | undefined;
-        let dueRaw: string | undefined;
-        let dueBasis: 'stated' | 'stage_end' | 'none' | null = null;
+          const dueM = fullTask.match(/\bby\s+((?:[A-Za-z]+,?\s+)?(?:\d{1,2}\s+[A-Za-z]+|[A-Za-z]+\s+\d{1,2}))/i);
+          if (dueM) {
+            dueRaw = dueM[1].trim();
+            const rDue = resolveTableDue(dueRaw, baseYear);
+            dueDate = rDue.date || undefined;
+            dueBasis = dueDate ? 'stated' : null;
+            fullTask = fullTask.slice(0, dueM.index).trim();
+          }
 
-        const dueM = fullTask.match(/\bby\s+((?:[A-Za-z]+,?\s+)?(?:\d{1,2}\s+[A-Za-z]+|[A-Za-z]+\s+\d{1,2}))/i);
-        if (dueM) {
-          dueRaw = dueM[1].trim();
-          const rDue = resolveTableDue(dueRaw, baseYear);
-          dueDate = rDue.date || undefined;
-          dueBasis = dueDate ? 'stated' : null;
-          fullTask = fullTask.slice(0, dueM.index).trim();
+          actions.push({
+            id: `X${String(actions.length + 1).padStart(2, '0')}`,
+            task: fullTask,
+            owner: person,
+            ownerBasis: 'stated',
+            ownerRaw: person,
+            suggestedOwner: undefined,
+            due: dueDate,
+            dueRaw: dueRaw,
+            dueText: dueRaw,
+            dueBasis,
+            dueApprox: false,
+            horizon: 'undated',
+            doneDefinition: undefined,
+            doneWhen: undefined,
+            stage: currentStageName,
+            stageNo: currentStageNo,
+            evidence: [
+              {
+                sourceId: 'S1',
+                sourceName,
+                line: lineNum,
+                quote: cleanLine,
+              },
+            ],
+            confidence: 'explicit',
+            gaps: [
+              ...(dueDate ? [] : ['due']),
+              'definition_of_done',
+            ],
+            review: 'proposed',
+            sourceLine: lineNum,
+            sourceQuote: cleanLine,
+          });
         }
-
-        actions.push({
-          id: `X${String(actions.length + 1).padStart(2, '0')}`,
-          task: fullTask,
-          owner: person,
-          ownerBasis: 'stated',
-          ownerRaw: person,
-          suggestedOwner: undefined,
-          due: dueDate,
-          dueRaw: dueRaw,
-          dueText: dueRaw,
-          dueBasis,
-          dueApprox: false,
-          horizon: 'undated',
-          doneDefinition: undefined,
-          doneWhen: undefined,
-          stage: currentStageName,
-          stageNo: currentStageNo,
-          evidence: [
-            {
-              sourceId: 'S1',
-              sourceName,
-              line: lineNum,
-              quote: cleanLine,
-            },
-          ],
-          confidence: 'explicit',
-          gaps: [
-            ...(dueDate ? [] : ['due']),
-            'definition_of_done',
-          ],
-          review: 'proposed',
-          sourceLine: lineNum,
-          sourceQuote: cleanLine,
-        });
       }
     }
   });
 
-  // Next meeting in prose check (e.g. F3: "The committee agreed to meet again on Tuesday 2 June to review progress.")
+  // Next meeting in prose check
   let nextMeeting: MeetingModel['nextMeeting'] = undefined;
   const nextMeetM = fullText.match(/\b(?:agreed to meet again|meet again|next meeting)\s+(?:on\s+)?((?:Tuesday|Wednesday|Thursday|Friday|Monday|Saturday|Sunday)?,?\s*\d{1,2}\s+[A-Za-z]+(?:\s+\d{4})?)/i);
   if (nextMeetM) {
@@ -471,21 +686,43 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     }
   }
 
-  // Horizon Bucketing
-  actions.forEach((a) => {
-    if (a.stageNo) {
-      if (a.stageNo <= 4) a.horizon = 'now';
-      else if (a.stageNo <= 6) a.horizon = 'next';
-      else a.horizon = 'later';
-    }
-  });
+  // Fix 7: Horizon Bucketing - Only if document declares horizons or explicit dates exist
+  const hasDeclaredHorizons = /^(?:#+\s*)?(?:Horizon\s+\d+|Now|Next|Later)\b/im.test(fullText);
+  const hasDatedActions = actions.some((a) => a.due);
+  const hasHorizons = hasDeclaredHorizons || (hasDatedActions && !!anchorDate);
+
+  if (hasHorizons && anchorDate) {
+    actions.forEach((a) => {
+      if (a.due) {
+        const anchorD = parseIso(anchorDate!);
+        const dueD = parseIso(a.due);
+        const diffDays = Math.round((dueD.getTime() - anchorD.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 30) a.horizon = 'now';
+        else if (diffDays <= 90) a.horizon = 'next';
+        else a.horizon = 'later';
+      } else {
+        a.horizon = 'undated';
+      }
+    });
+  } else {
+    actions.forEach((a) => {
+      a.horizon = 'undated';
+    });
+  }
+
+  // Fix 3: Independent Candidate Reconciliation
+  const extractedCount = actions.length;
+  const excludedCount = excludedItems.length;
+  const independentCandidates = Math.max(candidateCount, extractedCount);
+  const needsAttention = Math.max(0, independentCandidates - extractedCount);
+  const totalCandidates = extractedCount + excludedCount + needsAttention;
 
   const model: MeetingModel = {
     version: '2.0',
     meta: {
       title: docTitle,
       meetingType: 'Plan document',
-      meetingDate,
+      meetingDate: meetingDate || '',
       organisation: metaIn.organisation,
       project: metaIn.project,
       chair: undefined,
@@ -529,10 +766,10 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     gates,
     excludedItems,
     coverage: {
-      candidates: actions.length + excludedItems.length,
-      extracted: actions.length,
-      excluded: excludedItems.length,
-      needsAttention: 0,
+      candidates: totalCandidates,
+      extracted: extractedCount,
+      excluded: excludedCount,
+      needsAttention,
       unresolved: [],
     },
     nextMeeting,
