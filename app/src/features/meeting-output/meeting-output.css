@@ -594,6 +594,20 @@
   .cmo .email-card .eh, .cmo .email-card pre, .cmo .email-card .ef { padding: 16px; }
 }
 
+/* Document mode stage ribbon responsive display */
+.cmo .stage-ribbon-desktop { display: flex !important; }
+.cmo .stage-ribbon-mobile { display: none !important; }
+
+@media (max-width: 640px) {
+  .cmo .stage-ribbon-desktop { display: none !important; }
+  .cmo .stage-ribbon-mobile { display: block !important; }
+}
+
+@container meeting-output (max-width: 640px) {
+  .cmo .stage-ribbon-desktop { display: none !important; }
+  .cmo .stage-ribbon-mobile { display: block !important; }
+}
+
 /* ---- print: only the document pages, wherever the studio is mounted ---- */
 .cmo.cmo-print-root { display: none; }
 @media print {

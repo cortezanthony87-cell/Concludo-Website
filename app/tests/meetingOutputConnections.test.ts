@@ -2,6 +2,7 @@ import { describe, it, expect } from 'bun:test';
 import * as CE from '../src/lib/intelligence/meetingEngine';
 import { generateMeetingPdf } from '../src/lib/reporting/meetingPdfGenerator';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 describe('Meeting Output Connections & Review Fixes', () => {
   const sampleTranscript = `
@@ -51,7 +52,7 @@ Alice: Open question Q01 is whether customer notifications should go out 24 hour
   });
 
   it('2. studio.js contains Save New Project button and modal labels', async () => {
-    const studioJs = await fs.readFile('/tmp/test-repo/app/src/features/meeting-output/studio.js', 'utf8');
+    const studioJs = await fs.readFile(path.resolve(__dirname, '../src/features/meeting-output/studio.js'), 'utf8');
 
     // Confirm button label in modal
     expect(studioJs).toContain('Save New Project');
@@ -69,7 +70,7 @@ Alice: Open question Q01 is whether customer notifications should go out 24 hour
   });
 
   it('3. meeting-output.css enforces [hidden] display none !important and modal max-height', async () => {
-    const css = await fs.readFile('/tmp/test-repo/app/src/features/meeting-output/meeting-output.css', 'utf8');
+    const css = await fs.readFile(path.resolve(__dirname, '../src/features/meeting-output/meeting-output.css'), 'utf8');
 
     expect(css).toContain('.cmo [hidden],');
     expect(css).toContain('.cmo [data-pane][hidden] { display: none !important; }');
@@ -77,7 +78,7 @@ Alice: Open question Q01 is whether customer notifications should go out 24 hour
   });
 
   it('4. saveMeetingRecord normalises null fields gracefully', async () => {
-    const saveCode = await fs.readFile('/tmp/test-repo/app/src/lib/outputs/saveMeetingRecord.ts', 'utf8');
+    const saveCode = await fs.readFile(path.resolve(__dirname, '../src/lib/outputs/saveMeetingRecord.ts'), 'utf8');
 
     expect(saveCode).toContain('m.meta?.meetingDate || null');
     expect(saveCode).toContain('(extras.sources || [])');
@@ -105,9 +106,9 @@ Alice: Open question Q01 is whether customer notifications should go out 24 hour
 
   it('6. Zero em or en dashes in modified files', async () => {
     const files = [
-      '/tmp/test-repo/app/src/features/meeting-output/studio.js',
-      '/tmp/test-repo/app/src/features/meeting-output/meeting-output.css',
-      '/tmp/test-repo/app/src/lib/outputs/saveMeetingRecord.ts',
+      path.resolve(__dirname, '../src/features/meeting-output/studio.js'),
+      path.resolve(__dirname, '../src/features/meeting-output/meeting-output.css'),
+      path.resolve(__dirname, '../src/lib/outputs/saveMeetingRecord.ts'),
     ];
 
     for (const f of files) {
