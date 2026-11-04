@@ -241,7 +241,7 @@ export function mountMeetingStudio(root, opts = {}) {
               : `<div class="drop" id="drop"><div class="big">${ic('upload')}</div><b>Drop files here, or choose files</b><span>Transcripts (.vtt, .srt, .txt), notes (.md, .txt) and documents (.docx, .pdf)</span><button class="btn sm" data-act="pick" style="margin-top:6px">Choose files</button><input type="file" id="file" multiple accept=".txt,.md,.vtt,.srt,.csv,.json,.docx,.pdf" hidden></div>`}
             </div>
             ${srcs.length ? `<div class="sources">${srcs
-              .map((s, i) => `<div class="src"><div class="ic">${ic(s.kind === 'document' ? 'doc' : s.kind === 'notes' ? 'notes' : 'paste')}</div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'transcript' ? 'Transcript' : s.kind === 'notes' ? 'Notes' : 'Supporting document'} · ${s.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></div>
+              .map((s, i) => `<div class="src neon-glow${s.kind === 'document' ? ' src-doc' : ''}${s.isNew ? ' src-new' : ''}" data-kind="${s.kind}" data-document="${s.kind === 'document' ? 'true' : 'false'}"><div class="ic">${ic(s.kind === 'document' ? 'doc' : s.kind === 'notes' ? 'notes' : 'paste')}</div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'transcript' ? 'Transcript' : s.kind === 'notes' ? 'Notes' : 'Supporting document'} · ${s.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></div>
                 <select data-kind="${i}" aria-label="Source type" class="btn sm" style="font-weight:500"><option value="transcript" ${s.kind === 'transcript' ? 'selected' : ''}>Transcript</option><option value="notes" ${s.kind === 'notes' ? 'selected' : ''}>Notes</option><option value="document" ${s.kind === 'document' ? 'selected' : ''}>Document</option></select>
                 <button class="btn ghost sm" data-rm="${i}" aria-label="Remove ${esc(s.name)}">${ic('trash')}</button></div>`)
               .join('')}</div>` : ''}
@@ -395,6 +395,7 @@ export function mountMeetingStudio(root, opts = {}) {
       try {
         const s = await readFile(f);
         if (!s.text.trim()) throw new Error(`${f.name} has no readable text. If it is a scanned PDF, paste the text instead.`);
+        s.isNew = true;
         S.sources.push(s);
       } catch (e) {
         S.error = e.message;
@@ -465,7 +466,7 @@ export function mountMeetingStudio(root, opts = {}) {
           <section class="section" id="sec-bottom"><header><div><h2>Bottom line</h2><p>Written from the items below. It updates as you review.</p></div></header><div class="answer">${esc(m.bottomLine)}</div></section>
           ${sectionDecisions(m)}${sectionActions(m)}${sectionRisks(m)}${sectionOpen(m)}
           <section class="section" id="sec-figures"><header><div><h2>Key figures</h2><p>Amounts, percentages and counts stated in the sources.</p></div></header>${m.figures.length ? `<div class="figs">${m.figures.map((f) => `<div class="fig"><b>${esc(f.value)}</b><p>${esc(f.context)}</p><p style="font-size:11.5px">${esc(CE.cite(f.evidence))}</p></div>`).join('')}</div>` : '<p class="note">No figures stated.</p>'}</section>
-          <section class="section" id="sec-sources"><header><div><h2>Sources</h2><p>What this record was built from.</p></div></header><div class="sources" style="margin-top:0">${m.sources.map((s) => `<div class="src" style="grid-template-columns:34px 1fr auto"><div class="ic"><span class="id">${s.id}</span></div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'document' ? 'Supporting document' : s.kind === 'notes' ? 'Notes' : 'Transcript'} · ${s.words.toLocaleString()} words${s.speakers ? ` · ${s.speakers} speakers` : ''}${s.firstTimestamp ? ` · ${s.firstTimestamp} to ${s.lastTimestamp}` : ''}</div></div></div>`).join('')}</div></section>
+          <section class="section" id="sec-sources"><header><div><h2>Sources</h2><p>What this record was built from.</p></div></header><div class="sources" style="margin-top:0">${m.sources.map((s) => `<div class="src neon-glow${s.kind === 'document' ? ' src-doc' : ''}" data-kind="${s.kind}" data-document="${s.kind === 'document' ? 'true' : 'false'}" style="grid-template-columns:34px 1fr auto"><div class="ic"><span class="id">${s.id}</span></div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'document' ? 'Supporting document' : s.kind === 'notes' ? 'Notes' : 'Transcript'} · ${s.words.toLocaleString()} words${s.speakers ? ` · ${s.speakers} speakers` : ''}${s.firstTimestamp ? ` · ${s.firstTimestamp} to ${s.lastTimestamp}` : ''}</div></div></div>`).join('')}</div></section>
         </div>
         <aside class="side">
           <div class="card quality"><div class="card-h"><h2>Record quality</h2></div><div class="card-b">

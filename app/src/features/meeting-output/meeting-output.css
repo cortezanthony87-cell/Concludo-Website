@@ -152,6 +152,79 @@
 .cmo .src .ic { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: var(--navy-tint); }
 .cmo .src .nm { font-weight: 600; font-size: 13.5px; }
 .cmo .src .sub { font-size: 12px; color: var(--slate); }
+
+/* Blue glowing neon light around added documents */
+.cmo .src.neon-glow,
+.cmo .src.src-doc,
+.cmo .src.src-new,
+.cmo .src[data-kind="document"],
+.cmo .sources .src {
+  border: 1.5px solid #0099ff;
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow:
+    0 0 0 1px rgba(0, 153, 255, 0.4),
+    0 0 8px rgba(0, 153, 255, 0.65),
+    0 0 18px rgba(0, 153, 255, 0.45),
+    0 0 30px rgba(0, 153, 255, 0.25),
+    inset 0 0 6px rgba(0, 153, 255, 0.12);
+  animation: cmo-neon-blue-glow 2.5s ease-in-out infinite;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+}
+
+.cmo .src.neon-glow:hover,
+.cmo .src.src-doc:hover,
+.cmo .src.src-new:hover,
+.cmo .src[data-kind="document"]:hover,
+.cmo .sources .src:hover {
+  border-color: #38bdf8;
+  box-shadow:
+    0 0 0 1.5px rgba(56, 189, 248, 0.6),
+    0 0 12px rgba(0, 153, 255, 0.85),
+    0 0 24px rgba(0, 153, 255, 0.6),
+    0 0 40px rgba(0, 153, 255, 0.35),
+    inset 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.cmo .src.neon-glow .ic,
+.cmo .src.src-doc .ic,
+.cmo .src[data-kind="document"] .ic {
+  background: rgba(0, 153, 255, 0.12);
+  color: #0088e6;
+  box-shadow: 0 0 8px rgba(0, 153, 255, 0.25);
+}
+
+@keyframes cmo-neon-blue-glow {
+  0%, 100% {
+    border-color: #0099ff;
+    box-shadow:
+      0 0 0 1px rgba(0, 153, 255, 0.4),
+      0 0 8px rgba(0, 153, 255, 0.65),
+      0 0 18px rgba(0, 153, 255, 0.45),
+      0 0 30px rgba(0, 153, 255, 0.25),
+      inset 0 0 6px rgba(0, 153, 255, 0.12);
+  }
+  50% {
+    border-color: #38bdf8;
+    box-shadow:
+      0 0 0 1.5px rgba(56, 189, 248, 0.6),
+      0 0 12px rgba(56, 189, 248, 0.85),
+      0 0 24px rgba(0, 153, 255, 0.6),
+      0 0 38px rgba(0, 153, 255, 0.35),
+      inset 0 0 8px rgba(56, 189, 248, 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmo .src.neon-glow,
+  .cmo .src.src-doc,
+  .cmo .src.src-new,
+  .cmo .src[data-kind="document"],
+  .cmo .sources .src {
+    animation: none;
+  }
+}
 .cmo .field { display: grid; gap: 6px; margin-bottom: 14px; }
 .cmo .field label { font-size: 12px; font-weight: 600; color: var(--slate); display: flex; justify-content: space-between; align-items: center; }
 .cmo .field input, .cmo .field select { height: 38px; border: 1px solid var(--line-2); border-radius: 7px; padding: 0 11px; background: var(--white); }
