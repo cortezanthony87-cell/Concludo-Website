@@ -43,12 +43,12 @@ export function parseActionRegisterCsv(csvText: string): ImportedActionRow[] {
   const parsed = Papa.parse<Record<string, string>>(csvText, {
     header: true,
     skipEmptyLines: 'greedy',
-    transformHeader: (h) => h.toLowerCase().trim(),
+    transformHeader: (h: string) => h.toLowerCase().trim(),
   });
 
   if (!parsed.data || !parsed.data.length) return [];
 
-  return parsed.data.map((row, index) => {
+  return parsed.data.map((row: Record<string, string>, index: number) => {
     const id = row['id'] || `A${String(index + 1).padStart(2, '0')}`;
     const stage = row['stage'] || '';
     const action = row['action'] || row['task'] || '';
@@ -77,7 +77,7 @@ export function parseActionRegisterCsv(csvText: string): ImportedActionRow[] {
       status,
       evidence,
     };
-  }).filter((r) => r.action.trim().length > 0);
+  }).filter((r: ImportedActionRow) => r.action.trim().length > 0);
 }
 
 export async function checkDuplicateBatch(
