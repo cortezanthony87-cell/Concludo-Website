@@ -23,6 +23,8 @@ import {
   ChevronLeft,
   ChevronRight,
   UploadCloud,
+  Download,
+  Printer,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project } from '../../../lib/projects/types';
@@ -35,6 +37,10 @@ import { calculateActionBuckets, ActionBucketCounts } from '../../../lib/actions
 import { fetchCandidates, approveCandidate, dismissCandidate } from '../../../lib/actions/actionCandidates';
 import { ProjectFilesSection } from '../ProjectFilesSection';
 import { OutputDocumentRenderer } from '../../OutputDocumentRenderer';
+import { generateMeetingPdf } from '../../../lib/reporting/meetingPdfGenerator';
+import { renderConcludoReport } from '../../../lib/reporting/concludoReport';
+import { parseOutputToPayload } from '../../../lib/reporting/payloadFromOutput';
+import { toMarkdown } from '../../../lib/intelligence/meetingEngine';
 import './saved-project-bright.css';
 
 export interface SavedProjectBrightViewProps {
@@ -145,6 +151,7 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [viewingOutput, setViewingOutput] = useState<OutputRecord | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [showAddActionModal, setShowAddActionModal] = useState(false);
   const [showAddDecisionModal, setShowAddDecisionModal] = useState(false);
 
@@ -374,6 +381,192 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
     (a) => a.due_date && a.status !== 'completed' && a.due_date < new Date().toISOString().slice(0, 10)
   );
 
+  // Open full meeting output report
+  const handleSeeFullReport = () => {
+    if (outputs.length === 0) {
+      onExtractOutputs();
+      return;
+    }
+    const summaryOut = outputs.find((o) => o.output_type === 'summary') || outputs[0];
+    setViewingOutput(summaryOut);
+  };
+
+  // Action CSV formatter supporting both MeetingModel actions and ActionRecord items
+  const formatActionsToCsv = (acts: any[]): string => {
+    const esc = (s: any) => `"${String(s || '').replace(/"/g, '""')}"`;
+    const headers = ['ID', 'Task', 'Owner', 'Due Date', 'Status', 'Priority', 'Definition of Done', 'Evidence Quote', 'Source'];
+    const rows = (acts || []).map((a, i) => {
+      const id = a.id || `ACT-${i + 1}`;
+      const task = a.task || a.action_title || a.title || '';
+      const owner = a.owner || a.owner_name || '';
+      const due = a.due || a.due_date || '';
+      const status = a.status || '';
+      const priority = a.priority || '';
+      const done = a.doneDefinition || a.deliverable || '';
+      const ev = (a.evidence && a.evidence[0]?.quote) || a.source_excerpt || '';
+      const src = (a.evidence && a.evidence[0]?.sourceName) || a.source || '';
+      return [esc(id), esc(task), esc(owner), esc(due), esc(status), esc(priority), esc(done), esc(ev), esc(src)].join(',');
+    });
+    return [headers.join(','), ...rows].join('\r\n');
+  };
+
+  // Download Boardroom PDF
+  const handleDownloadPdf = async (targetOutput?: OutputRecord) => {
+    const out = targetOutput || viewingOutput;
+    if (!out) return;
+    setIsExporting(true);
+    try {
+      let pdfBytes: Uint8Array;
+      const baseName = (project.title || 'Meeting_Record')
+        .replace(/[^\w]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+      if (out.json_content && out.json_content.version === '2.0' && Array.isArray(out.json_content.actions)) {
+        pdfBytes = await generateMeetingPdf(out.json_content);
+      } else if (out.json_content && out.json_content.document && out.json_content.meeting) {
+        const res = await renderConcludoReport(out.json_content);
+        pdfBytes = new Uint8Array(res.pdfBytes);
+      } else {
+        const payload = parseOutputToPayload(
+          out.output_type,
+          out.content || '',
+          project.title,
+          project.meeting_date || new Date().toISOString().slice(0, 10),
+          project.client_name || 'Concludo Client',
+          'starter'
+        );
+        const res = await renderConcludoReport(payload);
+        pdfBytes = new Uint8Array(res.pdfBytes);
+      }
+
+      const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${baseName}_${out.output_type || 'report'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 60000);
+    } catch (err: any) {
+      console.error('Failed to export PDF:', err);
+      alert('Failed to generate PDF document: ' + (err?.message || err));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Download complete archive (.zip)
+  const handleDownloadZip = async (targetOutput?: OutputRecord) => {
+    const out = targetOutput || viewingOutput;
+    if (!out) return;
+    setIsExporting(true);
+    try {
+      const { default: JSZipModule } = await import('jszip');
+      const JSZip = (JSZipModule as any)?.default || JSZipModule;
+      const zip = new JSZip();
+      const baseName = (project.title || 'Meeting_Record')
+        .replace(/[^\w]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+      // 1. PDF
+      try {
+        let pdfBytes: Uint8Array | null = null;
+        if (out.json_content && out.json_content.version === '2.0' && Array.isArray(out.json_content.actions)) {
+          pdfBytes = await generateMeetingPdf(out.json_content);
+        } else if (out.json_content && out.json_content.document && out.json_content.meeting) {
+          const res = await renderConcludoReport(out.json_content);
+          pdfBytes = new Uint8Array(res.pdfBytes);
+        } else {
+          const payload = parseOutputToPayload(
+            out.output_type,
+            out.content || '',
+            project.title,
+            project.meeting_date || new Date().toISOString().slice(0, 10),
+            project.client_name || 'Concludo Client',
+            'starter'
+          );
+          const res = await renderConcludoReport(payload);
+          pdfBytes = new Uint8Array(res.pdfBytes);
+        }
+        if (pdfBytes) {
+          zip.file(`${baseName}_report.pdf`, pdfBytes);
+        }
+      } catch (e) {
+        console.warn('PDF zip inclusion failed:', e);
+      }
+
+      // 2. Markdown
+      const mdContent = out.content || (out.json_content?.version === '2.0' ? toMarkdown(out.json_content) : '');
+      if (mdContent) {
+        zip.file(`${baseName}_report.md`, mdContent);
+      }
+
+      // 3. CSV actions
+      const acts = out.json_content?.actions || actions;
+      if (acts && acts.length > 0) {
+        zip.file(`${baseName}_actions.csv`, formatActionsToCsv(acts));
+      }
+
+      // 4. JSON record
+      if (out.json_content) {
+        zip.file(`${baseName}_record.json`, JSON.stringify(out.json_content, null, 2));
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${baseName}_package.zip`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 60000);
+    } catch (err: any) {
+      console.error('Failed to export ZIP package:', err);
+      alert('Failed to generate ZIP package: ' + (err?.message || err));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Download Action Tracker (.csv)
+  const handleDownloadCsv = (targetOutput?: OutputRecord) => {
+    const out = targetOutput || viewingOutput;
+    const acts = out?.json_content?.actions || actions;
+    if (!acts || acts.length === 0) {
+      alert('No actions found to export to CSV.');
+      return;
+    }
+    const baseName = (project.title || 'Meeting_Actions')
+      .replace(/[^\w]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const csvText = formatActionsToCsv(acts);
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `${baseName}_actions.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 60000);
+  };
+
+  // Print via browser
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="sp-shell">
       {/* Breadcrumb */}
@@ -407,6 +600,16 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="sp-btn"
+            onClick={handleSeeFullReport}
+            title="See full meeting output report"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <FileText size={14} />
+            <span>See full report</span>
+          </button>
           <button
             type="button"
             className="sp-btn2"
@@ -709,37 +912,84 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
             <div className="sp-card" style={{ borderLeft: '4px solid var(--sp-gold)' }}>
               <h3 style={{ fontSize: '15px' }}>Next step</h3>
               <div className="sp-note" style={{ margin: '6px 0 12px' }}>
-                Draft your outputs from the sources. Suggested actions wait for your approval.
+                {outputs.length > 0
+                  ? 'View the complete meeting output report or extract fresh outputs from your sources.'
+                  : 'Draft your outputs from the sources. Suggested actions wait for your approval.'}
               </div>
-              <button
-                type="button"
-                className="sp-btn"
-                onClick={onExtractOutputs}
-              >
-                Extract and generate outputs
-              </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="sp-btn"
+                  onClick={handleSeeFullReport}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FileText size={14} />
+                  <span>See full report</span>
+                </button>
+                <button
+                  type="button"
+                  className="sp-btn2"
+                  onClick={onExtractOutputs}
+                >
+                  Extract and generate outputs
+                </button>
+              </div>
             </div>
 
             {/* Card: Latest outputs */}
             <div className="sp-card">
-              <h3 style={{ fontSize: '15px' }}>Latest outputs</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                <h3 style={{ fontSize: '15px', margin: 0 }}>Latest outputs</h3>
+                {outputs.length > 0 && (
+                  <button
+                    type="button"
+                    className="sp-btn"
+                    style={{ fontSize: '12px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    onClick={handleSeeFullReport}
+                  >
+                    <FileText size={12} />
+                    <span>See full report</span>
+                  </button>
+                )}
+              </div>
               {outputs.length === 0 ? (
                 <div className="sp-note" style={{ margin: '10px 0' }}>
                   No outputs generated yet. Click Extract and generate outputs above.
                 </div>
               ) : (
-                outputs.slice(0, 5).map((o) => (
-                  <div key={o.id} className="sp-row">
-                    <span style={{ fontWeight: 500, fontSize: '13px' }}>{OUTPUT_TYPE_LABELS[o.output_type] || o.output_type}</span>
-                    <button
-                      type="button"
-                      className="sp-btn2"
-                      onClick={() => setViewingOutput(o)}
-                    >
-                      Open
-                    </button>
-                  </div>
-                ))
+                <>
+                  {outputs.slice(0, 5).map((o) => (
+                    <div key={o.id} className="sp-row">
+                      <span style={{ fontWeight: 500, fontSize: '13px' }}>{OUTPUT_TYPE_LABELS[o.output_type] || o.output_type}</span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="sp-btn2"
+                          onClick={() => setViewingOutput(o)}
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          className="sp-btn2"
+                          onClick={() => handleDownloadPdf(o)}
+                          title="Save PDF to device"
+                        >
+                          <Download size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="sp-btn2"
+                    style={{ width: '100%', marginTop: '10px', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    onClick={handleSeeFullReport}
+                  >
+                    <FileText size={13} />
+                    <span>See full report</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -888,11 +1138,24 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
       {/* TAB 3: OUTPUTS */}
       {activeTab === 'outputs' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
             <div className="sp-note">{outputs.length} saved output{outputs.length === 1 ? '' : 's'}</div>
-            <button type="button" className="sp-btn" onClick={onExtractOutputs}>
-              + Create output
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {outputs.length > 0 && (
+                <button
+                  type="button"
+                  className="sp-btn"
+                  onClick={handleSeeFullReport}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FileText size={14} />
+                  <span>See full report</span>
+                </button>
+              )}
+              <button type="button" className="sp-btn2" onClick={onExtractOutputs}>
+                + Create output
+              </button>
+            </div>
           </div>
 
           {outputs.length === 0 ? (
@@ -922,10 +1185,11 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
                     <div className="sp-note">
                       {formatMelbourneDateTime(o.created_at)}
                     </div>
-                    <div style={{ marginTop: '12px', display: 'flex', gap: '6px' }}>
+                    <div style={{ marginTop: '12px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
-                        className="sp-btn2"
+                        className="sp-btn"
+                        style={{ padding: '4px 10px', fontSize: '12px' }}
                         onClick={() => setViewingOutput(o)}
                       >
                         Open
@@ -933,6 +1197,27 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
                       <button
                         type="button"
                         className="sp-btn2"
+                        style={{ padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => handleDownloadPdf(o)}
+                        title="Save PDF to device"
+                      >
+                        <Download size={12} />
+                        <span>PDF</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="sp-btn2"
+                        style={{ padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => handleDownloadZip(o)}
+                        title="Download complete archive (.zip)"
+                      >
+                        <Layers size={12} />
+                        <span>ZIP</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="sp-btn2"
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
                         onClick={() => {
                           navigator.clipboard.writeText(o.content || '');
                           alert('Copied output content to clipboard');
@@ -944,6 +1229,7 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
                         <button
                           type="button"
                           className="sp-btn2"
+                          style={{ padding: '4px 8px' }}
                           onClick={() => {
                             if (confirm('Delete this saved output?')) {
                               onDeleteOutput(o.id);
@@ -1368,30 +1654,140 @@ export const SavedProjectBrightView: React.FC<SavedProjectBrightViewProps> = ({
         </div>
       )}
 
-      {/* VIEW OUTPUT MODAL */}
+      {/* VIEW OUTPUT / FULL REPORT MODAL */}
       {viewingOutput && (
         <div className="sp-modal-overlay" onClick={() => setViewingOutput(null)}>
           <div
             className="sp-modal-content"
-            style={{ maxWidth: '960px', maxHeight: '92vh', padding: '20px' }}
+            style={{
+              maxWidth: '1080px',
+              width: '95vw',
+              maxHeight: '94vh',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+                paddingBottom: '12px',
+                borderBottom: '1px solid var(--sp-line)',
+                flexWrap: 'wrap',
+                gap: '10px',
+              }}
+            >
               <div>
-                <h3 style={{ fontSize: '18px' }}>{OUTPUT_TYPE_LABELS[viewingOutput.output_type] || viewingOutput.output_type}</h3>
-                <div className="sp-note">Saved {formatMelbourneDateTime(viewingOutput.created_at)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                  <span className="sp-tag" style={{ background: 'var(--sp-gold-bg)', color: 'var(--sp-gold-deep)', fontWeight: 700 }}>
+                    MEETING OUTPUT REPORT
+                  </span>
+                  <span className="sp-tag">
+                    {OUTPUT_TYPE_LABELS[viewingOutput.output_type] || viewingOutput.output_type}
+                  </span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '2px 0' }}>{project.title}</h3>
+                <div className="sp-note">
+                  Saved {formatMelbourneDateTime(viewingOutput.created_at)}
+                  {project.client_name ? ` · Client: ${project.client_name}` : ''}
+                  {project.meeting_date ? ` · Meeting: ${formatMelbourneDate(project.meeting_date)}` : ''}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setViewingOutput(null)}
-                className="sp-btn2"
-                style={{ padding: '6px 10px' }}
-              >
-                <X size={16} />
-                <span>Close</span>
-              </button>
+
+              {/* Action Buttons to Save to Laptop, Computer, Phone */}
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPdf(viewingOutput)}
+                  disabled={isExporting}
+                  className="sp-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '6px 12px' }}
+                  title="Save PDF directly to laptop, computer or phone"
+                >
+                  <Download size={14} />
+                  <span>{isExporting ? 'Saving...' : 'Save as PDF'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadZip(viewingOutput)}
+                  disabled={isExporting}
+                  className="sp-btn2"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '6px 12px' }}
+                  title="Download complete archive (.zip) with PDF, Markdown, CSV, and JSON"
+                >
+                  <Layers size={14} />
+                  <span>Package (.zip)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCsv(viewingOutput)}
+                  className="sp-btn2"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '6px 12px' }}
+                  title="Download action tracker spreadsheet (.csv)"
+                >
+                  <FileText size={14} />
+                  <span>Action tracker (.csv)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="sp-btn2"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '6px 12px' }}
+                  title="Print or Save as PDF via browser"
+                >
+                  <Printer size={14} />
+                  <span>Print</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewingOutput(null)}
+                  className="sp-btn2"
+                  style={{ padding: '6px 10px' }}
+                  title="Close report"
+                >
+                  <X size={16} />
+                  <span>Close</span>
+                </button>
+              </div>
             </div>
-            <div style={{ overflowY: 'auto', maxHeight: 'calc(92vh - 120px)' }}>
+
+            {/* Document Switcher if multiple outputs exist */}
+            {outputs.length > 1 && (
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="sp-note" style={{ fontSize: '12px', marginRight: '4px' }}>
+                  Document view:
+                </span>
+                {outputs.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setViewingOutput(o)}
+                    className={`sp-btn2 ${viewingOutput.id === o.id ? 'active' : ''}`}
+                    style={{
+                      fontSize: '12px',
+                      padding: '4px 10px',
+                      fontWeight: viewingOutput.id === o.id ? 600 : 400,
+                      background: viewingOutput.id === o.id ? 'var(--sp-gold-bg)' : undefined,
+                      borderColor: viewingOutput.id === o.id ? 'var(--sp-gold)' : undefined,
+                    }}
+                  >
+                    {OUTPUT_TYPE_LABELS[o.output_type] || o.output_type}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Document Renderer Container */}
+            <div style={{ overflowY: 'auto', flex: 1, maxHeight: 'calc(94vh - 130px)' }}>
               <OutputDocumentRenderer
                 outputType={viewingOutput.output_type}
                 rawContent={viewingOutput.content || ''}
