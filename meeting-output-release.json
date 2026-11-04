@@ -1,0 +1,27 @@
+{
+  "feature": "Meeting Output responsive layout repair",
+  "sourceCommit": "8a79a93751f111e9754e9f7546eeacb0ba665c93",
+  "previousDeployment": "d6ce53e4b7b3c573dbb78e63813fda2cb3f47c06",
+  "builtAt": "2026-10-27T08:10:16.040Z",
+  "assets": [
+    {
+      "path": "/assets/index-BbIHva9L.js",
+      "bytes": 8451703,
+      "sha256": "226ee3d26ed1723ece175217e92472cd8773ab38ff199f0e0d2eed85c0a43009"
+    },
+    {
+      "path": "/assets/index-By9WuaXK.css",
+      "bytes": 332627,
+      "sha256": "7ac48e933a241a222c43e49e8700966cd06896ace079ac48654c84d1abbd012b"
+    }
+  ],
+  "validation": {
+    "layoutCases": 57,
+    "releaseChecks": 489,
+    "appUnitTests": 60,
+    "browserChecks": 28,
+    "typecheckAndBuild": "passed",
+    "printTemplates": 4
+  },
+  "limitation": "Authenticated live save/reopen has not been verified; recording mocks and read-only schema checks passed."
+}
