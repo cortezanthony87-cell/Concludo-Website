@@ -582,6 +582,13 @@
 }
 
 @media (max-width: 480px) {
+  .sp-modal-overlay {
+    padding: 8px;
+  }
+  .sp-modal-content {
+    padding: 14px;
+    max-height: 96vh;
+  }
   .sp-shell {
     padding: 12px 14px;
   }

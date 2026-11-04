@@ -582,7 +582,17 @@
 .cmo { min-height: 100%; font-size: 14px; line-height: 1.5; color: var(--navy); background: var(--light); }
 .cmo.cmo-embedded .topbar { grid-template-columns: auto 1fr auto; }
 .cmo.cmo-embedded .doc-side { top: calc(var(--cmo-top, 0px) + 64px); height: calc(100vh - var(--cmo-top, 0px) - 64px); }
-.cmo.cmo-viewer .topbar, .cmo.cmo-viewer .cmo-hide-viewer { display: none; }
+.cmo.cmo-viewer .stepper,
+.cmo.cmo-viewer .brand,
+.cmo.cmo-viewer [data-act="save"],
+.cmo.cmo-viewer .cmo-hide-viewer { display: none !important; }
+.cmo.cmo-viewer .topbar {
+  display: flex !important;
+  justify-content: flex-end;
+  background: #ffffff;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+  padding: 8px 16px;
+}
 .cmo.cmo-viewer .doc-side { top: 0; height: auto; position: static; }
 .cmo .modal-bg, .cmo .toast { font-family: var(--f-body); }
 

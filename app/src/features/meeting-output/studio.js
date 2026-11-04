@@ -204,6 +204,7 @@ export function mountMeetingStudio(root, opts = {}) {
           <button class="btn sm" data-act="save">${ic('save')}<span>Save to project</span></button>
           <button class="btn sm navy" data-act="save-all-pdf" title="Save all documents as a complete PDF pack">${ic('print')}<span>Save all as PDF</span></button>
           <button class="btn sm" data-act="export-options" title="Export formats to your device">${ic('download')}<span>Export</span></button>
+          <button class="btn sm" data-act="print" title="Print document or save as PDF via browser">${ic('print')}<span>Print</span></button>
         ` : ''}</div>
       </header>
       <main id="main">${S.step === 1 ? viewImport() : S.step === 2 ? viewReview() : viewDocument()}</main>`;
