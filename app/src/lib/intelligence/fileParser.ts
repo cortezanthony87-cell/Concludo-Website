@@ -1,3 +1,49 @@
+
+/**
+ * Converts HTML from mammoth.convertToHtml into structured Markdown preserving tables,
+ * headings, list items, and line breaks so document mode intelligence can extract actions.
+ */
+export function htmlToMarkdown(htmlStr: string): string {
+  // Convert <table> to markdown table
+  let res = htmlStr.replace(/<table[\s\S]*?<\/table>/gi, (tbl) => {
+    const rows = tbl.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+    const mdRows: string[] = [];
+    let isHeader = true;
+    for (const row of rows) {
+      const cells = Array.from(row.matchAll(/<(?:th|td)[^>]*>([\s\S]*?)<\/(?:th|td)>/gi)).map((m) => {
+        return m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      });
+      if (cells.length > 0) {
+        mdRows.push('| ' + cells.join(' | ') + ' |');
+        if (isHeader) {
+          mdRows.push('| ' + cells.map(() => '---').join(' | ') + ' |');
+          isHeader = false;
+        }
+      }
+    }
+    return '\n\n' + mdRows.join('\n') + '\n\n';
+  });
+
+  // Convert headings
+  res = res.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level, content) => {
+    return '\n\n' + '#'.repeat(Number(level)) + ' ' + content.replace(/<[^>]+>/g, ' ').trim() + '\n\n';
+  });
+
+  // Convert paragraphs and lists
+  res = res.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '\n\n$1\n\n');
+  res = res.replace(/<br\s*\/?>/gi, '\n');
+  res = res.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1');
+  res = res.replace(/<[^>]+>/g, ' ');
+  res = res.replace(/&nbsp;/g, ' ');
+  res = res.replace(/&amp;/g, '&');
+  res = res.replace(/&lt;/g, '<');
+  res = res.replace(/&gt;/g, '>');
+  res = res.replace(/&quot;/g, '"');
+  res = res.replace(/&#39;/g, "'");
+
+  return res.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 
@@ -71,12 +117,18 @@ export async function parseUploadedFile(file: File): Promise<ParsedDocument> {
   // 3. Microsoft Word (.docx)
   if (extension === 'docx') {
     const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
+    // Convert to HTML first to preserve table rows, headers, and checkboxes
+    const options: any = { arrayBuffer };
+    if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+      options.buffer = Buffer.from(arrayBuffer);
+    }
+    const htmlResult = await mammoth.convertToHtml(options);
+    const markdownText = htmlToMarkdown(htmlResult.value || '');
     return {
       name: file.name,
       size: file.size,
       type: 'docx',
-      text: (result.value || '').trim(),
+      text: markdownText || (await mammoth.extractRawText({ arrayBuffer })).value || '',
     };
   }
 

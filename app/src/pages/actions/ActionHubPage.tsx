@@ -1491,7 +1491,23 @@ export const ActionHubPage: React.FC = () => {
                   Import documents that contain actions or tasks (PDF, Word .docx, plan text, markdown). The workspace <b>Document Intelligence Agent</b> reads the document, sorts out tasks and events, and auto-fills dates. If dates are missing, pick a date and choose whether to add them to your Concludo Calendar.
                 </p>
 
-                <div style={{ border: '2px dashed #C9D0DC', borderRadius: '8px', padding: '16px', background: '#FAFAFC', textAlign: 'center', marginBottom: '14px' }}>
+                <div
+                  style={{ border: '2px dashed #C9D0DC', borderRadius: '8px', padding: '16px', background: '#FAFAFC', textAlign: 'center', marginBottom: '14px', cursor: 'pointer' }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const f = e.dataTransfer.files?.[0];
+                    if (!f) return;
+                    const inputEl = document.getElementById('ach-doc-upload') as HTMLInputElement;
+                    if (inputEl) {
+                      const dt = new DataTransfer();
+                      dt.items.add(f);
+                      inputEl.files = dt.files;
+                      inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  }}
+                >
                   <input
                     type="file"
                     accept=".pdf,.docx,.txt,.md,.markdown"
@@ -1553,6 +1569,17 @@ export const ActionHubPage: React.FC = () => {
                 {duplicateWarning && (
                   <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#16263F' }}>
                     ⚠️ {duplicateWarning}
+                  </div>
+                )}
+
+                {docExtractResult && docExtractResult.actions.length === 0 && (
+                  <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '14px', marginBottom: '12px', fontSize: '13px', color: '#16263F' }}>
+                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                      ⚠️ No action items were detected in {docFile?.name || 'this document'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#5A6478' }}>
+                      The workspace Document Intelligence Agent scanned the document but found no checkboxes, action table rows, or task lists. Please ensure your document contains an action register, checklist, or next steps table.
+                    </div>
                   </div>
                 )}
 

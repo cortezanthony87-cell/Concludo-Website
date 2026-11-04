@@ -397,8 +397,10 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     }
 
     // A. Detect Stage Header (General pattern)
-    const stM = cleanLine.match(/^(?:\|\s*)?(?:##\s*)?((?:(?:Phase|Stage)\s+\d+|(?:First\s+\d+\s+days|Days\s+\d+\s+to\s+\d+|Months?\s+\d+\s+to\s+\d+|Years?\s+\d+(?:\s+(?:and|to)\s+\d+)?))[^|\n]*)/i);
-    if (stM && !/\|\s*\d+\s*\|\s*\d+\s*\|/.test(cleanLine)) {
+    const isTocLine = /\t\s*\d+$/.test(cleanLine);
+    const isTableLine = cleanLine.startsWith('|');
+    const stM = !isTocLine && !isTableLine && cleanLine.match(/^(?:#{1,6}\s+)?(?:[A-Z0-9]+[.\s]+)?((?:(?:Phase|Stage)\s+\d+|(?:First\s+\d+\s+days|Days\s+\d+\s+to\s+\d+|Months?\s+\d+\s+to\s+\d+|Years?\s+\d+(?:\s+(?:and|to)\s+\d+)?|Now\s+to\s+Day\s+\d+))[^|\n]*)/i);
+    if (stM) {
       const candidateSt = stM[1].trim().replace(/^\|\s*|\s*\|$/g, '');
       currentStageName = candidateSt;
       currentStageNo += 1;
@@ -470,7 +472,9 @@ export function analyseDocumentMode(inputs: SourceInput[], metaIn: MeetingMetaIn
     // D. Action Candidates (D2)
 
     // D2.1 Checkbox Action Line
-    const cbM = cleanLine.match(/(?:^|\|\s*|[-*•]\s*)(?:[☐☑]|\[\s*\]|\[x\])\s*(.+?)(?=\s*\|?\s*$)/i);
+    // If it is a multi-column table row (3 or more cells), let D2.3 handle it
+    const isMultiColumnTableRow = cleanLine.startsWith('|') && cleanLine.split('|').slice(1, -1).length >= 3;
+    const cbM = !isMultiColumnTableRow && cleanLine.match(/(?:^|\|\s*|[-*•]\s*)(?:[☐☑]|\[\s*\]|\[x\])\s*(.+?)(?=\s*\|?\s*$)/i);
     if (cbM) {
       const rawContent = cbM[1].trim();
       const dayM = rawContent.match(/^(Day\s+\d+|Days\s+\d+\s+to\s+\d+)[:\s-]+(.*)$/i);
