@@ -523,20 +523,76 @@
 .ach-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(22, 38, 63, 0.45);
+  background: rgba(22, 38, 63, 0.55);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1100;
+  padding: 20px 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .ach-modal-box {
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 12px;
   width: 560px;
-  max-width: 90vw;
-  padding: 20px;
-  box-shadow: 0 10px 25px rgba(22, 38, 63, 0.2);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 40px);
+  margin: auto;
+  padding: 22px 24px;
+  box-shadow: 0 16px 36px rgba(22, 38, 63, 0.25);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.ach-modal-box-wide {
+  width: 100%;
+  max-width: 960px;
+}
+
+.ach-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.ach-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+.ach-modal-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.ach-modal-body::-webkit-scrollbar-track {
+  background: #F4F6FA;
+  border-radius: 3px;
+}
+
+.ach-modal-body::-webkit-scrollbar-thumb {
+  background: #C9D0DC;
+  border-radius: 3px;
+}
+
+.ach-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #8A93A5;
+}
+
+.ach-modal-footer {
+  flex-shrink: 0;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ach-line, #E4E8EF);
 }
 
 .ach-seg {
@@ -602,8 +658,15 @@
   .ach-mobile-cards {
     display: block;
   }
+  .ach-modal-backdrop {
+    padding: 12px 8px;
+  }
   .ach-panel,
   .ach-modal-box {
     width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+    padding: 16px;
+    border-radius: 10px;
   }
 }

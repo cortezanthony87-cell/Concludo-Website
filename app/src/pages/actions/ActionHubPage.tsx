@@ -100,6 +100,96 @@ export const ActionHubPage: React.FC = () => {
   const [createProject, setCreateProject] = useState('General');
   const [createSaving, setCreateSaving] = useState(false);
 
+  const handleCloseImportModal = () => {
+    setShowImportModal(false);
+    setImportRows([]);
+    setDocFile(null);
+    setDocExtractResult(null);
+    setDocActions([]);
+    setDocRawText('');
+    setDocPromptDate('');
+    setDuplicateWarning(null);
+    setImportFileName('');
+    setImportRawCsv('');
+  };
+
+  const handleImportDocumentActions = async () => {
+    if (!user?.id || !docFile) return;
+    setDocSaving(true);
+    try {
+      const res = await saveDocumentActionsToHub(supabase, user.id, {
+        actions: docActions,
+        documentName: docFile.name,
+        documentRawText: docRawText,
+        projectId: actions[0]?.project_id || null,
+        globalDateOverride: docPromptDate || undefined,
+      });
+      if (res.success) {
+        setLastBatchId(res.batchId);
+        setLastBatchUndone(false);
+        const calMsg = res.calendarCount > 0 ? ` and ${res.calendarCount} added to Calendar` : '';
+        showToast(res.warning || `Successfully imported ${res.actionsCount} actions${calMsg}.`);
+        handleCloseImportModal();
+        const { data: refreshed } = await fetchActions(supabase);
+        if (refreshed) setActions(refreshed);
+      } else {
+        showToast(`Import error: ${res.error || 'Server error'}`);
+      }
+    } catch (err: any) {
+      showToast(`Import error: ${err?.message || 'Server error'}`);
+    } finally {
+      setDocSaving(false);
+    }
+  };
+
+  const handleImportCsvActions = async () => {
+    if (!user?.id) return;
+    setImporting(true);
+    try {
+      const res = await importActionBatch(supabase, user.id, importRows, null, importFileName || 'action_plan.csv', importRawCsv);
+      if (res.success) {
+        setLastBatchId(res.batchId);
+        setLastBatchUndone(false);
+        showToast(res.warning || `Imported ${res.count} actions successfully.`);
+        handleCloseImportModal();
+        const { data: refreshed } = await fetchActions(supabase);
+        if (refreshed) setActions(refreshed);
+      } else {
+        showToast(`Import error: ${res.error || 'Server error'}`);
+      }
+    } catch (err: any) {
+      showToast(`Import error: ${err?.message || 'Server error'}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleUndoBatch = async () => {
+    if (!user?.id || !lastBatchId) return;
+    const res = await reverseImportBatch(supabase, lastBatchId, user.id);
+    if (res.success) {
+      showToast('Import batch undone.');
+      setLastBatchUndone(true);
+      const { data: refreshed } = await fetchActions(supabase);
+      if (refreshed) setActions(refreshed);
+    } else {
+      showToast(`Could not reverse batch: ${res.error || 'Server error'}`);
+    }
+  };
+
+  const handleRestoreBatch = async () => {
+    if (!user?.id || !lastBatchId) return;
+    const res = await restoreImportBatch(supabase, lastBatchId, user.id);
+    if (res.success) {
+      showToast('Import batch restored.');
+      setLastBatchUndone(false);
+      const { data: refreshed } = await fetchActions(supabase);
+      if (refreshed) setActions(refreshed);
+    } else {
+      showToast(`Could not restore batch: ${res.error || 'Server error'}`);
+    }
+  };
+
   // Action Command Hub Edit Controls state
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [deleteModalTask, setDeleteModalTask] = useState<ActionRecord | null>(null);
@@ -1300,9 +1390,20 @@ export const ActionHubPage: React.FC = () => {
       {showCreateModal && (
         <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Create new item">
           <div className="ach-modal-box">
-            <h2 className="ach-heading" style={{ fontSize: '18px' }}>
-              Create new item
-            </h2>
+            <div className="ach-modal-header">
+              <h2 className="ach-heading" style={{ fontSize: '18px', margin: 0 }}>
+                Create new item
+              </h2>
+              <button
+                type="button"
+                className="ach-btn-secondary"
+                style={{ padding: '4px 8px', fontSize: '12px' }}
+                onClick={() => setShowCreateModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="ach-modal-body">
             <div className="ach-seg">
               <button
                 className={createKind === 'task' ? 'active' : ''}
@@ -1425,7 +1526,8 @@ export const ActionHubPage: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
+            </div>
+            <div className="ach-modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button className="ach-btn-secondary" onClick={() => setShowCreateModal(false)}>
                 Cancel
               </button>
@@ -1444,30 +1546,24 @@ export const ActionHubPage: React.FC = () => {
       {/* Import Action Register Modal (D9) */}
       {showImportModal && (
         <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Import action register">
-          <div className="ach-modal-box" style={{ maxWidth: '820px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div className="ach-modal-box ach-modal-box-wide">
+            {/* Header - Fixed at top */}
+            <div className="ach-modal-header">
               <h2 className="ach-heading" style={{ fontSize: '18px', margin: 0 }}>
                 Import Document or Action Register
               </h2>
               <button
+                type="button"
                 className="ach-btn-secondary"
-                style={{ padding: '4px 8px' }}
-                onClick={() => {
-                  setShowImportModal(false);
-                  setImportRows([]);
-                  setDocFile(null);
-                  setDocExtractResult(null);
-                  setDocActions([]);
-                  setDocRawText('');
-                  setDocPromptDate('');
-                }}
+                style={{ padding: '4px 10px', fontSize: '12.5px' }}
+                onClick={handleCloseImportModal}
               >
-                Close
+                ✕ Close
               </button>
             </div>
 
-            {/* Tabs: Document Intelligence Agent vs Action Register CSV */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E4E8EF', paddingBottom: '10px', marginBottom: '14px' }}>
+            {/* Tabs - Fixed below header */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E4E8EF', paddingBottom: '10px', marginBottom: '14px', flexShrink: 0 }}>
               <button
                 className={importTab === 'document' ? 'ach-btn-primary' : 'ach-btn-secondary'}
                 style={{ padding: '6px 12px', fontSize: '13px' }}
@@ -1484,30 +1580,15 @@ export const ActionHubPage: React.FC = () => {
               </button>
             </div>
 
-            {/* TAB 1: Document Intelligence Agent */}
-            {importTab === 'document' && (
-              <div>
-                <p style={{ fontSize: '13px', color: '#5A6478', marginTop: 0 }}>
-                  Import documents that contain actions or tasks (PDF, Word .docx, plan text, markdown). The workspace <b>Document Intelligence Agent</b> reads the document, sorts out tasks and events, and auto-fills dates. If dates are missing, pick a date and choose whether to add them to your Concludo Calendar.
-                </p>
+            {/* Scrollable Body */}
+            <div className="ach-modal-body">
+              {/* TAB 1: Document Intelligence Agent */}
+              {importTab === 'document' && (
+                <div>
+                  <p style={{ fontSize: '13px', color: '#5A6478', marginTop: 0, marginBottom: '12px' }}>
+                    Import documents that contain actions or tasks (PDF, Word .docx, plan text, markdown). The workspace <b>Document Intelligence Agent</b> reads the document, sorts out tasks and events, and auto-fills dates. If dates are missing, pick a date and choose whether to add them to your Concludo Calendar.
+                  </p>
 
-                <div
-                  style={{ border: '2px dashed #C9D0DC', borderRadius: '8px', padding: '16px', background: '#FAFAFC', textAlign: 'center', marginBottom: '14px', cursor: 'pointer' }}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const f = e.dataTransfer.files?.[0];
-                    if (!f) return;
-                    const inputEl = document.getElementById('ach-doc-upload') as HTMLInputElement;
-                    if (inputEl) {
-                      const dt = new DataTransfer();
-                      dt.items.add(f);
-                      inputEl.files = dt.files;
-                      inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                  }}
-                >
                   <input
                     type="file"
                     accept=".pdf,.docx,.txt,.md,.markdown"
@@ -1544,433 +1625,438 @@ export const ActionHubPage: React.FC = () => {
                       }
                     }}
                   />
-                  <label
-                    htmlFor="ach-doc-upload"
-                    style={{ cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}
-                  >
-                    <span style={{ fontSize: '24px' }}>📥</span>
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#16263F' }}>
-                      {docFile ? docFile.name : 'Choose a document (PDF, Word .docx, Markdown, Text)'}
-                    </span>
-                    <span style={{ fontSize: '12px', color: '#5A6478' }}>
-                      Click to select file. Document Intelligence Agent will analyse immediately.
-                    </span>
-                  </label>
-                </div>
 
-                {docExtracting && (
-                  <div style={{ padding: '16px', textAlign: 'center', background: '#F4F6FA', borderRadius: '6px', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '13px', color: '#16263F', fontWeight: 600 }}>
-                      🤖 Document Intelligence Agent is reading and extracting actions, tasks, and dates...
-                    </span>
-                  </div>
-                )}
-
-                {duplicateWarning && (
-                  <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#16263F' }}>
-                    ⚠️ {duplicateWarning}
-                  </div>
-                )}
-
-                {docExtractResult && docExtractResult.actions.length === 0 && (
-                  <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '14px', marginBottom: '12px', fontSize: '13px', color: '#16263F' }}>
-                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>
-                      ⚠️ No action items were detected in {docFile?.name || 'this document'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#5A6478' }}>
-                      The workspace Document Intelligence Agent scanned the document but found no checkboxes, action table rows, or task lists. Please ensure your document contains an action register, checklist, or next steps table.
-                    </div>
-                  </div>
-                )}
-
-                {docExtractResult && docExtractResult.actions.length > 0 && (
-                  <div>
-                    {/* Agent Status Badge */}
-                    <div style={{ background: '#EAF3EC', border: '1px solid #1E7A4C', borderRadius: '6px', padding: '10px 12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E7A4C' }}>
-                          ✓ Assigned: {docExtractResult.agentUsed.name}
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: '#2B4D36' }}>
-                          Extracted {docActions.length} action items ({docActions.filter(a => a.dueDate).length} dated, {docActions.filter(a => !a.dueDate).length} undated)
-                          {docExtractResult.gatesCount > 0 ? ` • ${docExtractResult.gatesCount} decision gates detected` : ''}
+                  {docFile ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        background: '#FAFAFC',
+                        border: '1px solid #D0D5DD',
+                        borderRadius: '8px',
+                        marginBottom: '12px',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <span style={{ fontSize: '20px', flexShrink: 0 }}>📄</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#16263F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {docFile.name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#5A6478' }}>
+                            {(docFile.size / 1024).toFixed(0)} KB • Document Intelligence Agent ready
+                          </div>
                         </div>
                       </div>
-                      <span style={{ fontSize: '11px', background: '#1E7A4C', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                        Agent Active
-                      </span>
-                    </div>
-
-                    {/* Missing Date Picker & Calendar Prompt */}
-                    {docActions.some((a) => !a.dueDate) && (
-                      <div style={{ background: '#FBF0D0', border: '1px solid #E2B53C', borderRadius: '6px', padding: '12px 14px', marginBottom: '12px' }}>
-                        <div style={{ fontWeight: 600, color: '#16263F', fontSize: '13px', marginBottom: '4px' }}>
-                          📅 {docActions.filter((a) => !a.dueDate).length} items have no date stated in the document
-                        </div>
-                        <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#4A5568' }}>
-                          Pick a target date to continue, or apply dates individually below.
-                        </p>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <label style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            Target date:
-                            <input
-                              type="date"
-                              value={docPromptDate}
-                              style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #C9D0DC', fontSize: '12px' }}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setDocPromptDate(val);
-                                if (val) {
-                                  // Auto-fill undated actions
-                                  setDocActions((prev) =>
-                                    prev.map((a) => (a.dueDate ? a : { ...a, dueDate: val, dueBasis: 'user_picked', addToCalendar: docGlobalCalendar }))
-                                  );
-                                }
-                              }}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            className="ach-btn-secondary"
-                            style={{ padding: '3px 8px', fontSize: '11.5px' }}
-                            onClick={() => {
-                              if (!docPromptDate) return;
-                              setDocActions((prev) =>
-                                prev.map((a) => (a.dueDate ? a : { ...a, dueDate: docPromptDate, dueBasis: 'user_picked', addToCalendar: docGlobalCalendar }))
-                              );
-                              showToast(`Applied ${docPromptDate} to undated items.`);
-                            }}
-                          >
-                            Apply to all undated
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Concludo Calendar Integration Option */}
-                    <div style={{ background: '#F4F6FA', border: '1px solid #C9D0DC', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#16263F' }}>
-                          🗓️ Add to Concludo Calendar?
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: '#5A6478' }}>
-                          Automatically sync scheduled tasks and events to your workspace calendar with timeline tracking.
-                        </div>
-                      </div>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={docGlobalCalendar}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setDocGlobalCalendar(checked);
-                            setDocActions((prev) => prev.map((a) => (a.dueDate ? { ...a, addToCalendar: checked } : a)));
-                          }}
-                        />
-                        Sync dated items to Concludo Calendar
+                      <label
+                        htmlFor="ach-doc-upload"
+                        className="ach-btn-secondary"
+                        style={{ padding: '4px 10px', fontSize: '12px', cursor: 'pointer', flexShrink: 0 }}
+                      >
+                        Change file
                       </label>
                     </div>
-
-                    {/* Actions Table with Per-Item Edits */}
-                    <div style={{ maxHeight: '280px', overflowY: 'auto', border: '1px solid #E4E8EF', borderRadius: '6px', fontSize: '12px', marginBottom: '12px' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ background: '#F4F6FA', borderBottom: '1px solid #E4E8EF', textAlign: 'left' }}>
-                            <th style={{ padding: '6px 8px' }}>ID</th>
-                            <th style={{ padding: '6px 8px' }}>Task / Event</th>
-                            <th style={{ padding: '6px 8px' }}>Owner</th>
-                            <th style={{ padding: '6px 8px' }}>Date</th>
-                            <th style={{ padding: '6px 8px', textAlign: 'center' }}>To Calendar?</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {docActions.map((act, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #F0F2F7', background: !act.dueDate ? '#FFFDF5' : '#FFFFFF' }}>
-                              <td style={{ padding: '6px 8px', fontWeight: 600, color: '#5A6478' }}>{act.id}</td>
-                              <td style={{ padding: '6px 8px' }}>
-                                <input
-                                  type="text"
-                                  value={act.title}
-                                  style={{ width: '100%', border: '1px solid transparent', padding: '2px 4px', borderRadius: '3px', fontSize: '12px' }}
-                                  onFocus={(e) => (e.target.style.borderColor = '#C9D0DC')}
-                                  onBlur={(e) => (e.target.style.borderColor = 'transparent')}
-                                  onChange={(e) => {
-                                    const v = e.target.value;
-                                    setDocActions((prev) => prev.map((item, i) => (i === idx ? { ...item, title: v } : item)));
-                                  }}
-                                />
-                                {act.stage && <span style={{ fontSize: '10.5px', color: '#5A6478', display: 'block' }}>Stage: {act.stage}</span>}
-                              </td>
-                              <td style={{ padding: '6px 8px' }}>
-                                <input
-                                  type="text"
-                                  value={act.owner}
-                                  style={{ width: '90px', border: '1px solid #E4E8EF', padding: '2px 4px', borderRadius: '3px', fontSize: '11px' }}
-                                  onChange={(e) => {
-                                    const v = e.target.value;
-                                    setDocActions((prev) => prev.map((item, i) => (i === idx ? { ...item, owner: v } : item)));
-                                  }}
-                                />
-                              </td>
-                              <td style={{ padding: '6px 8px' }}>
-                                <input
-                                  type="date"
-                                  value={act.dueDate}
-                                  style={{ border: !act.dueDate ? '1px solid #E2B53C' : '1px solid #E4E8EF', padding: '2px 4px', borderRadius: '3px', fontSize: '11px', background: !act.dueDate ? '#FDF6E2' : '#FFFFFF' }}
-                                  onChange={(e) => {
-                                    const v = e.target.value;
-                                    setDocActions((prev) =>
-                                      prev.map((item, i) => (i === idx ? { ...item, dueDate: v, dueBasis: v ? 'user_picked' : 'none', addToCalendar: v ? docGlobalCalendar : false } : item))
-                                    );
-                                  }}
-                                />
-                              </td>
-                              <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={act.addToCalendar}
-                                  disabled={!act.dueDate}
-                                  onChange={(e) => {
-                                    const c = e.target.checked;
-                                    setDocActions((prev) => prev.map((item, i) => (i === idx ? { ...item, addToCalendar: c } : item)));
-                                  }}
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Action Hub Import Buttons */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #E4E8EF' }}>
-                      <span style={{ fontSize: '12px', color: '#5A6478' }}>
-                        {docActions.filter(a => a.addToCalendar && a.dueDate).length} item(s) will also be added to Concludo Calendar.
-                      </span>
-                      <button
-                        className="ach-btn-primary"
-                        disabled={docSaving || docActions.length === 0}
-                        onClick={async () => {
-                          if (!user?.id || !docFile) return;
-                          setDocSaving(true);
-                          try {
-                            const res = await saveDocumentActionsToHub(supabase, user.id, {
-                              actions: docActions,
-                              documentName: docFile.name,
-                              documentRawText: docRawText,
-                              projectId: actions[0]?.project_id || null,
-                              globalDateOverride: docPromptDate || undefined,
-                            });
-                            if (res.success) {
-                              setLastBatchId(res.batchId);
-                              setLastBatchUndone(false);
-                              const calMsg = res.calendarCount > 0 ? ` and ${res.calendarCount} added to Calendar` : '';
-                              showToast(res.warning || `Successfully imported ${res.actionsCount} actions${calMsg}.`);
-                              setShowImportModal(false);
-                              setDocFile(null);
-                              setDocExtractResult(null);
-                              setDocActions([]);
-                              setDocRawText('');
-                              setDocPromptDate('');
-                              // Refresh Hub actions
-                              const { data: refreshed } = await fetchActions(supabase);
-                              if (refreshed) setActions(refreshed);
-                            } else {
-                              showToast(`Import error: ${res.error || 'Server error'}`);
-                            }
-                          } catch (err: any) {
-                            showToast(`Import error: ${err?.message || 'Server error'}`);
-                          } finally {
-                            setDocSaving(false);
-                          }
-                        }}
-                      >
-                        {docSaving ? 'Importing with Agent...' : `Import ${docActions.length} actions to Hub`}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB 2: CSV Action Register (D9) */}
-            {importTab === 'csv' && (
-              <div>
-                <p style={{ fontSize: '13px', color: '#5A6478', marginTop: 0 }}>
-                  Upload an action plan CSV with stated and derived items. Each row carries its origin tag.
-                </p>
-
-            <div style={{ marginBottom: '14px' }}>
-              <input
-                type="file"
-                accept=".csv"
-                aria-label="Upload CSV file"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  setImportFileName(f.name);
-                  setDuplicateWarning(null);
-                  const r = new FileReader();
-                  r.onload = (ev) => {
-                    const txt = ev.target?.result as string;
-                    if (txt) {
-                      setImportRawCsv(txt);
-                      const parsed = parseActionRegisterCsv(txt);
-                      setImportRows(parsed);
-                      if (user?.id) {
-                        computeContentHash(txt).then((hash) => {
-                          checkDuplicateBatch(supabase, user.id, hash).then((dup) => {
-                            if (dup.isDuplicate) {
-                              setDuplicateWarning(
-                                `A batch with this exact CSV content was already imported on ${new Date(
-                                  dup.importedAt || ''
-                                ).toLocaleDateString('en-AU')}. Re-importing may create duplicate actions.`
-                              );
-                            }
-                          });
-                        });
-                      }
-                    }
-                  };
-                  r.readAsText(f);
-                }}
-              />
-            </div>
-
-            {duplicateWarning && (
-              <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#16263F' }}>
-                ⚠️ {duplicateWarning}
-              </div>
-            )}
-
-            {importRows.length > 0 && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>
-                    Ready to import {importRows.length} actions ({importRows.filter((r) => r.origin === 'Stated in plan').length} stated, {importRows.filter((r) => r.origin === 'Derived by reviewer').length} derived)
-                  </span>
-                  <button
-                    className="ach-btn-primary"
-                    disabled={importing}
-                    onClick={async () => {
-                      if (!user?.id) return;
-                      setImporting(true);
-                      try {
-                        const res = await importActionBatch(supabase, user.id, importRows, null, importFileName || 'action_plan.csv', importRawCsv);
-                        if (res.success) {
-                          setLastBatchId(res.batchId);
-                          setLastBatchUndone(false);
-                          showToast(res.warning || `Imported ${res.count} actions successfully.`);
-                          setShowImportModal(false);
-                          setImportRows([]);
-                          setImportRawCsv('');
-                          setImportFileName('');
-                          // Reload actions
-                          const { data: refreshed } = await fetchActions(supabase);
-                          if (refreshed) setActions(refreshed);
-                        } else {
-                          showToast(`Import error: ${res.error || 'Server error'}`);
+                  ) : (
+                    <div
+                      style={{ border: '2px dashed #C9D0DC', borderRadius: '8px', padding: '18px 16px', background: '#FAFAFC', textAlign: 'center', marginBottom: '14px', cursor: 'pointer' }}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const f = e.dataTransfer.files?.[0];
+                        if (!f) return;
+                        const inputEl = document.getElementById('ach-doc-upload') as HTMLInputElement;
+                        if (inputEl) {
+                          const dt = new DataTransfer();
+                          dt.items.add(f);
+                          inputEl.files = dt.files;
+                          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                         }
-                      } finally {
-                        setImporting(false);
-                      }
-                    }}
-                  >
-                    {importing ? 'Importing...' : `Import ${importRows.length} actions`}
-                  </button>
-                </div>
-                <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #E4E8EF', borderRadius: '6px', fontSize: '12px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#F4F6FA', borderBottom: '1px solid #E4E8EF', textAlign: 'left' }}>
-                        <th style={{ padding: '6px 8px' }}>ID</th>
-                        <th style={{ padding: '6px 8px' }}>Action</th>
-                        <th style={{ padding: '6px 8px' }}>Owner</th>
-                        <th style={{ padding: '6px 8px' }}>Due</th>
-                        <th style={{ padding: '6px 8px' }}>Origin</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importRows.slice(0, 20).map((r, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #F0F2F7' }}>
-                          <td style={{ padding: '6px 8px', fontWeight: 600 }}>{r.id}</td>
-                          <td style={{ padding: '6px 8px' }}>{r.action}</td>
-                          <td style={{ padding: '6px 8px' }}>{r.owner || 'Unassigned'}</td>
-                          <td style={{ padding: '6px 8px' }}>{r.due_date || r.due_text || 'Not stated'}</td>
-                          <td style={{ padding: '6px 8px' }}>
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              background: r.origin === 'Stated in plan' ? '#EAF3EC' : '#FBF0D0',
-                              color: r.origin === 'Stated in plan' ? '#1E7A4C' : '#BC8A1C',
-                              fontWeight: 500,
-                              fontSize: '11px',
-                            }}>
-                              {r.origin}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {importRows.length > 20 && (
-                    <div style={{ padding: '6px 8px', color: '#5A6478', textAlign: 'center', background: '#FAFAFC' }}>
-                      + {importRows.length - 20} more rows
+                      }}
+                    >
+                      <label
+                        htmlFor="ach-doc-upload"
+                        style={{ cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}
+                      >
+                        <span style={{ fontSize: '24px' }}>📥</span>
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#16263F' }}>
+                          Choose a document (PDF, Word .docx, Markdown, Text)
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#5A6478' }}>
+                          Drag and drop or click to select file. Document Intelligence Agent will analyse immediately.
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
+                  {docExtracting && (
+                    <div style={{ padding: '16px', textAlign: 'center', background: '#F4F6FA', borderRadius: '6px', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '13px', color: '#16263F', fontWeight: 600 }}>
+                        🤖 Document Intelligence Agent is reading and extracting actions, tasks, and dates...
+                      </span>
+                    </div>
+                  )}
+
+                  {duplicateWarning && (
+                    <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#16263F' }}>
+                      ⚠️ {duplicateWarning}
+                    </div>
+                  )}
+
+                  {docExtractResult && docExtractResult.actions.length === 0 && (
+                    <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '14px', marginBottom: '12px', fontSize: '13px', color: '#16263F' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                        ⚠️ No action items were detected in {docFile?.name || 'this document'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#5A6478' }}>
+                        The workspace Document Intelligence Agent scanned the document but found no checkboxes, action table rows, or task lists. Please ensure your document contains an action register, checklist, or next steps table.
+                      </div>
+                    </div>
+                  )}
+
+                  {docExtractResult && docExtractResult.actions.length > 0 && (
+                    <div>
+                      {/* Agent Status Badge */}
+                      <div style={{ background: '#EAF3EC', border: '1px solid #1E7A4C', borderRadius: '6px', padding: '10px 12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E7A4C' }}>
+                            ✓ Assigned: {docExtractResult.agentUsed.name}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#2B4D36' }}>
+                            Extracted {docActions.length} action items ({docActions.filter(a => a.dueDate).length} dated, {docActions.filter(a => !a.dueDate).length} undated)
+                            {docExtractResult.gatesCount > 0 ? ` • ${docExtractResult.gatesCount} decision gates detected` : ''}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '11px', background: '#1E7A4C', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                          Agent Active
+                        </span>
+                      </div>
+
+                      {/* Missing Date Picker & Calendar Prompt */}
+                      {docActions.some((a) => !a.dueDate) && (
+                        <div style={{ background: '#FBF0D0', border: '1px solid #E2B53C', borderRadius: '6px', padding: '12px 14px', marginBottom: '12px' }}>
+                          <div style={{ fontWeight: 600, color: '#16263F', fontSize: '13px', marginBottom: '4px' }}>
+                            📅 {docActions.filter((a) => !a.dueDate).length} items have no date stated in the document
+                          </div>
+                          <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#4A5568' }}>
+                            Pick a target date to continue, or apply dates individually below.
+                          </p>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              Target date:
+                              <input
+                                type="date"
+                                 value={docPromptDate}
+                                style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #C9D0DC', fontSize: '12px' }}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setDocPromptDate(val);
+                                  if (val) {
+                                    setDocActions((prev) =>
+                                      prev.map((a) => (a.dueDate ? a : { ...a, dueDate: val, dueBasis: 'user_picked', addToCalendar: docGlobalCalendar }))
+                                    );
+                                  }
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              className="ach-btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '11.5px' }}
+                              onClick={() => {
+                                if (!docPromptDate) return;
+                                setDocActions((prev) =>
+                                  prev.map((a) => (a.dueDate ? a : { ...a, dueDate: docPromptDate, dueBasis: 'user_picked', addToCalendar: docGlobalCalendar }))
+                                );
+                                showToast(`Applied ${docPromptDate} to undated items.`);
+                              }}
+                            >
+                              Apply to all undated
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Concludo Calendar Integration Option */}
+                      <div style={{ background: '#F4F6FA', border: '1px solid #C9D0DC', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#16263F' }}>
+                            🗓️ Add to Concludo Calendar?
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#5A6478' }}>
+                            Automatically sync scheduled tasks and events to your workspace calendar with timeline tracking.
+                          </div>
+                        </div>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={docGlobalCalendar}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setDocGlobalCalendar(checked);
+                              setDocActions((prev) => prev.map((a) => (a.dueDate ? { ...a, addToCalendar: checked } : a)));
+                            }}
+                          />
+                          Sync dated items to Concludo Calendar
+                        </label>
+                      </div>
+
+                      {/* Actions Table with Per-Item Edits */}
+                      <div style={{ maxHeight: '340px', overflowY: 'auto', overflowX: 'auto', border: '1px solid #E4E8EF', borderRadius: '6px', fontSize: '12px', marginBottom: '8px' }}>
+                        <table style={{ width: '100%', minWidth: '720px', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: '#F4F6FA', borderBottom: '1px solid #E4E8EF', textAlign: 'left', position: 'sticky', top: 0, zIndex: 2 }}>
+                              <th style={{ padding: '8px 10px', width: '55px', background: '#F4F6FA' }}>ID</th>
+                              <th style={{ padding: '8px 10px', minWidth: '280px', background: '#F4F6FA' }}>Task / Event</th>
+                              <th style={{ padding: '8px 10px', width: '140px', background: '#F4F6FA' }}>Owner</th>
+                              <th style={{ padding: '8px 10px', width: '135px', background: '#F4F6FA' }}>Date</th>
+                              <th style={{ padding: '8px 10px', width: '95px', textAlign: 'center', background: '#F4F6FA' }}>To Calendar?</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {docActions.map((act, idx) => (
+                              <tr key={idx} style={{ borderBottom: '1px solid #F0F2F7', background: !act.dueDate ? '#FFFDF5' : '#FFFFFF' }}>
+                                <td style={{ padding: '8px 10px', fontWeight: 600, color: '#5A6478', verticalAlign: 'top' }}>{act.id}</td>
+                                <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                                  <input
+                                    type="text"
+                                    value={act.title}
+                                    style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #E4E8EF', padding: '4px 6px', borderRadius: '4px', fontSize: '12px' }}
+                                    onFocus={(e) => (e.target.style.borderColor = '#16263F')}
+                                    onBlur={(e) => (e.target.style.borderColor = '#E4E8EF')}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      setDocActions((prev) => prev.map((item, i) => (i === idx ? { ...item, title: v } : item)));
+                                    }}
+                                  />
+                                  {act.stage && <span style={{ fontSize: '11px', color: '#5A6478', display: 'block', marginTop: '3px' }}>Stage: {act.stage}</span>}
+                                </td>
+                                <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                                  <input
+                                    type="text"
+                                    value={act.owner}
+                                    style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #E4E8EF', padding: '4px 6px', borderRadius: '4px', fontSize: '11.5px' }}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      setDocActions((prev) => prev.map((item, i) => (i === idx ? { ...item, owner: v } : item)));
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                                  <input
+                                    type="date"
+                                    value={act.dueDate}
+                                    style={{ width: '100%', boxSizing: 'border-box', border: !act.dueDate ? '1px solid #E2B53C' : '1px solid #E4E8EF', padding: '4px 6px', borderRadius: '4px', fontSize: '11.5px', background: !act.dueDate ? '#FDF6E2' : '#FFFFFF' }}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      setDocActions((prev) =>
+                                        prev.map((item, i) => (i === idx ? { ...item, dueDate: v, dueBasis: v ? 'user_picked' : 'none', addToCalendar: v ? docGlobalCalendar : false } : item))
+                                      );
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'top' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={act.addToCalendar}
+                                    disabled={!act.dueDate}
+                                    onChange={(e) => {
+                                      const c = e.target.checked;
+                                      setDocActions((prev) => prev.map((item, i) => (i === idx ? { ...item, addToCalendar: c } : item)));
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-            </div>
-            )}
+              )}
 
-            {lastBatchId && (
-              <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #E4E8EF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', color: '#5A6478' }}>
-                  {lastBatchUndone ? 'Batch undone (soft-deleted)' : `Last imported batch: ${lastBatchId}`}
-                </span>
-                {!lastBatchUndone ? (
+              {/* TAB 2: CSV Action Register (D9) */}
+              {importTab === 'csv' && (
+                <div>
+                  <p style={{ fontSize: '13px', color: '#5A6478', marginTop: 0, marginBottom: '12px' }}>
+                    Upload an action plan CSV with stated and derived items. Each row carries its origin tag.
+                  </p>
+
+                  <div style={{ marginBottom: '14px' }}>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      aria-label="Upload CSV file"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setImportFileName(f.name);
+                        setDuplicateWarning(null);
+                        const r = new FileReader();
+                        r.onload = (ev) => {
+                          const txt = ev.target?.result as string;
+                          if (txt) {
+                            setImportRawCsv(txt);
+                            const parsed = parseActionRegisterCsv(txt);
+                            setImportRows(parsed);
+                            if (user?.id) {
+                              computeContentHash(txt).then((hash) => {
+                                checkDuplicateBatch(supabase, user.id, hash).then((dup) => {
+                                  if (dup.isDuplicate) {
+                                    setDuplicateWarning(
+                                      `A batch with this exact CSV content was already imported on ${new Date(
+                                        dup.importedAt || ''
+                                      ).toLocaleDateString('en-AU')}. Re-importing may create duplicate actions.`
+                                    );
+                                  }
+                                });
+                              });
+                            }
+                          }
+                        };
+                        r.readAsText(f);
+                      }}
+                    />
+                  </div>
+
+                  {duplicateWarning && (
+                    <div style={{ background: '#FDF6E2', border: '1px solid #E2B53C', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#16263F' }}>
+                      ⚠️ {duplicateWarning}
+                    </div>
+                  )}
+
+                  {importRows.length > 0 && (
+                    <div>
+                      <div style={{ maxHeight: '300px', overflowY: 'auto', overflowX: 'auto', border: '1px solid #E4E8EF', borderRadius: '6px', fontSize: '12px', marginTop: '10px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: '#F4F6FA', borderBottom: '1px solid #E4E8EF', textAlign: 'left', position: 'sticky', top: 0, zIndex: 2 }}>
+                              <th style={{ padding: '8px 10px', background: '#F4F6FA' }}>ID</th>
+                              <th style={{ padding: '8px 10px', background: '#F4F6FA' }}>Action</th>
+                              <th style={{ padding: '8px 10px', background: '#F4F6FA' }}>Owner</th>
+                              <th style={{ padding: '8px 10px', background: '#F4F6FA' }}>Due</th>
+                              <th style={{ padding: '8px 10px', background: '#F4F6FA' }}>Origin</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {importRows.slice(0, 20).map((r, idx) => (
+                              <tr key={idx} style={{ borderBottom: '1px solid #F0F2F7' }}>
+                                <td style={{ padding: '8px 10px', fontWeight: 600 }}>{r.id}</td>
+                                <td style={{ padding: '8px 10px' }}>{r.action}</td>
+                                <td style={{ padding: '8px 10px' }}>{r.owner || 'Unassigned'}</td>
+                                <td style={{ padding: '8px 10px' }}>{r.due_date || r.due_text || 'Not stated'}</td>
+                                <td style={{ padding: '8px 10px' }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    background: r.origin === 'Stated in plan' ? '#EAF3EC' : '#FBF0D0',
+                                    color: r.origin === 'Stated in plan' ? '#1E7A4C' : '#BC8A1C',
+                                    fontWeight: 500,
+                                    fontSize: '11px',
+                                  }}>
+                                    {r.origin}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {importRows.length > 20 && (
+                          <div style={{ padding: '8px 10px', color: '#5A6478', textAlign: 'center', background: '#FAFAFC' }}>
+                            + {importRows.length - 20} more rows
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {lastBatchId && (
+                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #E4E8EF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', color: '#5A6478' }}>
+                    {lastBatchUndone ? 'Batch undone (soft-deleted)' : `Last imported batch: ${lastBatchId}`}
+                  </span>
+                  {!lastBatchUndone ? (
+                    <button
+                      type="button"
+                      className="ach-btn-secondary"
+                      style={{ color: '#A32A2A', borderColor: '#E8A0A0' }}
+                      onClick={handleUndoBatch}
+                    >
+                      Undo import batch
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ach-btn-secondary"
+                      style={{ color: '#16263F', borderColor: '#E2B53C' }}
+                      onClick={handleRestoreBatch}
+                    >
+                      Restore import batch
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer - Fixed at bottom */}
+            <div className="ach-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ fontSize: '12px', color: '#5A6478', maxWidth: '60%' }}>
+                {importTab === 'document' ? (
+                  docActions.length > 0 ? (
+                    <span>
+                      <b>{docActions.length}</b> actions ready •{' '}
+                      <b>{docActions.filter((a) => a.addToCalendar && a.dueDate).length}</b> will sync to Calendar
+                    </span>
+                  ) : (
+                    <span>Select or drop a plan document to analyse with Document Intelligence Agent.</span>
+                  )
+                ) : (
+                  importRows.length > 0 ? (
+                    <span>
+                      <b>{importRows.length}</b> actions ready ({importRows.filter((r) => r.origin === 'Stated in plan').length} stated, {importRows.filter((r) => r.origin === 'Derived by reviewer').length} derived)
+                    </span>
+                  ) : (
+                    <span>Upload an action plan CSV (Action Plan v1.0 format).</span>
+                  )
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button
+                  type="button"
                   className="ach-btn-secondary"
-                  style={{ color: '#A32A2A', borderColor: '#E8A0A0' }}
-                  onClick={async () => {
-                    if (!user?.id) return;
-                    const res = await reverseImportBatch(supabase, lastBatchId, user.id);
-                    if (res.success) {
-                        showToast('Import batch undone.');
-                        setLastBatchUndone(true);
-                      const { data: refreshed } = await fetchActions(supabase);
-                      if (refreshed) setActions(refreshed);
-                    } else {
-                      showToast(`Could not reverse batch: ${res.error || 'Server error'}`);
-                    }
-                  }}
+                  onClick={handleCloseImportModal}
                 >
-                  Undo import batch
+                  Cancel
                 </button>
+                {importTab === 'document' ? (
+                  <button
+                    type="button"
+                    className="ach-btn-primary"
+                    disabled={docSaving || docActions.length === 0}
+                    onClick={handleImportDocumentActions}
+                  >
+                    {docSaving ? 'Importing with Agent...' : `Import ${docActions.length} actions to Hub`}
+                  </button>
                 ) : (
                   <button
-                    className="ach-btn-secondary"
-                    style={{ color: '#16263F', borderColor: '#E2B53C' }}
-                    onClick={async () => {
-                      if (!user?.id) return;
-                      const res = await restoreImportBatch(supabase, lastBatchId, user.id);
-                      if (res.success) {
-                        showToast('Import batch restored.');
-                        setLastBatchUndone(false);
-                        const { data: refreshed } = await fetchActions(supabase);
-                        if (refreshed) setActions(refreshed);
-                      } else {
-                        showToast(`Could not restore batch: ${res.error || 'Server error'}`);
-                      }
-                    }}
+                    type="button"
+                    className="ach-btn-primary"
+                    disabled={importing || importRows.length === 0}
+                    onClick={handleImportCsvActions}
                   >
-                    Restore import batch
+                    {importing ? 'Importing...' : `Import ${importRows.length} actions`}
                   </button>
                 )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -1978,26 +2064,38 @@ export const ActionHubPage: React.FC = () => {
       {/* Delete Confirmation Modal (Section 1.4) */}
       {deleteModalTask && (
         <div className="ach-modal-backdrop" role="dialog" aria-modal="true" aria-label="Delete task">
-          <div className="ach-modal-box" style={{ width: '460px' }}>
-            <h2 className="ach-heading" style={{ fontSize: '18px' }}>
-              Delete this task?
-            </h2>
-            <p style={{ fontSize: '13px', color: 'var(--ach-navy)', lineHeight: 1.5, margin: '12px 0' }}>
-              &ldquo;{deleteModalTask.action_title}&rdquo; will be removed from your Actions, the Dashboard and any linked project view. You can restore it for 30 days.
-            </p>
-            {(deleteModalTask.source_type === 'calendar' || Boolean(deleteModalTask.source_id)) && (
-              <div style={{ margin: '12px 0' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--ach-slate)' }}>
-                  <input
-                    type="checkbox"
-                    checked={deleteCalendarItem}
-                    onChange={(e) => setDeleteCalendarItem(e.target.checked)}
-                  />
-                  Also remove linked calendar item
-                </label>
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
+          <div className="ach-modal-box" style={{ width: '460px', maxWidth: 'calc(100vw - 32px)' }}>
+            <div className="ach-modal-header">
+              <h2 className="ach-heading" style={{ fontSize: '18px', margin: 0 }}>
+                Delete this task?
+              </h2>
+              <button
+                type="button"
+                className="ach-btn-secondary"
+                style={{ padding: '4px 8px', fontSize: '12px' }}
+                onClick={() => setDeleteModalTask(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="ach-modal-body">
+              <p style={{ fontSize: '13px', color: 'var(--ach-navy)', lineHeight: 1.5, margin: '8px 0 12px 0' }}>
+                &ldquo;{deleteModalTask.action_title}&rdquo; will be removed from your Actions, the Dashboard and any linked project view. You can restore it for 30 days.
+              </p>
+              {(deleteModalTask.source_type === 'calendar' || Boolean(deleteModalTask.source_id)) && (
+                <div style={{ margin: '12px 0' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--ach-slate)' }}>
+                    <input
+                      type="checkbox"
+                      checked={deleteCalendarItem}
+                      onChange={(e) => setDeleteCalendarItem(e.target.checked)}
+                    />
+                    Also remove linked calendar item
+                  </label>
+                </div>
+              )}
+            </div>
+            <div className="ach-modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button className="ach-btn-secondary" onClick={() => setDeleteModalTask(null)}>
                 Cancel
               </button>
