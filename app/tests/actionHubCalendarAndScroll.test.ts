@@ -2,11 +2,38 @@ import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-describe('Action Command Hub Calendar Auto-fill and Floating Scrollbar v1', () => {
+describe('Action Command Hub Calendar Auto-fill, Floating Scrollbar and Edit Modal v2', () => {
   const pagePath = resolve(__dirname, '../src/pages/actions/ActionHubPage.tsx');
   const cssPath = resolve(__dirname, '../src/styles/action-hub.css');
   const pageSource = readFileSync(pagePath, 'utf8');
   const cssSource = readFileSync(cssPath, 'utf8');
+
+  it('0. verifies "Edit" menu item exists at the very top of the dots menu in table and mobile cards', () => {
+    expect(pageSource).toContain('handleOpenEditModal');
+    expect(pageSource).toContain('Edit Action Item');
+    
+    // Check that Edit appears before Add to Calendar in dots menu
+    const editIndex = pageSource.indexOf('handleOpenEditModal(row)');
+    const addIndex = pageSource.indexOf('handleAddToCalendarClick(row)');
+    const delIndex = pageSource.indexOf('setDeleteModalTask(row)');
+    expect(editIndex).toBeGreaterThan(-1);
+    expect(addIndex).toBeGreaterThan(-1);
+    expect(delIndex).toBeGreaterThan(-1);
+    expect(editIndex).toBeLessThan(addIndex);
+    expect(addIndex).toBeLessThan(delIndex);
+  });
+
+  it('0b. verifies Edit modal provides editing for action titles, due dates, and assignees with calendar sync', () => {
+    expect(pageSource).toContain('editModalTask');
+    expect(pageSource).toContain('editTaskTitle');
+    expect(pageSource).toContain('editTaskDueDate');
+    expect(pageSource).toContain('editTaskAssignee');
+    expect(pageSource).toContain('editTaskPriority');
+    expect(pageSource).toContain('editTaskStatus');
+    expect(pageSource).toContain('editSyncCalendar');
+    expect(pageSource).toContain('handleSaveEdit');
+    expect(pageSource).toContain('Sync changes to Concludo Calendar');
+  });
 
   it('1. verifies "Add to Calendar" menu item exists above Delete task in table and mobile cards', () => {
     expect(pageSource).toContain('handleAddToCalendarClick');
@@ -52,9 +79,18 @@ describe('Action Command Hub Calendar Auto-fill and Floating Scrollbar v1', () =
     expect(pageSource).toContain('ach-floating-scrollbar');
     expect(pageSource).toContain('handleFloatingScroll');
     expect(pageSource).toContain('handleTableScroll');
+    expect(pageSource).toContain('activeScrollSource');
     expect(cssSource).toContain('.ach-floating-scrollbar');
     expect(cssSource).toContain('position: fixed');
     expect(cssSource).toContain('bottom: 0');
+  });
+
+  it('5b. verifies table layout is fixed with shortened column gaps and wrapped titles', () => {
+    expect(cssSource).toContain('table-layout: fixed');
+    expect(cssSource).toContain('min-width: 1100px');
+    expect(cssSource).toContain('word-break: break-word');
+    expect(pageSource).toContain('<col style={{ width: \'38px\' }} />');
+    expect(pageSource).toContain('<col style={{ width: \'320px\' }} />');
   });
 
   it('6. verifies zero em dashes or en dashes in new code', () => {

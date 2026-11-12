@@ -214,13 +214,15 @@
   -webkit-overflow-scrolling: touch;
   background: #ffffff;
   width: 100%;
+  scroll-behavior: auto;
+  overscroll-behavior-x: contain;
 }
 
 .ach-table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1480px;
-  table-layout: auto !important;
+  min-width: 1100px;
+  table-layout: fixed;
   background: #ffffff;
   font-size: 13px;
 }
@@ -228,7 +230,7 @@
 .ach-table th {
   background: #EEF1F7;
   text-align: left;
-  padding: 12px 14px;
+  padding: 8px 10px;
   border: 1px solid var(--ach-line);
   font-weight: 600;
   color: var(--ach-navy);
@@ -236,39 +238,38 @@
 }
 
 .ach-table td {
-  padding: 12px 14px;
+  padding: 8px 10px;
   border: 1px solid #E4E8EF;
   vertical-align: middle;
   color: var(--ach-navy);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.4;
   white-space: nowrap;
-  overflow: visible;
-  text-overflow: clip;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ach-table td:nth-child(2),
 .ach-table th:nth-child(2) {
   font-weight: 600;
-  min-width: 420px !important;
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  line-height: 1.5;
+  width: 320px;
+  max-width: 360px;
+  min-width: 220px;
+  white-space: normal !important;
+  word-break: break-word !important;
+  line-height: 1.4;
   letter-spacing: normal !important;
+  overflow: visible !important;
 }
 
 .ach-task-title {
-  display: inline-block;
+  display: block;
   font-weight: 600;
   color: var(--ach-navy);
-  line-height: 1.5;
-  word-break: keep-all;
-  white-space: nowrap;
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: normal;
   letter-spacing: normal;
-  overflow: visible;
-  text-overflow: clip;
 }
 
 .ach-table tr:nth-child(even) td {
@@ -660,31 +661,33 @@
 .ach-floating-scrollbar {
   position: fixed;
   bottom: 0;
-  height: 16px;
-  overflow-x: auto;
+  height: 14px;
+  overflow-x: scroll;
   overflow-y: hidden;
   z-index: 95;
-  background: rgba(244, 247, 252, 0.96);
+  background: rgba(244, 247, 252, 0.98);
   border-top: 1px solid #D9E1EC;
   box-shadow: 0 -3px 12px rgba(11, 27, 61, 0.12);
   backdrop-filter: blur(4px);
+  scroll-behavior: auto;
+  overscroll-behavior-x: contain;
 }
 
 .ach-floating-scrollbar::-webkit-scrollbar,
 .ach-table-wrapper::-webkit-scrollbar {
-  height: 14px;
+  height: 12px;
 }
 
 .ach-floating-scrollbar::-webkit-scrollbar-track,
 .ach-table-wrapper::-webkit-scrollbar-track {
   background: #EBF0F7;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .ach-floating-scrollbar::-webkit-scrollbar-thumb,
 .ach-table-wrapper::-webkit-scrollbar-thumb {
-  background: #8A98AD;
-  border-radius: 7px;
+  background: #7A89A0;
+  border-radius: 6px;
   border: 2px solid #EBF0F7;
 }
 

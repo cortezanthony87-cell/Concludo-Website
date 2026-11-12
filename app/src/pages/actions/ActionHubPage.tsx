@@ -206,10 +206,22 @@ export const ActionHubPage: React.FC = () => {
   const [calendarPromptDate, setCalendarPromptDate] = useState<string>('');
   const [calendarSaving, setCalendarSaving] = useState(false);
 
+  // Edit Action Item modal state
+  const [editModalTask, setEditModalTask] = useState<ActionRecord | null>(null);
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDueDate, setEditTaskDueDate] = useState("");
+  const [editTaskAssignee, setEditTaskAssignee] = useState("");
+  const [editTaskPriority, setEditTaskPriority] = useState<ActionPriority>("normal");
+  const [editTaskStatus, setEditTaskStatus] = useState<ActionStatus>("not_started");
+  const [editSyncCalendar, setEditSyncCalendar] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   // Floating horizontal scrollbar state
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
   const floatingScrollRef = React.useRef<HTMLDivElement>(null);
-  const isSyncingScroll = React.useRef(false);
+  const activeScrollSource = React.useRef<"table" | "floating" | null>(null);
+  const scrollEndTimer = React.useRef<any>(null);
   const [showFloatingScroll, setShowFloatingScroll] = useState(false);
   const [floatingScrollWidth, setFloatingScrollWidth] = useState(0);
   const [floatingScrollPos, setFloatingScrollPos] = useState({ left: 0, width: 0 });
@@ -360,7 +372,7 @@ export const ActionHubPage: React.FC = () => {
         left: Math.max(0, rect.left),
         width: rect.width,
       });
-      if (floatingScrollRef.current && !isSyncingScroll.current) {
+      if (floatingScrollRef.current && !activeScrollSource.current) {
         floatingScrollRef.current.scrollLeft = wrap.scrollLeft;
       }
     } else {
@@ -369,25 +381,27 @@ export const ActionHubPage: React.FC = () => {
   }, []);
 
   const handleFloatingScroll = useCallback(() => {
-    if (isSyncingScroll.current) return;
-    isSyncingScroll.current = true;
+    if (activeScrollSource.current === "table") return;
+    activeScrollSource.current = "floating";
     if (tableWrapperRef.current && floatingScrollRef.current) {
       tableWrapperRef.current.scrollLeft = floatingScrollRef.current.scrollLeft;
     }
-    requestAnimationFrame(() => {
-      isSyncingScroll.current = false;
-    });
+    clearTimeout(scrollEndTimer.current);
+    scrollEndTimer.current = setTimeout(() => {
+      activeScrollSource.current = null;
+    }, 40);
   }, []);
 
   const handleTableScroll = useCallback(() => {
-    if (isSyncingScroll.current) return;
-    isSyncingScroll.current = true;
-    if (tableWrapperRef.current && floatingScrollRef.current) {
+    if (activeScrollSource.current === "floating") return;
+    activeScrollSource.current = "table";
+    if (floatingScrollRef.current && tableWrapperRef.current) {
       floatingScrollRef.current.scrollLeft = tableWrapperRef.current.scrollLeft;
     }
-    requestAnimationFrame(() => {
-      isSyncingScroll.current = false;
-    });
+    clearTimeout(scrollEndTimer.current);
+    scrollEndTimer.current = setTimeout(() => {
+      activeScrollSource.current = null;
+    }, 40);
   }, []);
 
   // Add to Calendar handlers
@@ -479,6 +493,120 @@ export const ActionHubPage: React.FC = () => {
       showToast(`Could not add to Calendar: ${err?.message || 'Server error'}`);
     } finally {
       setCalendarSaving(false);
+    }
+  };
+
+  // Edit Action handlers
+  const handleOpenEditModal = (row: ActionRecord) => {
+    setEditModalTask(row);
+    setEditTaskTitle(row.action_title || "");
+    setEditTaskDueDate(row.due_date || "");
+    setEditTaskAssignee(row.assigned_user_name || row.owner_name || "");
+    setEditTaskPriority((row.priority as ActionPriority) || "normal");
+    setEditTaskStatus(row.status || "not_started");
+    setEditSyncCalendar(linkedCalendarIds.has(row.id) || Boolean(row.due_date));
+    setEditError(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!user?.id || !editModalTask) return;
+    const trimmedTitle = editTaskTitle.trim();
+    if (!trimmedTitle) {
+      setEditError("Action title cannot be empty.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const updatedPayload: any = {
+        action_title: trimmedTitle,
+        due_date: editTaskDueDate || null,
+        assigned_user_name: editTaskAssignee.trim() || null,
+        owner_name: editTaskAssignee.trim() || null,
+        priority: editTaskPriority,
+        status: editTaskStatus,
+        old_status: editModalTask.status,
+        old_priority: editModalTask.priority,
+      };
+
+      const { error: updErr } = await updateAction(supabase, editModalTask.id, updatedPayload);
+      if (updErr) {
+        setEditError(updErr.message || "Failed to update action");
+        setEditSaving(false);
+        return;
+      }
+
+      // Update local state immediately
+      const updatedRecord: ActionRecord = {
+        ...editModalTask,
+        ...updatedPayload,
+        updated_at: new Date().toISOString(),
+      };
+      setActions((prev) =>
+        prev
+          .map((a) => (a.id === editModalTask.id ? updatedRecord : a))
+          .sort(compareActionsByPriorityAndDue)
+      );
+
+      // Handle calendar sync if requested or already linked
+      if (editSyncCalendar && editTaskDueDate) {
+        try {
+          const { data: existingCal } = await supabase
+            .from("calendar_items")
+            .select("id")
+            .eq("creator_id", user.id)
+            .or(`source_id.eq.${editModalTask.id},source_reference.eq.${editModalTask.id}`)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          const calPriority =
+            editTaskPriority === "high" ? "high" : editTaskPriority === "low" ? "low" : "medium";
+          const calStatus = editTaskStatus === "completed" ? "completed" : "open";
+
+          if (existingCal) {
+            await supabase
+              .from("calendar_items")
+              .update({
+                title: trimmedTitle,
+                due_date: editTaskDueDate,
+                owner_name: editTaskAssignee.trim() || undefined,
+                priority: calPriority,
+                status: calStatus,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingCal.id);
+          } else {
+            await createCalendarItem(supabase, {
+              creator_id: user.id,
+              type: "task",
+              title: trimmedTitle,
+              due_date: editTaskDueDate,
+              owner_name: editTaskAssignee.trim() || undefined,
+              status: calStatus,
+              priority: calPriority,
+              source_type: "other",
+              source_id: editModalTask.id,
+              source_reference: editModalTask.id,
+              source_title:
+                editModalTask.projects?.title ||
+                editModalTask.projects?.project_name ||
+                "Action Command Hub",
+              project_id: editModalTask.project_id || null,
+              visibility: "private",
+            });
+          }
+          setLinkedCalendarIds((prev) => new Set(prev).add(editModalTask.id));
+        } catch (calErr) {
+          console.warn("Calendar sync error during edit:", calErr);
+        }
+      }
+
+      showToast(`Saved changes to "${trimmedTitle}".`);
+      setEditModalTask(null);
+    } catch (err: any) {
+      setEditError(err?.message || "Server error while saving");
+    } finally {
+      setEditSaving(false);
     }
   };
   // Compute metrics
@@ -1027,33 +1155,33 @@ export const ActionHubPage: React.FC = () => {
       <div className="ach-card ach-table-wrapper" ref={tableWrapperRef} onScroll={handleTableScroll}>
         <table className="ach-table">
           <colgroup>
-            <col style={{ width: '44px' }} />
-            <col style={{ minWidth: '420px', width: 'auto' }} />
-            <col style={{ width: '104px' }} />
-            <col style={{ width: '200px' }} />
+            <col style={{ width: '38px' }} />
+            <col style={{ width: '320px' }} />
             <col style={{ width: '84px' }} />
-            <col style={{ width: '104px' }} />
-            <col style={{ width: '136px' }} />
-            <col style={{ width: '84px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '84px' }} />
-            <col style={{ width: '48px' }} />
+            <col style={{ width: '144px' }} />
+            <col style={{ width: '105px' }} />
+            <col style={{ width: '92px' }} />
+            <col style={{ width: '130px' }} />
+            <col style={{ width: '85px' }} />
+            <col style={{ width: '98px' }} />
+            <col style={{ width: '82px' }} />
+            <col style={{ width: '40px' }} />
           </colgroup>
           <thead>
             <tr>
-              <th style={{ width: '44px', textAlign: 'center' }}>
+              <th style={{ width: '38px', textAlign: 'center' }}>
                 <input type="checkbox" aria-label="Select all" />
               </th>
-              <th style={{ minWidth: '420px', whiteSpace: 'nowrap' }}>Task title</th>
-              <th style={{ width: '104px', whiteSpace: 'nowrap' }}>Priority</th>
-              <th style={{ width: '200px', whiteSpace: 'nowrap' }}>Status</th>
-              <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Assignee</th>
-              <th style={{ width: '104px', whiteSpace: 'nowrap' }}>Due</th>
-              <th style={{ width: '136px', whiteSpace: 'nowrap' }}>Project</th>
-              <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Source</th>
-              <th style={{ width: '110px', whiteSpace: 'nowrap' }}>Calendar sync</th>
-              <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Updated</th>
-              <th style={{ width: '48px' }}></th>
+              <th style={{ width: '320px', whiteSpace: 'normal' }}>Task title</th>
+              <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Priority</th>
+              <th style={{ width: '144px', whiteSpace: 'nowrap' }}>Status</th>
+              <th style={{ width: '105px', whiteSpace: 'nowrap' }}>Assignee</th>
+              <th style={{ width: '92px', whiteSpace: 'nowrap' }}>Due</th>
+              <th style={{ width: '130px', whiteSpace: 'nowrap' }}>Project</th>
+              <th style={{ width: '85px', whiteSpace: 'nowrap' }}>Source</th>
+              <th style={{ width: '98px', whiteSpace: 'nowrap' }}>Calendar sync</th>
+              <th style={{ width: '82px', whiteSpace: 'nowrap' }}>Updated</th>
+              <th style={{ width: '40px' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -1103,14 +1231,14 @@ export const ActionHubPage: React.FC = () => {
                     </td>
                     <td
                       style={{
-                        minWidth: '420px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'visible',
-                        textOverflow: 'clip',
+                        width: '320px',
+                        maxWidth: '360px',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        lineHeight: 1.4,
                         fontWeight: 600,
                         color: 'var(--ach-navy)',
                         letterSpacing: 'normal',
-                        wordBreak: 'keep-all',
                       }}
                     >
                       <span className="ach-task-title">{row.action_title}</span>
@@ -1282,6 +1410,30 @@ export const ActionHubPage: React.FC = () => {
                         </button>
                         {isDotsMenuOpen && (
                           <div className="ach-ddm ach-ddm-right" role="menu">
+                            <div
+                              role="menuitem"
+                              tabIndex={0}
+                              className="ach-ddm-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenu(null);
+                                handleOpenEditModal(row);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOpenMenu(null);
+                                  handleOpenEditModal(row);
+                                }
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                              </svg>
+                              <span>Edit</span>
+                            </div>
                             <div
                               role="menuitem"
                               tabIndex={0}
@@ -1531,6 +1683,30 @@ export const ActionHubPage: React.FC = () => {
                   </button>
                   {isDotsMenuOpen && (
                     <div className="ach-ddm ach-ddm-right" role="menu">
+                      <div
+                        role="menuitem"
+                        tabIndex={0}
+                        className="ach-ddm-item"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenu(null);
+                          handleOpenEditModal(row);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpenMenu(null);
+                            handleOpenEditModal(row);
+                          }
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        <span>Edit</span>
+                      </div>
                       <div
                         role="menuitem"
                         tabIndex={0}
@@ -2492,6 +2668,281 @@ export const ActionHubPage: React.FC = () => {
                 onClick={handleConfirmCalendarPrompt}
               >
                 {calendarSaving ? 'Adding...' : 'Add to Calendar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Action Item */}
+      {editModalTask && (
+        <div
+          className="ach-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ach-edit-modal-title"
+          onClick={() => setEditModalTask(null)}
+        >
+          <div
+            className="ach-modal-box"
+            style={{ maxWidth: "560px", width: "100%" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ach-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    background: "#EEF1F7",
+                    color: "var(--ach-navy)",
+                    borderRadius: "4px",
+                    border: "1px solid var(--ach-line)",
+                  }}
+                >
+                  Edit action
+                </div>
+                <h2 id="ach-edit-modal-title" style={{ margin: 0, fontSize: "16px", fontWeight: 600, color: "var(--ach-navy)" }}>
+                  Edit Action Item
+                </h2>
+              </div>
+              <button
+                className="ach-btn-secondary"
+                style={{ padding: "4px 8px", fontSize: "12px" }}
+                onClick={() => setEditModalTask(null)}
+                aria-label="Close edit dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="ach-modal-body" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              {editError && (
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    background: "#FDE8E8",
+                    color: "#9B1C1C",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                  }}
+                >
+                  {editError}
+                </div>
+              )}
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--ach-navy)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Action title <span style={{ color: "#D32F2F" }}>*</span>
+                </label>
+                <textarea
+                  className="ach-input"
+                  value={editTaskTitle}
+                  onChange={(e) => setEditTaskTitle(e.target.value)}
+                  rows={2}
+                  style={{
+                    width: "100%",
+                    resize: "vertical",
+                    padding: "8px 10px",
+                    fontSize: "13px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--ach-line)",
+                    fontFamily: "Inter, Arial, sans-serif",
+                  }}
+                  placeholder="Enter action title"
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--ach-navy)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Due date
+                  </label>
+                  <input
+                    type="date"
+                    className="ach-input"
+                    value={editTaskDueDate}
+                    onChange={(e) => setEditTaskDueDate(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "7px 10px",
+                      fontSize: "13px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--ach-line)",
+                    }}
+                  />
+                  {editTaskDueDate && (
+                    <button
+                      type="button"
+                      onClick={() => setEditTaskDueDate("")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#5A6478",
+                        fontSize: "11px",
+                        cursor: "pointer",
+                        padding: "2px 0",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      Clear due date (make unscheduled)
+                    </button>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--ach-navy)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Assignee
+                  </label>
+                  <input
+                    type="text"
+                    className="ach-input"
+                    value={editTaskAssignee}
+                    onChange={(e) => setEditTaskAssignee(e.target.value)}
+                    placeholder="e.g. Anthony Cortez"
+                    style={{
+                      width: "100%",
+                      padding: "7px 10px",
+                      fontSize: "13px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--ach-line)",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--ach-navy)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Priority
+                  </label>
+                  <select
+                    value={editTaskPriority}
+                    onChange={(e) => setEditTaskPriority(e.target.value as ActionPriority)}
+                    style={{
+                      width: "100%",
+                      padding: "7px 10px",
+                      fontSize: "13px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--ach-line)",
+                      background: "#ffffff",
+                    }}
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="normal">Normal</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--ach-navy)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Status
+                  </label>
+                  <select
+                    value={editTaskStatus}
+                    onChange={(e) => setEditTaskStatus(e.target.value as ActionStatus)}
+                    style={{
+                      width: "100%",
+                      padding: "7px 10px",
+                      fontSize: "13px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--ach-line)",
+                      background: "#ffffff",
+                    }}
+                  >
+                    <option value="not_started">Not started</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="completed">Complete</option>
+                    <option value="waiting">Waiting on someone else</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "#F4F7FC",
+                  padding: "10px 12px",
+                  borderRadius: "6px",
+                  border: "1px solid #D9E1EC",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  id="edit-sync-cal-toggle"
+                  checked={editSyncCalendar}
+                  onChange={(e) => setEditSyncCalendar(e.target.checked)}
+                  style={{ width: "15px", height: "15px", accentColor: "var(--ach-navy)", cursor: "pointer" }}
+                />
+                <label
+                  htmlFor="edit-sync-cal-toggle"
+                  style={{ fontSize: "12px", color: "var(--ach-navy)", cursor: "pointer", margin: 0 }}
+                >
+                  Sync changes to Concludo Calendar
+                </label>
+              </div>
+            </div>
+
+            <div className="ach-modal-footer">
+              <button
+                className="ach-btn-secondary"
+                onClick={() => setEditModalTask(null)}
+                disabled={editSaving}
+              >
+                Cancel
+              </button>
+              <button
+                className="ach-btn-primary"
+                onClick={handleSaveEdit}
+                disabled={editSaving}
+                style={{ minWidth: "110px" }}
+              >
+                {editSaving ? "Saving..." : "Save changes"}
               </button>
             </div>
           </div>
