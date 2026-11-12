@@ -74,12 +74,13 @@ describe('Action Command Hub Calendar Auto-fill, Floating Scrollbar and Edit Mod
 
   it('5. verifies floating sticky horizontal scrollbar is defined with sync handlers', () => {
     expect(pageSource).toContain('tableWrapperRef');
-    expect(pageSource).toContain('floatingScrollRef');
+    expect(pageSource).toContain('ach-floating-scrollbar-thumb');
+    expect(pageSource).toContain('handleThumbPointerDown');
     expect(pageSource).toContain('showFloatingScroll');
     expect(pageSource).toContain('ach-floating-scrollbar');
-    expect(pageSource).toContain('handleFloatingScroll');
     expect(pageSource).toContain('handleTableScroll');
-    expect(pageSource).toContain('activeScrollSource');
+    expect(pageSource).toContain('handleTableScroll');
+    expect(pageSource).toContain('isDraggingThumb');
     expect(cssSource).toContain('.ach-floating-scrollbar');
     expect(cssSource).toContain('position: fixed');
     expect(cssSource).toContain('bottom: 0');

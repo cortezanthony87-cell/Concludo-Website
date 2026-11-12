@@ -217,14 +217,15 @@ export const ActionHubPage: React.FC = () => {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Floating horizontal scrollbar state
+  // Floating horizontal scrollbar state (Hardware-accurate pointer-captured draggable scrollbar)
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
-  const floatingScrollRef = React.useRef<HTMLDivElement>(null);
-  const activeScrollSource = React.useRef<"table" | "floating" | null>(null);
-  const scrollEndTimer = React.useRef<any>(null);
   const [showFloatingScroll, setShowFloatingScroll] = useState(false);
-  const [floatingScrollWidth, setFloatingScrollWidth] = useState(0);
   const [floatingScrollPos, setFloatingScrollPos] = useState({ left: 0, width: 0 });
+  const [tableScrollLeft, setTableScrollLeft] = useState(0);
+  const [tableScrollMetrics, setTableScrollMetrics] = useState({ scrollWidth: 1, clientWidth: 1 });
+  const isDraggingThumb = React.useRef(false);
+  const dragStartClientX = React.useRef(0);
+  const dragStartScrollLeft = React.useRef(0);
 
   const showToast = useCallback((msg: string, undo: boolean = false) => {
     setToastMsg(msg);
@@ -344,7 +345,7 @@ export const ActionHubPage: React.FC = () => {
     loadCalendarLinks();
   }, [loadActions, loadCandidates, loadCalendarLinks]);
 
-  // Floating horizontal scrollbar visibility and sync
+  // Floating horizontal scrollbar visibility and geometry
   const checkScroll = useCallback(() => {
     const wrap = tableWrapperRef.current;
     if (!wrap) {
@@ -367,42 +368,77 @@ export const ActionHubPage: React.FC = () => {
 
     if (isTableTopVisible && isTableBottomBelow) {
       setShowFloatingScroll(true);
-      setFloatingScrollWidth(wrap.scrollWidth);
+      setTableScrollMetrics({
+        scrollWidth: wrap.scrollWidth,
+        clientWidth: wrap.clientWidth,
+      });
+      setTableScrollLeft(wrap.scrollLeft);
       setFloatingScrollPos({
         left: Math.max(0, rect.left),
         width: rect.width,
       });
-      if (floatingScrollRef.current && !activeScrollSource.current) {
-        floatingScrollRef.current.scrollLeft = wrap.scrollLeft;
-      }
     } else {
       setShowFloatingScroll(false);
     }
   }, []);
 
-  const handleFloatingScroll = useCallback(() => {
-    if (activeScrollSource.current === "table") return;
-    activeScrollSource.current = "floating";
-    if (tableWrapperRef.current && floatingScrollRef.current) {
-      tableWrapperRef.current.scrollLeft = floatingScrollRef.current.scrollLeft;
-    }
-    clearTimeout(scrollEndTimer.current);
-    scrollEndTimer.current = setTimeout(() => {
-      activeScrollSource.current = null;
-    }, 40);
+  const handleTableScroll = useCallback(() => {
+    const wrap = tableWrapperRef.current;
+    if (!wrap) return;
+    setTableScrollLeft(wrap.scrollLeft);
   }, []);
 
-  const handleTableScroll = useCallback(() => {
-    if (activeScrollSource.current === "floating") return;
-    activeScrollSource.current = "table";
-    if (floatingScrollRef.current && tableWrapperRef.current) {
-      floatingScrollRef.current.scrollLeft = tableWrapperRef.current.scrollLeft;
-    }
-    clearTimeout(scrollEndTimer.current);
-    scrollEndTimer.current = setTimeout(() => {
-      activeScrollSource.current = null;
-    }, 40);
-  }, []);
+  // Thumb drag and track interaction logic
+  const trackWidth = floatingScrollPos.width;
+  const { scrollWidth, clientWidth } = tableScrollMetrics;
+  const maxScrollLeft = Math.max(1, scrollWidth - clientWidth);
+  const thumbWidth = Math.max(48, Math.round((clientWidth / Math.max(1, scrollWidth)) * trackWidth));
+  const maxThumbLeft = Math.max(1, trackWidth - thumbWidth);
+  const thumbLeft = Math.max(0, Math.min(maxThumbLeft, Math.round((tableScrollLeft / maxScrollLeft) * maxThumbLeft)));
+
+  const handleThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingThumb.current = true;
+    dragStartClientX.current = e.clientX;
+    dragStartScrollLeft.current = tableWrapperRef.current?.scrollLeft || 0;
+
+    const onPointerMove = (moveEvt: PointerEvent) => {
+      if (!isDraggingThumb.current || !tableWrapperRef.current) return;
+      const deltaX = moveEvt.clientX - dragStartClientX.current;
+      const scrollRatio = maxScrollLeft / maxThumbLeft;
+      const targetScrollLeft = Math.max(0, Math.min(maxScrollLeft, dragStartScrollLeft.current + deltaX * scrollRatio));
+      tableWrapperRef.current.scrollLeft = targetScrollLeft;
+      setTableScrollLeft(targetScrollLeft);
+    };
+
+    const onPointerUp = () => {
+      isDraggingThumb.current = false;
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+  };
+
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!tableWrapperRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const targetThumbLeft = Math.max(0, Math.min(maxThumbLeft, clickX - thumbWidth / 2));
+    const targetScrollLeft = (targetThumbLeft / maxThumbLeft) * maxScrollLeft;
+    tableWrapperRef.current.scrollLeft = targetScrollLeft;
+    setTableScrollLeft(targetScrollLeft);
+  };
+
+  const handleTrackWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!tableWrapperRef.current) return;
+    tableWrapperRef.current.scrollLeft += (e.deltaX || e.deltaY);
+    setTableScrollLeft(tableWrapperRef.current.scrollLeft);
+  };
 
   // Add to Calendar handlers
   const handleAddToCalendarClick = async (row: ActionRecord) => {
@@ -1492,19 +1528,50 @@ export const ActionHubPage: React.FC = () => {
         </table>
       </div>
 
-      {/* Floating Sticky Horizontal Scrollbar (Follows viewport when table has horizontal overflow and extends below screen) */}
+      {/* Floating Sticky Horizontal Scrollbar (Pointer-captured hardware mouse tracking) */}
       {showFloatingScroll && (
         <div
-          ref={floatingScrollRef}
           className="ach-floating-scrollbar"
           style={{
+            position: 'fixed',
+            bottom: 0,
             left: `${floatingScrollPos.left}px`,
             width: `${floatingScrollPos.width}px`,
+            height: '14px',
+            background: 'rgba(235, 240, 247, 0.96)',
+            borderTop: '1px solid #D8E1EC',
+            boxShadow: '0 -2px 10px rgba(11, 27, 61, 0.12)',
+            zIndex: 95,
+            cursor: 'pointer',
+            userSelect: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            padding: 0,
+            overflow: 'hidden',
           }}
-          onScroll={handleFloatingScroll}
+          onPointerDown={handleTrackPointerDown}
+          onWheel={handleTrackWheel}
           aria-label="Table horizontal scrollbar"
         >
-          <div style={{ width: `${floatingScrollWidth}px`, height: '1px' }} />
+          <div
+            className="ach-floating-scrollbar-thumb"
+            style={{
+              position: 'absolute',
+              top: '2px',
+              left: `${thumbLeft}px`,
+              width: `${thumbWidth}px`,
+              height: '10px',
+              borderRadius: '5px',
+              background: '#7A89A0',
+              cursor: 'grab',
+            }}
+            onPointerDown={handleThumbPointerDown}
+            role="scrollbar"
+            aria-valuenow={Math.round(tableScrollLeft)}
+            aria-valuemin={0}
+            aria-valuemax={Math.round(maxScrollLeft)}
+            aria-orientation="horizontal"
+          />
         </div>
       )}
 

@@ -727,3 +727,12 @@
     border-radius: 10px;
   }
 }
+
+.ach-floating-scrollbar-thumb:hover {
+  background: #16263F !important;
+}
+
+.ach-floating-scrollbar-thumb:active {
+  background: #16263F !important;
+  cursor: grabbing !important;
+}
