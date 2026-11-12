@@ -98,6 +98,18 @@ describe('Action Command Hub Calendar Auto-fill, Floating Scrollbar and Edit Mod
     expect(pageSource).toContain("<col style={{ width: '100px' }} />");
   });
 
+  it('7. verifies bottom action items position dropdown menu above the three dots (dropup)', () => {
+    expect(pageSource).toContain('isBottomRow');
+    expect(pageSource).toContain('shouldDropUp');
+    expect(pageSource).toContain('ach-ddm-up');
+    expect(pageSource).toContain('handleToggleMenu');
+    expect(cssSource).toContain('.ach-ddm.ach-ddm-up');
+    expect(cssSource).toContain('bottom: 100% !important');
+    expect(cssSource).toContain('top: auto !important');
+    expect(cssSource).toContain('margin-bottom: 6px !important');
+    expect(cssSource).toContain('padding-bottom: 8px');
+  });
+
   it('6. verifies zero em dashes or en dashes in new code', () => {
     expect(pageSource).not.toContain('\u2014'); // em dash
     expect(pageSource).not.toContain('\u2013'); // en dash

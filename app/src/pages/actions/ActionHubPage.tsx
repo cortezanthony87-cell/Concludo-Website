@@ -192,6 +192,26 @@ export const ActionHubPage: React.FC = () => {
 
   // Action Command Hub Edit Controls state
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [menuPlacement, setMenuPlacement] = useState<'down' | 'up'>('down');
+
+  const handleToggleMenu = (
+    menuKey: string,
+    triggerEl: HTMLElement,
+    rowIdx: number,
+    totalRows: number
+  ) => {
+    if (openMenu === menuKey) {
+      setOpenMenu(null);
+    } else {
+      activeTriggerRef.current = triggerEl;
+      const rect = triggerEl.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const isNearBottomRow = rowIdx > 0 && rowIdx >= totalRows - 3;
+      const shouldDropUp = isNearBottomRow || (spaceBelow < 180 && rect.top > 160);
+      setMenuPlacement(shouldDropUp ? 'up' : 'down');
+      setOpenMenu(menuKey);
+    }
+  };
   const [deleteModalTask, setDeleteModalTask] = useState<ActionRecord | null>(null);
   const [deleteCalendarItem, setDeleteCalendarItem] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -1234,7 +1254,7 @@ export const ActionHubPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              displayedActions.map((row) => {
+              displayedActions.map((row, rowIdx) => {
                 const b = getActionBucket(row, now);
                 const isOverdue = b === 'Overdue';
                 const pRaw = (row.priority || 'normal').toLowerCase();
@@ -1254,9 +1274,17 @@ export const ActionHubPage: React.FC = () => {
                 const isPriorityMenuOpen = openMenu === 'p-' + row.id;
                 const isDotsMenuOpen = openMenu === 'm-' + row.id;
                 const canEdit = canUserEditAction(row, user?.id);
+                const isBottomRow = rowIdx > 0 && rowIdx >= displayedActions.length - 3;
+                const shouldDropUp = isBottomRow || menuPlacement === 'up';
 
                 return (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    style={{
+                      position: (isDotsMenuOpen || isPriorityMenuOpen || isStatusMenuOpen) ? 'relative' : undefined,
+                      zIndex: (isDotsMenuOpen || isPriorityMenuOpen || isStatusMenuOpen) ? 110 : undefined,
+                    }}
+                  >
                     <td style={{ textAlign: 'center' }}>
                       <input
                         type="checkbox"
@@ -1280,7 +1308,7 @@ export const ActionHubPage: React.FC = () => {
                       <span className="ach-task-title">{row.action_title}</span>
                     </td>
                     <td style={{ overflow: 'visible', width: '115px' }}>
-                      <div className="ach-dd">
+                      <div className="ach-dd" style={{ position: 'relative', zIndex: isPriorityMenuOpen ? 120 : 1 }}>
                         <button
                           className="ach-ddb"
                           aria-haspopup="listbox"
@@ -1289,15 +1317,13 @@ export const ActionHubPage: React.FC = () => {
                           title={canEdit.reason}
                           onClick={(e) => {
                             e.stopPropagation();
-                            activeTriggerRef.current = e.currentTarget;
-                            setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                            handleToggleMenu('p-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
                               e.stopPropagation();
-                              activeTriggerRef.current = e.currentTarget;
-                              setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                              handleToggleMenu('p-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                             }
                           }}
                         >
@@ -1305,7 +1331,7 @@ export const ActionHubPage: React.FC = () => {
                           <span className="ach-car">&#9662;</span>
                         </button>
                         {isPriorityMenuOpen && (
-                          <div className="ach-ddm" role="listbox">
+                          <div className={`ach-ddm ${shouldDropUp ? 'ach-ddm-up' : ''}`} role="listbox">
                             {(['high', 'medium', 'normal', 'low'] as ActionPriority[]).map((pr) => {
                               const isSel = pRaw === pr;
                               return (
@@ -1337,7 +1363,7 @@ export const ActionHubPage: React.FC = () => {
                       </div>
                     </td>
                     <td style={{ overflow: 'visible', width: '135px' }}>
-                      <div className="ach-dd">
+                      <div className="ach-dd" style={{ position: 'relative', zIndex: isStatusMenuOpen ? 120 : 1 }}>
                         <button
                           className="ach-ddb"
                           aria-haspopup="listbox"
@@ -1346,15 +1372,13 @@ export const ActionHubPage: React.FC = () => {
                           title={canEdit.reason}
                           onClick={(e) => {
                             e.stopPropagation();
-                            activeTriggerRef.current = e.currentTarget;
-                            setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                            handleToggleMenu('s-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
                               e.stopPropagation();
-                              activeTriggerRef.current = e.currentTarget;
-                              setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                              handleToggleMenu('s-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                             }
                           }}
                         >
@@ -1362,7 +1386,7 @@ export const ActionHubPage: React.FC = () => {
                           <span className="ach-car">&#9662;</span>
                         </button>
                         {isStatusMenuOpen && (
-                          <div className="ach-ddm" role="listbox">
+                          <div className={`ach-ddm ${shouldDropUp ? 'ach-ddm-up' : ''}`} role="listbox">
                             {([
                               ['not_started', 'Not started'],
                               ['in_progress', 'In progress'],
@@ -1420,7 +1444,7 @@ export const ActionHubPage: React.FC = () => {
                     </td>
                     <td>{row.updated_at ? row.updated_at.slice(0, 10) : 'Today'}</td>
                     <td style={{ overflow: 'visible', textAlign: 'center' }}>
-                      <div className="ach-dd">
+                      <div className="ach-dd" style={{ position: 'relative', display: 'inline-block', zIndex: isDotsMenuOpen ? 120 : 1 }}>
                         <button
                           className="ach-ddb-dots"
                           aria-label="More actions"
@@ -1430,22 +1454,20 @@ export const ActionHubPage: React.FC = () => {
                           title={canEdit.reason}
                           onClick={(e) => {
                             e.stopPropagation();
-                            activeTriggerRef.current = e.currentTarget;
-                            setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                            handleToggleMenu('m-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
                               e.stopPropagation();
-                              activeTriggerRef.current = e.currentTarget;
-                              setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                              handleToggleMenu('m-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                             }
                           }}
                         >
                           &#8943;
                         </button>
                         {isDotsMenuOpen && (
-                          <div className="ach-ddm ach-ddm-right" role="menu">
+                          <div className={`ach-ddm ach-ddm-right ${shouldDropUp ? 'ach-ddm-up' : ''}`} role="menu">
                             <div
                               role="menuitem"
                               tabIndex={0}
@@ -1577,7 +1599,7 @@ export const ActionHubPage: React.FC = () => {
 
       {/* Mobile Card List (< 768px and 390px viewport) */}
       <div className="ach-mobile-cards">
-        {displayedActions.map((row) => {
+        {displayedActions.map((row, rowIdx) => {
           const b = getActionBucket(row, now);
           const isOverdue = b === 'Overdue';
           const pRaw = (row.priority || 'normal').toLowerCase();
@@ -1597,12 +1619,21 @@ export const ActionHubPage: React.FC = () => {
           const isPriorityMenuOpen = openMenu === 'p-' + row.id;
           const isDotsMenuOpen = openMenu === 'm-' + row.id;
           const canEdit = canUserEditAction(row, user?.id);
+          const isBottomRow = rowIdx > 0 && rowIdx >= displayedActions.length - 3;
+          const shouldDropUp = isBottomRow || menuPlacement === 'up';
 
           return (
-            <div className="ach-row-card" key={row.id}>
+            <div
+              className="ach-row-card"
+              key={row.id}
+              style={{
+                position: (isDotsMenuOpen || isPriorityMenuOpen || isStatusMenuOpen) ? 'relative' : undefined,
+                zIndex: (isDotsMenuOpen || isPriorityMenuOpen || isStatusMenuOpen) ? 110 : undefined,
+              }}
+            >
               <b>{row.action_title}</b>
               <div className="f">
-                <div className="ach-dd">
+                <div className="ach-dd" style={{ position: 'relative', zIndex: isPriorityMenuOpen ? 120 : 1 }}>
                   <button
                     className="ach-ddb"
                     aria-haspopup="listbox"
@@ -1611,15 +1642,13 @@ export const ActionHubPage: React.FC = () => {
                     title={canEdit.reason}
                     onClick={(e) => {
                       e.stopPropagation();
-                      activeTriggerRef.current = e.currentTarget;
-                      setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                      handleToggleMenu('p-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         e.stopPropagation();
-                        activeTriggerRef.current = e.currentTarget;
-                        setOpenMenu(isPriorityMenuOpen ? null : 'p-' + row.id);
+                        handleToggleMenu('p-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                       }
                     }}
                   >
@@ -1627,7 +1656,7 @@ export const ActionHubPage: React.FC = () => {
                     <span className="ach-car">&#9662;</span>
                   </button>
                   {isPriorityMenuOpen && (
-                    <div className="ach-ddm" role="listbox">
+                    <div className={`ach-ddm ${shouldDropUp ? 'ach-ddm-up' : ''}`} role="listbox">
                       {(['high', 'medium', 'normal', 'low'] as ActionPriority[]).map((pr) => (
                         <div
                           key={pr}
@@ -1654,7 +1683,7 @@ export const ActionHubPage: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="ach-dd">
+                <div className="ach-dd" style={{ position: 'relative', zIndex: isStatusMenuOpen ? 120 : 1 }}>
                   <button
                     className="ach-ddb"
                     aria-haspopup="listbox"
@@ -1663,15 +1692,13 @@ export const ActionHubPage: React.FC = () => {
                     title={canEdit.reason}
                     onClick={(e) => {
                       e.stopPropagation();
-                      activeTriggerRef.current = e.currentTarget;
-                      setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                      handleToggleMenu('s-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         e.stopPropagation();
-                        activeTriggerRef.current = e.currentTarget;
-                        setOpenMenu(isStatusMenuOpen ? null : 's-' + row.id);
+                        handleToggleMenu('s-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                       }
                     }}
                   >
@@ -1679,7 +1706,7 @@ export const ActionHubPage: React.FC = () => {
                     <span className="ach-car">&#9662;</span>
                   </button>
                   {isStatusMenuOpen && (
-                    <div className="ach-ddm" role="listbox">
+                    <div className={`ach-ddm ${shouldDropUp ? 'ach-ddm-up' : ''}`} role="listbox">
                       {([
                         ['not_started', 'Not started'],
                         ['in_progress', 'In progress'],
@@ -1724,7 +1751,7 @@ export const ActionHubPage: React.FC = () => {
                 {isOverdue && row.status !== 'completed' && (
                   <span className="ach-overdue-badge">&#9888; Overdue</span>
                 )}
-                <div className="ach-dd" style={{ marginLeft: 'auto' }}>
+                <div className="ach-dd" style={{ marginLeft: 'auto', position: 'relative', zIndex: isDotsMenuOpen ? 120 : 1 }}>
                   <button
                     className="ach-ddb-dots"
                     aria-label="More actions"
@@ -1734,22 +1761,20 @@ export const ActionHubPage: React.FC = () => {
                     title={canEdit.reason}
                     onClick={(e) => {
                       e.stopPropagation();
-                      activeTriggerRef.current = e.currentTarget;
-                      setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                      handleToggleMenu('m-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         e.stopPropagation();
-                        activeTriggerRef.current = e.currentTarget;
-                        setOpenMenu(isDotsMenuOpen ? null : 'm-' + row.id);
+                        handleToggleMenu('m-' + row.id, e.currentTarget, rowIdx, displayedActions.length);
                       }
                     }}
                   >
                     &#8943;
                   </button>
                   {isDotsMenuOpen && (
-                    <div className="ach-ddm ach-ddm-right" role="menu">
+                    <div className={`ach-ddm ach-ddm-right ${shouldDropUp ? 'ach-ddm-up' : ''}`} role="menu">
                       <div
                         role="menuitem"
                         tabIndex={0}

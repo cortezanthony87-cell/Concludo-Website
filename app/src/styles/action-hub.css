@@ -214,6 +214,7 @@
   -webkit-overflow-scrolling: touch;
   background: #ffffff;
   width: 100%;
+  padding-bottom: 8px;
   scroll-behavior: auto;
   overscroll-behavior-x: contain;
 }
@@ -388,6 +389,16 @@
   left: auto;
   right: 0;
   min-width: 150px;
+}
+
+/* Dropup placement: opens menu above button for bottom rows / viewport edge */
+.ach-ddm.ach-ddm-up,
+.ach-ddm-dropup {
+  top: auto !important;
+  bottom: 100% !important;
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
+  box-shadow: 0 -8px 24px rgba(22, 38, 63, 0.16) !important;
 }
 
 .ach-ddm-item {
