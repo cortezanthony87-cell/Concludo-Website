@@ -1,0 +1,64 @@
+import { describe, it, expect } from 'bun:test';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+describe('Action Command Hub Calendar Auto-fill and Floating Scrollbar v1', () => {
+  const pagePath = resolve(__dirname, '../src/pages/actions/ActionHubPage.tsx');
+  const cssPath = resolve(__dirname, '../src/styles/action-hub.css');
+  const pageSource = readFileSync(pagePath, 'utf8');
+  const cssSource = readFileSync(cssPath, 'utf8');
+
+  it('1. verifies "Add to Calendar" menu item exists above Delete task in table and mobile cards', () => {
+    expect(pageSource).toContain('handleAddToCalendarClick');
+    expect(pageSource).toContain('Add to Calendar');
+    expect(pageSource).toContain('Re-sync to Calendar');
+    
+    // Check that Add to Calendar appears before Delete task in the dots menu
+    const addIndex = pageSource.indexOf('handleAddToCalendarClick(row)');
+    const delIndex = pageSource.indexOf('setDeleteModalTask(row)');
+    expect(addIndex).toBeGreaterThan(-1);
+    expect(delIndex).toBeGreaterThan(-1);
+    expect(addIndex).toBeLessThan(delIndex);
+  });
+
+  it('2. verifies auto-fill Calendar call maps action title, description, priority, and date', () => {
+    expect(pageSource).toContain('createCalendarItem(supabase, {');
+    expect(pageSource).toContain('creator_id: user.id');
+    expect(pageSource).toContain('type: \'task\'');
+    expect(pageSource).toContain('title: row.action_title');
+    expect(pageSource).toContain('source_id: row.id');
+    expect(pageSource).toContain('source_reference: row.id');
+  });
+
+  it('3. verifies unscheduled action prompts for date and auto-fills all other fields', () => {
+    expect(pageSource).toContain('setCalendarPromptTask(row)');
+    expect(pageSource).toContain('calendarPromptTask');
+    expect(pageSource).toContain('handleConfirmCalendarPrompt');
+    expect(pageSource).toContain('Add to Concludo Calendar');
+    expect(pageSource).toContain('Details are auto-filled from the action item below');
+  });
+
+  it('4. verifies Calendar sync column displays Linked badge when synced and Not linked when not', () => {
+    expect(pageSource).toContain('ach-cal-linked-badge');
+    expect(pageSource).toContain('Linked');
+    expect(pageSource).toContain('Not linked');
+    expect(cssSource).toContain('.ach-cal-linked-badge');
+  });
+
+  it('5. verifies floating sticky horizontal scrollbar is defined with sync handlers', () => {
+    expect(pageSource).toContain('tableWrapperRef');
+    expect(pageSource).toContain('floatingScrollRef');
+    expect(pageSource).toContain('showFloatingScroll');
+    expect(pageSource).toContain('ach-floating-scrollbar');
+    expect(pageSource).toContain('handleFloatingScroll');
+    expect(pageSource).toContain('handleTableScroll');
+    expect(cssSource).toContain('.ach-floating-scrollbar');
+    expect(cssSource).toContain('position: fixed');
+    expect(cssSource).toContain('bottom: 0');
+  });
+
+  it('6. verifies zero em dashes or en dashes in new code', () => {
+    expect(pageSource).not.toContain('\u2014'); // em dash
+    expect(pageSource).not.toContain('\u2013'); // en dash
+  });
+});

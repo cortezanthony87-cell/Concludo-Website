@@ -642,7 +642,61 @@
   display: none;
 }
 
+/* Calendar Sync Linked Badge */
+.ach-cal-linked-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0E6245;
+  background: #E8F7F0;
+  border: 1px solid #B7E4CF;
+  white-space: nowrap;
+}
+
+/* Floating Sticky Horizontal Scrollbar (Follows viewport when table has many items) */
+.ach-floating-scrollbar {
+  position: fixed;
+  bottom: 0;
+  height: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 95;
+  background: rgba(244, 247, 252, 0.96);
+  border-top: 1px solid #D9E1EC;
+  box-shadow: 0 -3px 12px rgba(11, 27, 61, 0.12);
+  backdrop-filter: blur(4px);
+}
+
+.ach-floating-scrollbar::-webkit-scrollbar,
+.ach-table-wrapper::-webkit-scrollbar {
+  height: 14px;
+}
+
+.ach-floating-scrollbar::-webkit-scrollbar-track,
+.ach-table-wrapper::-webkit-scrollbar-track {
+  background: #EBF0F7;
+  border-radius: 4px;
+}
+
+.ach-floating-scrollbar::-webkit-scrollbar-thumb,
+.ach-table-wrapper::-webkit-scrollbar-thumb {
+  background: #8A98AD;
+  border-radius: 7px;
+  border: 2px solid #EBF0F7;
+}
+
+.ach-floating-scrollbar::-webkit-scrollbar-thumb:hover,
+.ach-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #122851;
+}
+
 @media (max-width: 768px) {
+  .ach-floating-scrollbar {
+    display: none !important;
+  }
   .ach-container {
     padding: 12px;
   }

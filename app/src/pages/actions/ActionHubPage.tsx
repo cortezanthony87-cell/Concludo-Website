@@ -200,6 +200,20 @@ export const ActionHubPage: React.FC = () => {
   const deletedActionsRef = React.useRef<ActionRecord[]>([]);
   const activeTriggerRef = React.useRef<HTMLElement | null>(null);
 
+  // Calendar linking & auto-fill
+  const [linkedCalendarIds, setLinkedCalendarIds] = useState<Set<string>>(new Set());
+  const [calendarPromptTask, setCalendarPromptTask] = useState<ActionRecord | null>(null);
+  const [calendarPromptDate, setCalendarPromptDate] = useState<string>('');
+  const [calendarSaving, setCalendarSaving] = useState(false);
+
+  // Floating horizontal scrollbar state
+  const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+  const floatingScrollRef = React.useRef<HTMLDivElement>(null);
+  const isSyncingScroll = React.useRef(false);
+  const [showFloatingScroll, setShowFloatingScroll] = useState(false);
+  const [floatingScrollWidth, setFloatingScrollWidth] = useState(0);
+  const [floatingScrollPos, setFloatingScrollPos] = useState({ left: 0, width: 0 });
+
   const showToast = useCallback((msg: string, undo: boolean = false) => {
     setToastMsg(msg);
     setToastUndo(undo);
@@ -289,11 +303,184 @@ export const ActionHubPage: React.FC = () => {
     }
   }, [supabase]);
 
+  // Load active calendar items linked to actions
+  const loadCalendarLinks = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const { data: calItems, error: calErr } = await supabase
+        .from('calendar_items')
+        .select('id, source_id, source_reference')
+        .eq('creator_id', user.id)
+        .is('deleted_at', null);
+
+      if (!calErr && calItems) {
+        const linked = new Set<string>();
+        calItems.forEach((ci: any) => {
+          if (ci.source_id) linked.add(ci.source_id);
+          if (ci.source_reference) linked.add(ci.source_reference);
+        });
+        setLinkedCalendarIds(linked);
+      }
+    } catch (err) {
+      console.warn('Could not load calendar links:', err);
+    }
+  }, [supabase, user?.id]);
+
   useEffect(() => {
     loadActions();
     loadCandidates();
-  }, [loadActions, loadCandidates]);
+    loadCalendarLinks();
+  }, [loadActions, loadCandidates, loadCalendarLinks]);
 
+  // Floating horizontal scrollbar visibility and sync
+  const checkScroll = useCallback(() => {
+    const wrap = tableWrapperRef.current;
+    if (!wrap) {
+      setShowFloatingScroll(false);
+      return;
+    }
+
+    const hasOverflow = wrap.scrollWidth > wrap.clientWidth + 2;
+    if (!hasOverflow) {
+      setShowFloatingScroll(false);
+      return;
+    }
+
+    const rect = wrap.getBoundingClientRect();
+    const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+
+    // Table top has entered viewport and table bottom extends below viewport bottom
+    const isTableTopVisible = rect.top < windowHeight - 40;
+    const isTableBottomBelow = rect.bottom > windowHeight + 10;
+
+    if (isTableTopVisible && isTableBottomBelow) {
+      setShowFloatingScroll(true);
+      setFloatingScrollWidth(wrap.scrollWidth);
+      setFloatingScrollPos({
+        left: Math.max(0, rect.left),
+        width: rect.width,
+      });
+      if (floatingScrollRef.current && !isSyncingScroll.current) {
+        floatingScrollRef.current.scrollLeft = wrap.scrollLeft;
+      }
+    } else {
+      setShowFloatingScroll(false);
+    }
+  }, []);
+
+  const handleFloatingScroll = useCallback(() => {
+    if (isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    if (tableWrapperRef.current && floatingScrollRef.current) {
+      tableWrapperRef.current.scrollLeft = floatingScrollRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  }, []);
+
+  const handleTableScroll = useCallback(() => {
+    if (isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    if (tableWrapperRef.current && floatingScrollRef.current) {
+      floatingScrollRef.current.scrollLeft = tableWrapperRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  }, []);
+
+  // Add to Calendar handlers
+  const handleAddToCalendarClick = async (row: ActionRecord) => {
+    if (!user?.id) return;
+
+    // If the action has a valid due date (YYYY-MM-DD), automatically fill out and add to calendar immediately
+    if (row.due_date && /^\d{4}-\d{2}-\d{2}$/.test(row.due_date)) {
+      try {
+        const calPriority = row.priority === 'high' ? 'high' : row.priority === 'low' ? 'low' : 'medium';
+        const calStatus = row.status === 'completed' ? 'completed' : 'open';
+        const { data: calItem, error: calErr } = await createCalendarItem(supabase, {
+          creator_id: user.id,
+          type: 'task',
+          title: row.action_title,
+          description: row.action_description || undefined,
+          due_date: row.due_date,
+          owner_name: row.owner_name || row.assigned_user_name || undefined,
+          status: calStatus,
+          priority: calPriority,
+          source_type: 'other',
+          source_id: row.id,
+          source_reference: row.id,
+          source_title: row.projects?.title || row.projects?.project_name || 'Action Command Hub',
+          project_id: row.project_id || null,
+          visibility: 'private',
+        });
+
+        if (!calErr && calItem) {
+          setLinkedCalendarIds((prev) => new Set(prev).add(row.id));
+          showToast(`Added "${row.action_title}" to Concludo Calendar for ${row.due_date}.`);
+        } else {
+          showToast(`Could not add to Calendar: ${calErr || 'Server error'}`);
+        }
+      } catch (err: any) {
+        showToast(`Could not add to Calendar: ${err?.message || 'Server error'}`);
+      }
+    } else {
+      // If action has no due date ('Unscheduled'), open auto-filled modal prompting for date
+      setCalendarPromptTask(row);
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
+      setCalendarPromptDate(today);
+    }
+  };
+
+  const handleConfirmCalendarPrompt = async () => {
+    if (!user?.id || !calendarPromptTask || !calendarPromptDate) return;
+    setCalendarSaving(true);
+    try {
+      // 1. Update the action's due_date in action_tracker
+      const { error: updateErr } = await updateAction(supabase, calendarPromptTask.id, {
+        due_date: calendarPromptDate,
+      });
+      if (updateErr) {
+        console.warn('Could not update action due date:', updateErr);
+      }
+
+      // 2. Create the calendar item
+      const calPriority = calendarPromptTask.priority === 'high' ? 'high' : calendarPromptTask.priority === 'low' ? 'low' : 'medium';
+      const calStatus = calendarPromptTask.status === 'completed' ? 'completed' : 'open';
+      const { data: calItem, error: calErr } = await createCalendarItem(supabase, {
+        creator_id: user.id,
+        type: 'task',
+        title: calendarPromptTask.action_title,
+        description: calendarPromptTask.action_description || undefined,
+        due_date: calendarPromptDate,
+        owner_name: calendarPromptTask.owner_name || calendarPromptTask.assigned_user_name || undefined,
+        status: calStatus,
+        priority: calPriority,
+        source_type: 'other',
+        source_id: calendarPromptTask.id,
+        source_reference: calendarPromptTask.id,
+        source_title: calendarPromptTask.projects?.title || calendarPromptTask.projects?.project_name || 'Action Command Hub',
+        project_id: calendarPromptTask.project_id || null,
+        visibility: 'private',
+      });
+
+      if (!calErr && calItem) {
+        setLinkedCalendarIds((prev) => new Set(prev).add(calendarPromptTask.id));
+        setActions((prev) =>
+          prev.map((a) => (a.id === calendarPromptTask.id ? { ...a, due_date: calendarPromptDate } : a))
+        );
+        showToast(`Scheduled and added "${calendarPromptTask.action_title}" to Concludo Calendar for ${calendarPromptDate}.`);
+        setCalendarPromptTask(null);
+      } else {
+        showToast(`Could not add to Calendar: ${calErr || 'Server error'}`);
+      }
+    } catch (err: any) {
+      showToast(`Could not add to Calendar: ${err?.message || 'Server error'}`);
+    } finally {
+      setCalendarSaving(false);
+    }
+  };
   // Compute metrics
   const bucketCounts = useMemo(() => {
     const scopedActions = scope === 'my' && user?.id
@@ -338,6 +525,25 @@ export const ActionHubPage: React.FC = () => {
 
     return list;
   }, [actions, scope, user?.id, activeTab, searchQuery, now, todayStr]);
+
+  // Attach scroll listener once displayedActions is available
+  useEffect(() => {
+    checkScroll();
+    window.addEventListener('scroll', checkScroll, { passive: true });
+    window.addEventListener('resize', checkScroll, { passive: true });
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && tableWrapperRef.current) {
+      ro = new ResizeObserver(() => checkScroll());
+      ro.observe(tableWrapperRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+      if (ro) ro.disconnect();
+    };
+  }, [checkScroll, displayedActions.length]);
 
   // Toggle complete
   const handleToggleComplete = async (action: ActionRecord) => {
@@ -434,7 +640,12 @@ export const ActionHubPage: React.FC = () => {
         await supabase
           .from('calendar_items')
           .update({ deleted_at: new Date().toISOString() })
-          .eq('source_id', target.id);
+          .or(`source_id.eq.${target.id},source_reference.eq.${target.id}`);
+        setLinkedCalendarIds((prev) => {
+          const next = new Set(prev);
+          next.delete(target.id);
+          return next;
+        });
       } catch {}
     }
     showToast('Task deleted. Dashboard updated.', true);
@@ -451,7 +662,8 @@ export const ActionHubPage: React.FC = () => {
           await supabase
             .from('calendar_items')
             .update({ deleted_at: null })
-            .eq('source_id', restored.id);
+            .or(`source_id.eq.${restored.id},source_reference.eq.${restored.id}`);
+          setLinkedCalendarIds((prev) => new Set(prev).add(restored.id));
         } catch {}
       }
       setActions((prev) => [...prev, restored].sort(compareActionsByPriorityAndDue));
@@ -812,7 +1024,7 @@ export const ActionHubPage: React.FC = () => {
       </div>
 
       {/* Grid: Desktop Table View */}
-      <div className="ach-card ach-table-wrapper">
+      <div className="ach-card ach-table-wrapper" ref={tableWrapperRef} onScroll={handleTableScroll}>
         <table className="ach-table">
           <colgroup>
             <col style={{ width: '44px' }} />
@@ -1030,7 +1242,18 @@ export const ActionHubPage: React.FC = () => {
                     <td>{row.due_date ? row.due_date : 'Unscheduled'}</td>
                     <td>{row.projects?.title || row.projects?.project_name || 'Internal'}</td>
                     <td>{row.source_type || 'Meeting'}</td>
-                    <td>Not linked</td>
+                    <td>
+                      {linkedCalendarIds.has(row.id) ? (
+                        <span className="ach-cal-linked-badge" title="Synchronised with Concludo Calendar">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: '4px' }}>
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                          Linked
+                        </span>
+                      ) : (
+                        <span style={{ color: '#8A98AD' }}>Not linked</span>
+                      )}
+                    </td>
                     <td>{row.updated_at ? row.updated_at.slice(0, 10) : 'Today'}</td>
                     <td style={{ overflow: 'visible', textAlign: 'center' }}>
                       <div className="ach-dd">
@@ -1062,6 +1285,32 @@ export const ActionHubPage: React.FC = () => {
                             <div
                               role="menuitem"
                               tabIndex={0}
+                              className="ach-ddm-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenu(null);
+                                handleAddToCalendarClick(row);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOpenMenu(null);
+                                  handleAddToCalendarClick(row);
+                                }
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                              </svg>
+                              <span>{linkedCalendarIds.has(row.id) ? 'Re-sync to Calendar' : 'Add to Calendar'}</span>
+                            </div>
+                            <div
+                              role="menuitem"
+                              tabIndex={0}
                               className="ach-ddm-item danger"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1090,6 +1339,22 @@ export const ActionHubPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Floating Sticky Horizontal Scrollbar (Follows viewport when table has horizontal overflow and extends below screen) */}
+      {showFloatingScroll && (
+        <div
+          ref={floatingScrollRef}
+          className="ach-floating-scrollbar"
+          style={{
+            left: `${floatingScrollPos.left}px`,
+            width: `${floatingScrollPos.width}px`,
+          }}
+          onScroll={handleFloatingScroll}
+          aria-label="Table horizontal scrollbar"
+        >
+          <div style={{ width: `${floatingScrollWidth}px`, height: '1px' }} />
+        </div>
+      )}
 
       {/* Mobile Card List (< 768px and 390px viewport) */}
       <div className="ach-mobile-cards">
@@ -1229,6 +1494,14 @@ export const ActionHubPage: React.FC = () => {
                   )}
                 </div>
                 <span className="ach-tag">{row.due_date || 'Unscheduled'}</span>
+                {linkedCalendarIds.has(row.id) && (
+                  <span className="ach-cal-linked-badge">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: '3px' }}>
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Linked
+                  </span>
+                )}
                 {isOverdue && row.status !== 'completed' && (
                   <span className="ach-overdue-badge">&#9888; Overdue</span>
                 )}
@@ -1258,6 +1531,32 @@ export const ActionHubPage: React.FC = () => {
                   </button>
                   {isDotsMenuOpen && (
                     <div className="ach-ddm ach-ddm-right" role="menu">
+                      <div
+                        role="menuitem"
+                        tabIndex={0}
+                        className="ach-ddm-item"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenu(null);
+                          handleAddToCalendarClick(row);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpenMenu(null);
+                            handleAddToCalendarClick(row);
+                          }
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                          <line x1="16" y1="2" x2="16" y2="6"></line>
+                          <line x1="8" y1="2" x2="8" y2="6"></line>
+                          <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        <span>{linkedCalendarIds.has(row.id) ? 'Re-sync to Calendar' : 'Add to Calendar'}</span>
+                      </div>
                       <div
                         role="menuitem"
                         tabIndex={0}
@@ -2118,6 +2417,84 @@ export const ActionHubPage: React.FC = () => {
           {toastUndo && (
             <button onClick={handleUndoDelete}>Undo</button>
           )}
+        </div>
+      )}
+
+      {/* Modal: Add to Calendar Date Selection (Auto-filled from Action Item) */}
+      {calendarPromptTask && (
+        <div
+          className="ach-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add to Concludo Calendar"
+          onClick={() => setCalendarPromptTask(null)}
+        >
+          <div
+            className="ach-modal-box"
+            style={{ maxWidth: '480px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ach-modal-header">
+              <h2 className="ach-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📅 Add to Concludo Calendar</span>
+              </h2>
+              <button
+                className="ach-btn-secondary"
+                style={{ padding: '4px 8px', fontSize: '12px' }}
+                onClick={() => setCalendarPromptTask(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="ach-modal-body" style={{ padding: '16px' }}>
+              <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#5A6478', lineHeight: 1.4 }}>
+                This action item is currently unscheduled. Details are auto-filled from the action item below. Select a date to schedule it in Concludo Calendar:
+              </p>
+
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#0B1B3D', marginBottom: '6px' }}>
+                  {calendarPromptTask.action_title}
+                </div>
+                <div style={{ fontSize: '12px', color: '#5A6478', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {(calendarPromptTask.owner_name || calendarPromptTask.assigned_user_name) && (
+                    <span><strong>Assignee:</strong> {calendarPromptTask.owner_name || calendarPromptTask.assigned_user_name}</span>
+                  )}
+                  {calendarPromptTask.priority && (
+                    <span><strong>Priority:</strong> {calendarPromptTask.priority}</span>
+                  )}
+                  {calendarPromptTask.projects?.title && (
+                    <span><strong>Project:</strong> {calendarPromptTask.projects.title}</span>
+                  )}
+                </div>
+              </div>
+
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0B1B3D', marginBottom: '6px' }}>
+                Schedule Date
+              </label>
+              <input
+                type="date"
+                className="ach-input"
+                style={{ width: '100%' }}
+                value={calendarPromptDate}
+                onChange={(e) => setCalendarPromptDate(e.target.value)}
+              />
+            </div>
+            <div className="ach-modal-footer">
+              <button
+                className="ach-btn-secondary"
+                onClick={() => setCalendarPromptTask(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="ach-btn-primary"
+                disabled={!calendarPromptDate || calendarSaving}
+                onClick={handleConfirmCalendarPrompt}
+              >
+                {calendarSaving ? 'Adding...' : 'Add to Calendar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

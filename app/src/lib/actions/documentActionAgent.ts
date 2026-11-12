@@ -171,8 +171,11 @@ export async function saveDocumentActionsToHub(
     console.warn('import_batches insert caught:', err);
   }
 
-  // 2. Prepare action_tracker records
+  // 2. Prepare action_tracker records with deterministic UUIDs to link calendar items
+  const actionIdMap = new Map<string, string>();
   const actionRecords = payload.actions.map((act) => {
+    const actionId = crypto.randomUUID();
+    actionIdMap.set(act.id, actionId);
     const finalDue = act.dueDate || (payload.globalDateOverride && /^\d{4}-\d{2}-\d{2}$/.test(payload.globalDateOverride) ? payload.globalDateOverride : null);
     const descParts: string[] = [];
     if (act.stage) descParts.push(`Stage: ${act.stage}`);
@@ -181,6 +184,7 @@ export async function saveDocumentActionsToHub(
     if (act.evidence) descParts.push(`Source: "${act.evidence}"`);
 
     return {
+      id: actionId,
       user_id: userId,
       project_id: payload.projectId || null,
       action_title: act.title,
@@ -223,6 +227,7 @@ export async function saveDocumentActionsToHub(
 
   for (const act of calendarEligible) {
     const effectiveDate = act.dueDate || payload.globalDateOverride || '';
+    const targetActionId = actionIdMap.get(act.id) || act.id;
     try {
       const { error: calErr } = await createCalendarItem(supabase, {
         creator_id: userId,
@@ -234,8 +239,9 @@ export async function saveDocumentActionsToHub(
         status: 'open',
         priority: act.priority,
         source_type: 'other',
+        source_id: targetActionId,
+        source_reference: targetActionId,
         source_title: payload.documentName,
-        source_reference: act.id,
         visibility: 'private',
       });
       if (!calErr) {
