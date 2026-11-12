@@ -91,7 +91,11 @@ describe('Action Command Hub Calendar Auto-fill, Floating Scrollbar and Edit Mod
     expect(cssSource).toContain('min-width: 1100px');
     expect(cssSource).toContain('word-break: break-word');
     expect(pageSource).toContain('<col style={{ width: \'38px\' }} />');
-    expect(pageSource).toContain('<col style={{ width: \'320px\' }} />');
+    expect(pageSource).toContain("<col style={{ width: '320px' }} />");
+    expect(pageSource).toContain("<col style={{ width: '115px' }} />");
+    expect(pageSource).toContain("<col style={{ width: '135px' }} />");
+    expect(pageSource).toContain("<col style={{ width: '125px' }} />");
+    expect(pageSource).toContain("<col style={{ width: '100px' }} />");
   });
 
   it('6. verifies zero em dashes or en dashes in new code', () => {

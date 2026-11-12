@@ -235,6 +235,7 @@
   font-weight: 600;
   color: var(--ach-navy);
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .ach-table td {
@@ -247,6 +248,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .ach-table td:nth-child(2),
@@ -279,10 +281,12 @@
 .ach-pill {
   display: inline-block;
   border-radius: 10px;
-  padding: 2px 8px;
-  font-size: 12px;
+  padding: 2px 7px;
+  font-size: 11px;
+  line-height: 1.2;
   border: 1px solid var(--ach-navy);
   font-weight: 600;
+  box-sizing: border-box;
 }
 
 .ach-pill-hi {
@@ -315,16 +319,18 @@
   background: #ffffff;
   border: 1px solid var(--ach-line);
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   font-family: Inter, Arial, sans-serif;
   font-weight: 500;
   font-size: 12px;
   color: var(--ach-navy);
   cursor: pointer;
   display: inline-flex;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
   max-width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
   user-select: none;
   transition: background 0.12s ease;
 }
@@ -419,8 +425,11 @@
 .ach-od-line {
   color: var(--ach-red);
   font-weight: 600;
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: 11px;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .ach-toast {

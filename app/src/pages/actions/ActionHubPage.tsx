@@ -1193,15 +1193,15 @@ export const ActionHubPage: React.FC = () => {
           <colgroup>
             <col style={{ width: '38px' }} />
             <col style={{ width: '320px' }} />
-            <col style={{ width: '84px' }} />
-            <col style={{ width: '144px' }} />
+            <col style={{ width: '115px' }} />
+            <col style={{ width: '135px' }} />
+            <col style={{ width: '115px' }} />
             <col style={{ width: '105px' }} />
-            <col style={{ width: '92px' }} />
             <col style={{ width: '130px' }} />
-            <col style={{ width: '85px' }} />
-            <col style={{ width: '98px' }} />
-            <col style={{ width: '82px' }} />
-            <col style={{ width: '40px' }} />
+            <col style={{ width: '95px' }} />
+            <col style={{ width: '125px' }} />
+            <col style={{ width: '100px' }} />
+            <col style={{ width: '44px' }} />
           </colgroup>
           <thead>
             <tr>
@@ -1209,15 +1209,15 @@ export const ActionHubPage: React.FC = () => {
                 <input type="checkbox" aria-label="Select all" />
               </th>
               <th style={{ width: '320px', whiteSpace: 'normal' }}>Task title</th>
-              <th style={{ width: '84px', whiteSpace: 'nowrap' }}>Priority</th>
-              <th style={{ width: '144px', whiteSpace: 'nowrap' }}>Status</th>
-              <th style={{ width: '105px', whiteSpace: 'nowrap' }}>Assignee</th>
-              <th style={{ width: '92px', whiteSpace: 'nowrap' }}>Due</th>
+              <th style={{ width: '115px', whiteSpace: 'nowrap' }}>Priority</th>
+              <th style={{ width: '135px', whiteSpace: 'nowrap' }}>Status</th>
+              <th style={{ width: '115px', whiteSpace: 'nowrap' }}>Assignee</th>
+              <th style={{ width: '105px', whiteSpace: 'nowrap' }}>Due</th>
               <th style={{ width: '130px', whiteSpace: 'nowrap' }}>Project</th>
-              <th style={{ width: '85px', whiteSpace: 'nowrap' }}>Source</th>
-              <th style={{ width: '98px', whiteSpace: 'nowrap' }}>Calendar sync</th>
-              <th style={{ width: '82px', whiteSpace: 'nowrap' }}>Updated</th>
-              <th style={{ width: '40px' }}></th>
+              <th style={{ width: '95px', whiteSpace: 'nowrap' }}>Source</th>
+              <th style={{ width: '125px', whiteSpace: 'nowrap' }}>Calendar sync</th>
+              <th style={{ width: '100px', whiteSpace: 'nowrap' }}>Updated</th>
+              <th style={{ width: '44px' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -1247,7 +1247,7 @@ export const ActionHubPage: React.FC = () => {
                   : row.status === 'blocked'
                   ? 'Blocked'
                   : row.status === 'waiting'
-                  ? 'Waiting on someone else'
+                  ? 'Waiting'
                   : 'Not started';
 
                 const isStatusMenuOpen = openMenu === 's-' + row.id;
@@ -1279,7 +1279,7 @@ export const ActionHubPage: React.FC = () => {
                     >
                       <span className="ach-task-title">{row.action_title}</span>
                     </td>
-                    <td style={{ overflow: 'visible' }}>
+                    <td style={{ overflow: 'visible', width: '115px' }}>
                       <div className="ach-dd">
                         <button
                           className="ach-ddb"
@@ -1336,7 +1336,7 @@ export const ActionHubPage: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td style={{ overflow: 'visible' }}>
+                    <td style={{ overflow: 'visible', width: '135px' }}>
                       <div className="ach-dd">
                         <button
                           className="ach-ddb"
