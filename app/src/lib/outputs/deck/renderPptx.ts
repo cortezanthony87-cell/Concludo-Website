@@ -8,6 +8,7 @@
  */
 import type PptxGenJSType from 'pptxgenjs';
 import { DeckOptions, DeckPayload } from './deckPayload';
+import { sanitizePptxPackageBlob } from '../timeline/renderTimelinePptx';
 import {
   ACTION_COLS, ActionsSlide, BottomSlide, CoverSlide, DECISION_COLS, DecisionsSlide, Footer, HEADER_ROW,
   M, NextSlide, OPEN_COL_W, OPEN_TOP, OpenSlide, PAGE, SlideSpec, TABLE_TOP, estimateLines, planDeck,
@@ -47,7 +48,11 @@ export async function renderDeckPptx(
   const ctx: Ctx = { pres, F, opts };
   for (const s of plan.slides) drawSlide(ctx, s);
 
-  const data = await pres.write({ outputType, compression: true } as any);
+  const rawData = await pres.write({ outputType, compression: true } as any);
+  let data = rawData;
+  if (outputType === 'blob') {
+    data = await sanitizePptxPackageBlob(rawData as Blob);
+  }
   return { data, fileName: `${plan.fileName}.pptx`, slideCount: plan.slides.length };
 }
 

@@ -10,6 +10,8 @@ import { fromEngineRecord, renderDeckHtml, renderDeckPptx, validateDeck } from '
 import { SAMPLE_TRANSCRIPT, SAMPLE_DOC } from './samples';
 import { emailBodyHtml, emailBodyText } from '../../lib/outputs/followUpEmailFormat';
 import { planTimeline, fromEngineModel, renderTimeline, timelineFileName, STATUS as TL_STATUS } from '../../lib/outputs/timeline/timelineDeck';
+import { sanitizePptxPackageBlob } from '../../lib/outputs/timeline/renderTimelinePptx';
+import { triggerFileDownload } from '../../lib/utils/downloadFile';
 import tlBgCover from '../../lib/outputs/timeline/assets/bg_cover.jpg';
 import tlBgRoadmap from '../../lib/outputs/timeline/assets/bg_roadmap.jpg';
 import tlBgGrid from '../../lib/outputs/timeline/assets/bg_grid.jpg';
@@ -496,7 +498,7 @@ export function mountMeetingStudio(root, opts = {}) {
     if (S.template === 'email') return CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email-subject">${ic('copy')}<span>Copy subject</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button><button class="btn sm navy" data-act="copy-email-body">${ic('copy')}<span>Copy email body</span></button>` : '';
     if (!CAN_FILE) return `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`;
     const tl = (S.template === 'full' || S.template === 'timeline') && SHOW_TIMELINE ? `<button class="btn sm" data-act="dl-timeline-pptx" hidden>${ic('download')}<span>Timeline .pptx</span></button>` : '';
-    return `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button>${tl}<button class="btn sm navy" data-act="print" title="Save as PDF">${ic('download')}<span>${S.template === 'full' ? 'Save full report as PDF' : 'Save as PDF'}</span></button><button class="btn sm" data-act="print" title="Print document to printer">${ic('print')}<span>Print</span></button>`;
+    return `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button>${tl}<button class="btn sm navy" data-act="print">${ic('print')}<span>${S.template === 'full' ? 'Save full report as PDF' : 'Print or save PDF'}</span></button>`;
   }
   function viewDocument() {
     const t = [...TEMPLATES, EMAIL_TEMPLATE].find((x) => x[0] === S.template) || TEMPLATES[0];
@@ -820,7 +822,7 @@ export function mountMeetingStudio(root, opts = {}) {
         if (!val.ok) {
           actsSlot.innerHTML = `<span style="font-size:12px;font-weight:600;color:var(--sig-high)">${esc(val.errors[0])}</span>`;
         } else {
-          actsSlot.innerHTML = `<button class="btn sm navy" data-act="dl-deck-pptx">${ic('download')}<span>Download PowerPoint</span></button><button class="btn sm" data-act="print-deck" title="Save deck as PDF">${ic('download')}<span>Save as PDF</span></button><button class="btn sm" data-act="print-deck" title="Print deck to printer">${ic('print')}<span>Print</span></button>`;
+          actsSlot.innerHTML = `<button class="btn sm navy" data-act="dl-deck-pptx">${ic('download')}<span>Download PowerPoint</span></button><button class="btn sm" data-act="print-deck">${ic('print')}<span>Print or save PDF</span></button>`;
         }
       }
       const deckOptions = {
@@ -1208,14 +1210,8 @@ export function mountMeetingStudio(root, opts = {}) {
       try {
         const { default: PptxGenJS } = await import('pptxgenjs');
         const { data, fileName } = await renderDeckPptx(PptxGenJS, payload, { fonts: S.deckFonts || 'brand', quotes: !!S.deckQuotes, preparedWith: S.deckPreparedWith !== false }, 'blob');
-        const url = URL.createObjectURL(data);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        const sanitizedBlob = await sanitizePptxPackageBlob(data);
+        triggerFileDownload(sanitizedBlob, fileName);
         toast('PowerPoint downloaded');
       } catch (err) {
         toast(err.message || 'Failed to export deck');
@@ -1237,7 +1233,9 @@ export function mountMeetingStudio(root, opts = {}) {
         const { default: PptxGenJS } = await import('pptxgenjs');
         const assets = { bg: { cover: tlBgCover, roadmap: tlBgRoadmap, grid: tlBgGrid, ridge: tlBgRidge, attention: tlBgAttention, close: tlBgClose }, logo: A.lockup, logoAspect: opts.logoAspect || 2261 / 885 };
         const pptx = renderTimeline(PptxGenJS, input, plan, assets);
-        await pptx.writeFile({ fileName: timelineFileName(input) });
+        const rawBlob = await pptx.write({ outputType: 'blob', compression: true });
+        const sanitizedBlob = await sanitizePptxPackageBlob(rawBlob);
+        triggerFileDownload(sanitizedBlob, timelineFileName(input));
         toast('Timeline downloaded');
       } catch (err) { toast(err.message || 'The timeline could not be built'); }
     }

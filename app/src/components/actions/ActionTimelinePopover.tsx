@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ActionRecord } from '../../lib/actions/types';
+import { triggerFileDownload } from '../../lib/utils/downloadFile';
 import {
   buildTimelinePayloadFromActions,
   buildTimelineFileName,
@@ -248,14 +249,7 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
 
       // Generate sanitized blob in browser with strict OpenXML package validation
       const blobData = await exportSanitizedPptxBlob(pptx);
-      const url = URL.createObjectURL(blobData);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      triggerFileDownload(blobData, fileName);
 
       if (userId) {
         await logTimelineExportEvent(supabase, {
@@ -349,14 +343,7 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
         },
         secondaryActionText: 'Download',
         onSecondaryAction: () => {
-          const url = URL.createObjectURL(blobData);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = res.fileName;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
+          triggerFileDownload(blobData, res.fileName);
         },
       });
 

@@ -354,8 +354,10 @@ export function renderTimeline(PptxGenJS, input, plan, assets) {
 
 /** File name with no dashes or spaces. */
 export function timelineFileName(input) {
-  const base = (input.source === 'meeting' ? `${input.title} ${input.refDate}` : `${input.title} ${input.refDate}`).replace(/[^A-Za-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-  return `Concludo_Timeline_${base}.pptx`;
+  const datePart = input.refDate ? input.refDate.replace(/-/g, '_') : '';
+  const titlePart = (input.title || 'Actions').replace(/[^A-Za-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  const combined = datePart ? `${titlePart}_${datePart}` : titlePart;
+  return `Concludo_Timeline_${combined}.pptx`;
 }
 
 /** The validated record the drafting engine returns (draft-meeting-record, after review). */
