@@ -51,6 +51,7 @@ export type FeatureKey =
   // Meeting Output v2 Follow-Up Email Gating
   | 'follow_up_email_draft'
   | 'deck_export'
+  | 'action_timeline_export'
   | 'model_drafting'
   // Tasklet 19 Features
   | 'ai_agents'
@@ -125,6 +126,7 @@ export const ALL_FEATURE_KEYS: readonly FeatureKey[] = [
   'admin_tools',
   'follow_up_email_draft',
   'deck_export',
+  'action_timeline_export',
   'ai_agents',
   'workflow_orchestration',
   'intelligent_automation',
@@ -198,6 +200,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   admin_tools: 'Admin Tools',
   follow_up_email_draft: 'Follow-up Email Draft',
   deck_export: 'Client Deck Export',
+  action_timeline_export: 'Action Timeline PowerPoint',
   model_drafting: 'Model Drafting',
   ai_agents: 'AI Agents',
   workflow_orchestration: 'Workflow Orchestration',
@@ -276,6 +279,7 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'meeting_health_dashboard',
     'follow_up_email_draft',
     'deck_export',
+    'action_timeline_export',
   ],
   pro_subscription_trial: [
     'workspace_basic',
@@ -300,6 +304,7 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'meeting_health_dashboard',
     'follow_up_email_draft',
     'deck_export',
+    'action_timeline_export',
   ],
   pro_subscription: [
     'workspace_basic',
@@ -324,6 +329,7 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'meeting_health_dashboard',
     'follow_up_email_draft',
     'deck_export',
+    'action_timeline_export',
   ],
   pro: [
     'workspace_basic',
@@ -348,6 +354,7 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'meeting_health_dashboard',
     'follow_up_email_draft',
     'deck_export',
+    'action_timeline_export',
   ],
   team: [
     'workspace_basic',
@@ -378,6 +385,7 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'meeting_health_dashboard',
     'follow_up_email_draft',
     'deck_export',
+    'action_timeline_export',
   ],
   enterprise: [
     'workspace_basic',
@@ -417,6 +425,7 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'meeting_health_dashboard',
     'follow_up_email_draft',
     'deck_export',
+    'action_timeline_export',
     // Tasklet 19 features unlocked on enterprise
     'ai_agents',
     'workflow_orchestration',
@@ -489,6 +498,7 @@ export const PLAN_PERMISSIONS: Record<PlanType, readonly FeatureKey[]> = {
     'meeting_health_dashboard',
     'follow_up_email_draft',
     'deck_export',
+    'action_timeline_export',
     'admin_tools',
     'ai_agents',
     'workflow_orchestration',
@@ -560,6 +570,7 @@ export const FEATURE_TIER_BADGES: Partial<Record<FeatureKey, string>> = {
   admin_tools: 'Available on Admin',
   follow_up_email_draft: 'Available on Pro',
   deck_export: 'Available on Pro',
+  action_timeline_export: 'Available on Pro',
   saved_projects: 'Available on Pro',
   transcript_archive: 'Available on Pro',
   manual_outputs: 'Available on Pro',
