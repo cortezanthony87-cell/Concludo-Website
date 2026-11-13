@@ -18,12 +18,21 @@
         'ad_personalization': 'denied'
       });
     </script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18475178480"></script>
+    <!-- Google tag (gtag.js) - Excluded from private /video/* routes -->
     <script>
-      gtag('js', new Date());
-      gtag('config', 'AW-18475178480');
-      gtag('config', 'G-GBFCN7EFD4');
+      (function() {
+        var path = window.location.pathname;
+        if (path.indexOf('/video/') === 0 || path === '/video') {
+          return; // Exclude private Video Meeting Centre routes from Google Analytics & Ads
+        }
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18475178480';
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', 'AW-18475178480');
+        gtag('config', 'G-GBFCN7EFD4');
+      })();
     </script>
     <meta name="theme-color" content="#16263F" />
     <link rel="manifest" href="/manifest.webmanifest" />

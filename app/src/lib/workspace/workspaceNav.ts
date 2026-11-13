@@ -251,6 +251,16 @@ const DESTINATIONS: WorkspaceDestination[] = [
     pinned: true,
   },
   {
+    path: '/video/companion',
+    label: 'Video Meeting Centre',
+    iconName: 'Video',
+    accessibleDescription:
+      'Sales Co-pilot companion panel and live meeting reference.',
+    group: 'Work',
+    feature: 'workspace_basic',
+    pinned: true,
+  },
+  {
     path: '/crm',
     label: 'CRM',
     iconName: 'Contact',

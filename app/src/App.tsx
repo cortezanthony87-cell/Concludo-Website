@@ -114,6 +114,9 @@ import { CheckoutPage } from './pages/CheckoutPage';
 import { CheckoutSuccessPage } from './pages/billing/CheckoutSuccessPage';
 import { CheckoutCancelPage } from './pages/billing/CheckoutCancelPage';
 
+// Video Meeting Centre: Stage 1 Sales Co-pilot Companion Panel (Owner Only, Staging)
+import { VideoCompanionPanelPage } from './pages/video/VideoCompanionPanelPage';
+
 const ActionsRedirect: React.FC = () => {
   const location = useLocation();
   const target = location.pathname.replace(/^\/actions/, '/work/actions') + location.search;
@@ -155,6 +158,9 @@ export const App: React.FC = () => {
         />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+                {/* Video Meeting Centre: Sales Co-pilot Companion Panel (Owner Only, Staging behind flag) */}
+        <Route path="/video/panel" element={<VideoCompanionPanelPage />} />
+
         {/* Checkout & Billing Routes (Accessible publicly or with auth) */}
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/pricing" element={<Navigate to="/checkout" replace />} />
@@ -171,6 +177,7 @@ export const App: React.FC = () => {
             <Route path="/projects/new" element={<NewProjectPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
             <Route path="/meeting-output" element={<MeetingOutputPage />} />
+            <Route path="/video/companion" element={<VideoCompanionPanelPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/settings" element={<SettingsPage />} />
@@ -218,6 +225,8 @@ export const App: React.FC = () => {
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route path="/approvals/:id" element={<ApprovalsPage />} />
             <Route path="/workflows/:id" element={<WorkflowLegacyRedirect />} />
+
+
 
             {/* Tasklet 21 Memory & Knowledge Routes (Phase B Pillar Shell) */}
             <Route path="/memory" element={<PillarShell pillar={MEMORY_PILLAR} />}>

@@ -199,6 +199,8 @@ const routes = [
   'crm/settings',
   'crm/communicate',
   'meeting-output',
+  'video/companion',
+  'video/panel',
   'pricing',
   'demo'
 ];
