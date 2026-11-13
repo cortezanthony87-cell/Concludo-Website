@@ -1,5 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { useFeatureAccess } from '../../lib/permissions/usePermissions';
+import { isActionTimelineFeatureFlagEnabled } from '../../lib/outputs/timeline/featureFlag';
+import { ActionTimelinePopover } from '../../components/actions/ActionTimelinePopover';
 import {
   fetchActions,
   saveAction,
@@ -53,7 +57,14 @@ interface CandidateSuggestion {
 }
 
 export const ActionHubPage: React.FC = () => {
-  const { supabase, user } = useAuth();
+  const navigate = useNavigate();
+  const { supabase, user, profile } = useAuth();
+  const { isAllowed: canExportTimeline } = useFeatureAccess('action_timeline_export');
+  const showTimelineButton = isActionTimelineFeatureFlagEnabled(user, profile);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const timelineTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const mobileTimelineTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const [activeTimelineTrigger, setActiveTimelineTrigger] = useState<'desktop' | 'mobile'>('desktop');
 
   const [actions, setActions] = useState<ActionRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,8 +225,14 @@ export const ActionHubPage: React.FC = () => {
   };
   const [deleteModalTask, setDeleteModalTask] = useState<ActionRecord | null>(null);
   const [deleteCalendarItem, setDeleteCalendarItem] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [toastUndo, setToastUndo] = useState(false);
+  const [toastState, setToastState] = useState<{
+    msg: string;
+    undo?: boolean;
+    actionText?: string;
+    onAction?: () => void;
+    secondaryActionText?: string;
+    onSecondaryAction?: () => void;
+  } | null>(null);
   const toastTimerRef = React.useRef<any>(null);
   const deletedActionsRef = React.useRef<ActionRecord[]>([]);
   const activeTriggerRef = React.useRef<HTMLElement | null>(null);
@@ -247,14 +264,30 @@ export const ActionHubPage: React.FC = () => {
   const dragStartClientX = React.useRef(0);
   const dragStartScrollLeft = React.useRef(0);
 
-  const showToast = useCallback((msg: string, undo: boolean = false) => {
-    setToastMsg(msg);
-    setToastUndo(undo);
+  const showToast = useCallback((payload: string | {
+    message: string;
+    undo?: boolean;
+    actionText?: string;
+    onAction?: () => void;
+    secondaryActionText?: string;
+    onSecondaryAction?: () => void;
+  }, undo: boolean = false) => {
+    if (typeof payload === 'string') {
+      setToastState({ msg: payload, undo });
+    } else {
+      setToastState({
+        msg: payload.message,
+        undo: payload.undo || false,
+        actionText: payload.actionText,
+        onAction: payload.onAction,
+        secondaryActionText: payload.secondaryActionText,
+        onSecondaryAction: payload.onSecondaryAction,
+      });
+    }
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => {
-      setToastMsg(null);
-      setToastUndo(false);
-    }, 4500);
+      setToastState(null);
+    }, 6000);
   }, []);
 
   // Close open dropdown when clicking outside
@@ -709,6 +742,30 @@ export const ActionHubPage: React.FC = () => {
 
     return list;
   }, [actions, scope, user?.id, activeTab, searchQuery, now, todayStr]);
+
+  const currentViewLabel = useMemo(() => {
+    if (activeTab === 'my') return 'My Actions';
+    if (activeTab === 'all') return 'All permitted actions';
+    if (activeTab === 'due_today') return 'Due today';
+    if (activeTab === 'overdue') return 'Overdue';
+    if (activeTab === 'upcoming') return 'Upcoming';
+    if (activeTab === 'unscheduled') return 'Unscheduled';
+    if (activeTab === 'completed') return 'Completed';
+    return 'Action Command Hub';
+  }, [activeTab]);
+
+  const currentFilterDesc = useMemo(() => {
+    const parts: string[] = [];
+    if (activeTab === 'my' || activeTab === 'all') {
+      parts.push('all statuses');
+    } else {
+      parts.push(currentViewLabel.toLowerCase());
+    }
+    if (searchQuery.trim()) {
+      parts.push(`matching "${searchQuery.trim()}"`);
+    }
+    return parts.join(', ');
+  }, [activeTab, currentViewLabel, searchQuery]);
 
   // Attach scroll listener once displayedActions is available
   useEffect(() => {
@@ -1186,6 +1243,86 @@ export const ActionHubPage: React.FC = () => {
         >
           Completed
         </button>
+        {showTimelineButton && (
+          <div className="ach-timeline-btn-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
+            <button
+              ref={timelineTriggerRef}
+              type="button"
+              className="ach-timeline-btn ach-timeline-btn-desktop"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (displayedActions.length === 0) return;
+                setActiveTimelineTrigger('desktop');
+                if (!canExportTimeline) {
+                  showToast('Timeline PowerPoint is included in Pro.');
+                  return;
+                }
+                setIsTimelineOpen((prev) => !prev);
+              }}
+              disabled={displayedActions.length === 0}
+              title={
+                displayedActions.length === 0
+                  ? 'No actions in this view'
+                  : !canExportTimeline
+                  ? 'Timeline PowerPoint is included in Pro.'
+                  : 'Generate timeline PowerPoint'
+              }
+              aria-haspopup="dialog"
+              aria-expanded={isTimelineOpen}
+            >
+              {!canExportTimeline ? (
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#E2B53C"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  style={{ marginRight: '6px', flexShrink: 0 }}
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              ) : (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#E2B53C"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                style={{ marginRight: '6px', flexShrink: 0 }}
+              >
+                <path d="M4 19L11 5" />
+                <path d="M13 19L20 5" />
+                <line x1="8.5" y1="14" x2="10" y2="11" stroke="#FFFFFF" strokeDasharray="2 2" strokeWidth="2" />
+                <circle cx="11" cy="5" r="1.5" fill="#E2B53C" />
+              </svg>
+              )}
+              <span>Generate timeline</span>
+              <span className="ach-timeline-pptx-tag">PPTX</span>
+            </button>
+            <ActionTimelinePopover
+              isOpen={isTimelineOpen}
+              onClose={() => setIsTimelineOpen(false)}
+              triggerRef={activeTimelineTrigger === 'mobile' ? mobileTimelineTriggerRef : timelineTriggerRef}
+              actions={displayedActions}
+              viewName={currentViewLabel}
+              filterDescription={currentFilterDesc}
+              supabase={supabase}
+              userId={user?.id}
+              canExportTimeline={canExportTimeline}
+              onOpenProject={(projId) => navigate(`/projects/${projId}`)}
+              onShowToast={(toast) => showToast(toast)}
+            />
+          </div>
+        )}
         <button
           className={activeTab === 'review' ? 'active' : ''}
           onClick={() => setShowReviewPanel(true)}
@@ -1205,6 +1342,32 @@ export const ActionHubPage: React.FC = () => {
         <button className="ach-btn-secondary">Filters</button>
         <button className="ach-btn-secondary">Sort</button>
         <button className="ach-btn-secondary">Columns (2 hidden)</button>
+        {showTimelineButton && (
+          <button
+            ref={mobileTimelineTriggerRef}
+            type="button"
+            className="ach-btn-secondary ach-mobile-timeline-btn"
+            onClick={() => {
+              if (displayedActions.length === 0) return;
+              setActiveTimelineTrigger('mobile');
+              if (!canExportTimeline) {
+                showToast('Timeline PowerPoint is included in Pro.');
+                return;
+              }
+              setIsTimelineOpen(true);
+            }}
+            disabled={displayedActions.length === 0}
+            title={
+              displayedActions.length === 0
+                ? 'No actions in this view'
+                : !canExportTimeline
+                ? 'Timeline PowerPoint is included in Pro.'
+                : undefined
+            }
+          >
+            Generate timeline (PowerPoint)
+          </button>
+        )}
       </div>
 
       {/* Grid: Desktop Table View */}
@@ -2679,11 +2842,54 @@ export const ActionHubPage: React.FC = () => {
       )}
 
       {/* Live Toast (Section 2.8) */}
-      {toastMsg && (
+      {toastState && (
         <div className="ach-toast" role="status">
-          <span>{toastMsg}</span>
-          {toastUndo && (
+          <span>{toastState.msg}</span>
+          {toastState.undo && (
             <button onClick={handleUndoDelete}>Undo</button>
+          )}
+          {toastState.actionText && toastState.onAction && (
+            <button
+              type="button"
+              onClick={() => {
+                toastState.onAction?.();
+                setToastState(null);
+              }}
+              style={{
+                marginLeft: '10px',
+                background: '#E2B53C',
+                color: '#16263F',
+                border: 'none',
+                padding: '3px 8px',
+                borderRadius: '4px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {toastState.actionText}
+            </button>
+          )}
+          {toastState.secondaryActionText && toastState.onSecondaryAction && (
+            <button
+              type="button"
+              onClick={() => {
+                toastState.onSecondaryAction?.();
+              }}
+              style={{
+                marginLeft: '6px',
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                padding: '3px 8px',
+                borderRadius: '4px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {toastState.secondaryActionText}
+            </button>
           )}
         </div>
       )}
