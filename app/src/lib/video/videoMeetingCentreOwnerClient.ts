@@ -3,56 +3,23 @@
  *
  * Verifies whether the current user is authorized to access the Video Meeting Centre.
  * Uses server-authoritative RPC `public.is_video_owner()`.
- * Target project is configurable via environment variable (VITE_VIDEO_CENTRE_SUPABASE_URL).
- * Defaults to the primary Concludo project if unspecified.
+ * Defaults to the primary Concludo Supabase client.
  * Fails closed (returns false) if unauthenticated, if the RPC errors, or if any check fails.
  * Zero hard-coded email fallbacks.
  * Zero em dashes or en dashes.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseBrowserClient, getSupabaseEnv } from '../supabase/client';
-
-export interface VideoOwnerCheckResult {
-  isOwner: boolean;
-  loading: boolean;
-  error: string | null;
-  userId?: string | null;
-  email?: string | null;
-}
-
-let stagingClient: SupabaseClient | null = null;
-
-function getVideoCentreClient(): SupabaseClient {
-  const stagingUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VIDEO_CENTRE_SUPABASE_URL) ||
-    (typeof process !== 'undefined' && process.env?.VITE_VIDEO_CENTRE_SUPABASE_URL);
-
-  const stagingAnonKey =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VIDEO_CENTRE_SUPABASE_ANON_KEY) ||
-    (typeof process !== 'undefined' && process.env?.VITE_VIDEO_CENTRE_SUPABASE_ANON_KEY);
-
-  if (stagingUrl && stagingAnonKey) {
-    if (!stagingClient) {
-      stagingClient = createClient(stagingUrl, stagingAnonKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-        },
-      });
-    }
-    return stagingClient;
-  }
-
-  // Fallback to standard client
-  return getSupabaseBrowserClient();
-}
+import { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseBrowserClient } from '../supabase/client';
 
 export interface VideoOwnerDetails {
   isOwner: boolean;
   email: string | null;
   userId: string | null;
+}
+
+function getVideoCentreClient(): SupabaseClient {
+  return getSupabaseBrowserClient();
 }
 
 export async function getVideoOwnerDetails(): Promise<VideoOwnerDetails> {
