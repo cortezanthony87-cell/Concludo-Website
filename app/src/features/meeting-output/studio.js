@@ -8,6 +8,12 @@
 import * as CE from '../../lib/intelligence/meetingEngine';
 import { generateMeetingPdf } from '../../lib/reporting/meetingPdfGenerator';
 import { fromEngineRecord, renderDeckHtml, renderDeckPptx, validateDeck } from '../../lib/outputs/deck';
+import {
+  checkMeetingTimelineEligibility,
+  buildTimelinePayloadFromMeeting,
+  buildTimelineFileName,
+  renderTimelinePptx,
+} from '../../lib/outputs/timeline';
 import { SAMPLE_TRANSCRIPT, SAMPLE_DOC } from './samples';
 
 
@@ -143,6 +149,7 @@ export function mountMeetingStudio(root, opts = {}) {
     trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     quote: '<path d="M7 7h4v4H7zM7 11c0 3-1 4-3 5M15 7h4v4h-4zM15 11c0 3-1 4-3 5"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    timeline: '<circle cx="5" cy="18" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 16l3.5-3.5M14 10.5L17 7.5"/>',
   };
   const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -174,6 +181,7 @@ export function mountMeetingStudio(root, opts = {}) {
   const CAN_FILE = opts.canFile !== false;
   const CAN_DRAFT_EMAIL = opts.canDraftEmail !== false;
   const CAN_EXPORT_DECK = opts.canExportDeck !== false;
+  const CAN_EXPORT_TIMELINE = opts.canExportTimeline !== false;
   const MEETING_TYPES = ['Leadership meeting', 'Board meeting', 'Steering committee', 'Project kick-off', 'Client meeting', 'Status meeting', 'Workshop', 'Meeting'];
 
   const allSources = () => {
@@ -570,7 +578,13 @@ export function mountMeetingStudio(root, opts = {}) {
     ['actions', 'Action plan', 'Five-field schedule, timeline and gaps', 'list'],
     ['decisions', 'Decision pack', 'Each decision with its evidence and links', 'gavel'],
     ['email', 'Follow-up email', 'Draft only. Never sent automatically', 'mail'],
+    ['timeline', 'Action timeline', 'Visual PowerPoint of actions by date and owner', 'timeline'],
   ];
+
+  function getTimelineEligibility() {
+    if (!S.model) return { status: 'not_needed_no_actions', slideCount: 0, slides: [], openActionsCount: 0, datedCount: 0, undatedCount: 0, owners: [] };
+    return checkMeetingTimelineEligibility(S.model.actions, S.model.nextMeeting);
+  }
   function viewDocument() {
     const isDoc = S.model?.sourceType === 'document';
     const activeTemplates = isDoc ? [
@@ -585,8 +599,23 @@ export function mountMeetingStudio(root, opts = {}) {
       <aside class="doc-side">
         <h3>Template</h3>
         <div class="tpls">${activeTemplates.map(([k, n, d, i]) => {
-          const locked = (k === 'deck' && !CAN_EXPORT_DECK) || (k === 'email' && !CAN_DRAFT_EMAIL);
-          return `<button class="tpl ${S.template === k ? 'on' : ''} ${locked ? 'locked' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span><b>${n}${locked ? ' <span style="font-size:10px;color:var(--gold-deep);font-weight:600">PRO</span>' : ''}</b><span>${d}</span></span></button>`;
+          const locked = (k === 'deck' && !CAN_EXPORT_DECK) || (k === 'email' && !CAN_DRAFT_EMAIL) || (k === 'timeline' && !CAN_EXPORT_TIMELINE);
+          let badgeHtml = '';
+          if (k === 'timeline') {
+            const elig = getTimelineEligibility();
+            if (!CAN_EXPORT_TIMELINE) {
+              badgeHtml = '<span class="cmo-tpl-badge dim">Included in Pro</span>';
+            } else if (elig.status === 'ready') {
+              badgeHtml = '<span class="cmo-tpl-badge new">NEW</span> <span class="cmo-tpl-badge count">' + elig.slideCount + ' slides</span>';
+            } else if (elig.status === 'needs_one_more_date') {
+              badgeHtml = '<span class="cmo-tpl-badge warn">Needs 1 date</span>';
+            } else {
+              badgeHtml = '<span class="cmo-tpl-badge dim">Not needed</span>';
+            }
+          } else if (locked) {
+            badgeHtml = '<span style="font-size:10px;color:var(--gold-deep);font-weight:600">PRO</span>';
+          }
+          return `<button class="tpl ${S.template === k ? 'on' : ''} ${locked ? 'locked' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span style="flex:1;min-width:0"><span style="display:flex;align-items:center;justify-content:space-between;gap:6px"><b>${n}</b>${badgeHtml}</span><span>${d}</span></span></button>`;
         }).join('')}</div>
         <h3>On this document</h3>
         <ul class="outline" id="outline"></ul>
@@ -595,7 +624,7 @@ export function mountMeetingStudio(root, opts = {}) {
       <section class="doc-main">
         <div class="doc-bar"><div class="t">${t[1]}<span id="pgcount"></span></div><div class="acts">
           ${S.template !== 'email' ? `<label class="preview-size">Preview<select data-preview-size aria-label="Document preview size"><option value="fit" ${previewMode === 'fit' ? 'selected' : ''}>Fit width</option><option value="actual" ${previewMode === 'actual' ? 'selected' : ''}>Actual size (100%)</option></select></label>` : ''}
-          ${S.template === 'deck' ? (CAN_EXPORT_DECK ? `<span id="deck-acts-slot"></span>` : '') : S.template === 'email' ? (CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button>` : '') : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
+          ${S.template === 'timeline' ? (CAN_EXPORT_TIMELINE && getTimelineEligibility().status === 'ready' ? `<button class="btn sm" data-act="download-timeline-pptx">${ic('download')}<span>Download .pptx</span></button><button class="btn sm navy" data-act="save-timeline-project">${ic('save')}<span>Save to project</span></button>` : `<button class="btn sm" data-go="2">${ic('back')}<span>Open Review</span></button>`) : S.template === 'deck' ? (CAN_EXPORT_DECK ? `<span id="deck-acts-slot"></span>` : '') : S.template === 'email' ? (CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button>` : '') : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
         </div></div>
         <div class="pages" id="pages"></div>
       </section>
@@ -1206,6 +1235,52 @@ export function mountMeetingStudio(root, opts = {}) {
     }
   }
 
+
+  async function downloadTimelinePptx() {
+    if (!S.model) return;
+    if (!CAN_EXPORT_TIMELINE) {
+      toast('Action timeline PowerPoint is included in Pro and Team.');
+      return;
+    }
+    const elig = getTimelineEligibility();
+    if (elig.status !== 'ready') {
+      toast(elig.reason || 'This meeting needs at least two dated items for a timeline.');
+      return;
+    }
+    toast('Generating Action Timeline PowerPoint...');
+    try {
+      const { default: PptxGenJS } = await import('pptxgenjs');
+      const payload = buildTimelinePayloadFromMeeting(S.model, {
+        timezone: 'Australia/Melbourne',
+      });
+      const { pptx } = await renderTimelinePptx(PptxGenJS, payload);
+      const cleanProj = (S.model?.meta?.project || S.model?.meta?.title || 'Meeting').split(':')[0].trim();
+      const fileName = buildTimelineFileName(cleanProj, payload.exportedOn);
+      const blob = await pptx.write({ outputType: 'blob', compression: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast(`Downloaded ${fileName}`);
+    } catch (err) {
+      console.error('Failed to generate timeline pptx:', err);
+      toast('Failed to generate PowerPoint file: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  async function saveTimelineToProject() {
+    if (!S.model) return;
+    if (!CAN_EXPORT_TIMELINE) {
+      toast('Action timeline PowerPoint is included in Pro and Team.');
+      return;
+    }
+    modalSaveWired();
+  }
+
   function printCurrentDocument() {
     if (!S.model) return;
     if (S.template === 'email' && !CAN_DRAFT_EMAIL) {
@@ -1339,6 +1414,20 @@ export function mountMeetingStudio(root, opts = {}) {
       // 6. Standalone HTML printable report
       zip.file(`${baseName}-report.html`, generateStandaloneHtml(S.model));
 
+      // 7. Action Timeline PPTX (if entitled and eligible)
+      if (CAN_EXPORT_TIMELINE && getTimelineEligibility().status === 'ready') {
+        try {
+          const { default: PptxGenJS } = await import('pptxgenjs');
+          const payload = buildTimelinePayloadFromMeeting(S.model, { timezone: 'Australia/Melbourne' });
+          const { pptx } = await renderTimelinePptx(PptxGenJS, payload);
+          const pptxBlob = await pptx.write({ outputType: 'blob', compression: true });
+          const pptxFileName = buildTimelineFileName(payload.shortProject || payload.project || 'Meeting', payload.exportedOn);
+          zip.file(pptxFileName, pptxBlob);
+        } catch (e) {
+          console.warn('Could not bundle timeline pptx into zip:', e);
+        }
+      }
+
       const blob = await zip.generateAsync({ type: 'blob' });
       const u = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1442,6 +1531,18 @@ export function mountMeetingStudio(root, opts = {}) {
               </div>
               <button class="btn sm" data-act="${CAN_DRAFT_EMAIL ? 'modal-dl-email' : 'modal-locked-email'}" ${!CAN_DRAFT_EMAIL ? 'disabled' : ''} style="flex:none">${ic('download')}<span>Download .txt</span></button>
             </div>
+
+            <div class="cmo-export-card ${(!CAN_EXPORT_TIMELINE || getTimelineEligibility().status !== 'ready') ? 'cmo-card-locked' : ''}">
+              <div style="min-width:0;padding-right:8px">
+                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
+                  <span>${ic('download')}</span>
+                  <span>Action timeline (.pptx)</span>
+                  ${!CAN_EXPORT_TIMELINE ? '<span class="cmo-badge-pro" style="background:#EEF2F6;color:#64748B;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">PRO &amp; TEAM</span>' : ''}
+                </div>
+                <div style="font-size:12px;color:var(--slate);margin-top:2px">${!CAN_EXPORT_TIMELINE ? 'Action timeline PowerPoint export is included in Pro and Team plans.' : getTimelineEligibility().status !== 'ready' ? (getTimelineEligibility().reason || 'A timeline needs at least two dated items.') : `${getTimelineEligibility().slideCount}-slide branded PowerPoint timeline with milestone road, swimlanes, and next meeting focus.`}</div>
+              </div>
+              <button class="btn sm" data-act="${CAN_EXPORT_TIMELINE && getTimelineEligibility().status === 'ready' ? 'modal-dl-timeline' : 'modal-locked-timeline'}" ${(!CAN_EXPORT_TIMELINE || getTimelineEligibility().status !== 'ready') ? 'disabled' : ''} style="flex:none">${ic('download')}<span>Download .pptx</span></button>
+            </div>
           </div>
         </div>
         <div class="mf">
@@ -1453,10 +1554,243 @@ export function mountMeetingStudio(root, opts = {}) {
     root.appendChild(div);
   }
 
+
+  function renderTimelinePanel() {
+    const elig = getTimelineEligibility();
+    const m = S.model;
+    const actions = m?.actions || [];
+    const datedActions = actions.filter((a) => a.due && a.due.trim() !== '');
+    const undatedActions = actions.filter((a) => !a.due || a.due.trim() === '');
+    const cleanProj = (m?.meta?.project || m?.meta?.title || 'Meeting').split(':')[0].trim();
+    const fileName = buildTimelineFileName(cleanProj, m?.meta?.meetingDate || (new Date()).toISOString().slice(0, 10));
+
+    // State 1: Locked / Starter Plan
+    if (!CAN_EXPORT_TIMELINE) {
+      return `<div class="cmo-timeline-panel cmo-timeline-locked-state">
+        <div class="cmo-tl-head">
+          <div class="cmo-tl-title-row">
+            <h2>Action timeline</h2>
+            <span class="cmo-pill-gold">PRO AND ABOVE</span>
+          </div>
+          <p class="cmo-tl-sub">Your Starter plan includes the meeting output document. The action timeline, follow-up email and client deck are included in Pro, Team and Enterprise.</p>
+        </div>
+
+        <div class="cmo-tl-lock-modal">
+          <div class="cmo-tl-lock-icon">${ic('shield')}</div>
+          <h3 style="font-size:18px;color:var(--navy);margin:0 0 8px 0">Included in Pro</h3>
+          <p style="font-size:13.5px;color:var(--slate);margin:0 0 20px 0;line-height:1.5">This meeting has ${actions.length} actions and ${elig.datedCount} dates, so on Pro Concludo would build a ${elig.slideCount || 6}-slide timeline.</p>
+          <div class="cmo-tl-lock-acts">
+            <button class="btn primary" data-act="modal-locked-timeline">See Pro</button>
+            <button class="btn" data-act="switch-doc-tpl">Not now</button>
+          </div>
+        </div>
+
+        <div class="cmo-tl-plan-table-wrap">
+          <h4>WHAT EACH PLAN INCLUDES</h4>
+          <table class="cmo-tl-plan-table">
+            <thead>
+              <tr><th>OUTPUT</th><th>STARTER</th><th>PRO</th><th>TEAM</th><th>ENTERPRISE</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Meeting output document</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>Follow-up email</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>Client deck</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>Action timeline</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
+    // State 2: Not Needed (0 actions or 0 dates)
+    if (elig.status === 'not_needed_no_actions' || elig.status === 'not_needed_no_dates') {
+      return `<div class="cmo-timeline-panel cmo-timeline-empty-state">
+        <div class="cmo-tl-empty-center">
+          <div class="cmo-tl-empty-icon">${ic('timeline')}</div>
+          <h2>No timeline needed for this meeting</h2>
+          <p class="cmo-tl-empty-desc">
+            ${elig.status === 'not_needed_no_actions'
+              ? `No actions were agreed in this meeting, so there is nothing to put on a timeline. It was an update meeting: 0 actions, ${m.decisions.length} decisions noted, no next meeting set.`
+              : `${actions.length} actions were agreed, but none has a date. Add dates during review to build a timeline.`}
+          </p>
+        </div>
+
+        <div class="cmo-tl-section">
+          <h4>WHAT CONCLUDO CHECKED</h4>
+          <ul class="cmo-tl-check-list">
+            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Open actions:</b> ${actions.length === 0 ? 'none in the approved record' : `${actions.length} agreed without dates`}</span></li>
+            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Dated items:</b> none</span></li>
+            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Next meeting:</b> ${m.nextMeeting?.date ? fmt(m.nextMeeting.date) : 'not set'}</span></li>
+          </ul>
+        </div>
+
+        <div class="cmo-tl-section">
+          <h4>WHAT YOU STILL GET</h4>
+          <ul class="cmo-tl-check-list">
+            <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span>The meeting output document and the follow-up email cover the ${m.decisions.length} decisions and the discussion.</span></li>
+            <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span>If you add actions in Review, Concludo checks again and offers the timeline when there is enough to show.</span></li>
+          </ul>
+        </div>
+
+        <div class="cmo-tl-bottom-bar">
+          <div style="display:flex;align-items:center;gap:12px;flex:1">
+            <button class="btn disabled" disabled style="opacity:0.6;cursor:not-allowed">Generate timeline</button>
+            <span class="cmo-tl-bottom-note">Not needed: a timeline needs actions with at least two dates.</span>
+          </div>
+          <button class="btn primary" data-go="2">Open Review</button>
+        </div>
+      </div>`;
+    }
+
+    // State 3: Needs One More Date
+    if (elig.status === 'needs_one_more_date') {
+      const datedAction = datedActions[0];
+      return `<div class="cmo-timeline-panel cmo-timeline-needs-date-state">
+        <div class="cmo-tl-head">
+          <div class="cmo-tl-title-row">
+            <h2>Add one more date to build a timeline</h2>
+            <span class="cmo-pill-gold">PRO AND ABOVE</span>
+          </div>
+          <p class="cmo-tl-sub">Only one dated item came out of this meeting. A timeline needs at least two dates. Add a date to another action during review to build one.</p>
+        </div>
+
+        <div class="cmo-tl-section">
+          <h4>WHAT CONCLUDO CHECKED</h4>
+          <ul class="cmo-tl-check-list">
+            <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>${actions.length} open actions</b> approved in review</span></li>
+            <li class="check-item-warn"><span class="dot-warn">!</span> <span><b>1 has a due date:</b> ${esc(datedAction?.id || 'A-01')}, ${datedAction?.due ? fmt(datedAction.due) : ''}. ${undatedActions.length} were agreed without a date.</span></li>
+            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Next meeting:</b> ${m.nextMeeting?.date ? fmt(m.nextMeeting.date) : 'not set'}</span></li>
+          </ul>
+        </div>
+
+        <div class="cmo-tl-section">
+          <h4>ACTIONS WITHOUT A DATE</h4>
+          <div class="cmo-tl-actions-table">
+            ${undatedActions.map((a) => `
+              <div class="cmo-tl-action-row" data-action-id="${esc(a.id)}">
+                <span class="cmo-tl-act-id">${esc(a.id)}</span>
+                <span class="cmo-tl-act-title">${esc(a.task)}</span>
+                <span class="cmo-tl-act-owner">${esc(a.owner || 'Owner to be agreed')}</span>
+                <button class="btn sm" data-act="prompt-add-date" data-id="${esc(a.id)}" style="border:1px solid #E2B53C;color:#8F6300;background:#FFFDF5;font-weight:600">+ Add date</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="cmo-tl-invariant-box">
+          Concludo never guesses a date. Only dates you state or confirm in Review go on the timeline.
+        </div>
+
+        <div class="cmo-tl-bottom-bar">
+          <div style="display:flex;align-items:center;gap:12px;flex:1">
+            <button class="btn disabled" disabled style="opacity:0.6;cursor:not-allowed">Generate timeline</button>
+            <span class="cmo-tl-bottom-note">Add one more date, or set the next meeting date, and this button turns on.</span>
+          </div>
+          <button class="btn primary" data-go="2">Open Review</button>
+        </div>
+      </div>`;
+    }
+
+    // State 4: Ready (Pro / Team with sufficient dates)
+    const firstUndated = undatedActions[0];
+    return `<div class="cmo-timeline-panel cmo-timeline-ready-state">
+      <div class="cmo-tl-head">
+        <div class="cmo-tl-title-row">
+          <h2>Action timeline</h2>
+          <span class="cmo-pill-gold">PRO AND ABOVE</span>
+        </div>
+        <p class="cmo-tl-sub">A visual PowerPoint of every action agreed in this meeting, by date and owner. Concludo checked the approved record and this meeting has enough dated work for a timeline.</p>
+      </div>
+
+      <div class="cmo-tl-section">
+        <h4>WHY CONCLUDO BUILT ONE</h4>
+        <ul class="cmo-tl-check-list">
+          <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>${actions.length} open actions</b> approved in review, across ${elig.owners.length} owners (${esc(elig.owners.join(', ') || 'Owners to be agreed')})</span></li>
+          <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>${elig.datedCount} have a due date</b> between ${fmt(elig.startDate)} and ${fmt(elig.endDate)}</span></li>
+          <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>Next meeting is dated:</b> ${m.nextMeeting?.date ? `${fmt(m.nextMeeting.date)}${m.nextMeeting.time ? `, ${esc(m.nextMeeting.time)}` : ''}` : 'not set'}</span></li>
+          ${firstUndated ? `
+            <li class="check-item-warn"><span class="dot-warn">!</span> <span><b>${esc(firstUndated.id)} has no date</b> ("${esc(firstUndated.dueText || 'later this week')}"). It goes on the Needs attention slide, not the road.</span></li>
+          ` : ''}
+        </ul>
+      </div>
+
+      <div class="cmo-tl-section">
+        <h4>SLIDES CONCLUDO WILL BUILD (${elig.slideCount})</h4>
+        <div class="cmo-tl-slides-strip">
+          <div class="cmo-tl-slide-card">
+            <div class="cmo-tl-slide-thumb cover"></div>
+            <div class="cmo-tl-slide-name">Cover</div>
+            <div class="cmo-tl-slide-sub">Always</div>
+          </div>
+          <div class="cmo-tl-slide-card">
+            <div class="cmo-tl-slide-thumb road"></div>
+            <div class="cmo-tl-slide-name">The road ahead</div>
+            <div class="cmo-tl-slide-sub">Always</div>
+          </div>
+          ${elig.slides.includes('weeks') ? `
+            <div class="cmo-tl-slide-card">
+              <div class="cmo-tl-slide-thumb weeks"></div>
+              <div class="cmo-tl-slide-name">Week by week</div>
+              <div class="cmo-tl-slide-sub">${elig.owners.length} owners</div>
+            </div>
+          ` : ''}
+          ${elig.slides.includes('horizon') ? `
+            <div class="cmo-tl-slide-card">
+              <div class="cmo-tl-slide-thumb horizon"></div>
+              <div class="cmo-tl-slide-name">By horizon</div>
+              <div class="cmo-tl-slide-sub">3 columns</div>
+            </div>
+          ` : ''}
+          ${elig.slides.includes('attention') ? `
+            <div class="cmo-tl-slide-card">
+              <div class="cmo-tl-slide-thumb attention"></div>
+              <div class="cmo-tl-slide-name">Needs attention</div>
+              <div class="cmo-tl-slide-sub">${undatedActions.map((a) => a.id).join(', ')} undated</div>
+            </div>
+          ` : ''}
+          ${elig.slides.includes('nextMeeting') ? `
+            <div class="cmo-tl-slide-card">
+              <div class="cmo-tl-slide-thumb next-meet"></div>
+              <div class="cmo-tl-slide-name">Next meeting</div>
+              <div class="cmo-tl-slide-sub">${m.nextMeeting?.date ? fmt(m.nextMeeting.date, false) : ''}</div>
+            </div>
+          ` : ''}
+        </div>
+        <div class="cmo-tl-left-out-note">
+          Left out: Progress slide. Nothing from this meeting is marked complete yet.
+        </div>
+      </div>
+
+      <div class="cmo-tl-ready-card">
+        <div class="cmo-tl-ready-top">
+          <span class="cmo-tl-ready-badge">Timeline ready, v1</span>
+          <span class="cmo-tl-ready-file">${esc(fileName)} | ~2.5 MB</span>
+        </div>
+        <div class="cmo-tl-ready-acts">
+          <button class="btn sm" data-act="save-timeline-project">${ic('save')}<span>Save to project: ${esc(cleanProj)}</span></button>
+          <button class="btn sm navy" data-act="download-timeline-pptx">${ic('download')}<span>Download .pptx</span></button>
+        </div>
+      </div>
+
+      <div class="cmo-tl-bottom-bar">
+        <button class="btn" data-act="download-timeline-pptx" style="background:#E2B53C;color:#16263F;font-weight:700;padding:10px 20px;font-size:14px;border:none">Generate timeline</button>
+        <span class="cmo-tl-bottom-note">Built from approved items only. Change a date in Review, then generate again for v2.</span>
+      </div>
+    </div>`;
+  }
+
   /* --------------------------------------- paginator */
   async function buildDocument() {
     const host = $('#pages');
     if (!host) return;
+    if (S.template === 'timeline') {
+      host.innerHTML = renderTimelinePanel();
+      const outlineEl = $('#outline');
+      if (outlineEl) outlineEl.innerHTML = '';
+      const pgEl = $('#pgcount');
+      if (pgEl) pgEl.textContent = '';
+      return;
+    }
     if (S.template === 'deck') {
       if (!CAN_EXPORT_DECK) {
         host.innerHTML = `<div class="email-card email-locked"><p style="font-size:15px;color:var(--navy);font-weight:500;margin:32px 24px;text-align:center">Client decks are included in Pro and Team.</p></div>`;
@@ -1659,6 +1993,28 @@ export function mountMeetingStudio(root, opts = {}) {
     if (act === 'modal-dl-json') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.concludo.json`, JSON.stringify(S.model, null, 2), 'application/json'); toast('Record (.json) downloaded'); }
     if (act === 'modal-dl-email') { root.querySelector('.modal-bg')?.remove(); downloadFollowUpEmailTxt(); }
     if (act === 'modal-locked-email') { toast('Follow-up email drafts are included in Pro and Team.'); }
+    if (act === 'download-timeline-pptx') { downloadTimelinePptx(); }
+    if (act === 'modal-dl-timeline') { root.querySelector('.modal-bg')?.remove(); downloadTimelinePptx(); }
+    if (act === 'save-timeline-project') { saveTimelineToProject(); }
+    if (act === 'modal-locked-timeline') { toast('Action timeline PowerPoint is included in Pro and Team.'); }
+    if (act === 'switch-doc-tpl') { S.template = 'exec'; render(); setY(0); }
+    if (act === 'prompt-add-date') {
+      const id = t.dataset.id;
+      const a = S.model.actions.find((i) => i.id === id);
+      if (a) {
+        const val = window.prompt(`Set due date for ${a.id} (YYYY-MM-DD):`, a.due || '');
+        if (val && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+          a.due = val.trim();
+          a.dueBasis = 'stated';
+          a.horizon = 'next';
+          CE.refresh(S.model);
+          render();
+          toast(`Added date ${val.trim()} to ${a.id}`);
+        } else if (val) {
+          toast('Please enter a valid date in YYYY-MM-DD format');
+        }
+      }
+    }
     if (act === 'add-custom-owner-btn') {
       const id = t.dataset.id;
       const a = S.model.actions.find((i) => i.id === id);

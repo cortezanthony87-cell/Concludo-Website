@@ -35,10 +35,11 @@ export interface StudioOptions {
   canDraftEmail?: boolean;
   /** false locks client deck export with the Pro/Team upgrade notice. Default true. */
   canExportDeck?: boolean;
+  canExportTimeline?: boolean;
   canUseModelDrafting?: boolean;
   /** Open straight on the document step with this record. */
   model?: MeetingModel;
-  template?: 'board' | 'exec' | 'deck' | 'actions' | 'decisions' | 'email';
+  template?: 'board' | 'exec' | 'deck' | 'actions' | 'decisions' | 'email' | 'timeline';
   viewer?: boolean;
   /** Custom title for Step 1 import view. Default 'Add the meeting'. */
   step1Title?: string;
