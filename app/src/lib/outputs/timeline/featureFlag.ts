@@ -46,8 +46,8 @@ export function isActionTimelineFeatureFlagEnabled(
     return true;
   }
 
-  // Default: strictly off
-  return false;
+  // Released to production on Anthony Cortez's written authorisation
+  return true;
 }
 
 export function setActionTimelineFeatureFlag(enabled: boolean): void {
