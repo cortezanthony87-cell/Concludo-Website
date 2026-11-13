@@ -200,7 +200,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   admin_tools: 'Admin Tools',
   follow_up_email_draft: 'Follow-up Email Draft',
   deck_export: 'Client Deck Export',
-  action_timeline_export: 'Action Timeline PowerPoint',
+  action_timeline_export: 'Action Timeline Export',
   model_drafting: 'Model Drafting',
   ai_agents: 'AI Agents',
   workflow_orchestration: 'Workflow Orchestration',

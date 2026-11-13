@@ -6,69 +6,16 @@
    mountMeetingStudio(root, options) renders the three-step studio into root and returns an unmount function.
    Styles are scoped under .cmo (meeting-output.css). Nothing is sent anywhere unless options.onSave is supplied. */
 import * as CE from '../../lib/intelligence/meetingEngine';
-import { generateMeetingPdf } from '../../lib/reporting/meetingPdfGenerator';
 import { fromEngineRecord, renderDeckHtml, renderDeckPptx, validateDeck } from '../../lib/outputs/deck';
-import {
-  checkMeetingTimelineEligibility,
-  buildTimelinePayloadFromMeeting,
-  buildTimelineFileName,
-  renderTimelinePptx,
-} from '../../lib/outputs/timeline';
 import { SAMPLE_TRANSCRIPT, SAMPLE_DOC } from './samples';
-
-
-export function exportActionsToCsv(actions) {
-  const escCsv = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
-  const headers = ['ID', 'Task', 'Owner', 'Due Date', 'Horizon', 'Definition of Done', 'Gaps', 'Evidence Quote', 'Source Line'];
-  const rows = (actions || []).map((a) => {
-    const ev = a.evidence && a.evidence[0];
-    const src = ev ? `${ev.sourceId || ''} L${ev.line || ''}` : '';
-    const gaps = (a.gaps || []).join('; ');
-    return [
-      escCsv(a.id),
-      escCsv(a.task),
-      escCsv(a.owner || ''),
-      escCsv(a.due || ''),
-      escCsv(a.horizon || ''),
-      escCsv(a.doneDefinition || ''),
-      escCsv(gaps),
-      escCsv(ev ? ev.quote : ''),
-      escCsv(src),
-    ].join(',');
-  });
-  return [headers.join(','), ...rows].join('\r\n');
-}
-
-export function exportStandaloneHtml(model) {
-  const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const title = escHtml(model?.meta?.title || 'Meeting Output');
-  const date = escHtml(model?.meta?.meetingDate || '');
-  const org = escHtml(model?.meta?.organisation || '');
-  const md = CE.toMarkdown(model);
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title} · Concludo Meeting Record</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif; line-height: 1.6; color: #16263F; max-width: 900px; margin: 0 auto; padding: 40px 20px; background: #FAF9F6; }
-  .card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  h1 { font-size: 26px; color: #16263F; margin-top: 0; }
-  .meta { color: #64748B; font-size: 14px; margin-bottom: 24px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; }
-  pre { background: #F1F5F9; padding: 20px; border-radius: 8px; overflow-x: auto; font-family: "JetBrains Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
-  @media print { body { background: #fff; padding: 0; } .card { border: none; box-shadow: none; padding: 0; } }
-</style>
-</head>
-<body>
-<div class="card">
-  <h1>${title}</h1>
-  <div class="meta">${org ? `${org} · ` : ''}${date} · Commercial in confidence</div>
-  <pre>${escHtml(md)}</pre>
-</div>
-</body>
-</html>`;
-}
+import { emailBodyHtml, emailBodyText } from '../../lib/outputs/followUpEmailFormat';
+import { planTimeline, fromEngineModel, renderTimeline, timelineFileName, STATUS as TL_STATUS } from '../../lib/outputs/timeline/timelineDeck';
+import tlBgCover from '../../lib/outputs/timeline/assets/bg_cover.jpg';
+import tlBgRoadmap from '../../lib/outputs/timeline/assets/bg_roadmap.jpg';
+import tlBgGrid from '../../lib/outputs/timeline/assets/bg_grid.jpg';
+import tlBgRidge from '../../lib/outputs/timeline/assets/bg_ridge.jpg';
+import tlBgAttention from '../../lib/outputs/timeline/assets/bg_attention.jpg';
+import tlBgClose from '../../lib/outputs/timeline/assets/bg_close.jpg';
 
 export function mountMeetingStudio(root, opts = {}) {
   root.classList.add('cmo');
@@ -142,6 +89,7 @@ export function mountMeetingStudio(root, opts = {}) {
     save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
     spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
     board: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9h6M7 12h10"/>',
+    stack: '<rect x="4" y="3" width="13" height="16" rx="2"/><path d="M8 21h10a2 2 0 0 0 2-2V7"/><path d="M7.5 8h6M7.5 11.5h6M7.5 15h4"/>',
     one: '<path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h3"/>',
     list: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
     gavel: '<path d="M14 5l5 5M11 8l5 5M9 10l5 5-3 3-5-5zM4 20l6-6"/>',
@@ -149,7 +97,6 @@ export function mountMeetingStudio(root, opts = {}) {
     trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     quote: '<path d="M7 7h4v4H7zM7 11c0 3-1 4-3 5M15 7h4v4h-4zM15 11c0 3-1 4-3 5"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
-    timeline: '<circle cx="5" cy="18" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 16l3.5-3.5M14 10.5L17 7.5"/>',
   };
   const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -165,7 +112,7 @@ export function mountMeetingStudio(root, opts = {}) {
     model: null,
     filter: 'all',
     section: 'bottom',
-    template: 'board',
+    template: 'full',
     emailAudience: opts.model?.followUp?.audience || 'client',
     correctionDeadline: opts.model?.followUp?.correctionDeadline || '',
     deckAudience: 'client',
@@ -176,12 +123,17 @@ export function mountMeetingStudio(root, opts = {}) {
     outline: [],
     draftingMethod: opts.draftingMethod || null,
     draftingReason: null,
-    docView: 'chronological',
   };
   const CAN_FILE = opts.canFile !== false;
   const CAN_DRAFT_EMAIL = opts.canDraftEmail !== false;
   const CAN_EXPORT_DECK = opts.canExportDeck !== false;
-  const CAN_EXPORT_TIMELINE = opts.canExportTimeline !== false;
+  // Full report sections that are Pro and above. Each also needs its written release before it appears:
+  //   timelineReleased: true only after Anthony writes "release the timeline"
+  //   deckReleased:     true only after Anthony writes "release the deck"
+  const CAN_EXPORT_TIMELINE = opts.canExportTimeline === true;
+  const SHOW_TIMELINE = CAN_EXPORT_TIMELINE && opts.timelineReleased === true;
+  const SHOW_DECK = CAN_EXPORT_DECK && opts.deckReleased === true;
+  const deckSlots = [];
   const MEETING_TYPES = ['Leadership meeting', 'Board meeting', 'Steering committee', 'Project kick-off', 'Client meeting', 'Status meeting', 'Workshop', 'Meeting'];
 
   const allSources = () => {
@@ -202,18 +154,13 @@ export function mountMeetingStudio(root, opts = {}) {
     const canGo = (n) => n === 1 || !!S.model;
     app.innerHTML = `
       <header class="topbar">
-        <div class="brand">${opts.embedded ? '' : `<img src="${A.lockup}" alt="Concludo">`}<div class="crumb">${opts.embedded ? '' : 'Workspace &nbsp;/&nbsp; '}<b>${opts.crumbTitle || 'Meeting output'}</b></div></div>
+        <div class="brand">${opts.embedded ? '' : `<img src="${A.lockup}" alt="Concludo">`}<div class="crumb">${opts.embedded ? '' : 'Workspace &nbsp;/&nbsp; '}<b>Meeting output</b></div></div>
         <nav class="stepper" aria-label="Progress">
           ${steps
             .map(([n, l], i) => `${i ? '<span class="step-sep"></span>' : ''}<button class="step ${S.step === n ? 'active' : S.step > n ? 'done' : ''}" data-go="${n}" ${canGo(n) ? '' : 'disabled'} aria-current="${S.step === n ? 'step' : 'false'}"><span class="n">${S.step > n ? ic('check') : n}</span><span class="l">${l}</span></button>`)
             .join('')}
         </nav>
-        <div class="top-actions">${S.model ? `
-          <button class="btn sm" data-act="save">${ic('save')}<span>Save to project</span></button>
-          <button class="btn sm navy" data-act="save-all-pdf" title="Save all documents as a complete PDF pack">${ic('print')}<span>Save all as PDF</span></button>
-          <button class="btn sm" data-act="export-options" title="Export formats to your device">${ic('download')}<span>Export</span></button>
-          <button class="btn sm" data-act="print" title="Print document or save as PDF via browser">${ic('print')}<span>Print</span></button>
-        ` : ''}</div>
+        <div class="top-actions">${S.model ? `<button class="btn sm" data-act="save">${ic('save')}<span>Save to project</span></button>` : ''}</div>
       </header>
       <main id="main">${S.step === 1 ? viewImport() : S.step === 2 ? viewReview() : viewDocument()}</main>`;
     if (S.step === 3) buildDocument();
@@ -229,7 +176,7 @@ export function mountMeetingStudio(root, opts = {}) {
     const det = (k) => (S.detected[k] && S.meta[k] === S.detected[k] ? '<span class="detected">Detected</span>' : '');
     return `<div class="wrap">
       <div class="page-head">
-        <div><div class="eyebrow">Step 1 of 3</div><h1>${opts.step1Title || 'Add the meeting'}</h1>
+        <div><div class="eyebrow">Step 1 of 3</div><h1>Add the meeting</h1>
         <p>Paste a transcript, add your notes or import files. Concludo works from what you give it, whatever recorded the meeting. Nothing leaves this browser until you save.</p></div>
         <button class="btn" data-act="sample">${ic('spark')}<span>Load fictional sample</span></button>
       </div>
@@ -250,7 +197,7 @@ export function mountMeetingStudio(root, opts = {}) {
               : `<div class="drop" id="drop"><div class="big">${ic('upload')}</div><b>Drop files here, or choose files</b><span>Transcripts (.vtt, .srt, .txt), notes (.md, .txt) and documents (.docx, .pdf)</span><button class="btn sm" data-act="pick" style="margin-top:6px">Choose files</button><input type="file" id="file" multiple accept=".txt,.md,.vtt,.srt,.csv,.json,.docx,.pdf" hidden></div>`}
             </div>
             ${srcs.length ? `<div class="sources">${srcs
-              .map((s, i) => `<div class="src neon-glow${s.kind === 'document' ? ' src-doc' : ''}${s.isNew ? ' src-new' : ''}" data-kind="${s.kind}" data-document="${s.kind === 'document' ? 'true' : 'false'}"><div class="ic">${ic(s.kind === 'document' ? 'doc' : s.kind === 'notes' ? 'notes' : 'paste')}</div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'transcript' ? 'Transcript' : s.kind === 'notes' ? 'Notes' : 'Supporting document'} · ${s.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></div>
+              .map((s, i) => `<div class="src"><div class="ic">${ic(s.kind === 'document' ? 'doc' : s.kind === 'notes' ? 'notes' : 'paste')}</div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'transcript' ? 'Transcript' : s.kind === 'notes' ? 'Notes' : 'Supporting document'} · ${s.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></div>
                 <select data-kind="${i}" aria-label="Source type" class="btn sm" style="font-weight:500"><option value="transcript" ${s.kind === 'transcript' ? 'selected' : ''}>Transcript</option><option value="notes" ${s.kind === 'notes' ? 'selected' : ''}>Notes</option><option value="document" ${s.kind === 'document' ? 'selected' : ''}>Document</option></select>
                 <button class="btn ghost sm" data-rm="${i}" aria-label="Remove ${esc(s.name)}">${ic('trash')}</button></div>`)
               .join('')}</div>` : ''}
@@ -404,7 +351,6 @@ export function mountMeetingStudio(root, opts = {}) {
       try {
         const s = await readFile(f);
         if (!s.text.trim()) throw new Error(`${f.name} has no readable text. If it is a scanned PDF, paste the text instead.`);
-        s.isNew = true;
         S.sources.push(s);
       } catch (e) {
         S.error = e.message;
@@ -439,18 +385,7 @@ export function mountMeetingStudio(root, opts = {}) {
       <div class="page-head">
         <div><div class="eyebrow">Step 2 of 3</div><h1>${esc(m.meta.title)}</h1>
         <p>${esc([m.meta.meetingType, fmt(m.meta.meetingDate, true), m.meta.organisation].filter(Boolean).join(' · '))}. Concludo proposes, you decide: confirm, edit or exclude each item. The document only uses what you keep.</p></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--slate)">
-            <span>Source type:</span>
-            <select data-act="override-source-type" class="btn sm" style="padding:4px 8px;font-size:12px;font-weight:600" aria-label="Override source type">
-              <option value="document" ${m.sourceType === 'document' ? 'selected' : ''}>Plan document</option>
-              <option value="transcript" ${m.sourceType === 'transcript' ? 'selected' : ''}>Transcript</option>
-              <option value="minutes" ${m.sourceType === 'minutes' ? 'selected' : ''}>Minutes</option>
-            </select>
-          </div>
-          <button class="btn" data-go="1">${ic('back')}<span>Sources</span></button>
-          <button class="btn primary" data-go="3"><span>Build the document</span>${ic('arrow')}</button>
-        </div>
+        <div style="display:flex;gap:8px"><button class="btn" data-go="1">${ic('back')}<span>Sources</span></button><button class="btn primary" data-go="3"><span>Build the document</span>${ic('arrow')}</button></div>
       </div>
       <div class="review-grid">
         <aside class="side">
@@ -475,7 +410,7 @@ export function mountMeetingStudio(root, opts = {}) {
           <section class="section" id="sec-bottom"><header><div><h2>Bottom line</h2><p>Written from the items below. It updates as you review.</p></div></header><div class="answer">${esc(m.bottomLine)}</div></section>
           ${sectionDecisions(m)}${sectionActions(m)}${sectionRisks(m)}${sectionOpen(m)}
           <section class="section" id="sec-figures"><header><div><h2>Key figures</h2><p>Amounts, percentages and counts stated in the sources.</p></div></header>${m.figures.length ? `<div class="figs">${m.figures.map((f) => `<div class="fig"><b>${esc(f.value)}</b><p>${esc(f.context)}</p><p style="font-size:11.5px">${esc(CE.cite(f.evidence))}</p></div>`).join('')}</div>` : '<p class="note">No figures stated.</p>'}</section>
-          <section class="section" id="sec-sources"><header><div><h2>Sources</h2><p>What this record was built from.</p></div></header><div class="sources" style="margin-top:0">${m.sources.map((s) => `<div class="src neon-glow${s.kind === 'document' ? ' src-doc' : ''}" data-kind="${s.kind}" data-document="${s.kind === 'document' ? 'true' : 'false'}" style="grid-template-columns:34px 1fr auto"><div class="ic"><span class="id">${s.id}</span></div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'document' ? 'Supporting document' : s.kind === 'notes' ? 'Notes' : 'Transcript'} · ${s.words.toLocaleString()} words${s.speakers ? ` · ${s.speakers} speakers` : ''}${s.firstTimestamp ? ` · ${s.firstTimestamp} to ${s.lastTimestamp}` : ''}</div></div></div>`).join('')}</div></section>
+          <section class="section" id="sec-sources"><header><div><h2>Sources</h2><p>What this record was built from.</p></div></header><div class="sources" style="margin-top:0">${m.sources.map((s) => `<div class="src" style="grid-template-columns:34px 1fr auto"><div class="ic"><span class="id">${s.id}</span></div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'document' ? 'Supporting document' : s.kind === 'notes' ? 'Notes' : 'Transcript'} · ${s.words.toLocaleString()} words${s.speakers ? ` · ${s.speakers} speakers` : ''}${s.firstTimestamp ? ` · ${s.firstTimestamp} to ${s.lastTimestamp}` : ''}</div></div></div>`).join('')}</div></section>
         </div>
         <aside class="side">
           <div class="card quality"><div class="card-h"><h2>Record quality</h2></div><div class="card-b">
@@ -500,41 +435,10 @@ export function mountMeetingStudio(root, opts = {}) {
   function sectionActions(m) {
     const xs = m.actions.filter((x) => show('actions', x));
     const people = m.participants.map((p) => p.name);
-    S.customOwners = S.customOwners || [];
-    xs.forEach((a) => {
-      if (a.owner && a.owner !== 'Under review' && !people.includes(a.owner) && !S.customOwners.includes(a.owner)) {
-        S.customOwners.push(a.owner);
-      }
-    });
     return `<section class="section" id="sec-actions"><header><div><h2>Actions</h2><p>Who does what, by when. Gaps are flagged, never filled in.</p></div></header><div class="items">${xs.length ? xs.map((a) => `<article class="${cls(a)}"><span class="id">${a.id}</span><div><div class="txt">${esc(a.task)}</div>
-      <div class="meta">${a.gaps.filter((g) => g !== 'Definition of done not stated').map((g) => `<span class="tag ${g === 'Owner under review' ? 'gold' : 'high'}">${ic(g === 'Owner under review' ? 'clock' : 'alert')}${esc(g)}</span>`).join('') || '<span class="tag ok">' + ic('check') + 'Owned and dated</span>'}${a.dueText ? `<span class="tag line">Said: “${esc(a.dueText)}”</span>` : ''}<span class="tag line">${a.horizon === 'now' ? 'This week' : a.horizon === 'next' ? 'Within 30 days' : a.horizon === 'later' ? 'Later' : 'Undated'}</span></div>
+      <div class="meta">${a.gaps.filter((g) => g !== 'Definition of done not stated').map((g) => `<span class="tag high">${ic('alert')}${esc(g)}</span>`).join('') || '<span class="tag ok">' + ic('check') + 'Owned and dated</span>'}${a.dueText ? `<span class="tag line">Said: “${esc(a.dueText)}”</span>` : ''}<span class="tag line">${a.horizon === 'now' ? 'This week' : a.horizon === 'next' ? 'Within 30 days' : a.horizon === 'later' ? 'Later' : 'Undated'}</span></div>
       <div class="edit"><label style="flex:1;min-width:220px">Task<input data-edit="actions:${a.id}:task" value="${esc(a.task)}" style="width:100%"></label>
-      ${a._editingCustom ? `
-        <div class="field" style="min-width:210px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-            <span style="font-size:12px;font-weight:600;color:var(--navy)">Custom assignee</span>
-          </div>
-          <div style="display:flex;gap:4px;align-items:center">
-            <input type="text" placeholder="Enter assignee name..." class="cmo-custom-input" data-custom-input="${a.id}" value="${esc(a.owner && a.owner !== 'Under review' ? a.owner : '')}" style="height:34px;padding:4px 8px;font-size:13px;border-radius:6px;border:1px solid var(--gold);flex:1">
-            <button type="button" class="btn sm navy" data-act="save-custom-owner" data-id="${a.id}">Assign</button>
-            <button type="button" class="btn ghost sm" data-act="cancel-custom-owner" data-id="${a.id}" title="Cancel">✕</button>
-          </div>
-        </div>
-      ` : `
-        <label style="min-width:190px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-            <span>Owner</span>
-            <button type="button" class="btn-link" data-act="add-custom-owner-btn" data-id="${a.id}" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;padding:0;font-weight:600;text-decoration:underline" title="Assign custom name">+ Custom name</button>
-          </div>
-          <select data-edit="actions:${a.id}:owner" class="${a.owner ? (a.owner === 'Under review' ? 'gold-border' : '') : 'miss'}">
-            <option value="">Not named</option>
-            <option value="Under review" ${a.owner === 'Under review' ? 'selected' : ''}>Under review</option>
-            ${people.length ? `<optgroup label="Meeting Attendees">${people.map((p) => `<option value="${esc(p)}" ${p === a.owner ? 'selected' : ''}>${esc(p)}</option>`).join('')}</optgroup>` : ''}
-            ${S.customOwners.length ? `<optgroup label="Custom Assignees">${S.customOwners.map((c) => `<option value="${esc(c)}" ${c === a.owner ? 'selected' : ''}>${esc(c)}</option>`).join('')}</optgroup>` : ''}
-            <option value="__add_custom__">+ Add custom name...</option>
-          </select>
-        </label>
-      `}
+      <label>Owner<select data-edit="actions:${a.id}:owner" class="${a.owner ? '' : 'miss'}"><option value="">Not named</option>${people.map((p) => `<option ${p === a.owner ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
       <label>Due<input type="date" data-edit="actions:${a.id}:due" value="${a.due || ''}" class="${a.due ? '' : 'miss'}"></label></div>${evid(a.evidence[0])}</div>${decideBtns('actions', a)}</article>`).join('') : '<p class="note">Nothing needs attention here.</p>'}</div></section>`;
   }
   function sectionRisks(m) {
@@ -572,51 +476,35 @@ export function mountMeetingStudio(root, opts = {}) {
 
   /* ======================================================= STEP 3: DOCUMENT */
   // Client deck is hidden from the selector until explicit written release ("release the deck").
+  // The follow-up email is not a document template: it sits apart and is never part of the report or its PDF.
   const TEMPLATES = [
+    ['full', 'Full report', 'Every document in one PDF', 'stack'],
     ['board', 'Board briefing', 'Full record for directors and leadership', 'board'],
     ['exec', 'Executive summary', 'One page: the answer, decisions, next steps', 'one'],
     ['actions', 'Action plan', 'Five-field schedule, timeline and gaps', 'list'],
     ['decisions', 'Decision pack', 'Each decision with its evidence and links', 'gavel'],
-    ['email', 'Follow-up email', 'Draft only. Never sent automatically', 'mail'],
-    ['timeline', 'Action timeline', 'Visual PowerPoint of actions by date and owner', 'timeline'],
   ];
-
-  function getTimelineEligibility() {
-    if (!S.model) return { status: 'not_needed_no_actions', slideCount: 0, slides: [], openActionsCount: 0, datedCount: 0, undatedCount: 0, owners: [] };
-    return checkMeetingTimelineEligibility(S.model.actions, S.model.nextMeeting);
+  const EMAIL_TEMPLATE = ['email', 'Follow-up email', 'Copy and paste into your mail app', 'mail'];
+  const tplButton = ([k, n, d, i]) => {
+    const locked = (k === 'deck' && !CAN_EXPORT_DECK) || (k === 'email' && !CAN_DRAFT_EMAIL);
+    return `<button class="tpl ${S.template === k ? 'on' : ''} ${locked ? 'locked' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span><b>${n}${locked ? ' <span style="font-size:10px;color:var(--gold-deep);font-weight:600">PRO</span>' : ''}</b><span>${d}</span></span></button>`;
+  };
+  function docActions() {
+    if (S.template === 'deck') return CAN_EXPORT_DECK ? `<span id="deck-acts-slot"></span>` : '';
+    if (S.template === 'email') return CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email-subject">${ic('copy')}<span>Copy subject</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button><button class="btn sm navy" data-act="copy-email-body">${ic('copy')}<span>Copy email body</span></button>` : '';
+    if (!CAN_FILE) return `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`;
+    const tl = S.template === 'full' && SHOW_TIMELINE ? `<button class="btn sm" data-act="dl-timeline-pptx" hidden>${ic('download')}<span>Timeline .pptx</span></button>` : '';
+    return `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button>${tl}<button class="btn sm navy" data-act="print">${ic('print')}<span>${S.template === 'full' ? 'Save full report as PDF' : 'Print or save PDF'}</span></button>`;
   }
   function viewDocument() {
-    const isDoc = S.model?.sourceType === 'document';
-    const activeTemplates = isDoc ? [
-      ['actions', 'Action plan', 'Five-field schedule, timeline, gates and coverage', 'list'],
-      ['exec', 'Executive summary', 'Boardroom one-page summary', 'file'],
-    ] : TEMPLATES;
-    if (isDoc && !['actions', 'exec'].includes(S.template)) {
-      S.template = 'actions';
-    }
-    const t = activeTemplates.find((x) => x[0] === S.template) || activeTemplates[0];
+    const t = [...TEMPLATES, EMAIL_TEMPLATE].find((x) => x[0] === S.template) || TEMPLATES[0];
     return `<div class="doc-shell">
       <aside class="doc-side">
-        <h3>Template</h3>
-        <div class="tpls">${activeTemplates.map(([k, n, d, i]) => {
-          const locked = (k === 'deck' && !CAN_EXPORT_DECK) || (k === 'email' && !CAN_DRAFT_EMAIL) || (k === 'timeline' && !CAN_EXPORT_TIMELINE);
-          let badgeHtml = '';
-          if (k === 'timeline') {
-            const elig = getTimelineEligibility();
-            if (!CAN_EXPORT_TIMELINE) {
-              badgeHtml = '<span class="cmo-tpl-badge dim">Included in Pro</span>';
-            } else if (elig.status === 'ready') {
-              badgeHtml = '<span class="cmo-tpl-badge new">NEW</span> <span class="cmo-tpl-badge count">' + elig.slideCount + ' slides</span>';
-            } else if (elig.status === 'needs_one_more_date') {
-              badgeHtml = '<span class="cmo-tpl-badge warn">Needs 1 date</span>';
-            } else {
-              badgeHtml = '<span class="cmo-tpl-badge dim">Not needed</span>';
-            }
-          } else if (locked) {
-            badgeHtml = '<span style="font-size:10px;color:var(--gold-deep);font-weight:600">PRO</span>';
-          }
-          return `<button class="tpl ${S.template === k ? 'on' : ''} ${locked ? 'locked' : ''}" data-tpl="${k}"><span class="ti">${ic(i)}</span><span style="flex:1;min-width:0"><span style="display:flex;align-items:center;justify-content:space-between;gap:6px"><b>${n}</b>${badgeHtml}</span><span>${d}</span></span></button>`;
-        }).join('')}</div>
+        <h3>Documents</h3>
+        <div class="tpls">${TEMPLATES.map(tplButton).join('')}</div>
+        <h3 style="margin-top:16px">Sent separately</h3>
+        <div class="tpls">${tplButton(EMAIL_TEMPLATE)}</div>
+        <p class="note" style="margin:8px 0 0">The follow-up email is never part of the report or its PDF.</p>
         <h3>On this document</h3>
         <ul class="outline" id="outline"></ul>
         <div class="note cmo-hide-viewer" style="margin-top:18px">Built from ${plural(S.model.stats.decisions, 'decision')}, ${plural(S.model.stats.actions, 'action')}, ${plural(S.model.stats.risks, 'risk')} and ${plural(S.model.stats.openItems, 'open item')} you kept. <a href="#" data-go="2">Back to review</a></div>
@@ -624,7 +512,7 @@ export function mountMeetingStudio(root, opts = {}) {
       <section class="doc-main">
         <div class="doc-bar"><div class="t">${t[1]}<span id="pgcount"></span></div><div class="acts">
           ${S.template !== 'email' ? `<label class="preview-size">Preview<select data-preview-size aria-label="Document preview size"><option value="fit" ${previewMode === 'fit' ? 'selected' : ''}>Fit width</option><option value="actual" ${previewMode === 'actual' ? 'selected' : ''}>Actual size (100%)</option></select></label>` : ''}
-          ${S.template === 'timeline' ? (CAN_EXPORT_TIMELINE && getTimelineEligibility().status === 'ready' ? `<button class="btn sm" data-act="download-timeline-pptx">${ic('download')}<span>Download .pptx</span></button><button class="btn sm navy" data-act="save-timeline-project">${ic('save')}<span>Save to project</span></button>` : `<button class="btn sm" data-go="2">${ic('back')}<span>Open Review</span></button>`) : S.template === 'deck' ? (CAN_EXPORT_DECK ? `<span id="deck-acts-slot"></span>` : '') : S.template === 'email' ? (CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email">${ic('copy')}<span>Copy email</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button>` : '') : (CAN_FILE ? `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button><button class="btn sm navy" data-act="print">${ic('print')}<span>Print or save PDF</span></button>` : `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`)}
+          ${docActions()}
         </div></div>
         <div class="pages" id="pages"></div>
       </section>
@@ -640,36 +528,19 @@ export function mountMeetingStudio(root, opts = {}) {
   const citeShort = (e) => (e ? `${e.sourceId} · line ${e.line}${e.timestamp ? ` · ${e.timestamp}` : ''}${e.speaker ? ` · ${e.speaker}` : ''}` : '');
   function coverHtml(kind) {
     const m = S.model;
-    const isDoc = m.sourceType === 'document';
     const draft = m.gate.status !== 'Ready to circulate' || [...m.decisions, ...m.actions, ...m.risks, ...m.openItems].some((x) => x.review === 'proposed');
-    const kick = isDoc ? (m.documentMeta?.anchor ? 'Action plan · Now, Next, Later' : 'Action plan · Chronological stage schedule') : kind;
-    const sub = isDoc ? [
-      'Source document',
-      m.meta.meetingDate ? fmt(m.meta.meetingDate) : 'Date not stated',
-      m.documentMeta?.anchor ? `${m.documentMeta.anchor.label} is ${fmt(m.documentMeta.anchor.date)}` : ''
-    ].filter(Boolean).join('  ·  ') : [m.meta.organisation, m.meta.meetingType, m.meta.meetingDate ? fmt(m.meta.meetingDate) : 'Not stated'].filter(Boolean).join('  ·  ');
-
-    const metaStrip = isDoc ? `
-      <div class="meta-strip">
-        <div><span>Source type</span><b>Plan document</b><small>Not a meeting</small></div>
-        <div><span>Owner of record</span><b>Not stated</b><small>No chair or attendance</small></div>
-        <div><span>Actions found</span><b>${m.actions.length}</b><small>${m.gates && m.gates.length ? `${m.gates.length} gates` : 'Actions register'}</small></div>
-        <div><span>Coverage</span><b>${m.coverage ? `${m.coverage.extracted} of ${m.coverage.candidates}` : `${m.actions.length} of ${m.actions.length}`}</b><small>lines read</small></div>
-      </div>` : `
+    return `<div class="cover"><img class="lg" src="${A.lockupRev}" alt="Concludo"><div class="stamp">${draft ? 'Draft for review' : 'Reviewed record'}</div>
+      <div class="kick">${esc(kind)}</div><h1>${esc(m.meta.title)}</h1><div class="sub">${esc([m.meta.organisation, m.meta.meetingType, fmt(m.meta.meetingDate)].filter(Boolean).join('  ·  '))}</div></div>
       <div class="meta-strip">
         <div><span>Date</span><b>${esc(fmt(m.meta.meetingDate))}</b><small>${esc(new Date(m.meta.meetingDate + 'T00:00:00Z').toLocaleDateString('en-AU', { weekday: 'long', timeZone: 'UTC' }))}${m.signals.dateConfirmed ? '' : ', assumed'}</small></div>
         <div><span>Chair</span><b>${esc(m.meta.chair || 'Not recorded')}</b><small>${esc((m.participants.find((p) => p.name === m.meta.chair) || {}).role || '')}</small></div>
         <div><span>Attendance</span><b>${m.participants.filter((p) => p.present).length} present</b><small>${plural(m.participants.filter((p) => !p.present).length, 'apology', 'apologies')}</small></div>
         <div><span>Sources</span><b>${plural(m.sources.length, 'source')}</b><small>${esc(m.meta.duration || m.sources.map((s) => s.id).join(', '))}</small></div>
       </div>`;
-
-    return `<div class="cover"><img class="lg" src="${A.lockupRev}" alt="Concludo" style="height:32px;width:auto;object-fit:contain"><div class="stamp">${draft ? 'Draft for review' : 'Reviewed record'}</div>
-      <div class="kick">${esc(kick)}</div><h1>${esc(m.meta.title)}</h1><div class="sub">${esc(sub)}</div></div>
-      ${metaStrip}`;
   }
   const H = (no, title, intro, id) => `<div class="d-h" data-anchor="${id}" data-label="${esc(title)}"><span class="no">${no}</span><h2>${esc(title)}</h2></div>${intro ? `<p class="d-intro">${esc(intro)}</p>` : ''}`;
   const pillDue = (a) => (a.due ? `${short(a.due)}${a.dueApprox ? ' (approx.)' : ''}` : '<span class="miss">Not stated</span>');
-  const owner = (a) => (a.owner ? (a.owner === 'Under review' ? '<span class="tag gold" style="font-size:11px;padding:2px 6px">Under review</span>' : esc(a.owner)) : '<span class="miss">Not named</span>');
+  const owner = (a) => (a.owner ? esc(a.owner) : '<span class="miss">Not named</span>');
   const horizonLabel = { now: 'This week', next: '30 days', later: 'Later', undated: 'Undated' };
 
   function kpis({ D, Ac, R, Q }) {
@@ -791,9 +662,6 @@ export function mountMeetingStudio(root, opts = {}) {
   function tplActions() {
     const d = docData();
     const { m, Ac, R } = d;
-    if (m.sourceType === 'document') {
-      return tplDocumentActions(d);
-    }
     const b = [
       { html: `<div class="bl" data-anchor="summary" data-label="Delivery brief"><span class="lab">Delivery brief</span>${plural(Ac.length, 'action')} came out of this meeting. ${Ac.filter((a) => a.horizon === 'now').length} are due this week and ${Ac.filter((a) => a.horizon === 'next').length} within 30 days. ${Ac.filter((a) => !a.owner).length ? `${plural(Ac.filter((a) => !a.owner).length, 'action has', 'actions have')} no owner. ` : ''}${Ac.filter((a) => !a.due).length ? `${plural(Ac.filter((a) => !a.due).length, 'action has', 'actions have')} no date.` : 'Every action is dated.'}</div>` },
       { html: H(1, 'Timeline', '', 'timeline') + timeline(Ac), keepNext: false },
@@ -806,187 +674,6 @@ export function mountMeetingStudio(root, opts = {}) {
     return { kind: 'Action plan · Now, next, later', blocks: b };
   }
 
-  function tplDocumentActions(d) {
-    const { m, Ac } = d;
-    const statedCount = Ac.filter((a) => a.dueBasis === 'stated').length;
-    const inheritedCount = Ac.filter((a) => a.dueBasis === 'stage_end').length;
-    const ownedCount = Ac.filter((a) => a.owner && a.owner !== 'Under review').length;
-    const nextGate = m.gates && m.gates.length > 0 ? m.gates[0] : null;
-
-    const b = [];
-    b.push({
-      html: `<div class="bl" data-anchor="summary" data-label="Delivery brief"><span class="lab">Delivery brief</span>${plural(Ac.length, 'action')} came out of this document. ${statedCount} carry their own date and ${inheritedCount} inherit the end date of their stage. ${ownedCount ? `${plural(ownedCount, 'action has', 'actions have')} an owner.` : 'None has a named owner yet.'}${nextGate ? ` The next gate is ${esc(nextGate.stage || 'Stage 1')}${nextGate.date ? ` on ${fmt(nextGate.date)}` : ''}.` : ''}</div>`,
-    });
-
-    const nowCount = Ac.filter((a) => a.horizon === 'now').length;
-    const nextCount = Ac.filter((a) => a.horizon === 'next').length;
-    const laterCount = Ac.filter((a) => a.horizon === 'later').length;
-    const hasHorizons = Boolean(m.documentMeta?.anchor || (nowCount + nextCount + laterCount > 0));
-
-    const stages = Array.from(new Set(Ac.map((a) => a.stage).filter(Boolean)));
-    const ribbonHtml = stages.length ? `
-      <div class="stage-ribbon-desktop" style="display:flex;overflow-x:auto;gap:6px;padding-bottom:6px;margin-top:14px;-webkit-overflow-scrolling:touch;">
-        ${stages.map((st, idx) => {
-          const count = Ac.filter((a) => a.stage === st).length;
-          const isCur = idx === 0;
-          const hasGate = m.gates?.some((g) => g.stage === st);
-          return `<div class="stage-ribbon-item ${isCur ? 'cur ' : ''}${hasGate ? 'g' : ''}" data-stage-idx="${idx}" style="cursor:pointer;flex:0 0 auto;min-width:105px;background:${isCur ? 'var(--navy)' : 'var(--light)'};border-radius:6px;padding:8px 10px;text-align:center;color:${isCur ? '#C9D0DC' : 'var(--slate)'};border-bottom:4px solid ${hasGate ? 'var(--gold)' : '#C9D0DC'}"><b style="display:block;font:700 16px Poppins,Arial;color:${isCur ? '#fff' : 'var(--navy)'}">${count}</b><span style="font-size:11px">${esc(st.split(' ')[0] + ' ' + (st.split(' ')[1] || ''))}</span></div>`;
-        }).join('')}
-      </div>
-      <div class="stage-ribbon-mobile" style="margin-top:12px">
-        <label style="font:600 12px Inter;color:var(--slate);display:block;margin-bottom:4px">Stages (${stages.length}):</label>
-        <select class="btn sm stage-select-mobile" style="width:100%;padding:6px 10px;font-size:13px;border-radius:6px;background:var(--light);border:1px solid var(--rule)" aria-label="Select stage">
-          ${stages.map((st, idx) => {
-            const count = Ac.filter((a) => a.stage === st).length;
-            return `<option value="${idx}">Stage ${idx + 1} of ${stages.length}: ${esc(st)} (${count} ${count === 1 ? 'action' : 'actions'})</option>`;
-          }).join('')}
-        </select>
-      </div>
-      <div class="legend" style="font-size:12px;color:var(--slate);margin-top:8px">Gold underline marks a decision gate at the end of each stage. Counts are actions per stage.</div>` : '';
-
-    if (hasHorizons) {
-      b.push({
-        html: `<div class="doc-view-switcher" style="display:inline-flex;gap:4px;background:var(--light);border-radius:6px;padding:3px;margin:12px 0 16px;border:1px solid var(--rule)">
-          <button class="btn sm ${S.docView !== 'horizon' ? 'navy' : ''}" data-act="set-doc-view" data-val="chronological" style="padding:4px 10px;font-size:12px;font-weight:600">Chronological schedule</button>
-          <button class="btn sm ${S.docView === 'horizon' ? 'navy' : ''}" data-act="set-doc-view" data-val="horizon" style="padding:4px 10px;font-size:12px;font-weight:600">Horizon (Now, Next, Later)</button>
-        </div>`,
-      });
-    }
-
-    if (hasHorizons && S.docView === 'horizon') {
-      b.push({
-        html: H(1, 'Horizons', 'The same Now, Next, Later split the plan uses, with the action count in each.', 'horizons') +
-          `<div class="hz" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-            <div class="now" style="border:1px solid var(--navy);border-radius:10px;padding:16px;box-shadow:inset 0 4px 0 var(--navy)"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Now · Within 30 days</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nowCount}</b><span style="font-size:13px;color:var(--slate)">Immediate priority actions</span></div>
-            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Next · 30 to 90 days</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${nextCount}</b><span style="font-size:13px;color:var(--slate)">Secondary delivery window</span></div>
-            <div style="border:1px solid var(--rule);border-radius:10px;padding:16px"><label style="font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)">Later · Beyond 90 days</label><b style="display:block;font:700 34px Poppins,Arial;margin:2px 0">${laterCount}</b><span style="font-size:13px;color:var(--slate)">Longer term milestones</span></div>
-          </div>${ribbonHtml}`,
-        keepNext: true,
-      });
-    } else if (stages.length > 0) {
-      b.push({
-        html: H(1, 'Stage breakdown', 'Chronological schedule by stage.', 'stages') + ribbonHtml,
-        keepNext: true,
-      });
-    }
-
-    const renderRow = (a) => {
-      const dueNote = a.dueBasis === 'stated' && a.dueRaw ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px">Stated: ${esc(a.dueRaw)}</small>` : a.dueBasis === 'stage_end' ? `<small style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px;font-style:italic">Inherited from stage end</small>` : '';
-      const ownerPill = a.owner && a.owner !== 'Under review' && a.owner !== 'Unassigned'
-        ? esc(a.owner)
-        : '<span class="pill un" style="display:inline-block;border-radius:999px;padding:3px 10px;font:600 12px Inter;background:var(--redbg);color:var(--red)">Not stated</span>';
-      const duePill = a.due
-        ? `<b>${pillDue(a)}</b>${dueNote}`
-        : '<span class="miss">Not stated</span>';
-      return `<tr>
-        <td class="idc">${a.id}</td>
-        <td><span class="main">${esc(a.task)}</span><small class="src" style="display:block;color:var(--slate);font-size:11.5px;margin-top:3px">${a.evidence[0] ? `Source line ${a.evidence[0].line}` : ''}${a.stage ? ` · ${esc(a.stage)}` : ''}</small></td>
-        <td>${ownerPill}</td>
-        <td>${duePill}</td>
-        <td>${a.doneWhen || a.doneDefinition ? esc(a.doneWhen || a.doneDefinition) : '<span class="miss">Not stated</span>'}</td>
-      </tr>`;
-    };
-
-    if (S.docView !== 'horizon' && stages.length > 0) {
-      b.push({
-        html: H(2, 'Action schedule', 'Grouped chronologically by stage. Blank fields were not stated in the document.', 'schedule'),
-        keepNext: true,
-      });
-      stages.forEach((st, sIdx) => {
-        const stActions = Ac.filter((a) => a.stage === st);
-        if (!stActions.length) return;
-        b.push({
-          type: 'table',
-          label: st,
-          pre: `<div id="stage-sec-${sIdx}" style="font:600 15px Poppins,Arial;color:var(--navy);margin:18px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between"><span>${esc(st)}</span><span style="font-size:12px;color:var(--slate);font-weight:400">${stActions.length} ${plural(stActions.length, 'action')}</span></div>`,
-          head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
-          rows: stActions.map(renderRow),
-          empty: 'No actions for this stage.',
-        });
-      });
-      const unassignedStageAc = Ac.filter((a) => !a.stage);
-      if (unassignedStageAc.length > 0) {
-        b.push({
-          type: 'table',
-          label: 'Other actions',
-          pre: `<div style="font:600 15px Poppins,Arial;color:var(--navy);margin:18px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--rule)">Other actions</div>`,
-          head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
-          rows: unassignedStageAc.map(renderRow),
-          empty: 'No actions.',
-        });
-      }
-    } else {
-      b.push({
-        type: 'table',
-        label: 'Action schedule',
-        pre: H(2, 'Action schedule', 'Task, owner, due date, definition of done and source. Blank fields were not stated in the document.', 'schedule'),
-        head: '<tr><th style="width:10mm">ID</th><th>Task</th><th style="width:26mm">Owner</th><th style="width:24mm">Due</th><th style="width:36mm">Definition of done</th></tr>',
-        rows: Ac.map(renderRow),
-        empty: 'No actions were recorded.',
-      });
-    }
-
-    b.push({
-      html: `<div class="note" style="background:var(--amberbg);border-radius:8px;padding:12px 16px;font-size:13px;margin:12px 0 24px">Evidence class for every row: <b>Planned in source</b>. A plan is not a meeting, so nothing here is Confirmed until a person reviews it.</div>`,
-    });
-
-    if (m.gates && m.gates.length > 0) {
-      const gateRows = m.gates.map((g, i) => `<tr>
-        <td class="idc">${esc(g.stage || `Gate ${i + 1}`)}</td>
-        <td><b>${g.date ? fmt(g.date) : 'Not stated'}</b></td>
-        <td>${esc(g.passTest || '')}</td>
-        <td>${esc(g.ifMissedStop || '')}</td>
-      </tr>`);
-      b.push({
-        type: 'table',
-        label: 'Decision gates',
-        pre: H(3, 'Decision gates', 'A gate is a test with a stop rule. It is shown here and is not counted as an action.', 'gates'),
-        head: '<tr><th style="width:28mm">Gate</th><th style="width:22mm">Date</th><th>Pass test</th><th style="width:50mm">If missed, stop</th></tr>',
-        rows: gateRows,
-        empty: 'No gates recorded.',
-      });
-    }
-
-    const unownedCount = Ac.filter((a) => !a.owner || a.owner === 'Under review').length;
-    const inheritedDueCount = Ac.filter((a) => a.dueBasis === 'stage_end').length;
-    const noDoneCount = Ac.filter((a) => !a.doneWhen && !a.doneDefinition).length;
-    const gapRows = [
-      `<tr><td style="width:36%"><span style="font:700 18px Poppins,Arial">${unownedCount}</span> no named owner</td><td>Plan is written to the founder. Suggested owner: the director, to be confirmed. Nothing is assigned until a person confirms it.</td></tr>`,
-      `<tr><td style="width:36%"><span style="font:700 18px Poppins,Arial">${inheritedDueCount}</span> date inherited</td><td>The action sits in a stage with a stated end date. Set a real date for each.</td></tr>`,
-      `<tr><td style="width:36%"><span style="font:700 18px Poppins,Arial">${noDoneCount}</span> no definition of done</td><td>Each stage lists required outputs. Map them to actions during review.</td></tr>`,
-    ];
-    b.push({
-      type: 'table',
-      label: 'Gaps to close',
-      pre: H(4, 'Gaps to close', 'One row per gap type, with the count of actions affected.', 'gaps'),
-      head: '<tr><th style="width:36%">Gap type</th><th>Remediation</th></tr>',
-      rows: gapRows,
-      empty: 'No gaps to close.',
-    });
-
-    const cov = m.coverage || {
-      candidates: Ac.length,
-      extracted: Ac.length,
-      excluded: m.excludedItems ? m.excludedItems.length : 0,
-      needsAttention: 0,
-      unresolved: [],
-    };
-    const exclList = m.excludedItems && m.excludedItems.length > 0 ? `<br>${m.excludedItems.length} sentence was excluded because it describes a purpose and commits no one to anything:<div style="margin:8px 0;padding:8px 12px;background:#fff;border-radius:4px;border-left:3px solid var(--gold)"><q style="font-style:italic;color:var(--slate)">${esc(m.excludedItems[0].text)}</q></div>It sits in the review list as Not an action, so a person can overrule it.` : '';
-    const attnMsg = cov.needsAttention > 0
-      ? `<div style="color:var(--red);font-weight:600;margin-top:8px">${cov.needsAttention} candidate ${plural(cov.needsAttention, 'item needs', 'items need')} attention (neither extracted nor explicitly excluded).</div>`
-      : '';
-    b.push({
-      html: H(5, 'Coverage check', 'What the extraction read, and what it left out on purpose.', 'coverage') +
-        `<div class="excl" style="background:var(--light);border-radius:8px;padding:14px 18px;margin-top:10px;font-size:13.5px"><b>${cov.candidates} lines marked as a candidate in the source. ${cov.extracted} became actions. ${cov.excluded} excluded with reason. ${cov.needsAttention} left unresolved.</b>${attnMsg}${exclList}</div>`,
-    });
-
-    const attnFoot = cov.needsAttention > 0 ? ` ${cov.needsAttention} candidate ${plural(cov.needsAttention, 'item needs', 'items need')} attention.` : '';
-    b.push({
-      html: `<div class="fineprint">Prepared with Concludo from the source listed above. Draft: ${plural(Ac.length, 'item has', 'items have')} not yet been confirmed by a person. The count matches the registers on this page.${attnFoot} Where the document did not state an owner, a date or a definition of done, the record says so. Risk ratings and meeting measures are indicative and meeting level only: Concludo does not score individuals.</div>`,
-    });
-
-    return { kind: 'Action plan · Now, next, later', blocks: b };
-  }
   function tplDecisions() {
     const d = docData();
     const { m, D, Ac, Q } = d;
@@ -1036,761 +723,85 @@ export function mountMeetingStudio(root, opts = {}) {
     };
     return fromEngineRecord(m, ctx);
   }
-
-  const actionsToCsv = exportActionsToCsv;
-  const generateStandaloneHtml = (m) => exportStandaloneHtml(m);
-
-  function tplEmailPage() {
-    const present = (S.model?.participants || []).filter((p) => p.present);
-    const absent = (S.model?.participants || []).filter((p) => !p.present);
-    const fmtP = (p) => (S.emailAudience === 'client' && p.role ? `${p.name} (${p.role})` : p.name);
-    const presentNames = present.map(fmtP).join(', ');
-    const absentNames = absent.map(fmtP).join(', ');
-    const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model?.meta?.meetingDate);
-    const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
-    const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
-
+  /* --------------------------------------- action timeline (A4 section of the full report) */
+  const tlInput = () => fromEngineModel(S.model);
+  const tlPlan = () => planTimeline(tlInput());
+  const tlDot = (k) => `<i class="tl-dot" style="background:#${TL_STATUS[k].color}"></i>`;
+  const tlDate = (iso) => (iso ? short(iso) : 'Date to be agreed');
+  function tplTimeline() {
+    const input = tlInput();
+    const plan = planTimeline(input);
+    const kinds = new Set(plan.slides.map((x) => x.kind));
     const b = [];
-    b.push({
-      html: `<div class="bl" data-anchor="email" data-label="Follow-up email"><span class="lab">Follow-up communication</span>Circulation drafts for client and internal stakeholders. Draft only: review and copy into your email client before sending.</div>`
-    });
-    b.push({
-      html: `<div style="margin-top:4mm"><div class="d-h"><span class="no">1</span><h2>Client follow-up email draft</h2></div>
-        <div style="background:#F9FAFB;border:1px solid var(--line);border-radius:2mm;padding:4mm;margin-top:2mm;font-size:8.8pt">
-          <div style="margin-bottom:2mm"><b>To:</b> ${esc(presentNames || 'Attendees')} ${absentNames ? `&nbsp;·&nbsp; <b>Cc:</b> ${esc(absentNames)}` : ''}</div>
-          <div style="margin-bottom:3mm;padding-bottom:2mm;border-bottom:1px solid var(--line)"><b>Subject:</b> ${esc(emailClient.subject)}</div>
-          <pre style="white-space:pre-wrap;font-family:inherit;font-size:8.6pt;line-height:1.45;color:var(--navy);margin:0">${esc(emailClient.body)}</pre>
-        </div></div>`
-    });
-    b.push({
-      pageBreak: true,
-      html: `<div style="margin-top:2mm"><div class="d-h"><span class="no">2</span><h2>Internal follow-up email draft</h2></div>
-        <div style="background:#F9FAFB;border:1px solid var(--line);border-radius:2mm;padding:4mm;margin-top:2mm;font-size:8.8pt">
-          <div style="margin-bottom:2mm"><b>To:</b> ${esc(presentNames || 'Internal team')}</div>
-          <div style="margin-bottom:3mm;padding-bottom:2mm;border-bottom:1px solid var(--line)"><b>Subject:</b> ${esc(emailInternal.subject)}</div>
-          <pre style="white-space:pre-wrap;font-family:inherit;font-size:8.6pt;line-height:1.45;color:var(--navy);margin:0">${esc(emailInternal.body)}</pre>
-        </div></div>`
-    });
-    b.push({ html: fine() });
-    return { kind: 'Follow-up email · Communication drafts', blocks: b };
-  }
-
-  function paginateSpecToHost(specOrMaker, host) {
-    let fit = 0;
-    for (;;) {
-      const spec = typeof specOrMaker === 'function' ? specOrMaker(fit) : specOrMaker;
-      host.innerHTML = '';
-      const pages = [];
-      const runHtml = `<div class="pg-run"><img src="${A.lockup}" alt="Concludo"><div class="rt">${esc(spec.kind.split(' · ')[0])}<br><b>${esc(S.model.meta.title)}</b></div></div>`;
-      const newPage = (first) => {
-        const p = document.createElement('div');
-        p.className = 'page' + (spec.compact ? ' compact' : '');
-        p.innerHTML = `${first ? coverHtml(spec.kind) : runHtml}<div class="pg-body"></div><div class="pg-foot"><span>${esc(S.model.meta.organisation || 'Concludo')} · ${esc(fmt(S.model.meta.meetingDate))} · Commercial in confidence</span><span class="pn"></span></div>`;
-        host.appendChild(p);
-        pages.push(p);
-        return p.querySelector('.pg-body');
-      };
-      const over = (body) => body.scrollHeight > body.clientHeight + 1;
-      let body = newPage(true);
-      const frag = (html) => {
-        const t = document.createElement('div');
-        t.innerHTML = html;
-        return t;
-      };
-      const moveKeep = (fromBody, toBody) => {
-        const last = fromBody.lastElementChild;
-        if (last && last.dataset.keep === '1' && fromBody.children.length > 1) toBody.appendChild(last);
-      };
-      for (const blk of spec.blocks) {
-        if (blk.type === 'table') {
-          if (blk.pageBreak && body.children.length) body = newPage(false);
-          const mk = (cont) => frag(`${cont ? `<div class="d-h"><h2 style="font-size:9.5pt;color:var(--slate)">${esc(blk.label || 'Continued')}, continued</h2></div>` : blk.pre}<table class="dt"><thead>${blk.head}</thead><tbody></tbody></table>`);
-          let wrap = mk(false);
-          body.appendChild(wrap);
-          if (!blk.rows.length) {
-            wrap.querySelector('table').outerHTML = `<p class="d-intro">${esc(blk.empty || 'None.')}</p>`;
-            if (over(body)) { body.removeChild(wrap); const nb = newPage(false); moveKeep(body, nb); body = nb; body.appendChild(wrap); }
-            continue;
-          }
-          let tb = wrap.querySelector('tbody');
-          let placedHere = 0;
-          for (const r of blk.rows) {
-            const tmp = document.createElement('tbody');
-            tmp.innerHTML = r;
-            const tr = tmp.firstElementChild;
-            tb.appendChild(tr);
-            if (over(body)) {
-              tb.removeChild(tr);
-              const nb = newPage(false);
-              if (placedHere === 0) {
-                body.removeChild(wrap);
-                moveKeep(body, nb);
-                body = nb;
-                body.appendChild(wrap);
-              } else {
-                body = nb;
-                wrap = mk(true);
-                body.appendChild(wrap);
-                tb = wrap.querySelector('tbody');
-              }
-              tb.appendChild(tr);
-              placedHere = 0;
-            }
-            placedHere++;
-          }
-        } else {
-          if (blk.pageBreak && body.children.length) body = newPage(false);
-          if (!blk.html) continue;
-          const el = frag(blk.html);
-          if (blk.keepNext) el.dataset.keep = '1';
-          body.appendChild(el);
-          if (over(body) && body.children.length > 1) {
-            body.removeChild(el);
-            const nb = newPage(false);
-            moveKeep(body, nb);
-            body = nb;
-            body.appendChild(el);
-          }
-        }
-      }
-      if (spec.fitLevels && pages.length > 1 && fit < spec.fitLevels - 1) {
-        fit++;
-        continue;
-      }
-      pages.forEach((p, i) => {
-        const pn = p.querySelector('.pn');
-        if (pn) pn.textContent = `Page ${i + 1} of ${pages.length}`;
-        p.id = `pg-${i + 1}`;
-      });
-      return pages;
+    const nm = plan.nm;
+    b.push({ html: `<div class="bl" data-anchor="tl-summary" data-label="Timeline"><span class="lab">The timeline</span>${plural(plan.open.length, 'open action')}, ${plan.openDated.length} with a date${plan.undated.length ? ` and ${plan.undated.length} still to be dated` : ''}. ${nm ? `Next meeting ${fmt(nm.date, true)}${nm.timeLabel ? `, ${esc(nm.timeLabel)}` : ''}.` : 'No next meeting was set.'}</div><p class="d-intro">Drawn from the reviewed record of ${esc(input.sourceLabel)}. Only dates stated or confirmed in review appear; approximate dates show as to be agreed. The editable PowerPoint version downloads separately.</p>` });
+    // The road ahead: every dated item in order, with a proportional strip.
+    const road = plan.slides.find((x) => x.kind === 'road');
+    if (road) {
+      const items = [...plan.openDated.map((a) => ({ ...a })), ...(nm ? [{ id: 'Next meeting', title: 'Next meeting', owner: null, due: nm.date, b: 'meeting' }] : [])].sort((x, y) => x.due.localeCompare(y.due));
+      // Pins are evenly spaced in date order (the table below gives every date), so labels never collide.
+      const pins = items.slice(0, 8);
+      const first = input.refDate;
+      const pos = (i) => `${(100 * (i + 1.5)) / (pins.length + 1.5)}%`;
+      const strip = `<div class="tl-road"><div class="tl-line"></div><div class="tl-pin start" style="left:5%"><i style="background:#16263F"></i><span>Meeting<br>${esc(short(first))}</span></div>${pins.map((a, i) => `<div class="tl-pin ${i % 2 ? 'lo' : 'hi'}" style="left:${pos(i)}"><i style="background:#${TL_STATUS[a.b].color}"></i><span><b>${esc(a.id === 'Next meeting' ? 'Next meeting' : a.id)}</b><br>${esc(short(a.due))}</span></div>`).join('')}</div>${items.length > pins.length ? `<p class="d-intro">${items.length - pins.length} more dated items are in the table below.</p>` : ''}`;
+      b.push({ html: H(1, 'The road ahead', 'Every dated item from this meeting, in order.', 'tl-road') + strip, keepNext: true });
+      b.push({ type: 'table', label: 'The road ahead', pre: '', head: '<tr><th style="width:24mm">Date</th><th style="width:16mm">ID</th><th>What happens</th><th style="width:32mm">Owner</th></tr>', rows: items.map((a) => `<tr><td>${tlDot(a.b)}${esc(fmt(a.due, true))}</td><td class="idc">${esc(a.id === 'Next meeting' ? 'Meeting' : a.id)}</td><td><span class="main">${esc(a.title)}</span></td><td>${a.b === 'meeting' ? (nm.timeLabel ? esc(nm.timeLabel) : '') : a.owner ? esc(a.owner) : '<span class="miss">Not named</span>'}</td></tr>`) });
     }
+    // Week by week: owners across the weeks the actions fall in.
+    const weeks = plan.slides.find((x) => x.kind === 'weeks');
+    if (weeks) {
+      const owners = plan.slides.filter((x) => x.kind === 'weeks').flatMap((x) => x.owners);
+      const wk = Array.from({ length: weeks.weeks }, (_, i) => new Date(Date.parse(weeks.start) + i * 7 * 86400000).toISOString().slice(0, 10));
+      const cell = (o, w0) => {
+        const w1 = new Date(Date.parse(w0) + 6 * 86400000).toISOString().slice(0, 10);
+        const hits = plan.openDated.filter((a) => (a.owner || 'Owner to be agreed') === o && a.due >= w0 && a.due <= w1);
+        const meet = nm && nm.date >= w0 && nm.date <= w1;
+        return `<td>${hits.map((a) => `<div class="tl-chip">${tlDot(a.b)}<b>${esc(a.id)}</b> ${esc(short(a.due))}</div>`).join('')}${meet && o === owners[0] ? `<div class="tl-chip meet">${tlDot('meeting')}Next meeting</div>` : ''}</td>`;
+      };
+      b.push({ type: 'table', label: 'Week by week', pre: H(2, 'Week by week', 'Who is doing what, and in which week.', 'tl-weeks'), head: `<tr><th style="width:30mm">Owner</th>${wk.map((w) => `<th>Week of ${esc(short(w))}</th>`).join('')}</tr>`, rows: owners.map((o) => `<tr><td><b>${esc(o)}</b></td>${wk.map((w) => cell(o, w)).join('')}</tr>`) });
+    }
+    // By horizon
+    const hz = plan.slides.find((x) => x.kind === 'horizon');
+    if (hz) b.push({ html: H(3, 'By horizon', 'From this week to what still needs a date.', 'tl-horizon') + `<div class="tl-cols">${hz.cols.map((c) => `<div class="tl-col"><h4>${tlDot(c.k)}${esc(c.title)} <span>${c.items.length}</span></h4>${c.items.map((a) => `<div class="tl-it"><b>${esc(a.id)}</b> ${esc(a.title)}<small>${a.owner ? esc(a.owner) : 'Owner to be agreed'}${a.due ? `, ${esc(short(a.due))}` : ''}</small></div>`).join('') || '<div class="tl-it muted">Nothing here</div>'}</div>`).join('')}</div>` });
+    // Needs attention
+    const att = plan.slides.find((x) => x.kind === 'attention');
+    if (att) b.push({ type: 'table', label: 'Needs attention', pre: H(4, 'Needs attention', 'Still without a date or an owner. Concludo never guesses either.', 'tl-attention'), head: '<tr><th style="width:16mm">ID</th><th>Action</th><th style="width:34mm">What is missing</th></tr>', rows: att.cards.flatMap((c) => c.items.map((a) => `<tr><td class="idc">${esc(a.id)}</td><td><span class="main">${esc(a.title)}</span></td><td><span class="miss">${esc(c.badge(a))}</span></td></tr>`)) });
+    // Before the next meeting
+    const nx = plan.slides.find((x) => x.kind === 'nextMeeting');
+    if (nx) b.push({ html: H(5, 'Before the next meeting', `${fmt(nx.nm.date, true)}${nx.nm.timeLabel ? `, ${nx.nm.timeLabel}` : ''}`, 'tl-next') + `<div class="tl-cols three"><div class="tl-col"><h4>Due before it</h4>${nx.before.map((a) => `<div class="tl-it"><b>${esc(short(a.due))}</b> ${esc(a.title)}</div>`).join('') || '<div class="tl-it muted">Nothing is due before it</div>'}</div><div class="tl-col"><h4>Bring these questions</h4>${(nx.questions || []).map((q) => `<div class="tl-it">${esc(q.text)}${q.resolver ? `<small>${esc(q.resolver)}</small>` : ''}</div>`).join('') || '<div class="tl-it muted">No open questions</div>'}</div><div class="tl-col"><h4>Still needs a date</h4>${plan.undated.map((a) => `<div class="tl-it"><b>${esc(a.id)}</b> ${esc(a.title)}</div>`).join('') || '<div class="tl-it muted">Every action has a date</div>'}</div></div>` });
+    void kinds;
+    return { kind: 'Action timeline · From the meeting record', blocks: b };
   }
 
-  async function saveAllAsPdf() {
-    if (!S.model) return;
-    if (finishPrint) finishPrint();
-    toast('Preparing all documents for PDF export...');
-    await (document.fonts ? document.fonts.ready : Promise.resolve());
-
-    // Temporary measuring container on body with .cmo styles
-    const measureHost = document.createElement('div');
-    measureHost.className = 'cmo';
-    measureHost.style.cssText = 'position:fixed;left:-99999px;top:0;width:210mm;background:#fff;opacity:0;pointer-events:none;z-index:-1;';
-    document.body.appendChild(measureHost);
-
-    const makers = [
-      tplExec,
-      tplBoard,
-      tplActions,
-      tplDecisions,
-      ...(CAN_DRAFT_EMAIL ? [() => tplEmailPage()] : [])
+  /* --------------------------------------- full report: which parts, in which order */
+  function reportParts() {
+    const parts = [
+      { key: 'board', label: 'Board briefing', desc: 'The full record, with evidence for every item', make: tplBoard },
+      { key: 'exec', label: 'Executive summary', desc: 'One page: the answer, decisions and next steps', make: tplExec },
+      { key: 'actions', label: 'Action plan', desc: 'Schedule, owners, dates and gaps', make: tplActions },
+      { key: 'decisions', label: 'Decision pack', desc: 'Each decision with its evidence and links', make: tplDecisions },
     ];
-
-    const allPages = [];
-    for (const make of makers) {
-      const secHost = document.createElement('div');
-      secHost.className = 'pages';
-      measureHost.appendChild(secHost);
-      const pages = paginateSpecToHost(make, secHost);
-      allPages.push(...pages);
-    }
-
-    // Renumber sequentially across the whole pack
-    allPages.forEach((p, i) => {
-      const pn = p.querySelector('.pn');
-      if (pn) pn.textContent = `Page ${i + 1} of ${allPages.length}`;
-    });
-
-    // Create print root
-    const portal = document.createElement('div');
-    portal.className = 'cmo cmo-print-root';
-    const pagesContainer = document.createElement('div');
-    pagesContainer.className = 'pages';
-    allPages.forEach((p) => pagesContainer.appendChild(p));
-    portal.appendChild(pagesContainer);
-    document.body.appendChild(portal);
-
-    measureHost.remove();
-
-    document.documentElement.classList.add('cmo-printing');
-    const pg = document.createElement('style');
-    pg.textContent = '@page { size: A4; margin: 0; }';
-    document.head.appendChild(pg);
-
-    const done = () => {
-      document.documentElement.classList.remove('cmo-printing');
-      pg.remove();
-      portal.remove();
-      window.removeEventListener('afterprint', done);
-      finishPrint = null;
-    };
-    finishPrint = done;
-    window.addEventListener('afterprint', done);
-
-    try {
-      window.print();
-    } catch (error) {
-      done();
-      toast('Print canceled or failed');
-    }
-  }
-
-
-  async function downloadTimelinePptx() {
-    if (!S.model) return;
-    if (!CAN_EXPORT_TIMELINE) {
-      toast('Action timeline PowerPoint is included in Pro and Team.');
-      return;
-    }
-    const elig = getTimelineEligibility();
-    if (elig.status !== 'ready') {
-      toast(elig.reason || 'This meeting needs at least two dated items for a timeline.');
-      return;
-    }
-    toast('Generating Action Timeline PowerPoint...');
-    try {
-      const { default: PptxGenJS } = await import('pptxgenjs');
-      const payload = buildTimelinePayloadFromMeeting(S.model, {
-        timezone: 'Australia/Melbourne',
-      });
-      const { pptx } = await renderTimelinePptx(PptxGenJS, payload);
-      const cleanProj = (S.model?.meta?.project || S.model?.meta?.title || 'Meeting').split(':')[0].trim();
-      const fileName = buildTimelineFileName(cleanProj, payload.exportedOn);
-      const blob = await pptx.write({ outputType: 'blob', compression: true });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast(`Downloaded ${fileName}`);
-    } catch (err) {
-      console.error('Failed to generate timeline pptx:', err);
-      toast('Failed to generate PowerPoint file: ' + (err.message || 'unknown error'));
-    }
-  }
-
-  async function saveTimelineToProject() {
-    if (!S.model) return;
-    if (!CAN_EXPORT_TIMELINE) {
-      toast('Action timeline PowerPoint is included in Pro and Team.');
-      return;
-    }
-    modalSaveWired();
-  }
-
-  function printCurrentDocument() {
-    if (!S.model) return;
-    if (S.template === 'email' && !CAN_DRAFT_EMAIL) {
-      toast('Follow-up email drafts are included in Pro and Team.');
-      return;
-    }
-    if (S.template === 'deck' && !CAN_EXPORT_DECK) {
-      toast('Client decks are included in Pro and Team.');
-      return;
-    }
-    if (finishPrint) finishPrint();
-    const portal = document.createElement('div');
-    portal.className = 'cmo cmo-print-root';
-
-    const pagesHost = root.querySelector('.pages');
-    if (pagesHost && pagesHost.children.length && S.step === 3 && S.template !== 'email' && S.template !== 'deck') {
-      portal.appendChild(pagesHost.cloneNode(true));
-      document.body.appendChild(portal);
-      document.documentElement.classList.add('cmo-printing');
-      const pg = document.createElement('style');
-      pg.textContent = '@page { size: A4; margin: 0; }';
-      document.head.appendChild(pg);
-      const done = () => {
-        document.documentElement.classList.remove('cmo-printing');
-        pg.remove();
-        portal.remove();
-        window.removeEventListener('afterprint', done);
-        finishPrint = null;
-      };
-      finishPrint = done;
-      window.addEventListener('afterprint', done);
-      try { window.print(); } catch (error) { done(); throw error; }
-    } else {
-      document.body.appendChild(portal);
-      const pagesContainer = document.createElement('div');
-      pagesContainer.className = 'pages';
-      portal.appendChild(pagesContainer);
-      const make = S.template === 'email' ? () => tplEmailPage() : tplBoard;
-      paginateSpecToHost(make, pagesContainer);
-      document.documentElement.classList.add('cmo-printing');
-      const pg = document.createElement('style');
-      pg.textContent = '@page { size: A4; margin: 0; }';
-      document.head.appendChild(pg);
-      const done = () => {
-        document.documentElement.classList.remove('cmo-printing');
-        pg.remove();
-        portal.remove();
-        window.removeEventListener('afterprint', done);
-        finishPrint = null;
-      };
-      finishPrint = done;
-      window.addEventListener('afterprint', done);
-      try { window.print(); } catch (error) { done(); throw error; }
-    }
-  }
-
-  function downloadCsvActions() {
-    if (!S.model) return;
-    const baseName = (S.model.meta.title || 'actions').replace(/[^\w]+/g, '-');
-    const csvContent = actionsToCsv(S.model.actions);
-    download(`${baseName}-actions.csv`, csvContent, 'text/csv;charset=utf-8;');
-    toast('Action schedule (.csv) downloaded');
-  }
-
-  function downloadFollowUpEmailTxt() {
-    if (!S.model) return;
-    if (!CAN_DRAFT_EMAIL) {
-      toast('Follow-up email drafts are included in Pro and Team.');
-      return;
-    }
-    const baseName = (S.model.meta.title || 'follow-up-email').replace(/[^\w]+/g, '-');
-    const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
-    const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
-    const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
-    const emailText = `=== CLIENT FOLLOW-UP EMAIL ===\nSubject: ${emailClient.subject}\n\n${emailClient.body}\n\n\n=== INTERNAL FOLLOW-UP EMAIL ===\nSubject: ${emailInternal.subject}\n\n${emailInternal.body}\n`;
-    download(`${baseName}-follow-up-email.txt`, emailText, 'text/plain;charset=utf-8;');
-    toast('Follow-up email (.txt) downloaded');
-  }
-
-  async function downloadMeetingPdf() {
-    if (!S.model) return;
-    toast('Generating PDF document...');
-    try {
-      const pdfBytes = await generateMeetingPdf(S.model);
-      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const u = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = u;
-      a.download = `${baseName}-boardroom-pack.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
-      toast('Meeting PDF downloaded to device');
-    } catch (err) {
-      console.error('PDF export failed:', err);
-      toast('Failed to generate PDF: ' + (err.message || 'unknown error'));
-    }
-  }
-
-  async function downloadExportZip() {
-    if (!S.model) return;
-    toast('Building export archive (.zip)...');
-    try {
-      const { default: JSZip } = await import('jszip');
-      const zip = new JSZip();
-      const baseName = (S.model.meta.title || 'meeting-record').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
-
-      // 1. Official PDF Document
-      const pdfBytes = await generateMeetingPdf(S.model);
-      zip.file(`${baseName}-boardroom-pack.pdf`, pdfBytes);
-
-      // 2. Markdown
-      zip.file(`${baseName}.md`, CE.toMarkdown(S.model));
-
-      // 3. CSV actions
-      zip.file(`${baseName}-actions.csv`, actionsToCsv(S.model.actions));
-
-      // 4. JSON record
-      zip.file(`${baseName}.concludo.json`, JSON.stringify(S.model, null, 2));
-
-      // 5. Follow-up emails (if entitled)
-      if (CAN_DRAFT_EMAIL) {
-        const deadline = S.correctionDeadline || CE.defaultCorrectionDeadline(S.model.meta.meetingDate);
-        const emailClient = CE.followUpEmail(S.model, { audience: 'client', correctionDeadline: deadline });
-        const emailInternal = CE.followUpEmail(S.model, { audience: 'internal', correctionDeadline: deadline });
-        const emailText = `=== CLIENT FOLLOW-UP EMAIL ===\nSubject: ${emailClient.subject}\n\n${emailClient.body}\n\n\n=== INTERNAL FOLLOW-UP EMAIL ===\nSubject: ${emailInternal.subject}\n\n${emailInternal.body}\n`;
-        zip.file(`${baseName}-follow-up-email.txt`, emailText);
-      }
-
-      // 6. Standalone HTML printable report
-      zip.file(`${baseName}-report.html`, generateStandaloneHtml(S.model));
-
-      // 7. Action Timeline PPTX (if entitled and eligible)
-      if (CAN_EXPORT_TIMELINE && getTimelineEligibility().status === 'ready') {
-        try {
-          const { default: PptxGenJS } = await import('pptxgenjs');
-          const payload = buildTimelinePayloadFromMeeting(S.model, { timezone: 'Australia/Melbourne' });
-          const { pptx } = await renderTimelinePptx(PptxGenJS, payload);
-          const pptxBlob = await pptx.write({ outputType: 'blob', compression: true });
-          const pptxFileName = buildTimelineFileName(payload.shortProject || payload.project || 'Meeting', payload.exportedOn);
-          zip.file(pptxFileName, pptxBlob);
-        } catch (e) {
-          console.warn('Could not bundle timeline pptx into zip:', e);
-        }
-      }
-
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const u = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = u;
-      a.download = `${baseName}-export.zip`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 500);
-      toast('Complete export package (.zip) downloaded');
-    } catch (err) {
-      console.error('ZIP export failed:', err);
-      toast('Failed to create ZIP: ' + (err.message || 'unknown error'));
-    }
-  }
-
-  function modalExport() {
-    const m = S.model;
-    if (!m) return;
-    const div = document.createElement('div');
-    div.className = 'modal-bg';
-    const currentTpl = TEMPLATES.find((x) => x[0] === S.template);
-    const currentName = currentTpl ? currentTpl[1] : 'Current document';
-
-    div.innerHTML = `
-      <div class="modal cmo-modal-export" role="dialog" aria-modal="true" aria-label="Export meeting record">
-        <div class="mh">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="display:inline-flex;color:var(--navy)">${ic('download')}</span>
-            <h2 style="font-size:16px;margin:0;font-weight:700;color:var(--navy)">Export &amp; save to device</h2>
-          </div>
-          <button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button>
-        </div>
-        <div class="mb" style="gap:12px;max-height:calc(85vh - 120px);overflow-y:auto">
-          <p style="margin:0;color:var(--slate);font-size:13px">Save the reviewed meeting documents, action register, and structured data directly to your device.</p>
-          
-          <div class="cmo-export-grid">
-            <div class="cmo-export-card featured">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('download')}</span>
-                  <span>Meeting PDF document (.pdf)</span>
-                  <span class="cmo-badge-rec">RECOMMENDED</span>
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">Official multi-page A4 PDF with decisions, full action schedule, open items, and risks ready to open on your device.</div>
-              </div>
-              <button class="btn sm navy" data-act="modal-dl-pdf" style="flex:none">${ic('download')}<span>Download PDF</span></button>
-            </div>
-
-            <div class="cmo-export-card">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('download')}</span>
-                  <span>Complete archive (.zip)</span>
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">All formats bundled together: Meeting PDF report (.pdf), Markdown (.md), Action schedule (.csv), and Record (.json).</div>
-              </div>
-              <button class="btn sm" data-act="modal-dl-zip" style="flex:none">${ic('download')}<span>Download ZIP</span></button>
-            </div>
-
-            <div class="cmo-export-card">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('download')}</span>
-                  <span>Markdown document (.md)</span>
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">Full outcome record with decisions, action table, timeline, and open items formatted in clean Markdown.</div>
-              </div>
-              <button class="btn sm" data-act="modal-dl-md" style="flex:none">${ic('download')}<span>Download .md</span></button>
-            </div>
-
-            <div class="cmo-export-card">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('download')}</span>
-                  <span>Action schedule (.csv)</span>
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">Spreadsheet of actions with IDs, tasks, owners, due dates, definition of done, and gaps for Excel or Numbers.</div>
-              </div>
-              <button class="btn sm" data-act="modal-dl-csv" style="flex:none">${ic('download')}<span>Download .csv</span></button>
-            </div>
-
-            <div class="cmo-export-card">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('download')}</span>
-                  <span>Full meeting record (.json)</span>
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">Complete v2 data payload with all evidence citations, speaker labels, line numbers, and audit data.</div>
-              </div>
-              <button class="btn sm" data-act="modal-dl-json" style="flex:none">${ic('download')}<span>Download .json</span></button>
-            </div>
-
-            <div class="cmo-export-card ${!CAN_DRAFT_EMAIL ? 'cmo-card-locked' : ''}">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('download')}</span>
-                  <span>Follow-up email (.txt)</span>
-                  ${!CAN_DRAFT_EMAIL ? '<span class="cmo-badge-pro" style="background:#EEF2F6;color:#64748B;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">PRO &amp; TEAM</span>' : ''}
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">${CAN_DRAFT_EMAIL ? 'Plain text email draft with subject, attendees, agreed actions, and correction deadline.' : 'Follow-up email drafts are included in Pro and Team plans.'}</div>
-              </div>
-              <button class="btn sm" data-act="${CAN_DRAFT_EMAIL ? 'modal-dl-email' : 'modal-locked-email'}" ${!CAN_DRAFT_EMAIL ? 'disabled' : ''} style="flex:none">${ic('download')}<span>Download .txt</span></button>
-            </div>
-
-            <div class="cmo-export-card ${(!CAN_EXPORT_TIMELINE || getTimelineEligibility().status !== 'ready') ? 'cmo-card-locked' : ''}">
-              <div style="min-width:0;padding-right:8px">
-                <div style="font-weight:600;color:var(--navy);font-size:13.5px;display:flex;align-items:center;gap:6px">
-                  <span>${ic('download')}</span>
-                  <span>Action timeline (.pptx)</span>
-                  ${!CAN_EXPORT_TIMELINE ? '<span class="cmo-badge-pro" style="background:#EEF2F6;color:#64748B;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">PRO &amp; TEAM</span>' : ''}
-                </div>
-                <div style="font-size:12px;color:var(--slate);margin-top:2px">${!CAN_EXPORT_TIMELINE ? 'Action timeline PowerPoint export is included in Pro and Team plans.' : getTimelineEligibility().status !== 'ready' ? (getTimelineEligibility().reason || 'A timeline needs at least two dated items.') : `${getTimelineEligibility().slideCount}-slide branded PowerPoint timeline with milestone road, swimlanes, and next meeting focus.`}</div>
-              </div>
-              <button class="btn sm" data-act="${CAN_EXPORT_TIMELINE && getTimelineEligibility().status === 'ready' ? 'modal-dl-timeline' : 'modal-locked-timeline'}" ${(!CAN_EXPORT_TIMELINE || getTimelineEligibility().status !== 'ready') ? 'disabled' : ''} style="flex:none">${ic('download')}<span>Download .pptx</span></button>
-            </div>
-          </div>
-        </div>
-        <div class="mf">
-          <button class="btn" data-act="close">Close</button>
-        </div>
-      </div>
-    `;
-    div.addEventListener('click', (e) => e.target === div && div.remove());
-    root.appendChild(div);
-  }
-
-
-  function renderTimelinePanel() {
-    const elig = getTimelineEligibility();
-    const m = S.model;
-    const actions = m?.actions || [];
-    const datedActions = actions.filter((a) => a.due && a.due.trim() !== '');
-    const undatedActions = actions.filter((a) => !a.due || a.due.trim() === '');
-    const cleanProj = (m?.meta?.project || m?.meta?.title || 'Meeting').split(':')[0].trim();
-    const fileName = buildTimelineFileName(cleanProj, m?.meta?.meetingDate || (new Date()).toISOString().slice(0, 10));
-
-    // State 1: Locked / Starter Plan
-    if (!CAN_EXPORT_TIMELINE) {
-      return `<div class="cmo-timeline-panel cmo-timeline-locked-state">
-        <div class="cmo-tl-head">
-          <div class="cmo-tl-title-row">
-            <h2>Action timeline</h2>
-            <span class="cmo-pill-gold">PRO AND ABOVE</span>
-          </div>
-          <p class="cmo-tl-sub">Your Starter plan includes the meeting output document. The action timeline, follow-up email and client deck are included in Pro, Team and Enterprise.</p>
-        </div>
-
-        <div class="cmo-tl-lock-modal">
-          <div class="cmo-tl-lock-icon">${ic('shield')}</div>
-          <h3 style="font-size:18px;color:var(--navy);margin:0 0 8px 0">Included in Pro</h3>
-          <p style="font-size:13.5px;color:var(--slate);margin:0 0 20px 0;line-height:1.5">This meeting has ${actions.length} actions and ${elig.datedCount} dates, so on Pro Concludo would build a ${elig.slideCount || 6}-slide timeline.</p>
-          <div class="cmo-tl-lock-acts">
-            <button class="btn primary" data-act="modal-locked-timeline">See Pro</button>
-            <button class="btn" data-act="switch-doc-tpl">Not now</button>
-          </div>
-        </div>
-
-        <div class="cmo-tl-plan-table-wrap">
-          <h4>WHAT EACH PLAN INCLUDES</h4>
-          <table class="cmo-tl-plan-table">
-            <thead>
-              <tr><th>OUTPUT</th><th>STARTER</th><th>PRO</th><th>TEAM</th><th>ENTERPRISE</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>Meeting output document</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
-              <tr><td>Follow-up email</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
-              <tr><td>Client deck</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
-              <tr><td>Action timeline</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-    }
-
-    // State 2: Not Needed (0 actions or 0 dates)
-    if (elig.status === 'not_needed_no_actions' || elig.status === 'not_needed_no_dates') {
-      return `<div class="cmo-timeline-panel cmo-timeline-empty-state">
-        <div class="cmo-tl-empty-center">
-          <div class="cmo-tl-empty-icon">${ic('timeline')}</div>
-          <h2>No timeline needed for this meeting</h2>
-          <p class="cmo-tl-empty-desc">
-            ${elig.status === 'not_needed_no_actions'
-              ? `No actions were agreed in this meeting, so there is nothing to put on a timeline. It was an update meeting: 0 actions, ${m.decisions.length} decisions noted, no next meeting set.`
-              : `${actions.length} actions were agreed, but none has a date. Add dates during review to build a timeline.`}
-          </p>
-        </div>
-
-        <div class="cmo-tl-section">
-          <h4>WHAT CONCLUDO CHECKED</h4>
-          <ul class="cmo-tl-check-list">
-            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Open actions:</b> ${actions.length === 0 ? 'none in the approved record' : `${actions.length} agreed without dates`}</span></li>
-            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Dated items:</b> none</span></li>
-            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Next meeting:</b> ${m.nextMeeting?.date ? fmt(m.nextMeeting.date) : 'not set'}</span></li>
-          </ul>
-        </div>
-
-        <div class="cmo-tl-section">
-          <h4>WHAT YOU STILL GET</h4>
-          <ul class="cmo-tl-check-list">
-            <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span>The meeting output document and the follow-up email cover the ${m.decisions.length} decisions and the discussion.</span></li>
-            <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span>If you add actions in Review, Concludo checks again and offers the timeline when there is enough to show.</span></li>
-          </ul>
-        </div>
-
-        <div class="cmo-tl-bottom-bar">
-          <div style="display:flex;align-items:center;gap:12px;flex:1">
-            <button class="btn disabled" disabled style="opacity:0.6;cursor:not-allowed">Generate timeline</button>
-            <span class="cmo-tl-bottom-note">Not needed: a timeline needs actions with at least two dates.</span>
-          </div>
-          <button class="btn primary" data-go="2">Open Review</button>
-        </div>
-      </div>`;
-    }
-
-    // State 3: Needs One More Date
-    if (elig.status === 'needs_one_more_date') {
-      const datedAction = datedActions[0];
-      return `<div class="cmo-timeline-panel cmo-timeline-needs-date-state">
-        <div class="cmo-tl-head">
-          <div class="cmo-tl-title-row">
-            <h2>Add one more date to build a timeline</h2>
-            <span class="cmo-pill-gold">PRO AND ABOVE</span>
-          </div>
-          <p class="cmo-tl-sub">Only one dated item came out of this meeting. A timeline needs at least two dates. Add a date to another action during review to build one.</p>
-        </div>
-
-        <div class="cmo-tl-section">
-          <h4>WHAT CONCLUDO CHECKED</h4>
-          <ul class="cmo-tl-check-list">
-            <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>${actions.length} open actions</b> approved in review</span></li>
-            <li class="check-item-warn"><span class="dot-warn">!</span> <span><b>1 has a due date:</b> ${esc(datedAction?.id || 'A-01')}, ${datedAction?.due ? fmt(datedAction.due) : ''}. ${undatedActions.length} were agreed without a date.</span></li>
-            <li class="check-item-neutral"><span class="dot-dash">-</span> <span><b>Next meeting:</b> ${m.nextMeeting?.date ? fmt(m.nextMeeting.date) : 'not set'}</span></li>
-          </ul>
-        </div>
-
-        <div class="cmo-tl-section">
-          <h4>ACTIONS WITHOUT A DATE</h4>
-          <div class="cmo-tl-actions-table">
-            ${undatedActions.map((a) => `
-              <div class="cmo-tl-action-row" data-action-id="${esc(a.id)}">
-                <span class="cmo-tl-act-id">${esc(a.id)}</span>
-                <span class="cmo-tl-act-title">${esc(a.task)}</span>
-                <span class="cmo-tl-act-owner">${esc(a.owner || 'Owner to be agreed')}</span>
-                <button class="btn sm" data-act="prompt-add-date" data-id="${esc(a.id)}" style="border:1px solid #E2B53C;color:#8F6300;background:#FFFDF5;font-weight:600">+ Add date</button>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <div class="cmo-tl-invariant-box">
-          Concludo never guesses a date. Only dates you state or confirm in Review go on the timeline.
-        </div>
-
-        <div class="cmo-tl-bottom-bar">
-          <div style="display:flex;align-items:center;gap:12px;flex:1">
-            <button class="btn disabled" disabled style="opacity:0.6;cursor:not-allowed">Generate timeline</button>
-            <span class="cmo-tl-bottom-note">Add one more date, or set the next meeting date, and this button turns on.</span>
-          </div>
-          <button class="btn primary" data-go="2">Open Review</button>
-        </div>
-      </div>`;
-    }
-
-    // State 4: Ready (Pro / Team with sufficient dates)
-    const firstUndated = undatedActions[0];
-    return `<div class="cmo-timeline-panel cmo-timeline-ready-state">
-      <div class="cmo-tl-head">
-        <div class="cmo-tl-title-row">
-          <h2>Action timeline</h2>
-          <span class="cmo-pill-gold">PRO AND ABOVE</span>
-        </div>
-        <p class="cmo-tl-sub">A visual PowerPoint of every action agreed in this meeting, by date and owner. Concludo checked the approved record and this meeting has enough dated work for a timeline.</p>
-      </div>
-
-      <div class="cmo-tl-section">
-        <h4>WHY CONCLUDO BUILT ONE</h4>
-        <ul class="cmo-tl-check-list">
-          <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>${actions.length} open actions</b> approved in review, across ${elig.owners.length} owners (${esc(elig.owners.join(', ') || 'Owners to be agreed')})</span></li>
-          <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>${elig.datedCount} have a due date</b> between ${fmt(elig.startDate)} and ${fmt(elig.endDate)}</span></li>
-          <li class="check-item-yes"><span class="dot-chk">${ic('check')}</span> <span><b>Next meeting is dated:</b> ${m.nextMeeting?.date ? `${fmt(m.nextMeeting.date)}${m.nextMeeting.time ? `, ${esc(m.nextMeeting.time)}` : ''}` : 'not set'}</span></li>
-          ${firstUndated ? `
-            <li class="check-item-warn"><span class="dot-warn">!</span> <span><b>${esc(firstUndated.id)} has no date</b> ("${esc(firstUndated.dueText || 'later this week')}"). It goes on the Needs attention slide, not the road.</span></li>
-          ` : ''}
-        </ul>
-      </div>
-
-      <div class="cmo-tl-section">
-        <h4>SLIDES CONCLUDO WILL BUILD (${elig.slideCount})</h4>
-        <div class="cmo-tl-slides-strip">
-          <div class="cmo-tl-slide-card">
-            <div class="cmo-tl-slide-thumb cover"></div>
-            <div class="cmo-tl-slide-name">Cover</div>
-            <div class="cmo-tl-slide-sub">Always</div>
-          </div>
-          <div class="cmo-tl-slide-card">
-            <div class="cmo-tl-slide-thumb road"></div>
-            <div class="cmo-tl-slide-name">The road ahead</div>
-            <div class="cmo-tl-slide-sub">Always</div>
-          </div>
-          ${elig.slides.includes('weeks') ? `
-            <div class="cmo-tl-slide-card">
-              <div class="cmo-tl-slide-thumb weeks"></div>
-              <div class="cmo-tl-slide-name">Week by week</div>
-              <div class="cmo-tl-slide-sub">${elig.owners.length} owners</div>
-            </div>
-          ` : ''}
-          ${elig.slides.includes('horizon') ? `
-            <div class="cmo-tl-slide-card">
-              <div class="cmo-tl-slide-thumb horizon"></div>
-              <div class="cmo-tl-slide-name">By horizon</div>
-              <div class="cmo-tl-slide-sub">3 columns</div>
-            </div>
-          ` : ''}
-          ${elig.slides.includes('attention') ? `
-            <div class="cmo-tl-slide-card">
-              <div class="cmo-tl-slide-thumb attention"></div>
-              <div class="cmo-tl-slide-name">Needs attention</div>
-              <div class="cmo-tl-slide-sub">${undatedActions.map((a) => a.id).join(', ')} undated</div>
-            </div>
-          ` : ''}
-          ${elig.slides.includes('nextMeeting') ? `
-            <div class="cmo-tl-slide-card">
-              <div class="cmo-tl-slide-thumb next-meet"></div>
-              <div class="cmo-tl-slide-name">Next meeting</div>
-              <div class="cmo-tl-slide-sub">${m.nextMeeting?.date ? fmt(m.nextMeeting.date, false) : ''}</div>
-            </div>
-          ` : ''}
-        </div>
-        <div class="cmo-tl-left-out-note">
-          Left out: Progress slide. Nothing from this meeting is marked complete yet.
-        </div>
-      </div>
-
-      <div class="cmo-tl-ready-card">
-        <div class="cmo-tl-ready-top">
-          <span class="cmo-tl-ready-badge">Timeline ready, v1</span>
-          <span class="cmo-tl-ready-file">${esc(fileName)} | ~2.5 MB</span>
-        </div>
-        <div class="cmo-tl-ready-acts">
-          <button class="btn sm" data-act="save-timeline-project">${ic('save')}<span>Save to project: ${esc(cleanProj)}</span></button>
-          <button class="btn sm navy" data-act="download-timeline-pptx">${ic('download')}<span>Download .pptx</span></button>
-        </div>
-      </div>
-
-      <div class="cmo-tl-bottom-bar">
-        <button class="btn" data-act="download-timeline-pptx" style="background:#E2B53C;color:#16263F;font-weight:700;padding:10px 20px;font-size:14px;border:none">Generate timeline</button>
-        <span class="cmo-tl-bottom-note">Built from approved items only. Change a date in Review, then generate again for v2.</span>
-      </div>
-    </div>`;
+    const notes = [];
+    if (SHOW_TIMELINE) {
+      const plan = tlPlan();
+      if (plan.eligible) parts.push({ key: 'timeline', label: 'Action timeline', desc: 'The road ahead, week by week, and what needs attention', make: tplTimeline });
+      else notes.push(`Action timeline: not needed for this meeting. ${plan.reason}`);
+    } else if (opts.timelineReleased === true && !CAN_EXPORT_TIMELINE) notes.push('Action timeline: included in Pro and above.');
+    if (SHOW_DECK) {
+      const payload = buildStudioDeckPayload();
+      let rendered = null;
+      if (validateDeck(payload).ok) { try { rendered = renderDeckHtml(payload, { fonts: S.deckFonts || 'brand', quotes: !!S.deckQuotes, preparedWith: S.deckPreparedWith !== false }); } catch (e) { rendered = null; } }
+      if (rendered) parts.push({ key: 'deck', label: 'Client presentation', desc: 'The client deck, two slides to a page', deckHtml: rendered.html });
+      else notes.push('Client presentation: added once every item has been reviewed.');
+    } else if (opts.deckReleased === true && !CAN_EXPORT_DECK) notes.push('Client presentation: included in Pro and above.');
+    notes.push('Follow-up email: kept separate. It is never part of this report.');
+    return { parts, notes };
   }
 
   /* --------------------------------------- paginator */
   async function buildDocument() {
     const host = $('#pages');
     if (!host) return;
-    if (S.template === 'timeline') {
-      host.innerHTML = renderTimelinePanel();
-      const outlineEl = $('#outline');
-      if (outlineEl) outlineEl.innerHTML = '';
-      const pgEl = $('#pgcount');
-      if (pgEl) pgEl.textContent = '';
-      return;
-    }
     if (S.template === 'deck') {
       if (!CAN_EXPORT_DECK) {
         host.innerHTML = `<div class="email-card email-locked"><p style="font-size:15px;color:var(--navy);font-weight:500;margin:32px 24px;text-align:center">Client decks are included in Pro and Team.</p></div>`;
@@ -1922,23 +933,182 @@ export function mountMeetingStudio(root, opts = {}) {
           ${absentNames ? `<div><b>Cc</b>${esc(absentNames)}</div>` : ''}
           <div><b>Subject</b>${esc(e.subject)}</div>
         </div>
-        <pre>${esc(e.body)}</pre>
-        <div class="ef">Draft only. Concludo never sends email. Copy it into your mail app, check it, then send.</div>
+        <div class="email-body" data-email-body>${emailBodyHtml(e.body)}</div>
+        <div class="ef">Draft only. Concludo never sends email. Copy the body into your mail app, check it, then send. Section titles stay bold when pasted.</div>
       </div>`;
       $('#outline').innerHTML = '';
       $('#pgcount').textContent = '';
       return;
     }
     await (document.fonts ? document.fonts.ready : Promise.resolve());
-    const make = { board: tplBoard, exec: tplExec, actions: tplActions, decisions: tplDecisions }[S.template];
-    const pages = paginateSpecToHost(make, host);
-    // outline
+    host.innerHTML = '';
+    deckSlots.length = 0;
+    const full = S.template === 'full';
+    const report = full ? reportParts() : { parts: [{ key: S.template, make: { board: tplBoard, exec: tplExec, actions: tplActions, decisions: tplDecisions }[S.template] }], notes: [] };
+    const all = [];
+    const footLeft = `${esc(S.model.meta.organisation || 'Concludo')} · ${esc(fmt(S.model.meta.meetingDate))} · Commercial in confidence`;
+    const pageShell = (headHtml, compact) => {
+      const p = document.createElement('div');
+      p.className = 'page' + (compact ? ' compact' : '');
+      p.innerHTML = `${headHtml}<div class="pg-body"></div><div class="pg-foot"><span>${footLeft}</span><span class="pn"></span></div>`;
+      host.appendChild(p);
+      return p;
+    };
+    const runHead = (kind) => `<div class="pg-run"><img src="${A.lockup}" alt="Concludo"><div class="rt">${esc(kind.split(' · ')[0])}<br><b>${esc(S.model.meta.title)}</b></div></div>`;
+    // Contents page first in the full report. Page numbers are filled in once every part is laid out.
+    let toc = null;
+    if (full) {
+      const p = pageShell(coverHtml('Full meeting report · Every document in one file'));
+      p.dataset.part = 'contents';
+      toc = p.querySelector('.pg-body');
+      all.push(p);
+    }
+    for (const part of report.parts) {
+      part.firstPage = all.length + 1;
+      if (part.deckHtml) { all.push(...layoutDeck(part)); continue; }
+      const pages = layoutSpec(part.make);
+      pages.forEach((p) => (p.dataset.part = part.key));
+      all.push(...pages);
+    }
+    if (toc) {
+      toc.innerHTML = `<div class="d-h" data-anchor="contents" data-label="Contents"><span class="no">&nbsp;</span><h2>Contents</h2></div>
+        <p class="d-intro">This report holds every meeting document in one file, in this order.</p>
+        <div class="toc">${report.parts.map((pt, i) => `<div class="toc-row"><span class="n">${i + 1}</span><span><b>${esc(pt.label)}</b><small>${esc(pt.desc)}</small></span><span class="pg">Page ${pt.firstPage}</span></div>`).join('')}</div>
+        ${report.notes.length ? `<div class="toc-notes">${report.notes.map((n) => `<div>${esc(n)}</div>`).join('')}</div>` : ''}
+        ${fine()}`;
+    }
+    const total = all.length;
+    all.forEach((p, i) => { p.querySelector('.pn').textContent = `Page ${i + 1} of ${total}`; p.id = `pg-${i + 1}`; });
+    // outline: parts in the full report, sections otherwise
     const out = [];
-    pages.forEach((p, i) => p.querySelectorAll('[data-anchor]').forEach((a) => out.push({ label: a.dataset.label, page: i + 1, el: a })));
+    if (full) all.forEach((p, i) => { const pt = p.dataset.part; if (pt && (i === 0 || all[i - 1].dataset.part !== pt)) out.push({ label: pt === 'contents' ? 'Contents' : report.parts.find((x) => x.key === pt).label, page: i + 1, el: p }); });
+    else all.forEach((p, i) => p.querySelectorAll('[data-anchor]').forEach((a) => out.push({ label: a.dataset.label, page: i + 1, el: a })));
     $('#outline').innerHTML = out.map((o, k) => `<li><a href="#" data-jump="${k}">${esc(o.label)}<span>p. ${o.page}</span></a></li>`).join('');
     S.outline = out;
-    $('#pgcount').textContent = `${pages.length} page${pages.length === 1 ? '' : 's'} · A4`;
+    $('#pgcount').textContent = `${total} page${total === 1 ? '' : 's'} · A4`;
+    const tlBtn = root.querySelector('[data-act="dl-timeline-pptx"]');
+    if (tlBtn) tlBtn.hidden = !report.parts.some((x) => x.key === 'timeline');
     fitPreview();
+
+    function layoutSpec(make) {
+      let fit = 0;
+      let spec = make(fit);
+      for (;;) {
+        const pages = [];
+        const newPage = (first) => {
+          const p = pageShell(first ? coverHtml(spec.kind) : runHead(spec.kind), spec.compact);
+          pages.push(p);
+          return p.querySelector('.pg-body');
+        };
+        const over = (body) => body.scrollHeight > body.clientHeight + 1;
+        let body = newPage(true);
+        const frag = (html) => {
+          const t = document.createElement('div');
+          t.innerHTML = html;
+          return t;
+        };
+        const moveKeep = (fromBody, toBody) => {
+          const last = fromBody.lastElementChild;
+          if (last && last.dataset.keep === '1' && fromBody.children.length > 1) toBody.appendChild(last);
+        };
+        for (const blk of spec.blocks) {
+          if (blk.type === 'table') {
+            if (blk.pageBreak && body.children.length) body = newPage(false);
+            const mk = (cont) => frag(`${cont ? `<div class="d-h"><h2 style="font-size:9.5pt;color:var(--slate)">${esc(blk.label || 'Continued')}, continued</h2></div>` : blk.pre}<table class="dt"><thead>${blk.head}</thead><tbody></tbody></table>`);
+            let wrap = mk(false);
+            body.appendChild(wrap);
+            if (!blk.rows.length) {
+              wrap.querySelector('table').outerHTML = `<p class="d-intro">${esc(blk.empty || 'None.')}</p>`;
+              if (over(body)) { body.removeChild(wrap); const nb = newPage(false); moveKeep(body, nb); body = nb; body.appendChild(wrap); }
+              continue;
+            }
+            let tb = wrap.querySelector('tbody');
+            let placedHere = 0;
+            for (const r of blk.rows) {
+              const tmp = document.createElement('tbody');
+              tmp.innerHTML = r;
+              const tr = tmp.firstElementChild;
+              tb.appendChild(tr);
+              if (over(body)) {
+                tb.removeChild(tr);
+                const nb = newPage(false);
+                if (placedHere === 0) {
+                  body.removeChild(wrap);
+                  moveKeep(body, nb);
+                  body = nb;
+                  body.appendChild(wrap);
+                } else {
+                  body = nb;
+                  wrap = mk(true);
+                  body.appendChild(wrap);
+                  tb = wrap.querySelector('tbody');
+                }
+                tb.appendChild(tr);
+                placedHere = 0;
+              }
+              placedHere++;
+            }
+          } else {
+            if (!blk.html) continue;
+            const el = frag(blk.html);
+            if (blk.keepNext) el.dataset.keep = '1';
+            body.appendChild(el);
+            if (over(body) && body.children.length > 1) {
+              body.removeChild(el);
+              const nb = newPage(false);
+              moveKeep(body, nb);
+              body = nb;
+              body.appendChild(el);
+            }
+          }
+        }
+        if (spec.fitLevels && pages.length > 1 && fit < spec.fitLevels - 1) { pages.forEach((p) => p.remove()); fit++; spec = make(fit); continue; }
+        return pages;
+      }
+    }
+
+    // Client deck slides, two to an A4 page. Each slide sits in a shadow root so the deck's own styles
+    // cannot reach the report and the report's styles cannot reach the slides.
+    function layoutDeck(part) {
+      const doc = new DOMParser().parseFromString(part.deckHtml, 'text/html');
+      // The deck's own @page rule (16:9) must not reach the A4 report, so it is removed here.
+      const css = [...doc.querySelectorAll('style')].map((x) => x.textContent).join('\n').replace(/@page\s*\{[^}]*\}/g, '');
+      const slides = [...doc.querySelectorAll('section.pg')].map((x) => x.outerHTML);
+      const pages = [];
+      let body = null;
+      let scale = 1;
+      let width = 0;
+      const startPage = () => {
+        const p = pageShell(pages.length === 0 ? coverHtml('Client presentation · The client deck') : runHead('Client presentation'));
+        p.dataset.part = part.key;
+        pages.push(p);
+        body = p.querySelector('.pg-body');
+        const bs = getComputedStyle(body);
+        width = Math.floor(body.clientWidth - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight));
+        scale = width / 1280;
+      };
+      startPage();
+      slides.forEach((html) => {
+        const place = () => {
+          const k = deckSlots.length;
+          deckSlots.push(`<style>${css}\n:host{display:block}.slot{width:${width}px;height:${Math.round(720 * scale)}px;overflow:hidden;border:1px solid #DCE2EC;border-radius:4px;margin:0 0 5mm}.slot>.pg{zoom:${scale};break-after:auto!important;page-break-after:auto!important;break-inside:avoid}</style><div class="slot">${html}</div>`);
+          const slot = document.createElement('div');
+          slot.className = 'deck-slot';
+          slot.dataset.deckSlot = String(k);
+          body.appendChild(slot);
+          slot.attachShadow({ mode: 'open' }).innerHTML = deckSlots[k];
+          return slot;
+        };
+        const slot = place();
+        if (body.scrollHeight > body.clientHeight + 1 && body.children.length > 1) {
+          slot.remove();
+          deckSlots.pop();
+          startPage();
+          place();
+        }
+      });
+      return pages;
+    }
   }
 
   /* ======================================================= events */
@@ -1983,87 +1153,32 @@ export function mountMeetingStudio(root, opts = {}) {
       CE.refresh(S.model);
       rerenderKeepScroll();
     }
-    if (act === 'print') printCurrentDocument();
-    if (act === 'save-all-pdf') saveAllAsPdf();
-    if (act === 'export-options') modalExport();
-    if (act === 'modal-dl-pdf') { root.querySelector('.modal-bg')?.remove(); downloadMeetingPdf(); }
-    if (act === 'modal-dl-zip') { root.querySelector('.modal-bg')?.remove(); downloadExportZip(); }
-    if (act === 'modal-dl-md') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.md`, CE.toMarkdown(S.model), 'text/markdown'); toast('Markdown (.md) downloaded'); }
-    if (act === 'modal-dl-csv') { root.querySelector('.modal-bg')?.remove(); downloadCsvActions(); }
-    if (act === 'modal-dl-json') { root.querySelector('.modal-bg')?.remove(); download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.concludo.json`, JSON.stringify(S.model, null, 2), 'application/json'); toast('Record (.json) downloaded'); }
-    if (act === 'modal-dl-email') { root.querySelector('.modal-bg')?.remove(); downloadFollowUpEmailTxt(); }
-    if (act === 'modal-locked-email') { toast('Follow-up email drafts are included in Pro and Team.'); }
-    if (act === 'download-timeline-pptx') { downloadTimelinePptx(); }
-    if (act === 'modal-dl-timeline') { root.querySelector('.modal-bg')?.remove(); downloadTimelinePptx(); }
-    if (act === 'save-timeline-project') { saveTimelineToProject(); }
-    if (act === 'modal-locked-timeline') { toast('Action timeline PowerPoint is included in Pro and Team.'); }
-    if (act === 'switch-doc-tpl') { S.template = 'exec'; render(); setY(0); }
-    if (act === 'prompt-add-date') {
-      const id = t.dataset.id;
-      const a = S.model.actions.find((i) => i.id === id);
-      if (a) {
-        const val = window.prompt(`Set due date for ${a.id} (YYYY-MM-DD):`, a.due || '');
-        if (val && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
-          a.due = val.trim();
-          a.dueBasis = 'stated';
-          a.horizon = 'next';
-          CE.refresh(S.model);
-          render();
-          toast(`Added date ${val.trim()} to ${a.id}`);
-        } else if (val) {
-          toast('Please enter a valid date in YYYY-MM-DD format');
-        }
-      }
-    }
-    if (act === 'add-custom-owner-btn') {
-      const id = t.dataset.id;
-      const a = S.model.actions.find((i) => i.id === id);
-      if (a) {
-        a._editingCustom = true;
-        rerenderKeepScroll();
-        setTimeout(() => {
-          const inp = root.querySelector(`[data-custom-input="${id}"]`);
-          if (inp) { inp.focus(); inp.select?.(); }
-        }, 50);
-      }
-    }
-    if (act === 'save-custom-owner') {
-      const id = t.dataset.id;
-      const inp = root.querySelector(`[data-custom-input="${id}"]`);
-      const val = (inp?.value || '').trim();
-      const a = S.model.actions.find((i) => i.id === id);
-      if (a) {
-        if (val) {
-          a.owner = val;
-          a.ownerBasis = 'custom';
-          if (!S.customOwners) S.customOwners = [];
-          if (!S.customOwners.includes(val)) S.customOwners.push(val);
-        } else {
-          a.owner = undefined;
-          a.ownerBasis = 'none';
-        }
-        delete a._editingCustom;
-        CE.refresh(S.model);
-        rerenderKeepScroll();
-      }
-    }
-    if (act === 'cancel-custom-owner') {
-      const id = t.dataset.id;
-      const a = S.model.actions.find((i) => i.id === id);
-      if (a) {
-        delete a._editingCustom;
-        rerenderKeepScroll();
-      }
+    if (act === 'print') {
+      if (finishPrint) finishPrint();
+      // Print outside the fixed-height Workspace shell, which clips after page one.
+      const portal = document.createElement('div');
+      portal.className = 'cmo cmo-print-root';
+      portal.appendChild($('.pages').cloneNode(true));
+      portal.querySelectorAll('[data-deck-slot]').forEach((el) => { if (!el.shadowRoot) el.attachShadow({ mode: 'open' }).innerHTML = deckSlots[+el.dataset.deckSlot] || ''; });
+      const prevTitle = document.title;
+      document.title = `${(S.model.meta.title || 'Meeting').replace(/[\/:*?"<>|]+/g, ' ')} ${S.template === 'full' ? 'Full report' : ([...TEMPLATES].find((x) => x[0] === S.template) || ['', ''])[1]}`;
+      document.body.appendChild(portal);
+      document.documentElement.classList.add('cmo-printing');
+      const pg = document.createElement('style');
+      pg.textContent = '@page { size: A4; margin: 0; }';
+      document.head.appendChild(pg);
+      const done = () => {
+        document.documentElement.classList.remove('cmo-printing');
+        pg.remove(); portal.remove(); document.title = prevTitle;
+        window.removeEventListener('afterprint', done);
+        finishPrint = null;
+      };
+      finishPrint = done;
+      window.addEventListener('afterprint', done);
+      try { window.print(); } catch (error) { done(); throw error; }
     }
 
     if (act === 'set-deck-aud') { S.deckAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
-    if (act === 'set-doc-view') { S.docView = t.dataset.val === 'horizon' ? 'horizon' : 'chronological'; buildDocument(); }
-    const ribbonItem = t.closest && t.closest('.stage-ribbon-item[data-stage-idx]');
-    if (ribbonItem) {
-      const idx = ribbonItem.dataset.stageIdx;
-      const targetEl = root.querySelector(`#stage-sec-${idx}`);
-      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
     if (act === 'toggle-deck-quotes') { S.deckQuotes = t.checked; buildDocument(); }
     if (act === 'toggle-deck-prep') { S.deckPreparedWith = t.checked; buildDocument(); }
     if (act === 'set-deck-fonts') { S.deckFonts = t.value; buildDocument(); }
@@ -2108,8 +1223,22 @@ export function mountMeetingStudio(root, opts = {}) {
     if (act === 'copy-md') { await copy(CE.toMarkdown(S.model)); toast('Copied as text'); }
     if (act === 'dl-md') download(`${S.model.meta.title.replace(/[^\w]+/g, '-')}.md`, CE.toMarkdown(S.model), 'text/markdown');
     if (act === 'set-audience') { S.emailAudience = t.dataset.aud === 'internal' ? 'internal' : 'client'; buildDocument(); }
-    if (act === 'copy-email') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); await copy(`Subject: ${e.subject}\n\n${e.body}`); toast('Email draft copied'); }
-    if (act === 'dl-email-txt') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); download(`${(S.model.meta.title || 'follow-up-email').replace(/[^\w]+/g, '-')}.txt`, `Subject: ${e.subject}\n\n${e.body}`, 'text/plain'); }
+    if (act === 'copy-email-body') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); await copyRich(emailBodyHtml(e.body), emailBodyText(e.body)); toast('Email body copied. Paste it into your mail app'); }
+    if (act === 'copy-email-subject') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); await copy(e.subject); toast('Subject copied'); }
+    if (act === 'dl-email-txt') { const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline }); download(`${(S.model.meta.title || 'follow-up-email').replace(/[^\w]+/g, '-')}-email.txt`, `Subject: ${e.subject}\n\n${emailBodyText(e.body)}`, 'text/plain'); }
+    if (act === 'dl-timeline-pptx') {
+      const input = tlInput();
+      const plan = planTimeline(input);
+      if (!plan.eligible) { toast(plan.reason); return; }
+      toast('Building the timeline…');
+      try {
+        const { default: PptxGenJS } = await import('pptxgenjs');
+        const assets = { bg: { cover: tlBgCover, roadmap: tlBgRoadmap, grid: tlBgGrid, ridge: tlBgRidge, attention: tlBgAttention, close: tlBgClose }, logo: A.lockup, logoAspect: opts.logoAspect || 2261 / 885 };
+        const pptx = renderTimeline(PptxGenJS, input, plan, assets);
+        await pptx.writeFile({ fileName: timelineFileName(input) });
+        toast('Timeline downloaded');
+      } catch (err) { toast(err.message || 'The timeline could not be built'); }
+    }
     if (act === 'save') (opts.onSave ? modalSaveWired() : modalSave());
     if (act === 'do-save') doSave(t);
     if (act === 'copy-json') { await copy(JSON.stringify(S.model, null, 2)); root.querySelector('.modal-bg')?.remove(); toast('Record copied'); }
@@ -2123,8 +1252,8 @@ export function mountMeetingStudio(root, opts = {}) {
     if (t.dataset.field === 'correction-deadline') {
       S.correctionDeadline = t.value;
       const e = CE.followUpEmail(S.model, { audience: S.emailAudience, correctionDeadline: S.correctionDeadline });
-      const pre = root.querySelector('.email-card pre');
-      if (pre) pre.textContent = e.body;
+      const bodyEl = root.querySelector('[data-email-body]');
+      if (bodyEl) bodyEl.innerHTML = emailBodyHtml(e.body);
       const subjEl = root.querySelector('.email-card .eh div:last-child');
       if (subjEl) subjEl.innerHTML = `<b>Subject</b>${esc(e.subject)}`;
     }
@@ -2136,19 +1265,6 @@ export function mountMeetingStudio(root, opts = {}) {
   }
   on(root, 'change', (ev) => {
     const t = ev.target;
-    if (t.classList && t.classList.contains('stage-select-mobile')) {
-      const idx = t.value;
-      const targetEl = root.querySelector(`#stage-sec-${idx}`);
-      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
-    if (t.dataset.act === 'override-source-type') {
-      const newType = t.value;
-      const srcs = allSources();
-      S.model = CE.analyseMeeting(srcs, { ...S.meta, sourceType: newType });
-      render();
-      return;
-    }
     if (t.hasAttribute('data-preview-size')) { previewMode = t.value === 'actual' ? 'actual' : 'fit'; fitPreview(); return; }
     if (t.dataset.meta) { S.meta[t.dataset.meta] = t.value; delete S.detected[t.dataset.meta]; }
     if (t.dataset.kind !== undefined && t.dataset.kind !== '') {
@@ -2161,41 +1277,12 @@ export function mountMeetingStudio(root, opts = {}) {
     if (t.dataset.edit) {
       const [kind, id, field] = t.dataset.edit.split(':');
       const x = listFor(kind).find((i) => i.id === id);
-      if (field === 'owner') {
-        if (t.value === '__add_custom__') {
-          x._editingCustom = true;
-          rerenderKeepScroll();
-          setTimeout(() => {
-            const inp = root.querySelector(`[data-custom-input="${id}"]`);
-            if (inp) { inp.focus(); inp.select?.(); }
-          }, 50);
-          return;
-        }
-        x.owner = t.value || undefined;
-        x.ownerBasis = t.value ? (t.value === 'Under review' ? 'custom' : 'stated') : 'none';
-        delete x._editingCustom;
-      }
+      if (field === 'owner') { x.owner = t.value || undefined; x.ownerBasis = t.value ? 'stated' : 'none'; }
       else if (field === 'due') { x.due = t.value || undefined; x.dueApprox = false; x.dueText = undefined; }
       else if (field === 'likelihood' || field === 'consequence') { x[field] = +t.value; const s = x.likelihood * x.consequence; x.rating = s >= 15 ? 'high' : s >= 9 ? 'medium' : 'low'; }
       else x[field] = t.value;
       CE.refresh(S.model);
       rerenderKeepScroll();
-    }
-  });
-  on(root, 'keydown', (e) => {
-    const t = e.target;
-    if (t && t.dataset && t.dataset.customInput) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const id = t.dataset.customInput;
-        const saveBtn = root.querySelector(`[data-act="save-custom-owner"][data-id="${id}"]`);
-        if (saveBtn) saveBtn.click();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        const id = t.dataset.customInput;
-        const cancelBtn = root.querySelector(`[data-act="cancel-custom-owner"][data-id="${id}"]`);
-        if (cancelBtn) cancelBtn.click();
-      }
     }
   });
   on(root, 'dragover', (e) => { const d = e.target.closest && e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });
@@ -2228,61 +1315,25 @@ export function mountMeetingStudio(root, opts = {}) {
     const defaultIsNew = opts.defaultSaveMode === 'new' || !projects.length;
     div.querySelector('.modal').innerHTML = `<div class="mh"><h2 style="font-size:16px">Save to project</h2><button class="btn ghost sm" data-act="close" aria-label="Close">${ic('x')}</button></div>
       <div class="mb">
-        <div class="chipset"><button class="chip ${!defaultIsNew ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${defaultIsNew ? 'on' : ''}" data-savemode="new">${ic('save')}<span>Save New Project</span></button></div>
-        <div class="field" data-pane="existing" ${!defaultIsNew ? '' : 'hidden'} style="${!defaultIsNew ? '' : 'display:none;'}"><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
-        <div data-pane="new" ${defaultIsNew ? '' : 'hidden'} style="${defaultIsNew ? '' : 'display:none;'}"><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title || '')}" placeholder="Enter project title"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}" placeholder="Client or company name"></div></div>
+        <div class="chipset"><button class="chip ${!defaultIsNew ? 'on' : ''}" data-savemode="existing" ${projects.length ? '' : 'disabled'}>Existing project (${projects.length})</button><button class="chip ${defaultIsNew ? 'on' : ''}" data-savemode="new">New project</button></div>
+        <div class="field" data-pane="existing" ${!defaultIsNew ? '' : 'hidden'}><label for="cmo-proj">Project</label><select id="cmo-proj">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.client ? ` (${esc(p.client)})` : ''}</option>`).join('')}</select></div>
+        <div data-pane="new" ${defaultIsNew ? '' : 'hidden'}><div class="field"><label for="cmo-ptitle">Project title</label><input id="cmo-ptitle" value="${esc(m.meta.project || m.meta.title)}"></div><div class="field"><label for="cmo-pclient">Client or organisation</label><input id="cmo-pclient" value="${esc(m.meta.organisation || '')}"></div></div>
         <div class="mini-stats" style="margin:0"><div><b>${m.stats.decisions}</b><span>to Decision memory</span></div><div><b>${m.stats.actions}</b><span>to the Action tracker</span></div><div><b>${m.sources.length}</b><span>source files</span></div><div><b>4</b><span>outputs</span></div></div>
         ${unowned.length ? `<div class="warn" style="margin:0">${ic('alert')}<span>${plural(unowned.length, 'action has', 'actions have')} no owner (${unowned.map((a) => a.id).join(', ')}). ${unowned.length === 1 ? 'It' : 'They'} will be saved as unassigned, not given a placeholder name. <a href="#" data-go="2">Name an owner first</a></span></div>` : ''}
         ${proposed ? `<div class="note" style="margin:0">${plural(proposed, 'item is', 'items are')} not yet confirmed. Saving keeps everything you have not excluded.</div>` : ''}
-        <div class="err" data-save-err hidden style="display:none;"></div>
+        <div class="err" data-save-err hidden></div>
       </div>
-      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save" id="cmo-save-btn">${ic('save')}<span id="cmo-save-btn-text">${defaultIsNew ? 'Save New Project' : 'Save to Project'}</span></button></div>`;
+      <div class="mf"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="do-save">${ic('save')}Save record</button></div>`;
     div.querySelectorAll('[data-savemode]').forEach((b) => b.addEventListener('click', () => {
-      const isAlreadyOn = b.classList.contains('on');
-      const mode = b.dataset.savemode;
       div.querySelectorAll('[data-savemode]').forEach((x) => x.classList.toggle('on', x === b));
-      div.querySelectorAll('[data-pane]').forEach((p) => {
-        const matches = p.dataset.pane === mode;
-        if (matches) {
-          p.removeAttribute('hidden');
-          p.style.display = '';
-        } else {
-          p.setAttribute('hidden', '');
-          p.style.display = 'none';
-        }
-      });
-      const saveBtnText = div.querySelector('#cmo-save-btn-text');
-      if (saveBtnText) {
-        saveBtnText.textContent = mode === 'new' ? 'Save New Project' : 'Save to Project';
-      }
-    }));
-    div.querySelectorAll('#cmo-ptitle, #cmo-pclient').forEach((inp) => {
-      inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const btn = div.querySelector('[data-act="do-save"]');
-          if (btn && !btn.disabled) doSave(btn);
-        }
-      });
-    });
-    const saveBtn = div.querySelector('[data-act="do-save"]');
-    if (saveBtn) saveBtn.addEventListener('click', () => doSave(saveBtn));
-    div.querySelectorAll('[data-act="close"]').forEach((b) => b.addEventListener('click', () => div.remove()));
-    div.querySelectorAll('[data-go]').forEach((a) => a.addEventListener('click', (e) => {
-      e.preventDefault();
-      div.remove();
-      S.step = parseInt(a.dataset.go, 10);
-      render();
+      div.querySelectorAll('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.savemode));
     }));
   }
   async function doSave(btn) {
     const div = root.querySelector('.modal-bg');
-    if (!div) return;
     const mode = div.querySelector('[data-savemode].on')?.dataset.savemode || 'new';
-    const target = mode === 'existing'
-      ? { mode, projectId: div.querySelector('#cmo-proj')?.value }
-      : { mode, title: ((div.querySelector('#cmo-ptitle')?.value) || S.model?.meta?.title || 'Meeting Project').trim(), client: ((div.querySelector('#cmo-pclient')?.value) || S.model?.meta?.organisation || '').trim() };
-    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); if (e) { e.hidden = false; e.style.display = 'block'; e.textContent = 'Give the new project a title.'; } return; }
+    const target = mode === 'existing' ? { mode, projectId: div.querySelector('#cmo-proj').value } : { mode, title: div.querySelector('#cmo-ptitle').value.trim(), client: div.querySelector('#cmo-pclient').value.trim() };
+    if (target.mode === 'new' && !target.title) { const e = div.querySelector('[data-save-err]'); e.hidden = false; e.textContent = 'Give the new project a title.'; return; }
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
@@ -2292,11 +1343,30 @@ export function mountMeetingStudio(root, opts = {}) {
       if (opts.onSaved && res && res.projectId) setTimeout(() => opts.onSaved(res.projectId), 700);
     } catch (e) {
       const el = div.querySelector('[data-save-err]');
-      if (el) { el.hidden = false; el.style.display = 'block'; el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.'; }
+      el.hidden = false;
+      el.textContent = (e && e.message) || 'The record could not be saved. Nothing was lost: try again.';
       btn.disabled = false;
-      const isNew = mode === 'new';
-      btn.innerHTML = `${ic('save')}<span>${isNew ? 'Save New Project' : 'Save to Project'}</span>`;
+      btn.innerHTML = `${ic('save')}Save record`;
     }
+  }
+  async function copyRich(html, text) {
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
+        return;
+      }
+    } catch (e) { /* fall through to the selection copy */ }
+    const d = document.createElement('div');
+    d.contentEditable = 'true';
+    d.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    d.innerHTML = html;
+    document.body.appendChild(d);
+    const r = document.createRange();
+    r.selectNodeContents(d);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    try { document.execCommand('copy'); } finally { sel.removeAllRanges(); d.remove(); }
   }
   async function copy(text) {
     try { await navigator.clipboard.writeText(text); } catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }

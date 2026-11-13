@@ -36,6 +36,18 @@ const browser = await chromium.launch({ args: ['--lang=en-AU'] });
 const ctx = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'], locale: 'en-AU' });
 
 // Function to print multi-page A4 PDF from the rendered .pages container
+// The email view copies the subject and the body separately (the body is ready to paste, with bold titles).
+// For scoring, join them back into one plain text file: "Subject: ..." then the body.
+async function copyEmailAsText(page) {
+  await page.click('.cmo [data-act=copy-email-subject]');
+  await page.waitForTimeout(200);
+  const subject = await page.evaluate(() => navigator.clipboard.readText());
+  await page.click('.cmo [data-act=copy-email-body]');
+  await page.waitForTimeout(300);
+  const body = await page.evaluate(() => navigator.clipboard.readText());
+  return `Subject: ${subject}\n\n${body}`;
+}
+
 async function exportTemplatePdf(page, tplKey, outPath) {
   await page.click(`.cmo [data-tpl=${tplKey}]`);
   await page.waitForTimeout(600);
@@ -193,18 +205,14 @@ for (const item of activeMeetings) {
   // Client version: click client toggle, click copy button, read from clipboard
   await page.click('.cmo button[data-act=set-audience][data-aud=client]');
   await page.waitForTimeout(300);
-  await page.click('.cmo [data-act=copy-email]');
-  await page.waitForTimeout(300);
-  const clientEmailText = await page.evaluate(() => navigator.clipboard.readText());
+  const clientEmailText = await copyEmailAsText(page);
   fs.writeFileSync(path.join(mDir, 'email_client.txt'), clientEmailText);
   fs.writeFileSync(path.join(mDir, 'email_client_download.txt'), clientEmailText);
 
   // Internal version: click internal toggle, click copy button, read from clipboard
   await page.click('.cmo button[data-act=set-audience][data-aud=internal]');
   await page.waitForTimeout(300);
-  await page.click('.cmo [data-act=copy-email]');
-  await page.waitForTimeout(300);
-  const internalEmailText = await page.evaluate(() => navigator.clipboard.readText());
+  const internalEmailText = await copyEmailAsText(page);
   fs.writeFileSync(path.join(mDir, 'email_internal.txt'), internalEmailText);
 
   // Client deck check

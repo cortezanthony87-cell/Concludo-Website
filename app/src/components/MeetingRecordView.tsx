@@ -3,6 +3,7 @@ import { mountMeetingDocument } from '../features/meeting-output/studio';
 import { useFeatureAccess } from '../lib/permissions/usePermissions';
 import '../features/meeting-output/meeting-output.css';
 import type { MeetingModel } from '../lib/intelligence/meetingEngine';
+import { TIMELINE_RELEASED, DECK_RELEASED } from '../features/meeting-output/releases';
 
 /** True when an output's json_content is a v2 meeting record saved by the new studio. */
 export function isMeetingRecordV2(x: unknown): x is MeetingModel {
@@ -11,8 +12,8 @@ export function isMeetingRecordV2(x: unknown): x is MeetingModel {
   return r.version === '2.0' && Array.isArray(r.decisions) && Array.isArray(r.actions);
 }
 
-const TEMPLATE_FOR: Record<string, 'board' | 'actions' | 'decisions' | 'email'> = {
-  summary: 'board',
+const TEMPLATE_FOR: Record<string, 'full' | 'board' | 'actions' | 'decisions' | 'email'> = {
+  summary: 'full',
   action_plan: 'actions',
   action_items: 'actions',
   decision_log: 'decisions',
@@ -23,14 +24,20 @@ const TEMPLATE_FOR: Record<string, 'board' | 'actions' | 'decisions' | 'email'> 
 export const MeetingRecordView: React.FC<{ model: MeetingModel; outputType?: string }> = ({ model, outputType }) => {
   const ref = useRef<HTMLDivElement | null>(null);
   const { isAllowed: canDraftEmail } = useFeatureAccess('follow_up_email_draft');
+  const { isAllowed: canExportDeck } = useFeatureAccess('deck_export');
+  const { isAllowed: canExportTimeline } = useFeatureAccess('action_timeline_export');
 
   useEffect(() => {
     if (!ref.current) return undefined;
     return mountMeetingDocument(ref.current, JSON.parse(JSON.stringify(model)) as MeetingModel, {
-      template: TEMPLATE_FOR[outputType || 'summary'] || 'board',
+      template: TEMPLATE_FOR[outputType || 'summary'] || 'full',
       canDraftEmail,
+      canExportDeck,
+      canExportTimeline,
+      timelineReleased: TIMELINE_RELEASED,
+      deckReleased: DECK_RELEASED,
     });
-  }, [model, outputType, canDraftEmail]);
+  }, [model, outputType, canDraftEmail, canExportDeck, canExportTimeline]);
   return <div ref={ref} className="cmo-host" />;
 };
 

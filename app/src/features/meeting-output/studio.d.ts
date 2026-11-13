@@ -35,11 +35,18 @@ export interface StudioOptions {
   canDraftEmail?: boolean;
   /** false locks client deck export with the Pro/Team upgrade notice. Default true. */
   canExportDeck?: boolean;
-  canExportTimeline?: boolean;
   canUseModelDrafting?: boolean;
+  /** Pro and above (feature key action_timeline_export). Default false. */
+  canExportTimeline?: boolean;
+  /** Written release "release the timeline". Default false. Adds the Action timeline to the full report. */
+  timelineReleased?: boolean;
+  /** Written release "release the deck". Default false. Adds the Client presentation to the full report. */
+  deckReleased?: boolean;
+  /** Width over height of the logo image, used by the timeline PowerPoint. */
+  logoAspect?: number;
   /** Open straight on the document step with this record. */
   model?: MeetingModel;
-  template?: 'board' | 'exec' | 'deck' | 'actions' | 'decisions' | 'email' | 'timeline';
+  template?: 'full' | 'board' | 'exec' | 'deck' | 'actions' | 'decisions' | 'email';
   viewer?: boolean;
   /** Custom title for Step 1 import view. Default 'Add the meeting'. */
   step1Title?: string;
@@ -50,6 +57,6 @@ export interface StudioOptions {
 }
 
 export function mountMeetingStudio(root: HTMLElement, options?: StudioOptions): () => void;
-export function mountMeetingDocument(root: HTMLElement, model: MeetingModel, options?: Pick<StudioOptions, 'logo' | 'logoReversed' | 'template' | 'canFile' | 'canDraftEmail' | 'canExportDeck'>): () => void;
+export function mountMeetingDocument(root: HTMLElement, model: MeetingModel, options?: Pick<StudioOptions, 'logo' | 'logoReversed' | 'template' | 'canFile' | 'canDraftEmail' | 'canExportDeck' | 'canExportTimeline' | 'timelineReleased' | 'deckReleased'>): () => void;
 export function exportActionsToCsv(actions: any[]): string;
 export function exportStandaloneHtml(model: any): string;
