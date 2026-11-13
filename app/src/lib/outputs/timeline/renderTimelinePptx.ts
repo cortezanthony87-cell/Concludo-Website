@@ -209,7 +209,7 @@ export async function renderTimelinePptx(
   // ----------------------------------------------------
   {
     const s = pptx.addSlide();
-    s.background = { data: assets.cover };
+    s.background = { data: assets.cover, path: 'bg_cover.jpg' };
 
     // Top logo
     if (assets.logo) {
@@ -380,7 +380,7 @@ export async function renderTimelinePptx(
   // ----------------------------------------------------
   {
     const s = pptx.addSlide();
-    s.background = { data: assets.roadmap };
+    s.background = { data: assets.roadmap, path: 'bg_roadmap.jpg' };
     drawHeading(s, 'The road ahead', 'Next six actions');
 
     const xs = [0.85, 2.9, 4.95, 7.0, 9.05, 11.05];
@@ -502,7 +502,7 @@ export async function renderTimelinePptx(
 
   assigneeChunks.forEach((chunkOwners, chunkIdx) => {
     const s = pptx.addSlide();
-    s.background = { data: assets.grid };
+    s.background = { data: assets.grid, path: 'bg_grid.jpg' };
     const slideHeading = chunkIdx === 0 ? 'Who is doing what, and when' : 'Who is doing what, and when (continued)';
     drawHeading(s, 'Week by week', slideHeading, 9);
 
@@ -748,7 +748,7 @@ export async function renderTimelinePptx(
   // ----------------------------------------------------
   {
     const s = pptx.addSlide();
-    s.background = { data: assets.ridge };
+    s.background = { data: assets.ridge, path: 'bg_ridge.jpg' };
     drawHeading(s, 'Milestones by horizon', 'From what slipped to what is next', 10);
 
     const todayUtc = d(TODAY);
@@ -849,7 +849,7 @@ export async function renderTimelinePptx(
   // ----------------------------------------------------
   {
     const s = pptx.addSlide();
-    s.background = { data: assets.attention };
+    s.background = { data: assets.attention, path: 'bg_attention.jpg' };
     drawHeading(s, 'Needs attention', 'Overdue, and still without a date', 10);
 
     const cards = [
@@ -988,7 +988,7 @@ export async function renderTimelinePptx(
   // ----------------------------------------------------
   {
     const s = pptx.addSlide();
-    s.background = { data: assets.close };
+    s.background = { data: assets.close, path: 'bg_close.jpg' };
     drawHeading(s, 'Progress', `${count('completed')} of ${acts.length} action${acts.length === 1 ? '' : 's'} complete`, 10);
 
     const order = ['completed', 'today', 'upcoming', 'overdue', 'unscheduled'];
