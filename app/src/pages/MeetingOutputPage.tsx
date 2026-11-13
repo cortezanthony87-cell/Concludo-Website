@@ -22,6 +22,7 @@ export const MeetingOutputPage: React.FC = () => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const { isAllowed: canDraftEmail } = useFeatureAccess('follow_up_email_draft');
   const { isAllowed: canExportDeck } = useFeatureAccess('deck_export');
+  const { isAllowed: canExportTimeline } = useFeatureAccess('action_timeline_export');
   const { isAllowed: canUseModelDrafting } = useFeatureAccess('model_drafting');
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export const MeetingOutputPage: React.FC = () => {
       embedded: true,
       canDraftEmail,
       canExportDeck,
+      canExportTimeline,
       canUseModelDrafting,
       parseFile: async (file) => {
         // Keep the matching PDF worker local instead of depending on a CDN version.
@@ -74,7 +76,7 @@ export const MeetingOutputPage: React.FC = () => {
       onSaved: (projectId) => navigate(`/projects/${projectId}`),
     });
     return unmount;
-  }, [supabase, navigate, canDraftEmail, canExportDeck]);
+  }, [supabase, navigate, canDraftEmail, canExportDeck, canExportTimeline]);
 
   return <div ref={hostRef} className="cmo-host" />;
 };
