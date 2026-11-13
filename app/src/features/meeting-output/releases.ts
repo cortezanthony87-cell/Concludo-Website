@@ -5,5 +5,5 @@
  * Plan gating still applies on top: Pro, Pro trial, Team and Enterprise only (feature keys
  * action_timeline_export and deck_export). Starter never sees either section.
  */
-export const TIMELINE_RELEASED = false;
+export const TIMELINE_RELEASED = true;
 export const DECK_RELEASED = false;

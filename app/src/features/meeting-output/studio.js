@@ -97,6 +97,7 @@ export function mountMeetingStudio(root, opts = {}) {
     trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     quote: '<path d="M7 7h4v4H7zM7 11c0 3-1 4-3 5M15 7h4v4h-4zM15 11c0 3-1 4-3 5"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    timeline: '<circle cx="5" cy="18" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 16l3.5-3.5M14 10.5L17 7.5"/>',
   };
   const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -483,6 +484,7 @@ export function mountMeetingStudio(root, opts = {}) {
     ['exec', 'Executive summary', 'One page: the answer, decisions, next steps', 'one'],
     ['actions', 'Action plan', 'Five-field schedule, timeline and gaps', 'list'],
     ['decisions', 'Decision pack', 'Each decision with its evidence and links', 'gavel'],
+    ...(SHOW_TIMELINE ? [['timeline', 'Action timeline', 'The road ahead, week by week, and what needs attention', 'timeline']] : []),
   ];
   const EMAIL_TEMPLATE = ['email', 'Follow-up email', 'Copy and paste into your mail app', 'mail'];
   const tplButton = ([k, n, d, i]) => {
@@ -493,7 +495,7 @@ export function mountMeetingStudio(root, opts = {}) {
     if (S.template === 'deck') return CAN_EXPORT_DECK ? `<span id="deck-acts-slot"></span>` : '';
     if (S.template === 'email') return CAN_DRAFT_EMAIL ? `<button class="btn sm" data-act="copy-email-subject">${ic('copy')}<span>Copy subject</span></button><button class="btn sm" data-act="dl-email-txt">${ic('download')}<span>Download .txt</span></button><button class="btn sm navy" data-act="copy-email-body">${ic('copy')}<span>Copy email body</span></button>` : '';
     if (!CAN_FILE) return `<span style="font-size:12px;color:var(--slate)">PDF export runs in the Workspace</span><button class="btn sm navy" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button>`;
-    const tl = S.template === 'full' && SHOW_TIMELINE ? `<button class="btn sm" data-act="dl-timeline-pptx" hidden>${ic('download')}<span>Timeline .pptx</span></button>` : '';
+    const tl = (S.template === 'full' || S.template === 'timeline') && SHOW_TIMELINE ? `<button class="btn sm" data-act="dl-timeline-pptx" hidden>${ic('download')}<span>Timeline .pptx</span></button>` : '';
     return `<button class="btn sm" data-act="copy-md">${ic('copy')}<span>Copy as text</span></button><button class="btn sm" data-act="dl-md">${ic('download')}<span>Markdown</span></button>${tl}<button class="btn sm navy" data-act="print">${ic('print')}<span>${S.template === 'full' ? 'Save full report as PDF' : 'Print or save PDF'}</span></button>`;
   }
   function viewDocument() {
@@ -944,7 +946,7 @@ export function mountMeetingStudio(root, opts = {}) {
     host.innerHTML = '';
     deckSlots.length = 0;
     const full = S.template === 'full';
-    const report = full ? reportParts() : { parts: [{ key: S.template, make: { board: tplBoard, exec: tplExec, actions: tplActions, decisions: tplDecisions }[S.template] }], notes: [] };
+    const report = full ? reportParts() : { parts: [{ key: S.template, make: { board: tplBoard, exec: tplExec, actions: tplActions, decisions: tplDecisions, timeline: tplTimeline }[S.template] }], notes: [] };
     const all = [];
     const footLeft = `${esc(S.model.meta.organisation || 'Concludo')} · ${esc(fmt(S.model.meta.meetingDate))} · Commercial in confidence`;
     const pageShell = (headHtml, compact) => {
