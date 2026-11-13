@@ -6,7 +6,7 @@ import {
   type CueCategory,
   type CueDemandResult
 } from '../../lib/video/salesCopilotLibrary';
-import { getVideoOwnerDetails, type VideoOwnerDetails } from '../../lib/video/videoMeetingCentreOwnerClient';
+import { getVideoOwnerDetails, subscribeToVideoOwnerDetails, type VideoOwnerDetails } from '../../lib/video/videoMeetingCentreOwnerClient';
 import { isVideoMeetingCentreEnabled } from '../../lib/video/videoMeetingCentreFeatureFlag';
 
 const QUICK_PROMPTS = [
@@ -43,7 +43,7 @@ export const VideoCompanionPanelPage: React.FC = () => {
   const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHeldRef = useRef(false);
 
-  // Verify owner status on mount via real RPC
+  // Verify owner status on mount via real RPC and keep synced with auth changes
   useEffect(() => {
     let mounted = true;
     getVideoOwnerDetails().then((details) => {
@@ -51,8 +51,16 @@ export const VideoCompanionPanelPage: React.FC = () => {
         setOwnerDetails(details);
       }
     });
+
+    const unsubscribe = subscribeToVideoOwnerDetails((details) => {
+      if (mounted) {
+        setOwnerDetails(details);
+      }
+    });
+
     return () => {
       mounted = false;
+      unsubscribe();
     };
   }, []);
 

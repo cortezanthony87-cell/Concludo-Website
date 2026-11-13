@@ -52,3 +52,17 @@ export async function checkIsVideoOwner(): Promise<boolean> {
   const details = await getVideoOwnerDetails();
   return details.isOwner;
 }
+
+export function subscribeToVideoOwnerDetails(onChange: (details: VideoOwnerDetails) => void): () => void {
+  const supabase = getVideoCentreClient();
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (session?.user) {
+      getVideoOwnerDetails().then(onChange);
+    } else {
+      onChange({ isOwner: false, email: null, userId: null });
+    }
+  });
+  return () => {
+    subscription.unsubscribe();
+  };
+}
