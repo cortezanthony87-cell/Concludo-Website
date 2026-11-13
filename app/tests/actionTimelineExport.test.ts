@@ -13,7 +13,9 @@ import {
   renderTimelinePptx,
   loadTimelineAssets,
   isActionTimelineFeatureFlagEnabled,
+  sanitizePptxPackageBlob,
 } from '../src/lib/outputs/timeline';
+import JSZip from 'jszip';
 import { calculateActionBuckets } from '../src/lib/actions/actionBuckets';
 import { PLAN_PERMISSIONS } from '../src/lib/permissions/types';
 
@@ -218,5 +220,28 @@ describe('Action Timeline PowerPoint Export (Tasklet Brief v1)', () => {
     const aiClean = sanitizeTimelineText(aiDirty);
     expect(aiClean).toBe('Use drafting agent to write plan');
     expect(aiClean).not.toContain('AI');
+  });
+
+  it('T12: Strict OPC compliance: zero phantom slideMaster overrides in [Content_Types].xml', async () => {
+    const payload = buildTimelinePayloadFromActions(sampleActions as any, {
+      viewName: 'All Actions',
+      filterDescription: 'all permitted actions',
+      projectName: 'Concludo Operations',
+      now: new Date('2026-11-13T00:00:00Z'),
+    });
+    const { pptx, slideCount } = await renderTimelinePptx(PptxGenJS, payload);
+    expect(slideCount).toBeGreaterThanOrEqual(6);
+
+    const rawBlob = (await pptx.write({ outputType: 'blob' })) as Blob;
+    const cleanBlob = await sanitizePptxPackageBlob(rawBlob);
+    const buffer = await cleanBlob.arrayBuffer();
+
+    const zip = await JSZip.loadAsync(buffer);
+    const ct = await zip.file('[Content_Types].xml')?.async('string');
+    expect(ct).toBeDefined();
+
+    // Only slideMaster1.xml should be declared; phantom slideMaster2+ overrides must be stripped
+    const slideMasters = ct?.match(/slideMaster\d+\.xml/g) || [];
+    expect(slideMasters).toEqual(['slideMaster1.xml']);
   });
 });

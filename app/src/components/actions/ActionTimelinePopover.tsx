@@ -7,6 +7,7 @@ import {
   buildTimelineFileName,
   formatTimelineDate,
   renderTimelinePptx,
+  exportSanitizedPptxBlob,
   saveTimelineToProject,
   TimelineSaveResult,
   logTimelineExportEvent,
@@ -245,8 +246,8 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
       const { pptx, slideCount } = await renderTimelinePptx(PptxGenJS, payload);
       const fileName = buildTimelineFileName(payload.project, payload.exportedOn);
 
-      // Generate blob in browser
-      const blobData = (await pptx.write({ outputType: 'blob', compression: true })) as Blob;
+      // Generate sanitized blob in browser with strict OpenXML package validation
+      const blobData = await exportSanitizedPptxBlob(pptx);
       const url = URL.createObjectURL(blobData);
       const a = document.createElement('a');
       a.href = url;
@@ -320,7 +321,7 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
       });
 
       const { pptx, slideCount } = await renderTimelinePptx(PptxGenJS, payload);
-      const blobData = (await pptx.write({ outputType: 'blob', compression: true })) as Blob;
+      const blobData = await exportSanitizedPptxBlob(pptx);
 
       const res: TimelineSaveResult = await saveTimelineToProject(
         supabase,
@@ -640,7 +641,7 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
       </div>
 
       <div style={{ fontSize: '11px', color: '#8A98AD', marginTop: '12px' }}>
-        Check owners and dates before you share it.
+        Check owners and dates before you share it. Windows tip: if Protected View appears, right-click file, select Properties, and click Unblock.
       </div>
     </div>
     </>

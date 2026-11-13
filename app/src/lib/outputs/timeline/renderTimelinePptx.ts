@@ -1,4 +1,5 @@
 import type PptxGenJSType from 'pptxgenjs';
+import JSZip from 'jszip';
 import { TimelineAssetBundle, TimelinePayload, TimelineRenderOptions } from './types';
 import { loadTimelineAssets } from './timelineAssets';
 import {
@@ -48,64 +49,56 @@ const yAtX = (p: { x: number; y: number }[], x: number) => bez(p, tForX(p, x)).y
 
 function drawFooter(
   s: any,
-  slideNum: number,
-  totalSlides: number,
-  projectName: string,
-  logoB64: string,
-  lightTheme = false
+  n: number,
+  total: number,
+  projectTitle: string,
+  logoData: string,
+  darkBg = false
 ) {
-  const y = 6.92;
-  const textColor = lightTheme ? 'A3B2C9' : C.mute;
-  const numColor = lightTheme ? 'E2E8F0' : C.ink;
-
-  // Footer label in all caps
-  const cleanProject = sanitizeTimelineText(projectName || 'Actions').toUpperCase();
-  s.addText(cleanProject, {
+  const textColor = darkBg ? 'C9D5EA' : C.mute;
+  s.addText(projectTitle.toUpperCase(), {
     x: 0.6,
-    y,
-    w: 8.5,
-    h: 0.28,
+    y: 7.02,
+    w: 6.5,
+    h: 0.26,
     margin: 0,
     fontFace: 'Inter',
-    fontSize: 7.5,
+    fontSize: 8,
     bold: true,
     color: textColor,
-    charSpacing: 2,
+    charSpacing: 1.5,
+    valign: 'middle',
+  });
+  s.addText(`${String(n).padStart(2, '0')} / ${String(total).padStart(2, '0')}`, {
+    x: W - 0.6 - 1.2,
+    y: 7.02,
+    w: 1.2,
+    h: 0.26,
+    margin: 0,
+    fontFace: 'Inter',
+    fontSize: 8,
+    bold: true,
+    color: textColor,
+    align: 'right',
+    charSpacing: 1.5,
     valign: 'middle',
   });
 
-  // Centred Concludo lockup logo
-  if (logoB64) {
-    const lh = 0.22;
+  if (!darkBg && logoData) {
+    const lh = 0.24;
     s.addImage({
-      data: logoB64,
-      x: W / 2 - (lh * LOGO_ASPECT) / 2,
-      y: y + 0.03,
+      data: logoData,
+      path: 'lockup.png',
+      x: W - 0.6 - 1.45 - lh * LOGO_ASPECT,
+      y: 7.03,
       w: lh * LOGO_ASPECT,
       h: lh,
       altText: 'Concludo',
     });
   }
-
-  // Running slide number: 01 / 06
-  const numStr = `${String(slideNum).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
-  s.addText(numStr, {
-    x: W - 0.6 - 1.8,
-    y,
-    w: 1.8,
-    h: 0.28,
-    margin: 0,
-    fontFace: 'Inter',
-    fontSize: 8.5,
-    bold: true,
-    color: numColor,
-    align: 'right',
-    charSpacing: 2,
-    valign: 'middle',
-  });
 }
 
-function drawHeading(s: any, kicker: string, title: string, w = 11.5) {
+function drawHeading(s: any, kicker: string, title: string, w = 7.4) {
   s.addText(kicker.toUpperCase(), {
     x: 0.6,
     y: 0.42,
@@ -164,7 +157,6 @@ export async function renderTimelinePptx(
   const assets = options.assets && options.assets.cover ? (options.assets as TimelineAssetBundle) : await loadTimelineAssets();
   const F = { head: options.fonts?.head || 'Poppins', body: options.fonts?.body || 'Inter' };
 
-  const isMeeting = !!payload.isMeetingMode;
   const TODAY = payload.exportedOn;
   const exportYear = TODAY.slice(0, 4);
   const acts = payload.actions;
@@ -203,56 +195,30 @@ export async function renderTimelinePptx(
     assigneeChunks.push(['Unassigned']);
   }
 
-  // Resolve slides to build
-  const activeSlides = payload.activeSlides || (isMeeting
-    ? ['cover', 'road', 'weeks', 'horizon', 'attention', 'nextMeeting']
-    : ['cover', 'road', 'weeks', 'horizon', 'attention', 'progress']);
-
-  const includeCover = activeSlides.includes('cover');
-  const includeRoad = activeSlides.includes('road');
-  const includeWeeks = activeSlides.includes('weeks');
-  const includeHorizon = activeSlides.includes('horizon');
-  const includeAttention = activeSlides.includes('attention') && (isMeeting ? acts.some((a) => !a.due) : true);
-  const includeNextMeeting = isMeeting && activeSlides.includes('nextMeeting') && !!payload.nextMeeting?.date;
-  const includeProgress = !isMeeting && activeSlides.includes('progress');
-
-  const weeksSlideCount = includeWeeks ? Math.max(1, assigneeChunks.length) : 0;
-  const TOTAL_SLIDES =
-    (includeCover ? 1 : 0) +
-    (includeRoad ? 1 : 0) +
-    weeksSlideCount +
-    (includeHorizon ? 1 : 0) +
-    (includeAttention ? 1 : 0) +
-    (includeNextMeeting ? 1 : 0) +
-    (includeProgress ? 1 : 0);
+  // Base 6 slides + any additional assignee chunk slides beyond the first
+  const TOTAL_SLIDES = 6 + (assigneeChunks.length - 1);
 
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
   pptx.author = 'Concludo';
   pptx.company = 'Concludo';
-  const docTitle = isMeeting
-    ? `Action timeline: ${payload.shortProject || payload.project} - ${payload.meetingTitle || 'Meeting'}`
-    : `Action timeline: ${payload.project}`;
-
-  const footerLabel = isMeeting && payload.meetingTitle && !payload.project.toLowerCase().includes(payload.meetingTitle.toLowerCase())
-    ? `${payload.project}: ${payload.meetingTitle}`
-    : payload.project;
-  pptx.title = docTitle;
+  pptx.title = `Action timeline: ${payload.project}`;
 
   let currentSlideNum = 1;
 
   // ----------------------------------------------------
   // 1. Cover Slide
   // ----------------------------------------------------
-  if (includeCover) {
+  {
     const s = pptx.addSlide();
-    s.background = { data: assets.cover };
+    s.background = { data: assets.cover, path: 'bg_cover.jpg' };
 
     // Top logo
     if (assets.logo) {
-      const lh = 0.32;
+      const lh = 0.46;
       s.addImage({
         data: assets.logo,
+        path: 'lockup.png',
         x: 0.6,
         y: 0.45,
         w: lh * LOGO_ASPECT,
@@ -274,7 +240,7 @@ export async function renderTimelinePptx(
       charSpacing: 4,
     });
 
-    s.addText(payload.shortProject || payload.project, {
+    s.addText(payload.shortProject, {
       x: 0.6,
       y: 1.95,
       w: 9.5,
@@ -288,11 +254,10 @@ export async function renderTimelinePptx(
       fit: 'none',
     });
 
-    const coverSubtitle = isMeeting
-      ? (payload.meetingTitle || 'Meeting output')
-      : (payload.project && payload.project.includes(':')
+    const coverSubtitle =
+      payload.project && payload.project.includes(':')
         ? payload.project.split(':')[1].trim() + ': every open action, on one road'
-        : `${acts.length} action${acts.length === 1 ? '' : 's'} from ${payload.source}`);
+        : `${acts.length} action${acts.length === 1 ? '' : 's'} from ${payload.source}`;
 
     s.addText(coverSubtitle, {
       x: 0.6,
@@ -310,181 +275,122 @@ export async function renderTimelinePptx(
         ? 'No dated actions'
         : dated.length === 1
         ? `Due on ${fmt(first, false)} ${exportYear}`
-        : `${fmt(first, false)} to ${fmt(payload.nextMeeting?.date || last, false)} ${exportYear}`;
+        : `${fmt(first, false)} to ${fmt(last, false)} ${exportYear}`;
 
-    const meetingDateStr = payload.meetingDate ? fmt(payload.meetingDate) : fmt(TODAY);
-    const datelineText = isMeeting
-      ? `${dateRangeStr}   |   From the meeting on ${meetingDateStr} ${exportYear}   |   ${payload.timezone.replace('_', ' ')}`
-      : `${dateRangeStr}   |   Exported ${fmt(TODAY)} ${exportYear}   |   ${payload.timezone.replace('_', ' ')}`;
+    s.addText(
+      `${dateRangeStr}   |   Exported ${fmt(TODAY)} ${exportYear}   |   ${payload.timezone.replace('_', ' ')}`,
+      {
+        x: 0.6,
+        y: 3.36,
+        w: 9.5,
+        h: 0.3,
+        margin: 0,
+        fontFace: F.body,
+        fontSize: 10.5,
+        color: C.mute,
+      }
+    );
 
-    s.addText(datelineText, {
-      x: 0.6,
-      y: 3.36,
-      w: 9.5,
-      h: 0.3,
-      margin: 0,
-      fontFace: F.body,
-      fontSize: 10.5,
-      color: C.mute,
+    // 5 Status KPI cards
+    const kpis: [string, number][] = [
+      ['upcoming', count('upcoming')],
+      ['today', count('today')],
+      ['overdue', count('overdue')],
+      ['unscheduled', count('unscheduled')],
+      ['completed', count('completed')],
+    ];
+
+    kpis.forEach(([k, n], i) => {
+      const x = 0.6 + i * 1.62;
+      const y = 3.95;
+      s.addShape(pptx.ShapeType.roundRect, {
+        x,
+        y,
+        w: 1.48,
+        h: 1.0,
+        rectRadius: 0.12,
+        fill: { color: C.white },
+        line: { color: C.hair, width: 0.75 },
+        shadow: SHADOW,
+      });
+      s.addShape(pptx.ShapeType.rect, {
+        x: x + 0.16,
+        y: y + 0.17,
+        w: 0.36,
+        h: 0.05,
+        fill: { color: (STATUS as any)[k].color },
+        line: { color: (STATUS as any)[k].color, width: 0 },
+      });
+      s.addText(String(n), {
+        x: x + 0.16,
+        y: y + 0.25,
+        w: 1.2,
+        h: 0.45,
+        margin: 0,
+        fontFace: F.head,
+        fontSize: 24,
+        bold: true,
+        color: C.ink,
+        valign: 'middle',
+      });
+      s.addText((STATUS as any)[k].label, {
+        x: x + 0.16,
+        y: y + 0.68,
+        w: 1.25,
+        h: 0.24,
+        margin: 0,
+        fontFace: F.body,
+        fontSize: 9,
+        color: C.mute,
+        valign: 'middle',
+      });
     });
 
-    if (isMeeting) {
-      // Meeting mode KPIs: [Dated actions] [Date to be agreed] [Next meeting (if present)]
-      const datedCount = dated.length;
-      const undatedCount = acts.length - datedCount;
-      const meetingKpis: [string | number, string][] = [
-        [datedCount, 'Dated actions'],
-        [undatedCount, 'Date to be agreed'],
-      ];
-      if (payload.nextMeeting?.date) {
-        meetingKpis.push([fmt(payload.nextMeeting.date, false), 'Next meeting']);
-      }
-
-      meetingKpis.forEach(([val, label], i) => {
-        const x = 0.6 + i * 1.62;
-        const y = 3.95;
-        s.addShape(pptx.ShapeType.roundRect, {
-          x,
-          y,
-          w: 1.48,
-          h: 1.0,
-          rectRadius: 0.12,
-          fill: { color: C.white },
-          line: { color: C.hair, width: 0.75 },
-          shadow: SHADOW,
-        });
-
-        s.addText(String(val), {
-          x,
-          y: y + 0.12,
-          w: 1.48,
-          h: 0.45,
-          margin: 0,
-          fontFace: F.head,
-          fontSize: typeof val === 'string' && val.length > 4 ? 20 : 28,
-          bold: true,
-          color: C.ink,
-          align: 'center',
-          valign: 'middle',
-        });
-
-        s.addText(label, {
-          x: x + 0.08,
-          y: y + 0.58,
-          w: 1.32,
-          h: 0.32,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 10,
-          color: C.mute,
-          align: 'center',
-          valign: 'top',
-        });
+    // Road dots on cover
+    const roadColors = ['completed', 'completed', 'overdue', 'today', 'upcoming', 'upcoming', 'unscheduled'];
+    roadColors.forEach((k, i) => {
+      const x = 7.2 + i * 0.85;
+      const y = yAtX(ROAD_COVER, x);
+      const r = 0.13;
+      s.addShape(pptx.ShapeType.ellipse, {
+        x: x - r,
+        y: y - r,
+        w: r * 2,
+        h: r * 2,
+        fill: { color: (STATUS as any)[k].color },
+        line: { color: C.white, width: 2 },
+        shadow: SHADOW,
       });
+    });
 
-      s.addText(`${acts.length} open action${acts.length === 1 ? '' : 's'} agreed in the meeting`, {
-        x: 0.6,
-        y: 5.12,
-        w: 8,
-        h: 0.3,
-        margin: 0,
-        fontFace: F.body,
-        fontSize: 12,
-        color: C.body,
-      });
-    } else {
-      // Hub KPIs (5 status cards)
-      const kpis: [string, number][] = [
-        ['upcoming', count('upcoming')],
-        ['today', count('today')],
-        ['overdue', count('overdue')],
-        ['unscheduled', count('unscheduled')],
-        ['completed', count('completed')],
-      ];
+    s.addText(`${acts.length} action${acts.length === 1 ? '' : 's'} in total`, {
+      x: 0.6,
+      y: 5.08,
+      w: 4,
+      h: 0.28,
+      margin: 0,
+      fontFace: F.body,
+      fontSize: 10,
+      bold: true,
+      color: C.navy2,
+    });
 
-      kpis.forEach(([k, n], i) => {
-        const x = 0.6 + i * 1.62;
-        const y = 3.95;
-        s.addShape(pptx.ShapeType.roundRect, {
-          x,
-          y,
-          w: 1.48,
-          h: 1.0,
-          rectRadius: 0.12,
-          fill: { color: C.white },
-          line: { color: C.hair, width: 0.75 },
-          shadow: SHADOW,
-        });
-
-        s.addShape(pptx.ShapeType.rect, {
-          x: x + 0.16,
-          y: y + 0.16,
-          w: 0.28,
-          h: 0.04,
-          fill: { color: (STATUS as any)[k].color },
-          line: { color: (STATUS as any)[k].color, width: 0 },
-        });
-
-        s.addText(String(n), {
-          x,
-          y: y + 0.22,
-          w: 1.48,
-          h: 0.45,
-          margin: 0,
-          fontFace: F.head,
-          fontSize: 28,
-          bold: true,
-          color: C.ink,
-          align: 'center',
-          valign: 'middle',
-        });
-
-        s.addText((STATUS as any)[k].label, {
-          x: x + 0.08,
-          y: y + 0.68,
-          w: 1.32,
-          h: 0.26,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 9.5,
-          color: C.mute,
-          align: 'center',
-          valign: 'top',
-        });
-      });
-
-      s.addText(`${open.length} open action${open.length === 1 ? '' : 's'} in total`, {
-        x: 0.6,
-        y: 5.12,
-        w: 8,
-        h: 0.3,
-        margin: 0,
-        fontFace: F.body,
-        fontSize: 12,
-        color: C.body,
-      });
-    }
-
-    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, footerLabel, assets.logo);
+    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, payload.project, assets.logo);
   }
 
   // ----------------------------------------------------
-  // 2. The Road Ahead
+  // 2. The Road Ahead (Next Six Actions)
   // ----------------------------------------------------
-  if (includeRoad) {
+  {
     const s = pptx.addSlide();
-    s.background = { data: assets.roadmap };
-    const roadTitle = isMeeting ? 'What happens next, in order' : 'Next six actions';
-    drawHeading(s, 'The road ahead', roadTitle);
+    s.background = { data: assets.roadmap, path: 'bg_roadmap.jpg' };
+    drawHeading(s, 'The road ahead', 'Next six actions');
 
     const xs = [0.85, 2.9, 4.95, 7.0, 9.05, 11.05];
     const STEM = 2.45;
 
-    const hasNextMeet = isMeeting && !!payload.nextMeeting?.date;
-    const maxRoadActions = hasNextMeet ? 4 : 6;
-    const roadActions = (isMeeting ? dated : nextUp).slice(0, maxRoadActions);
-
-    roadActions.forEach((a, i) => {
+    const sixActions = nextUp.slice(0, 6);
+    sixActions.forEach((a, i) => {
       const x = xs[i];
       const ry = yAtX(ROAD_MAP, x);
       const col = (STATUS as any)[a.b || 'upcoming'].color;
@@ -545,7 +451,7 @@ export async function renderTimelinePptx(
         fit: 'none',
         lineSpacingMultiple: 0.95,
       });
-      s.addText(`${short(a.owner)}  |  ${a.priority || 'Medium'}`, {
+      s.addText(`${short(a.owner)}  |  ${a.priority}`, {
         x: lx,
         y: pinY + 1.32,
         w: 1.8,
@@ -557,733 +463,535 @@ export async function renderTimelinePptx(
       });
     });
 
-    // If next meeting milestone is present, draw it at position xs[roadActions.length] or xs[5]
-    if (hasNextMeet) {
-      const meetX = xs[Math.min(roadActions.length, 5)];
-      const meetRy = yAtX(ROAD_MAP, meetX);
-      const meetPinY = meetRy - STEM;
-      const goldCol = C.goldDeep;
+    const rest = Math.max(0, nextUp.length - 6);
+    const upcomingNote =
+      rest > 0
+        ? `After these six, ${rest} actions run to ${fmt(nextUp[nextUp.length - 1].due)}. ${count('overdue')} are overdue and ${count('unscheduled')} have no date yet; both are on slide 5.`
+        : nextUp.length > 0
+        ? `All upcoming actions are shown above. ${count('overdue')} are overdue and ${count('unscheduled')} have no date yet; both are on slide 5.`
+        : `No upcoming dated actions. ${count('overdue')} are overdue and ${count('unscheduled')} have no date yet; both are on slide 5.`;
 
-      s.addShape(pptx.ShapeType.line, {
-        x: meetX,
-        y: meetPinY + 0.25,
-        w: 0,
-        h: STEM - 0.25,
-        line: { color: goldCol, width: 2 },
-      });
-      s.addShape(pptx.ShapeType.ellipse, {
-        x: meetX - 0.11,
-        y: meetRy - 0.11,
-        w: 0.22,
-        h: 0.22,
-        fill: { color: goldCol },
-        line: { color: C.white, width: 2 },
-        shadow: SHADOW,
-      });
-      s.addShape(pptx.ShapeType.ellipse, {
-        x: meetX - 0.29,
-        y: meetPinY - 0.29,
-        w: 0.58,
-        h: 0.58,
-        fill: { color: goldCol },
-        line: { color: C.white, width: 2.5 },
-        shadow: SHADOW,
-      });
-      s.addText('MEET', {
-        x: meetX - 0.29,
-        y: meetPinY - 0.29,
-        w: 0.58,
-        h: 0.58,
+    s.addText(
+      [
+        { text: `${rest} more upcoming`, options: { bold: true, color: C.ink, breakLine: true } },
+        { text: upcomingNote, options: { color: C.body } },
+      ],
+      {
+        x: 8.3,
+        y: 5.7,
+        w: 4.4,
+        h: 0.95,
         margin: 0,
-        fontFace: F.head,
-        fontSize: 9.5,
-        bold: true,
-        color: C.white,
-        align: 'center',
+        fontFace: F.body,
+        fontSize: 10.5,
+        valign: 'top',
+      }
+    );
+
+    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, payload.project, assets.logo);
+  }
+
+  // ----------------------------------------------------
+  // 3. Week by Week (One or more continuation slides)
+  // ----------------------------------------------------
+  const startMonday = calculateStartMondayOfWeekBefore(TODAY);
+  const WEEKS_COUNT = 7;
+  const gx = 2.25;
+  const gy = 1.85;
+  const gw = W - 0.6 - gx;
+  const colW = gw / WEEKS_COUNT;
+  const laneH = 0.9;
+  const headH = 0.42;
+
+  assigneeChunks.forEach((chunkOwners, chunkIdx) => {
+    const s = pptx.addSlide();
+    s.background = { data: assets.grid, path: 'bg_grid.jpg' };
+    const slideHeading = chunkIdx === 0 ? 'Who is doing what, and when' : 'Who is doing what, and when (continued)';
+    drawHeading(s, 'Week by week', slideHeading, 9);
+
+    // Top right legend
+    const lg = ['completed', 'overdue', 'today', 'upcoming'];
+    lg.forEach((k, i) => {
+      const x = 6.85 + i * 1.5;
+      const y = 0.43;
+      s.addShape(pptx.ShapeType.ellipse, {
+        x,
+        y: y + 0.06,
+        w: 0.13,
+        h: 0.13,
+        fill: { color: (STATUS as any)[k].color },
+        line: { color: (STATUS as any)[k].color, width: 0 },
+      });
+      s.addText((STATUS as any)[k].label, {
+        x: x + 0.2,
+        y,
+        w: 1.3,
+        h: 0.25,
+        margin: 0,
+        fontFace: F.body,
+        fontSize: 9,
+        color: C.mute,
         valign: 'middle',
       });
-
-      const mlx = meetX + 0.2;
-      drawChip(s, mlx, meetPinY + 0.36, fmt(payload.nextMeeting!.date), goldCol, 1.15);
-      s.addText('Next meeting', {
-        x: mlx,
-        y: meetPinY + 0.68,
-        w: 1.8,
-        h: 0.32,
-        margin: 0,
-        fontFace: F.head,
-        fontSize: 11,
-        bold: true,
-        color: C.ink,
-        valign: 'top',
-      });
-      if (payload.nextMeeting!.time) {
-        s.addText(payload.nextMeeting!.time, {
-          x: mlx,
-          y: meetPinY + 1.02,
-          w: 1.8,
-          h: 0.24,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 8.5,
-          color: C.mute,
-        });
-      }
-    }
-
-    if (isMeeting) {
-      const undatedCount = acts.filter((a) => !a.due).length;
-      if (undatedCount > 0) {
-        s.addText(
-          [
-            { text: 'From the meeting record', options: { bold: true, color: C.ink, breakLine: true } },
-            {
-              text: `${undatedCount} action has no date yet; see the slides that follow.`,
-              options: { color: C.body },
-            },
-          ],
-          {
-            x: 7.2,
-            y: 5.2,
-            w: 5.5,
-            h: 0.85,
-            margin: 0,
-            fontFace: F.body,
-            fontSize: 10,
-            valign: 'top',
-          }
-        );
-      }
-    } else {
-      const rest = Math.max(0, nextUp.length - 6);
-      const upcomingNote =
-        rest > 0
-          ? `After these six, ${rest} actions run to ${fmt(nextUp[nextUp.length - 1].due)}. ${count('overdue')} are overdue and ${count('unscheduled')} have no date yet; both are on slide 5.`
-          : nextUp.length > 0
-          ? `All upcoming actions are shown above. ${count('overdue')} are overdue and ${count('unscheduled')} have no date yet; both are on slide 5.`
-          : `No upcoming dated actions. ${count('overdue')} are overdue and ${count('unscheduled')} have no date yet; both are on slide 5.`;
-
-      s.addText(
-        [
-          { text: `${rest} more upcoming`, options: { bold: true, color: C.ink, breakLine: true } },
-          { text: upcomingNote, options: { color: C.body } },
-        ],
-        {
-          x: 8.3,
-          y: 5.7,
-          w: 4.4,
-          h: 0.95,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 10.5,
-          valign: 'top',
-        }
-      );
-    }
-
-    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, footerLabel, assets.logo);
-  }
-
-  // ----------------------------------------------------
-  // 3. Week by Week
-  // ----------------------------------------------------
-  if (includeWeeks) {
-    let startMonday: Date;
-    let WEEKS_COUNT = 7;
-
-    if (isMeeting && payload.meetingDate) {
-      // In meeting mode, start on the Monday of the meeting week
-      const mDateUtc = d(payload.meetingDate);
-      const dayOfWeek = mDateUtc.getUTCDay();
-      const daysToMonday = (dayOfWeek + 6) % 7;
-      startMonday = new Date(mDateUtc.getTime() - daysToMonday * DAY);
-
-      // Determine span up to next meeting or latest action
-      const endDates = acts.filter((a) => a.due).map((a) => a.due!);
-      if (payload.nextMeeting?.date) endDates.push(payload.nextMeeting.date);
-      endDates.sort();
-      const lastDate = endDates.length > 0 ? endDates[endDates.length - 1] : payload.meetingDate;
-      const lastDateUtc = d(lastDate);
-      const lastDaysToMonday = (lastDateUtc.getUTCDay() + 6) % 7;
-      const endMonday = new Date(lastDateUtc.getTime() - lastDaysToMonday * DAY);
-
-      const spanWeeks = Math.round((endMonday.getTime() - startMonday.getTime()) / (7 * DAY)) + 1;
-      WEEKS_COUNT = Math.max(4, Math.min(7, spanWeeks + 1));
-    } else {
-      startMonday = calculateStartMondayOfWeekBefore(TODAY);
-      WEEKS_COUNT = 7;
-    }
-    const gx = 2.25;
-    const gy = 1.85;
-    const gw = W - 0.6 - gx;
-    const colW = gw / WEEKS_COUNT;
-    const laneH = 0.9;
-    const headH = 0.42;
-
-    assigneeChunks.forEach((chunkOwners, chunkIdx) => {
-      const s = pptx.addSlide();
-      s.background = { data: assets.grid };
-      const slideHeading = chunkIdx === 0 ? 'Who is doing what, and when' : 'Who is doing what, and when (continued)';
-      drawHeading(s, 'Week by week', slideHeading, 9);
-
-      // Top right legend
-      const lg = isMeeting ? ['upcoming'] : ['completed', 'overdue', 'today', 'upcoming'];
-      lg.forEach((k, i) => {
-        const lx = W - 0.6 - (lg.length - i) * 1.15;
-        s.addShape(pptx.ShapeType.ellipse, {
-          x: lx,
-          y: 0.48,
-          w: 0.12,
-          h: 0.12,
-          fill: { color: (STATUS as any)[k].color },
-          line: { color: (STATUS as any)[k].color, width: 0 },
-        });
-        s.addText((STATUS as any)[k].label, {
-          x: lx + 0.18,
-          y: 0.43,
-          w: 0.95,
-          h: 0.22,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 8.5,
-          color: C.mute,
-          valign: 'middle',
-        });
-      });
-
-      // Grid background card
-      const totalGridH = headH + chunkOwners.length * laneH;
-      s.addShape(pptx.ShapeType.roundRect, {
-        x: gx,
-        y: gy,
-        w: gw,
-        h: totalGridH,
-        rectRadius: 0.12,
-        fill: { color: C.white },
-        line: { color: C.hair, width: 0.75 },
-        shadow: SHADOW,
-      });
-
-      // Week headers
-      for (let c = 0; c < WEEKS_COUNT; c++) {
-        const colMonday = new Date(startMonday.getTime() + c * 7 * DAY);
-        const colMondayIso = colMonday.toISOString().slice(0, 10);
-        const colX = gx + c * colW;
-
-        if (c > 0) {
-          s.addShape(pptx.ShapeType.line, {
-            x: colX,
-            y: gy,
-            w: 0,
-            h: totalGridH,
-            line: { color: C.hair, width: 0.5 },
-          });
-        }
-
-        s.addText(`Week of ${colMonday.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' })}`, {
-          x: colX,
-          y: gy + 0.1,
-          w: colW,
-          h: 0.24,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 8,
-          color: C.mute,
-          align: 'center',
-          valign: 'middle',
-        });
-
-        // Meeting flag
-        if (isMeeting && payload.meetingDate) {
-          const mDate = payload.meetingDate.slice(0, 10);
-          const nextMondayIso = new Date(colMonday.getTime() + 7 * DAY).toISOString().slice(0, 10);
-          if (mDate >= colMondayIso && mDate < nextMondayIso) {
-            s.addText(`Meeting, ${fmt(mDate, false)}`, {
-              x: colX + 0.1,
-              y: gy - 0.28,
-              w: colW - 0.2,
-              h: 0.22,
-              shape: 'roundRect',
-              rectRadius: 0.11,
-              fill: { color: C.gold },
-              color: C.ink,
-              fontFace: F.body,
-              fontSize: 8,
-              bold: true,
-              align: 'center',
-              valign: 'middle',
-            });
-          }
-        }
-
-        // Next meeting flag
-        if (isMeeting && payload.nextMeeting?.date) {
-          const nmDate = payload.nextMeeting.date.slice(0, 10);
-          const nextMondayIso = new Date(colMonday.getTime() + 7 * DAY).toISOString().slice(0, 10);
-          if (nmDate >= colMondayIso && nmDate < nextMondayIso) {
-            s.addText(`Next meeting, ${fmt(nmDate, false)}`, {
-              x: colX + 0.1,
-              y: gy + totalGridH + 0.06,
-              w: colW - 0.2,
-              h: 0.22,
-              shape: 'roundRect',
-              rectRadius: 0.11,
-              fill: { color: C.goldDeep },
-              color: C.white,
-              fontFace: F.body,
-              fontSize: 8,
-              bold: true,
-              align: 'center',
-              valign: 'middle',
-            });
-          }
-        }
-      }
-
-      // Horizontal dividers
-      s.addShape(pptx.ShapeType.line, {
-        x: gx,
-        y: gy + headH,
-        w: gw,
-        h: 0,
-        line: { color: C.hair, width: 0.75 },
-      });
-
-      // Lanes
-      chunkOwners.forEach((ownerName, laneIdx) => {
-        const laneY = gy + headH + laneIdx * laneH;
-        if (laneIdx > 0) {
-          s.addShape(pptx.ShapeType.line, {
-            x: gx,
-            y: laneY,
-            w: gw,
-            h: 0,
-            line: { color: C.hair, width: 0.5 },
-          });
-        }
-
-        // Assignee avatar and name
-        const initials = ownerName
-          .split(' ')
-          .map((p) => p[0])
-          .slice(0, 2)
-          .join('')
-          .toUpperCase();
-
-        s.addShape(pptx.ShapeType.ellipse, {
-          x: 0.6,
-          y: laneY + 0.2,
-          w: 0.48,
-          h: 0.48,
-          fill: { color: C.navy },
-          line: { color: C.navy, width: 0 },
-        });
-
-        s.addText(initials || 'UN', {
-          x: 0.6,
-          y: laneY + 0.2,
-          w: 0.48,
-          h: 0.48,
-          margin: 0,
-          fontFace: F.head,
-          fontSize: 10,
-          bold: true,
-          color: C.white,
-          align: 'center',
-          valign: 'middle',
-        });
-
-        s.addText(clip(ownerName, 18), {
-          x: 1.18,
-          y: laneY + 0.24,
-          w: 0.98,
-          h: 0.4,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 10,
-          bold: true,
-          color: C.ink,
-          valign: 'middle',
-        });
-
-        // Actions in lane
-        const ownerActions = acts.filter((a) => short(a.owner) === ownerName && a.due);
-        ownerActions.forEach((a) => {
-          const ad = d(a.due!);
-          const diffDays = Math.floor((ad.getTime() - startMonday.getTime()) / DAY);
-          const colIndex = Math.floor(diffDays / 7);
-
-          if (colIndex >= 0 && colIndex < WEEKS_COUNT) {
-            const dayInWeek = diffDays % 7;
-            const cardX = gx + colIndex * colW + 0.08 + (dayInWeek / 7) * (colW - 1.35);
-            const cardY = laneY + 0.15;
-            const cardW = 1.25;
-            const cardH = laneH - 0.3;
-            const col = (STATUS as any)[a.b || 'upcoming'].color;
-
-            s.addShape(pptx.ShapeType.roundRect, {
-              x: cardX,
-              y: cardY,
-              w: cardW,
-              h: cardH,
-              rectRadius: 0.08,
-              fill: { color: tint(col, 0.12) },
-              line: { color: tint(col, 0.45), width: 0.75 },
-            });
-
-            s.addShape(pptx.ShapeType.ellipse, {
-              x: cardX + 0.08,
-              y: cardY + 0.1,
-              w: 0.1,
-              h: 0.1,
-              fill: { color: col },
-              line: { color: col, width: 0 },
-            });
-
-            s.addText(fmt(a.due), {
-              x: cardX + 0.22,
-              y: cardY + 0.06,
-              w: cardW - 0.26,
-              h: 0.18,
-              margin: 0,
-              fontFace: F.body,
-              fontSize: 7.5,
-              bold: true,
-              color: col,
-              valign: 'middle',
-            });
-
-            s.addText(clip(a.title, 26), {
-              x: cardX + 0.08,
-              y: cardY + 0.26,
-              w: cardW - 0.16,
-              h: cardH - 0.3,
-              margin: 0,
-              fontFace: F.body,
-              fontSize: 7.5,
-              color: C.ink,
-              valign: 'top',
-              fit: 'none',
-              lineSpacingMultiple: 0.95,
-            });
-          }
-        });
-      });
-
-      drawFooter(s, currentSlideNum++, TOTAL_SLIDES, footerLabel, assets.logo);
-    });
-  }
-
-  // ----------------------------------------------------
-  // 4. Milestones by Horizon
-  // ----------------------------------------------------
-  if (includeHorizon) {
-    const s = pptx.addSlide();
-    s.background = { data: assets.ridge };
-    const horizonTitle = isMeeting
-      ? 'From this week to what still needs a date'
-      : 'From what slipped to what is next';
-    drawHeading(s, 'Milestones by horizon', horizonTitle);
-
-    const colW = (W - 1.2 - 0.6) / 4;
-    const colY = 2.1;
-    const colH = 3.6;
-
-    let cols: { kicker: string; count: number; items: typeof acts }[] = [];
-
-    if (isMeeting) {
-      // 4 columns: This week, Next week, Later, No date yet
-      const startMon = calculateStartMondayOfWeekBefore(payload.meetingDate ? payload.meetingDate : TODAY);
-      const nextMon = new Date(startMon.getTime() + 14 * DAY);
-      const thisWeekMonIso = new Date(startMon.getTime() + 7 * DAY).toISOString().slice(0, 10);
-      const nextWeekMonIso = nextMon.toISOString().slice(0, 10);
-      const afterNextMonIso = new Date(nextMon.getTime() + 7 * DAY).toISOString().slice(0, 10);
-
-      const thisWeekActs = acts.filter((a) => a.due && a.due >= thisWeekMonIso && a.due < nextWeekMonIso);
-      const nextWeekActs = acts.filter((a) => a.due && a.due >= nextWeekMonIso && a.due < afterNextMonIso);
-      const laterActs = acts.filter((a) => a.due && a.due >= afterNextMonIso);
-      const noDateActs = acts.filter((a) => !a.due);
-
-      cols = [
-        { kicker: 'This week', count: thisWeekActs.length, items: thisWeekActs },
-        { kicker: 'Next week', count: nextWeekActs.length, items: nextWeekActs },
-        { kicker: 'Later', count: laterActs.length, items: laterActs },
-        { kicker: 'No date yet', count: noDateActs.length, items: noDateActs },
-      ];
-    } else {
-      cols = [
-        { kicker: 'Overdue', count: count('overdue'), items: acts.filter((a) => a.b === 'overdue') },
-        { kicker: 'This week', count: count('today') + acts.filter((a) => a.b === 'upcoming' && a.due && a.due <= new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10)).length, items: acts.filter((a) => a.b === 'today') },
-        { kicker: 'Next week', count: acts.filter((a) => a.b === 'upcoming').length, items: acts.filter((a) => a.b === 'upcoming').slice(0, 5) },
-        { kicker: 'Later', count: count('unscheduled'), items: acts.filter((a) => a.b === 'unscheduled').slice(0, 5) },
-      ];
-    }
-
-    cols.forEach((col, i) => {
-      const x = 0.6 + i * (colW + 0.2);
-
-      s.addText(
-        [
-          { text: col.kicker, options: { bold: true, color: C.ink } },
-          { text: `   ${col.count}`, options: { color: C.goldDeep, bold: true } },
-        ],
-        {
-          x,
-          y: colY,
-          w: colW,
-          h: 0.35,
-          margin: 0,
-          fontFace: F.head,
-          fontSize: 14,
-          valign: 'middle',
-        }
-      );
-
-      s.addShape(pptx.ShapeType.line, {
-        x,
-        y: colY + 0.45,
-        w: colW,
-        h: 0,
-        line: { color: C.hair, width: 1 },
-      });
-
-      const itemsToShow = col.items.slice(0, 4);
-      if (itemsToShow.length === 0) {
-        s.addText('Nothing here', {
-          x,
-          y: colY + 0.6,
-          w: colW,
-          h: 0.3,
-          margin: 0,
-          fontFace: F.body,
-          fontSize: 9.5,
-          color: C.mute,
-        });
-      } else {
-        itemsToShow.forEach((a, j) => {
-          const itemY = colY + 0.6 + j * 0.72;
-          s.addText(clip(a.title, 55), {
-            x,
-            y: itemY,
-            w: colW,
-            h: 0.4,
-            margin: 0,
-            fontFace: F.body,
-            fontSize: 9,
-            bold: true,
-            color: C.ink,
-            valign: 'top',
-            fit: 'none',
-          });
-
-          const sub = a.due
-            ? `${short(a.owner).split(' ')[0]}, ${fmt(a.due)}`
-            : `${short(a.owner).split(' ')[0]}, date to be agreed`;
-
-          s.addText(sub, {
-            x,
-            y: itemY + 0.42,
-            w: colW,
-            h: 0.22,
-            margin: 0,
-            fontFace: F.body,
-            fontSize: 8,
-            color: C.mute,
-          });
-        });
-      }
     });
 
-    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, footerLabel, assets.logo, false);
-  }
-
-  // ----------------------------------------------------
-  // 5. Needs Attention
-  // ----------------------------------------------------
-  if (includeAttention) {
-    const s = pptx.addSlide();
-    s.background = { data: assets.attention };
-    const attentionTitle = isMeeting
-      ? 'Still without a date or an owner'
-      : 'Overdue, and still without a date';
-    drawHeading(s, 'Needs attention', attentionTitle);
-
-    const undatedActs = acts.filter((a) => !a.due);
-    const cardW = isMeeting ? 10.5 : 5.8;
-    const cardX = 0.6;
-    const cardY = 2.0;
-
+    // Grid frame
     s.addShape(pptx.ShapeType.roundRect, {
-      x: cardX,
-      y: cardY,
-      w: cardW,
-      h: 3.8,
-      rectRadius: 0.16,
+      x: 0.6,
+      y: gy,
+      w: W - 1.2,
+      h: headH + laneH * chunkOwners.length + 0.08,
+      rectRadius: 0.1,
       fill: { color: C.white },
       line: { color: C.hair, width: 0.75 },
       shadow: SHADOW,
     });
 
-    s.addText(
-      [
-        { text: 'No date yet ', options: { bold: true, color: C.ink } },
-        { text: ` ${undatedActs.length}`, options: { bold: true, color: C.mute } },
-      ],
-      {
-        x: cardX + 0.35,
-        y: cardY + 0.3,
-        w: cardW - 0.7,
-        h: 0.35,
-        margin: 0,
-        fontFace: F.head,
-        fontSize: 16,
+    // Week columns
+    for (let w = 0; w < WEEKS_COUNT; w++) {
+      const wx = gx + w * colW;
+      const wsDate = new Date(startMonday.getTime() + w * 7 * DAY);
+      const ws = wsDate.toISOString().slice(0, 10);
+      const nextWs = new Date(startMonday.getTime() + (w + 1) * 7 * DAY).toISOString().slice(0, 10);
+      const isNow = TODAY >= ws && TODAY < nextWs;
+
+      if (isNow) {
+        s.addShape(pptx.ShapeType.rect, {
+          x: wx,
+          y: gy + 0.04,
+          w: colW,
+          h: headH + laneH * chunkOwners.length,
+          fill: { color: 'FBF3DC' },
+          line: { color: 'FBF3DC', width: 0 },
+        });
       }
-    );
 
-    s.addText('Agree a date at the next meeting, or set one in the Action Command Hub.', {
-      x: cardX + 0.35,
-      y: cardY + 0.7,
-      w: cardW - 0.7,
-      h: 0.26,
-      margin: 0,
-      fontFace: F.body,
-      fontSize: 9.5,
-      color: C.mute,
-    });
-
-    undatedActs.slice(0, 3).forEach((a, j) => {
-      const iy = cardY + 1.15 + j * 0.8;
-      s.addShape(pptx.ShapeType.roundRect, {
-        x: cardX + 0.35,
-        y: iy,
-        w: cardW - 0.7,
-        h: 0.68,
-        rectRadius: 0.08,
-        fill: { color: C.light },
-        line: { color: C.hair, width: 0.5 },
-      });
-
-      s.addText(clip(a.title, 65), {
-        x: cardX + 0.5,
-        y: iy + 0.12,
-        w: cardW - 2.8,
-        h: 0.24,
-        margin: 0,
-        fontFace: F.head,
-        fontSize: 10.5,
-        bold: true,
-        color: C.ink,
-      });
-
-      s.addText(`${a.id}  |  ${short(a.owner)}`, {
-        x: cardX + 0.5,
-        y: iy + 0.38,
-        w: cardW - 2.8,
-        h: 0.2,
-        margin: 0,
-        fontFace: F.body,
-        fontSize: 8.5,
-        color: C.mute,
-      });
-
-      drawChip(s, cardX + cardW - 2.1, iy + 0.2, 'Date to be agreed', C.mute, 1.4);
-    });
-
-    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, footerLabel, assets.logo);
-  }
-
-  // ----------------------------------------------------
-  // 6. Before the Next Meeting (Slide 6 for meetings)
-  // ----------------------------------------------------
-  if (includeNextMeeting) {
-    const s = pptx.addSlide();
-    s.background = { data: assets.close };
-
-    const nmDate = payload.nextMeeting?.date;
-    const nmTime = payload.nextMeeting?.time || '';
-    const nmTitle = nmDate ? `${fmt(nmDate)} ${exportYear}, ${nmTime}`.trim() : 'Next meeting';
-
-    drawHeading(s, 'Before the next meeting', nmTitle);
-
-    const colW = 3.8;
-    const colGap = 0.35;
-    const colY = 2.1;
-    const colH = 3.6;
-
-    // Col 1: DUE BEFORE IT
-    const dueBeforeActions = acts.filter((a) => a.due && (!nmDate || a.due <= nmDate));
-    const dueBeforeLines = dueBeforeActions.map((a) => `${fmt(a.due)}  ${clip(a.title, 42)}`);
-    if (dueBeforeLines.length === 0) dueBeforeLines.push('No actions due before the next meeting');
-
-    // Col 2: BRING THESE QUESTIONS
-    const questions = payload.openQuestions || [];
-    const questionLines = questions.length > 0 ? questions.map((q) => clip(q, 75)) : ['No open questions recorded'];
-
-    // Col 3: STILL NEEDS A DATE
-    const undated = acts.filter((a) => !a.due);
-    const undatedLines = undated.length > 0 ? undated.map((a) => clip(a.title, 55)) : ['All actions are dated'];
-
-    const cols: [string, string[]][] = [
-      ['DUE BEFORE IT', dueBeforeLines],
-      ['BRING THESE QUESTIONS', questionLines],
-      ['STILL NEEDS A DATE', undatedLines],
-    ];
-
-    cols.forEach(([title, items], i) => {
-      const x = 0.6 + i * (colW + colGap);
-
-      s.addText(title, {
-        x,
-        y: colY,
+      s.addText(`Week of ${fmt(ws, false)}`, {
+        x: wx,
+        y: gy + 0.08,
         w: colW,
-        h: 0.28,
+        h: headH - 0.1,
         margin: 0,
         fontFace: F.body,
         fontSize: 9,
         bold: true,
-        color: C.goldDeep,
-        charSpacing: 2,
+        color: isNow ? C.goldDeep : C.mute,
+        align: 'center',
+        valign: 'middle',
       });
 
-      const bulletText = items.map((item) => `•  ${item}`).join('\n\n');
-      s.addText(bulletText, {
-        x,
-        y: colY + 0.35,
-        w: colW,
-        h: colH - 0.4,
+      if (w > 0) {
+        s.addShape(pptx.ShapeType.line, {
+          x: wx,
+          y: gy + 0.1,
+          w: 0,
+          h: headH + laneH * chunkOwners.length - 0.12,
+          line: { color: 'EDF0F5', width: 0.75 },
+        });
+      }
+    }
+
+    // Assignee lanes
+    chunkOwners.forEach((o, r) => {
+      const ly = gy + headH + r * laneH;
+      s.addShape(pptx.ShapeType.line, {
+        x: 0.75,
+        y: ly,
+        w: W - 1.5,
+        h: 0,
+        line: { color: 'EDF0F5', width: 0.75 },
+      });
+
+      // Avatar circle with initials
+      const initials = o
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+
+      s.addShape(pptx.ShapeType.ellipse, {
+        x: 0.8,
+        y: ly + laneH / 2 - 0.19,
+        w: 0.38,
+        h: 0.38,
+        fill: { color: C.navy2 },
+        line: { color: C.navy2, width: 0 },
+      });
+      s.addText(initials, {
+        x: 0.8,
+        y: ly + laneH / 2 - 0.19,
+        w: 0.38,
+        h: 0.38,
         margin: 0,
         fontFace: F.body,
-        fontSize: 10,
-        color: C.body,
-        valign: 'top',
-        lineSpacingMultiple: 1.1,
+        fontSize: 9,
+        bold: true,
+        color: C.white,
+        align: 'center',
+        valign: 'middle',
       });
+      s.addText(clip(o, 18), {
+        x: 1.26,
+        y: ly + 0.1,
+        w: 0.95,
+        h: laneH - 0.2,
+        margin: 0,
+        fontFace: F.body,
+        fontSize: 9.5,
+        bold: true,
+        color: C.ink,
+        valign: 'middle',
+      });
+
+      // Actions for this assignee in the 7-week window
+      const mine = dated.filter((a) => (a.owner ? short(a.owner) === o : o === 'Owner to be agreed' || o === 'Unassigned'));
+      const slots: { x: number; row: number }[] = [];
+      let overflowCount = 0;
+
+      mine.forEach((a) => {
+        if (!a.due) return;
+        const off = (d(a.due).getTime() - startMonday.getTime()) / DAY;
+        if (off < 0 || off >= WEEKS_COUNT * 7) return; // Outside window
+
+        let x = gx + (off / 7) * colW - 0.06;
+        x = Math.max(gx + 0.04, Math.min(x, gx + gw - 1.55));
+
+        let row = 0;
+        while (slots.some((sl) => sl.row === row && Math.abs(sl.x - x) < 1.6)) {
+          row++;
+        }
+
+        if (row >= 2) {
+          overflowCount++;
+          return;
+        }
+
+        slots.push({ x, row });
+        const y = ly + 0.05 + row * 0.42;
+        const col = (STATUS as any)[a.b || 'upcoming'].color;
+
+        s.addShape(pptx.ShapeType.roundRect, {
+          x,
+          y,
+          w: 1.52,
+          h: 0.38,
+          rectRadius: 0.08,
+          fill: { color: tint(col, 0.14) },
+          line: { color: col, width: 1 },
+        });
+        s.addShape(pptx.ShapeType.ellipse, {
+          x: x + 0.08,
+          y: y + 0.09,
+          w: 0.1,
+          h: 0.1,
+          fill: { color: col },
+          line: { color: col, width: 0 },
+        });
+        s.addText(fmt(a.due), {
+          x: x + 0.22,
+          y: y + 0.03,
+          w: 1.25,
+          h: 0.16,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 7.5,
+          bold: true,
+          color: C.ink,
+          valign: 'middle',
+        });
+        s.addText(clip(a.title, 24), {
+          x: x + 0.22,
+          y: y + 0.19,
+          w: 1.27,
+          h: 0.16,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 7.5,
+          color: C.body,
+          valign: 'middle',
+        });
+      });
+
+      if (overflowCount > 0) {
+        s.addText(`+ ${overflowCount} more in lane`, {
+          x: gx + gw - 1.4,
+          y: ly + laneH - 0.22,
+          w: 1.35,
+          h: 0.18,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 7.5,
+          bold: true,
+          color: C.goldDeep,
+          align: 'right',
+        });
+      }
     });
 
-    const meetingDateStr = payload.meetingDate ? fmt(payload.meetingDate) : fmt(TODAY);
-    s.addText(
-      `Drawn from the reviewed record of the meeting on ${meetingDateStr} ${exportYear}. Check owners and dates before you share it.`,
-      {
-        x: 0.6,
-        y: 5.85,
-        w: 11,
-        h: 0.3,
-        margin: 0,
-        fontFace: F.body,
-        fontSize: 10,
-        color: C.mute,
-      }
-    );
+    // Today vertical marker line and chip
+    const todayOff = (d(TODAY).getTime() - startMonday.getTime()) / DAY;
+    if (todayOff >= 0 && todayOff <= WEEKS_COUNT * 7) {
+      const tx = gx + (todayOff / 7) * colW;
+      s.addShape(pptx.ShapeType.line, {
+        x: tx,
+        y: gy + headH - 0.02,
+        w: 0,
+        h: laneH * chunkOwners.length,
+        line: { color: C.goldDeep, width: 1.5, dashType: 'dash' },
+      });
+      drawChip(s, tx - 0.6, gy - 0.34, `Today, ${fmt(TODAY, false)}`, C.goldDeep, 1.2);
+    }
 
-    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, footerLabel, assets.logo);
+    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, payload.project, assets.logo);
+  });
+
+  // ----------------------------------------------------
+  // 4. Milestones by Horizon
+  // ----------------------------------------------------
+  {
+    const s = pptx.addSlide();
+    s.background = { data: assets.ridge, path: 'bg_ridge.jpg' };
+    drawHeading(s, 'Milestones by horizon', 'From what slipped to what is next', 10);
+
+    const todayUtc = d(TODAY);
+    const dayOfWeek = todayUtc.getUTCDay();
+    const daysToSunday = (7 - dayOfWeek) % 7;
+    const thisWeekEndIso = new Date(todayUtc.getTime() + daysToSunday * DAY).toISOString().slice(0, 10);
+    const nextWeekStartIso = new Date(todayUtc.getTime() + (daysToSunday + 1) * DAY).toISOString().slice(0, 10);
+    const nextWeekEndIso = new Date(todayUtc.getTime() + (daysToSunday + 7) * DAY).toISOString().slice(0, 10);
+
+    const phases = [
+      { k: 'overdue', title: 'Overdue', items: acts.filter((a) => a.b === 'overdue') },
+      {
+        k: 'today',
+        title: 'This week',
+        items: open.filter((a) => a.due && a.due >= TODAY && a.due <= thisWeekEndIso),
+      },
+      {
+        k: 'upcoming',
+        title: 'Next week',
+        items: open.filter((a) => a.due && a.due >= nextWeekStartIso && a.due <= nextWeekEndIso),
+      },
+      {
+        k: 'upcoming',
+        title: 'Later',
+        items: open.filter((a) => a.due && a.due > nextWeekEndIso),
+      },
+    ];
+
+    phases.forEach((p, i) => {
+      const x = COLS_X[i] + 0.3;
+      const col = (STATUS as any)[p.k].color;
+      s.addText(
+        [
+          { text: p.title, options: { bold: true, color: C.ink } },
+          { text: `   ${p.items.length}`, options: { bold: true, color: col } },
+        ],
+        {
+          x,
+          y: 1.88,
+          w: 2.55,
+          h: 0.4,
+          margin: 0,
+          fontFace: F.head,
+          fontSize: 15,
+          valign: 'middle',
+        }
+      );
+
+      const shown = p.items.slice(0, 4);
+      shown.forEach((a, j) => {
+        const y = 2.42 + j * 0.62;
+        s.addText(clip(a.title, 42), {
+          x,
+          y,
+          w: 2.55,
+          h: 0.36,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 10,
+          bold: true,
+          color: C.ink,
+          valign: 'top',
+          fit: 'shrink',
+        });
+        s.addText(`${first2(a.owner)}, ${fmt(a.due)}`, {
+          x,
+          y: y + 0.33,
+          w: 2.55,
+          h: 0.22,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 8.5,
+          color: C.mute,
+        });
+      });
+
+      if (p.items.length > 4) {
+        s.addText(`+ ${p.items.length - 4} more`, {
+          x,
+          y: 2.42 + 4 * 0.62,
+          w: 2.55,
+          h: 0.24,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 9,
+          bold: true,
+          color: col,
+        });
+      }
+    });
+
+    // Slide 4 uses light text on the dark navy mountain ridge
+    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, payload.project, assets.logo, true);
   }
 
   // ----------------------------------------------------
-  // 6. Progress Slide (Hub mode)
+  // 5. Needs Attention (Overdue & No Date Yet)
   // ----------------------------------------------------
-  if (includeProgress) {
+  {
     const s = pptx.addSlide();
-    s.background = { data: assets.close };
+    s.background = { data: assets.attention, path: 'bg_attention.jpg' };
+    drawHeading(s, 'Needs attention', 'Overdue, and still without a date', 10);
+
+    const cards = [
+      {
+        k: 'overdue',
+        title: 'Overdue',
+        items: acts.filter((a) => a.b === 'overdue'),
+        badge: (a: any) =>
+          a.due ? `${Math.max(1, Math.round((d(TODAY).getTime() - d(a.due).getTime()) / DAY))} days overdue` : 'Overdue',
+        next: 'Next step: agree a new date with each owner.',
+      },
+      {
+        k: 'unscheduled',
+        title: 'No date yet',
+        items: acts.filter((a) => a.b === 'unscheduled'),
+        badge: () => 'Date to be agreed',
+        next: 'Next step: give each one an owner and a date.',
+      },
+    ];
+
+    cards.forEach((c, i) => {
+      const x = 0.6 + i * 6.17;
+      const y = 1.85;
+      const w = 5.95;
+      const col = (STATUS as any)[c.k].color;
+      const n = Math.min(c.items.length, 5);
+      const h = 1.75 + n * 0.66;
+
+      s.addShape(pptx.ShapeType.roundRect, {
+        x,
+        y,
+        w,
+        h,
+        rectRadius: 0.12,
+        fill: { color: C.white },
+        line: { color: C.hair, width: 0.75 },
+        shadow: SHADOW,
+      });
+      s.addShape(pptx.ShapeType.rect, {
+        x: x + 0.3,
+        y: y + 0.3,
+        w: 0.5,
+        h: 0.06,
+        fill: { color: col },
+        line: { color: col, width: 0 },
+      });
+      s.addText(
+        [
+          { text: c.title, options: { color: C.ink } },
+          { text: `  ${c.items.length}`, options: { color: col } },
+        ],
+        {
+          x: x + 0.3,
+          y: y + 0.42,
+          w: 5,
+          h: 0.45,
+          margin: 0,
+          fontFace: F.head,
+          fontSize: 18,
+          bold: true,
+          valign: 'middle',
+        }
+      );
+      s.addText(c.next, {
+        x: x + 0.3,
+        y: y + h - 0.55,
+        w: w - 0.6,
+        h: 0.3,
+        margin: 0,
+        fontFace: F.body,
+        fontSize: 9.5,
+        italic: true,
+        color: C.mute,
+        valign: 'middle',
+      });
+
+      c.items.slice(0, 5).forEach((a, j) => {
+        const ry = y + 1.05 + j * 0.66;
+        if (j > 0) {
+          s.addShape(pptx.ShapeType.line, {
+            x: x + 0.3,
+            y: ry - 0.08,
+            w: w - 0.6,
+            h: 0,
+            line: { color: 'EDF0F5', width: 0.75 },
+          });
+        }
+        s.addText(clip(a.title, 44), {
+          x: x + 0.3,
+          y: ry,
+          w: 4.0,
+          h: 0.3,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 10.5,
+          bold: true,
+          color: C.ink,
+          valign: 'middle',
+          fit: 'shrink',
+        });
+        s.addText(`${a.id}  |  ${short(a.owner)}${a.due ? '  |  was due ' + fmt(a.due) : ''}`, {
+          x: x + 0.3,
+          y: ry + 0.29,
+          w: 3.6,
+          h: 0.22,
+          margin: 0,
+          fontFace: F.body,
+          fontSize: 8.5,
+          color: C.mute,
+        });
+        s.addText(c.badge(a), {
+          x: x + w - 0.3 - 1.35,
+          y: ry + 0.08,
+          w: 1.35,
+          h: 0.3,
+          margin: 0,
+          shape: 'roundRect',
+          rectRadius: 0.15,
+          fill: { color: tint(col, 0.14) },
+          line: { color: col, width: 0.75 },
+          color: c.k === 'overdue' ? 'B4303E' : C.body,
+          fontFace: F.body,
+          fontSize: 8.5,
+          bold: true,
+          align: 'center',
+          valign: 'middle',
+        });
+      });
+    });
+
+    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, payload.project, assets.logo);
+  }
+
+  // ----------------------------------------------------
+  // 6. Progress Slide
+  // ----------------------------------------------------
+  {
+    const s = pptx.addSlide();
+    s.background = { data: assets.close, path: 'bg_close.jpg' };
     drawHeading(s, 'Progress', `${count('completed')} of ${acts.length} action${acts.length === 1 ? '' : 's'} complete`, 10);
 
     const order = ['completed', 'today', 'upcoming', 'overdue', 'unscheduled'];
@@ -1433,8 +1141,42 @@ export async function renderTimelinePptx(
       }
     );
 
-    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, footerLabel, assets.logo);
+    drawFooter(s, currentSlideNum++, TOTAL_SLIDES, payload.project, assets.logo);
   }
 
   return { pptx, slideCount: TOTAL_SLIDES };
+}
+
+/**
+ * Sanitizes an OpenXML PowerPoint package to ensure strict ECMA-376 / ISO/IEC 29500 compliance.
+ *
+ * PptxGenJS v3.x erroneously adds phantom slideMaster overrides (<Override PartName="/ppt/slideMasters/slideMasterN.xml" .../>)
+ * to [Content_Types].xml for every slide in a multi-slide presentation, even though only slideMaster1.xml exists.
+ * When Microsoft PowerPoint opens a presentation in Protected View (files downloaded from the web),
+ * Office File Validation (OFV) flags these missing declared parts as file corruption and halts with:
+ * "Sorry, PowerPoint can't read <file>.pptx".
+ *
+ * This function removes phantom slideMaster overrides so every part declared in [Content_Types].xml actually exists.
+ */
+export async function sanitizePptxPackageBlob(rawBlob: Blob): Promise<Blob> {
+  const zip = await JSZip.loadAsync(rawBlob);
+  const ctFile = zip.file('[Content_Types].xml');
+  if (ctFile) {
+    let ct = await ctFile.async('string');
+    ct = ct.replace(/<Override PartName="\/ppt\/slideMasters\/slideMaster([2-9]|\d{2,})\.xml"[^>]*\/>/g, '');
+    zip.file('[Content_Types].xml', ct);
+  }
+  return await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    compression: 'DEFLATE',
+  });
+}
+
+/**
+ * Exports a PowerPoint presentation as a sanitized, OFV-compliant Blob.
+ */
+export async function exportSanitizedPptxBlob(pptx: any): Promise<Blob> {
+  const rawBlob = (await pptx.write({ outputType: 'blob', compression: true })) as Blob;
+  return await sanitizePptxPackageBlob(rawBlob);
 }
