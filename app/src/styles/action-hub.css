@@ -826,6 +826,8 @@
     right: 12px !important;
     width: auto !important;
     max-width: calc(100vw - 24px) !important;
+    transform: none !important;
+    z-index: 10000 !important;
     box-shadow: 0 -8px 24px rgba(22, 38, 63, 0.2) !important;
   }
 }

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ActionRecord } from '../../lib/actions/types';
 import {
@@ -48,6 +49,68 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildingAction, setBuildingAction] = useState<'download' | 'save' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [popoverCoords, setPopoverCoords] = useState<{
+    top?: number;
+    bottom?: number;
+    right?: number;
+    caretRight?: number;
+    isAbove?: boolean;
+    isMobile?: boolean;
+  }>({});
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+      setPopoverCoords({ isMobile: true });
+      return;
+    }
+
+    const popoverWidth = 380;
+    const popoverEstimatedHeight = 360;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const isAbove = spaceBelow < popoverEstimatedHeight && rect.top > popoverEstimatedHeight;
+
+    const rightPos = Math.max(16, window.innerWidth - rect.right);
+    const triggerCenter = rect.left + rect.width / 2;
+    const caretRight = Math.max(20, Math.min(popoverWidth - 20, window.innerWidth - rightPos - triggerCenter));
+
+    if (isAbove) {
+      setPopoverCoords({
+        bottom: window.innerHeight - rect.top + 8,
+        right: rightPos,
+        caretRight,
+        isAbove: true,
+        isMobile: false,
+      });
+    } else {
+      setPopoverCoords({
+        top: rect.bottom + 8,
+        right: rightPos,
+        caretRight,
+        isAbove: false,
+        isMobile: false,
+      });
+    }
+  }, [triggerRef]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+
+    const handleScrollOrResize = () => {
+      updatePosition();
+    };
+
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    return () => {
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+    };
+  }, [isOpen, updatePosition]);
 
   // Available projects for saving
   const [projectOptions, setProjectOptions] = useState<{ id: string; title: string }[]>([]);
@@ -156,6 +219,7 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
   }, [isOpen, onClose, triggerRef]);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   const activeActionCount = actions.filter((a) => !a.archived_at).length;
 
@@ -306,43 +370,89 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
     }
   };
 
-  return (
+  const content = (
+    <>
+      {popoverCoords.isMobile && (
+        <div
+          className="ach-timeline-backdrop"
+          onClick={onClose}
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(22, 38, 63, 0.45)',
+            zIndex: 9998,
+          }}
+        />
+      )}
     <div
       ref={panelRef}
       className="ach-timeline-popover"
       role="dialog"
       aria-label="Timeline PowerPoint"
       tabIndex={-1}
-      style={{
-        position: 'absolute',
-        top: 'calc(100% + 10px)',
-        right: '0',
+      style={popoverCoords.isMobile ? {
+        position: 'fixed',
+        bottom: '20px',
+        left: '12px',
+        right: '12px',
+        width: 'auto',
+        maxWidth: 'calc(100vw - 24px)',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        background: '#FFFFFF',
+        borderRadius: '12px',
+        boxShadow: '0 20px 48px rgba(22, 38, 63, 0.28)',
+        border: '1px solid #DCE2EC',
+        padding: '20px 22px',
+        zIndex: 10000,
+        textAlign: 'left',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      } : {
+        position: 'fixed',
+        top: popoverCoords.top !== undefined ? `${popoverCoords.top}px` : undefined,
+        bottom: popoverCoords.bottom !== undefined ? `${popoverCoords.bottom}px` : undefined,
+        right: popoverCoords.right !== undefined ? `${popoverCoords.right}px` : '16px',
         width: '380px',
         maxWidth: 'calc(100vw - 32px)',
         background: '#FFFFFF',
         borderRadius: '12px',
-        boxShadow: '0 12px 32px rgba(22, 38, 63, 0.16), 0 2px 8px rgba(22, 38, 63, 0.08)',
+        boxShadow: '0 16px 40px rgba(22, 38, 63, 0.20), 0 2px 10px rgba(22, 38, 63, 0.08)',
         border: '1px solid #DCE2EC',
         padding: '20px 22px',
-        zIndex: 150,
+        zIndex: 10000,
         textAlign: 'left',
         fontFamily: 'Inter, system-ui, sans-serif',
       }}
     >
       {/* Caret pointing to button */}
+      {!popoverCoords.isMobile && (
       <div
         style={{
           position: 'absolute',
-          top: '-6px',
-          right: '48px',
+          ...(popoverCoords.isAbove
+            ? {
+                bottom: '-6px',
+                borderBottom: '1px solid #DCE2EC',
+                borderRight: '1px solid #DCE2EC',
+                borderTop: 'none',
+                borderLeft: 'none',
+              }
+            : {
+                top: '-6px',
+                borderTop: '1px solid #DCE2EC',
+                borderLeft: '1px solid #DCE2EC',
+                borderBottom: 'none',
+                borderRight: 'none',
+              }),
+          right: `${popoverCoords.caretRight ?? 48}px`,
           width: '12px',
           height: '12px',
           background: '#FFFFFF',
-          borderTop: '1px solid #DCE2EC',
-          borderLeft: '1px solid #DCE2EC',
           transform: 'rotate(45deg)',
         }}
       />
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
         <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#16263F' }}>
@@ -533,5 +643,8 @@ export const ActionTimelinePopover: React.FC<ActionTimelinePopoverProps> = ({
         Check owners and dates before you share it.
       </div>
     </div>
+    </>
   );
+
+  return createPortal(content, document.body);
 };

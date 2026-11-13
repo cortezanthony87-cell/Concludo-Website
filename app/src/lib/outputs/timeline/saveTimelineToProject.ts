@@ -19,8 +19,8 @@ export async function logTimelineExportEvent(
     await supabase.from('audit_logs').insert({
       user_id: params.userId,
       action: `timeline_export_${params.method}`,
-      resource_type: 'action_timeline',
-      resource_id: params.projectIdOrView,
+      entity_type: 'action_timeline',
+      entity_id: params.projectIdOrView,
       details: {
         action_count: params.actionCount,
         slide_count: params.slideCount,
