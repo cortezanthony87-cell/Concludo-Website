@@ -56,4 +56,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
+-- Restore previous Users can create their own outputs policy
+DROP POLICY IF EXISTS "Users can create their own outputs" ON public.outputs;
+CREATE POLICY "Users can create their own outputs" ON public.outputs
+FOR INSERT
+WITH CHECK (
+    (user_id = auth.uid())
+    AND ((output_type <> 'follow_up_email'::text) OR can_use_feature(auth.uid(), 'follow_up_email_draft'::text))
+    AND (EXISTS (
+        SELECT 1
+        FROM projects p
+        WHERE p.id = outputs.project_id
+          AND p.user_id = auth.uid()
+          AND p.deleted_at IS NULL
+    ))
+);
+
 COMMIT;
