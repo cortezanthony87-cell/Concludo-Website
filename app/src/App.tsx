@@ -201,6 +201,8 @@ export const App: React.FC = () => {
             <Route path="/admin/audit" element={<AdminPortalPage initialTab="audit" />} />
             <Route path="/admin/compliance" element={<AdminPortalPage initialTab="compliance" />} />
             <Route path="/admin/security" element={<AdminPortalPage initialTab="security" />} />
+            <Route path="/admin/presence" element={<AdminPortalPage initialTab="presence" />} />
+            <Route path="/admin/activity" element={<AdminPortalPage initialTab="presence" />} />
 
             {/* Tasklet 18 Integration, Automation & Public API Routes */}
             <Route path="/integrations" element={<IntegrationsPage />} />

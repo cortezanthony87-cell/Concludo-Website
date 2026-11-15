@@ -31,11 +31,20 @@ import {
   Sparkles,
   AlertTriangle,
   Compass,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { usePermissions } from '../../lib/permissions/usePermissions';
 import { getPredictiveAnalysis } from '../../lib/predictive/predictiveService';
 import { PredictiveAnalysisResult } from '../../lib/predictive/types';
+import { AdminPresenceTab } from '../../components/admin/AdminPresenceTab';
+import {
+  fetchAdminPresence,
+  sendAdminHeartbeat,
+  subscribeToAdminPresence,
+  formatRelativeTime,
+  AdminPresenceRecord,
+} from '../../lib/enterprise/adminPresenceClient';
 import {
   Organization,
   OrganizationMember,
@@ -91,6 +100,8 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
     derivedTab = 'compliance';
   } else if (location.pathname.endsWith('/security')) {
     derivedTab = 'security';
+  } else if (location.pathname.endsWith('/presence') || location.pathname.endsWith('/activity')) {
+    derivedTab = 'presence';
   } else if (searchParams.get('tab')) {
     derivedTab = searchParams.get('tab')!;
   }
@@ -103,6 +114,8 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
       navigate('/admin/compliance');
     } else if (tab === 'security') {
       navigate('/admin/security');
+    } else if (tab === 'presence') {
+      navigate('/admin/presence');
     } else if (tab === 'overview') {
       navigate('/admin');
     } else {
@@ -133,6 +146,15 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
+  // Admin Presence & Real-Time Telemetry
+  const [adminPresenceList, setAdminPresenceList] = useState<AdminPresenceRecord[]>([]);
+  const [onlineAdminIds, setOnlineAdminIds] = useState<Set<string>>(new Set());
+
+  const adminPresenceMap = useMemo(() => {
+    const map = new Map<string, AdminPresenceRecord>();
+    adminPresenceList.forEach((a) => map.set(a.user_id, a));
+    return map;
+  }, [adminPresenceList]);
   // Audit Logs state
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
@@ -247,6 +269,7 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
       if (retentionRes.data) setRetentionPolicies(retentionRes.data);
       if (holdsRes.data) setLegalHolds(holdsRes.data);
       if (reviewsRes.data) setAccessReviews(reviewsRes.data);
+      fetchAdminPresence(supabase, selectedOrgId).then((res) => { if (res.data) setAdminPresenceList(res.data); });
 
       try {
         setLoadingOrgPredictive(true);
@@ -308,6 +331,38 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
       loadAuditData();
     }
   }, [selectedOrgId, activeTab, loadAuditData]);
+
+  // Real-time admin presence channel subscription & activity heartbeat
+  useEffect(() => {
+    if (!supabase || !selectedOrgId || !user) return;
+
+    // Send immediate heartbeat on mount
+    sendAdminHeartbeat(supabase, selectedOrgId, 'online');
+
+    const heartbeatTimer = setInterval(() => {
+      sendAdminHeartbeat(supabase, selectedOrgId, 'online');
+    }, 45000);
+
+    const unsubscribe = subscribeToAdminPresence(
+      supabase,
+      selectedOrgId,
+      { id: user.id },
+      (activeIds) => {
+        setOnlineAdminIds(activeIds);
+      },
+      () => {
+        fetchAdminPresence(supabase, selectedOrgId).then((res) => {
+          if (res.data) setAdminPresenceList(res.data);
+        });
+      }
+    );
+    return () => {
+      clearInterval(heartbeatTimer);
+      unsubscribe();
+      sendAdminHeartbeat(supabase, selectedOrgId, 'offline').catch(() => {});
+    };
+  }, [supabase, selectedOrgId, user]);
+
 
   const handleCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -621,6 +676,7 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
         {[
           { id: 'overview', label: 'Overview', icon: Building2 },
           { id: 'users', label: 'User Management', icon: Users },
+          { id: 'presence', label: 'Admin Presence', icon: Activity },
           { id: 'teams', label: 'Teams', icon: FolderKanban },
           { id: 'security', label: 'Security', icon: Lock },
           { id: 'audit', label: 'Audit Logs', icon: FileSpreadsheet },
@@ -657,7 +713,7 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
       </div>
 
       {/* Content Area */}
-      {loadingOrgs || (loadingData && !analytics) ? (
+      {loadingOrgs || (activeTab !== 'presence' && loadingData && !analytics) ? (
         <div style={{ textAlign: 'center', padding: '60px' }}>
           <Loader2 size={32} className="spin-animation" color="#e2b53c" style={{ margin: '0 auto 12px', display: 'block' }} />
           <div style={{ color: '#94a3b8' }}>
@@ -667,6 +723,8 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
               ? 'Loading compliance data...'
               : activeTab === 'security'
               ? 'Loading security dashboard...'
+              : activeTab === 'presence'
+              ? 'Loading administrator presence...'
               : 'Loading organization...'}
           </div>
         </div>
@@ -963,14 +1021,19 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                     {members.map((m) => {
                       const isOwner = m.role === 'organization_owner';
                       const isSuspended = m.profile?.is_suspended;
+                      const presence = adminPresenceMap.get(m.user_id);
+                      const isOnline = onlineAdminIds.has(m.user_id) || presence?.current_status === 'online' || m.user_id === user?.id;
+                      const displayName = m.profile?.full_name || presence?.full_name || 'Organization Member';
+                      const displayEmail = m.profile?.email || presence?.email || m.user_id;
+
                       return (
                         <tr key={m.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
                           <td style={{ padding: '14px 16px' }}>
                             <div style={{ fontWeight: 600, color: '#f8fafc' }}>
-                              {m.profile?.full_name || 'Organization Member'}
+                              {displayName}
                             </div>
                             <div style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
-                              {m.profile?.email || m.user_id}
+                              {displayEmail}
                             </div>
                           </td>
                           <td style={{ padding: '14px 16px' }}>
@@ -990,18 +1053,59 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                             </select>
                           </td>
                           <td style={{ padding: '14px 16px' }}>
-                            <span
-                              style={{
-                                padding: '2px 8px',
-                                borderRadius: '10px',
-                                fontSize: '0.72rem',
-                                fontWeight: 600,
-                                backgroundColor: isSuspended ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                                color: isSuspended ? '#ef4444' : '#22c55e',
-                              }}
-                            >
-                              {isSuspended ? 'SUSPENDED' : 'ACTIVE'}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 600,
+                                  backgroundColor: isSuspended ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                                  color: isSuspended ? '#ef4444' : '#22c55e',
+                                }}
+                              >
+                                {isSuspended ? 'SUSPENDED' : 'ACTIVE'}
+                              </span>
+                              {isOnline ? (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '2px 7px',
+                                    borderRadius: '10px',
+                                    fontSize: '0.70rem',
+                                    fontWeight: 600,
+                                    background: 'rgba(16, 185, 129, 0.15)',
+                                    color: '#6ee7b7',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  }}
+                                  title="Active in workspace right now"
+                                >
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                                  <span>ONLINE</span>
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '2px 7px',
+                                    borderRadius: '10px',
+                                    fontSize: '0.70rem',
+                                    fontWeight: 500,
+                                    background: 'rgba(100, 116, 139, 0.12)',
+                                    color: '#94a3b8',
+                                    border: '1px solid rgba(100, 116, 139, 0.2)',
+                                  }}
+                                  title={presence ? ('Last active ' + formatRelativeTime(presence.last_seen_at)) : 'Offline'}
+                                >
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#64748b' }} />
+                                  <span>OFFLINE</span>
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td style={{ padding: '14px 16px', color: '#94a3b8', fontSize: '0.82rem' }}>
                             {new Date(m.created_at).toLocaleDateString('en-AU')}
@@ -1040,6 +1144,17 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                 </table>
               </div>
             </div>
+          )}
+
+
+          {/* TAB: ADMIN PRESENCE & REAL-TIME ACTIVITY */}
+          {activeTab === 'presence' && selectedOrgId && user && (
+            <AdminPresenceTab
+              supabase={supabase}
+              organizationId={selectedOrgId}
+              currentUser={{ id: user.id, email: user.email }}
+              onlineAdminIds={onlineAdminIds}
+            />
           )}
 
           {/* TAB 3: TEAMS OVERSIGHT */}
@@ -1411,7 +1526,7 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                           </td>
                           <td style={{ padding: '12px 14px', color: '#38bdf8' }}>{log.entity_type}</td>
                           <td style={{ padding: '12px 14px', color: '#64748b', fontFamily: 'monospace', fontSize: '0.78rem' }}>
-                            {log.entity_id ? log.entity_id.slice(0, 18) : '—'}
+                            {log.entity_id ? log.entity_id.slice(0, 18) : '-'}
                           </td>
                           <td style={{ padding: '12px 14px', color: '#94a3b8', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {JSON.stringify(log.details)}
@@ -1698,7 +1813,7 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                                 {r.status.toUpperCase()}
                               </span>
                             </td>
-                            <td style={{ padding: '8px 12px', color: '#94a3b8' }}>{r.notes || '—'}</td>
+                            <td style={{ padding: '8px 12px', color: '#94a3b8' }}>{r.notes || '-'}</td>
                           </tr>
                         ))}
                       </tbody>

@@ -54,6 +54,8 @@ const routes = [
   'admin/audit',
   'admin/compliance',
   'admin/security',
+  'admin/presence',
+  'admin/activity',
   'integrations',
   'integrations/connect/microsoft_365',
   'integrations/connect/microsoft_outlook',
