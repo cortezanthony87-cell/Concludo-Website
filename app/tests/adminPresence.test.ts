@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import {
   formatMelbourneTime,
+  formatMelbourneDateTime,
   formatRelativeTime,
   parseUserAgent,
   fetchAdminPresence,
@@ -197,5 +198,32 @@ describe('Admin Presence & Real-Time Activity Suite', () => {
     expect(clientSrc.includes('\u2013')).toBe(false);
     expect(tabSrc.includes('\u2014')).toBe(false);
     expect(tabSrc.includes('\u2013')).toBe(false);
+  });
+  it("PRES-9: formatMelbourneDateTime formats timestamps with Australia/Melbourne timezone (AEDT)", () => {
+    // 2026-11-15T09:50:00Z is 2026-11-15 20:50:00 in AEDT (UTC+11)
+    const formatted = formatMelbourneDateTime("2026-11-15T09:50:00Z");
+    expect(formatted).toContain("15 Nov 2026");
+    expect(formatted).toContain("8:50");
+    expect(formatted).toContain("pm");
+    expect(formatted).toContain("AEDT");
+
+    expect(formatMelbourneDateTime(null)).toBe("Not recorded");
+    expect(formatMelbourneDateTime(undefined)).toBe("Not recorded");
+  });
+
+  it("PRES-10: verifies zero em dashes and zero en dashes across AdminPortalPage.tsx", () => {
+    const portalPath = resolve(import.meta.dir, "../src/pages/admin/AdminPortalPage.tsx");
+    const portalSrc = readFileSync(portalPath, "utf8");
+    expect(portalSrc.includes("\u2014")).toBe(false);
+    expect(portalSrc.includes("\u2013")).toBe(false);
+  });
+
+  it("PRES-11: verifies AdminPortalPage contains Last Admin Active bar and Last Active table column", () => {
+    const portalPath = resolve(import.meta.dir, "../src/pages/admin/AdminPortalPage.tsx");
+    const portalSrc = readFileSync(portalPath, "utf8");
+    expect(portalSrc.includes("Last Admin Active")).toBe(true);
+    expect(portalSrc.includes("Last Admin Logged In")).toBe(true);
+    expect(portalSrc.includes("Last Active & Logged In")).toBe(true);
+    expect(portalSrc.includes("Full Presence View")).toBe(true);
   });
 });

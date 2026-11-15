@@ -6,6 +6,7 @@ import {
   Shield,
   Laptop,
   Clock,
+  KeyRound,
   RefreshCw,
   AlertCircle,
   Search,
@@ -21,6 +22,7 @@ import {
   sendAdminHeartbeat,
   subscribeToAdminPresence,
   formatMelbourneTime,
+  formatMelbourneDateTime,
   formatRelativeTime,
   parseUserAgent,
 } from '../../lib/enterprise/adminPresenceClient';
@@ -121,17 +123,39 @@ export const AdminPresenceTab: React.FC<AdminPresenceTabProps> = ({
   );
 
   // Compute metrics
-  const metrics = useMemo(() => {
-    const total = admins.length;
+  const metrics = useMemo<{
+    total: number;
+    onlineCount: number;
+    offlineCount: number;
+    lastActiveAdmin: AdminPresenceRecord | null;
+    mostRecentDate: Date | null;
+    lastLoginAdmin: AdminPresenceRecord | null;
+    mostRecentLoginDate: Date | null;
+    mostRecentText: string;
+    relativeText: string;
+  }>(() => {
+    const list = Array.isArray(admins) ? admins : [];
+    const total = list.length;
     let onlineCount = 0;
     let mostRecentDate: Date | null = null;
+    let lastActiveAdmin: AdminPresenceRecord | null = null;
+    let mostRecentLoginDate: Date | null = null;
+    let lastLoginAdmin: AdminPresenceRecord | null = null;
 
-    admins.forEach((admin) => {
+    list.forEach((admin) => {
       if (isUserOnline(admin)) onlineCount += 1;
       const seen = new Date(admin.last_seen_at);
       if (!isNaN(seen.getTime())) {
         if (!mostRecentDate || seen > mostRecentDate) {
           mostRecentDate = seen;
+          lastActiveAdmin = admin;
+        }
+      }
+      const login = admin.last_sign_in_at ? new Date(admin.last_sign_in_at) : null;
+      if (login && !isNaN(login.getTime())) {
+        if (!mostRecentLoginDate || login > mostRecentLoginDate) {
+          mostRecentLoginDate = login;
+          lastLoginAdmin = admin;
         }
       }
     });
@@ -140,7 +164,12 @@ export const AdminPresenceTab: React.FC<AdminPresenceTabProps> = ({
       total,
       onlineCount,
       offlineCount: Math.max(0, total - onlineCount),
-      mostRecentText: mostRecentDate ? formatRelativeTime(mostRecentDate) : 'Not recorded',
+      lastActiveAdmin,
+      mostRecentDate,
+      lastLoginAdmin,
+      mostRecentLoginDate,
+      mostRecentText: mostRecentDate ? formatMelbourneDateTime(mostRecentDate) : "Not recorded",
+      relativeText: mostRecentDate ? formatRelativeTime(mostRecentDate) : "Never",
     };
   }, [admins, isUserOnline]);
 
@@ -153,7 +182,8 @@ export const AdminPresenceTab: React.FC<AdminPresenceTabProps> = ({
       userId: string;
     })[] = [];
 
-    admins.forEach((admin) => {
+    const safeAdmins = Array.isArray(admins) ? admins : [];
+    safeAdmins.forEach((admin) => {
       (admin.recent_sessions || []).forEach((session) => {
         list.push({
           ...session,
@@ -356,21 +386,48 @@ export const AdminPresenceTab: React.FC<AdminPresenceTabProps> = ({
         <div
           className="content-card"
           style={{
-            padding: '20px',
-            borderLeft: '4px solid #3b82f6',
+            padding: "20px",
+            borderLeft: "4px solid #3b82f6",
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase" }}>
               Last Session Activity
             </span>
             <Clock size={16} color="#3b82f6" />
           </div>
-          <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#f8fafc', paddingTop: '4px' }}>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#f8fafc", paddingTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {metrics.lastActiveAdmin ? metrics.lastActiveAdmin.full_name : "None"}
+          </div>
+          <div style={{ fontSize: "0.82rem", color: "#38bdf8", fontWeight: 600, marginTop: "2px" }}>
             {metrics.mostRecentText}
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '6px' }}>
-            Melbourne timezone (AEDT)
+          <div style={{ fontSize: "0.76rem", color: "#94a3b8", marginTop: "4px" }}>
+            {metrics.lastActiveAdmin ? `${metrics.lastActiveAdmin.email} (${metrics.relativeText})` : "Melbourne timezone (AEDT)"}
+          </div>
+        </div>
+
+        <div
+          className="content-card"
+          style={{
+            padding: "20px",
+            borderLeft: "4px solid #a855f7",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase" }}>
+              Last Admin Logged In
+            </span>
+            <KeyRound size={16} color="#a855f7" />
+          </div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#f8fafc", paddingTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {metrics.lastLoginAdmin ? metrics.lastLoginAdmin.full_name : "None"}
+          </div>
+          <div style={{ fontSize: "0.82rem", color: "#c084fc", fontWeight: 600, marginTop: "2px" }}>
+            {metrics.mostRecentLoginDate ? formatMelbourneDateTime(metrics.mostRecentLoginDate) : "No sign-in"}
+          </div>
+          <div style={{ fontSize: "0.76rem", color: "#94a3b8", marginTop: "4px" }}>
+            {metrics.lastLoginAdmin ? `${metrics.lastLoginAdmin.email} (${formatRelativeTime(metrics.mostRecentLoginDate)})` : "Last sign-in timestamp"}
           </div>
         </div>
       </div>

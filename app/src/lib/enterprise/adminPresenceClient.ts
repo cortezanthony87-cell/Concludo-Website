@@ -31,6 +31,30 @@ export interface RealtimePresenceState {
 /**
  * Format timestamp into Melbourne Australian English representation.
  */
+/**
+ * Format timestamp into Melbourne Australian English representation with timezone.
+ */
+export function formatMelbourneDateTime(
+  date: string | Date | null | undefined,
+  includeSeconds: boolean = false
+): string {
+  if (!date) return "Not recorded";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (!d || isNaN(d.getTime())) return "Not recorded";
+
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Melbourne",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: includeSeconds ? "2-digit" : undefined,
+    hour12: true,
+    timeZoneName: "short",
+  }).format(d);
+}
+
 export function formatMelbourneTime(date: string | Date | null | undefined): string {
   if (!date) return 'Not recorded';
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -113,7 +137,7 @@ export async function fetchAdminPresence(
   orgId: string
 ): Promise<{ data: AdminPresenceRecord[]; error: Error | null }> {
   try {
-    const { data, error } = await supabase.rpc('get_organization_admin_presence', {
+    const { data, error } = await supabase.rpc("get_organization_admin_presence", {
       p_org_id: orgId,
     });
 
@@ -121,7 +145,20 @@ export async function fetchAdminPresence(
       return { data: [], error: new Error(error.message) };
     }
 
-    return { data: (data as AdminPresenceRecord[]) || [], error: null };
+    let parsed = data;
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch (e) {
+        parsed = [];
+      }
+    }
+
+    if (!Array.isArray(parsed)) {
+      parsed = [];
+    }
+
+    return { data: parsed as AdminPresenceRecord[], error: null };
   } catch (err: any) {
     return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
   }

@@ -43,6 +43,8 @@ import {
   sendAdminHeartbeat,
   subscribeToAdminPresence,
   formatRelativeTime,
+  formatMelbourneTime,
+  formatMelbourneDateTime,
   AdminPresenceRecord,
 } from '../../lib/enterprise/adminPresenceClient';
 import {
@@ -152,9 +154,85 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
 
   const adminPresenceMap = useMemo(() => {
     const map = new Map<string, AdminPresenceRecord>();
-    adminPresenceList.forEach((a) => map.set(a.user_id, a));
+    const list = Array.isArray(adminPresenceList) ? adminPresenceList : [];
+    list.forEach((a) => {
+      if (a && a.user_id) map.set(a.user_id, a);
+    });
     return map;
   }, [adminPresenceList]);
+
+  // Compute administrator activity and login telemetry for User Management
+  const adminActivitySummary = useMemo<{
+    totalAdmins: number;
+    onlineCount: number;
+    offlineCount: number;
+    lastActiveAdmin: AdminPresenceRecord | null;
+    lastActiveDate: Date | null;
+    lastLoginAdmin: AdminPresenceRecord | null;
+    lastLoginDate: Date | null;
+    lastOfflineAdmin: AdminPresenceRecord | null;
+    lastOfflineDate: Date | null;
+  }>(() => {
+    const list = Array.isArray(adminPresenceList) ? adminPresenceList : [];
+    const adminRecords = list.filter((a) =>
+      a && (a.role === "organization_owner" || a.role === "organization_admin")
+    );
+
+    let onlineCount = 0;
+    let lastActiveAdmin: AdminPresenceRecord | null = null;
+    let lastActiveDate: Date | null = null;
+    let lastLoginAdmin: AdminPresenceRecord | null = null;
+    let lastLoginDate: Date | null = null;
+    let lastOfflineAdmin: AdminPresenceRecord | null = null;
+    let lastOfflineDate: Date | null = null;
+
+    adminRecords.forEach((admin) => {
+      const isOnline =
+        onlineAdminIds.has(admin.user_id) ||
+        admin.current_status === "online" ||
+        admin.user_id === user?.id;
+
+      if (isOnline) {
+        onlineCount += 1;
+      }
+
+      // Check last seen / active
+      const seenDate = admin.last_seen_at ? new Date(admin.last_seen_at) : null;
+      if (seenDate && !isNaN(seenDate.getTime())) {
+        if (!lastActiveDate || seenDate > lastActiveDate) {
+          lastActiveDate = seenDate;
+          lastActiveAdmin = admin;
+        }
+        if (!isOnline) {
+          if (!lastOfflineDate || seenDate > lastOfflineDate) {
+            lastOfflineDate = seenDate;
+            lastOfflineAdmin = admin;
+          }
+        }
+      }
+
+      // Check last login / sign in
+      const loginDate = admin.last_sign_in_at ? new Date(admin.last_sign_in_at) : null;
+      if (loginDate && !isNaN(loginDate.getTime())) {
+        if (!lastLoginDate || loginDate > lastLoginDate) {
+          lastLoginDate = loginDate;
+          lastLoginAdmin = admin;
+        }
+      }
+    });
+
+    return {
+      totalAdmins: adminRecords.length,
+      onlineCount,
+      offlineCount: Math.max(0, adminRecords.length - onlineCount),
+      lastActiveAdmin,
+      lastActiveDate,
+      lastLoginAdmin,
+      lastLoginDate,
+      lastOfflineAdmin,
+      lastOfflineDate,
+    };
+  }, [adminPresenceList, onlineAdminIds, user?.id]);
   // Audit Logs state
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
@@ -1006,15 +1084,236 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                 </button>
               </div>
 
+              {/* BAR: LAST ADMIN ACTIVE & LOGIN TELEMETRY */}
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderRadius: "10px",
+                  marginBottom: "18px",
+                  background: "linear-gradient(90deg, rgba(226, 181, 60, 0.08) 0%, rgba(14, 23, 41, 0.8) 100%)",
+                  border: "1px solid rgba(226, 181, 60, 0.28)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "16px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                  <div
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "10px",
+                      background: "rgba(226, 181, 60, 0.15)",
+                      border: "1px solid rgba(226, 181, 60, 0.3)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#e2b53c",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Clock size={20} />
+                  </div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "#e2b53c", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Last Admin Active
+                      </span>
+                      {adminActivitySummary.onlineCount > 0 && (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "1px 7px",
+                            borderRadius: "10px",
+                            fontSize: "0.68rem",
+                            fontWeight: 600,
+                            background: "rgba(16, 185, 129, 0.15)",
+                            color: "#6ee7b7",
+                            border: "1px solid rgba(16, 185, 129, 0.3)",
+                          }}
+                        >
+                          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
+                          <span>Active now</span>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "0.98rem", color: "#f8fafc", fontWeight: 600, marginTop: "2px" }}>
+                      {adminActivitySummary.lastActiveAdmin ? (
+                        <span>
+                          {adminActivitySummary.lastActiveAdmin.full_name}{" "}
+                          <span style={{ color: "#94a3b8", fontWeight: 400, fontSize: "0.85rem" }}>
+                            ({adminActivitySummary.lastActiveAdmin.email})
+                          </span>
+                          {" • "}
+                          <span style={{ color: "#38bdf8" }}>
+                            {formatMelbourneDateTime(adminActivitySummary.lastActiveDate)}
+                          </span>
+                        </span>
+                      ) : (
+                        "No administrator activity recorded yet"
+                      )}
+                    </div>
+                    <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: "3px" }}>
+                      {adminActivitySummary.lastLoginAdmin ? (
+                        <span>
+                          <strong style={{ color: "#cbd5e1" }}>Last admin login:</strong>{" "}
+                          {adminActivitySummary.lastLoginAdmin.full_name} ({adminActivitySummary.lastLoginAdmin.email}) at{" "}
+                          {formatMelbourneDateTime(adminActivitySummary.lastLoginDate)} ({formatRelativeTime(adminActivitySummary.lastLoginDate)})
+                        </span>
+                      ) : (
+                        "No admin logins on record"
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "8px",
+                      background: "rgba(255, 255, 255, 0.04)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      textAlign: "right",
+                    }}
+                  >
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", textTransform: "uppercase" }}>
+                      Online Admins
+                    </div>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#f8fafc" }}>
+                      <span style={{ color: adminActivitySummary.onlineCount > 0 ? "#4ade80" : "#94a3b8" }}>
+                        {adminActivitySummary.onlineCount}
+                      </span>
+                      {" / "}
+                      <span>{adminActivitySummary.totalAdmins} Online</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("presence")}
+                    className="btn-secondary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 14px",
+                      fontSize: "0.82rem",
+                      color: "#e2b53c",
+                      borderColor: "rgba(226, 181, 60, 0.3)",
+                      background: "rgba(226, 181, 60, 0.08)",
+                    }}
+                  >
+                    <span>Full Presence View</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 STAT METRICS ROW */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                  gap: "14px",
+                  marginBottom: "20px",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderLeft: "3px solid #10b981",
+                  }}
+                >
+                  <div style={{ fontSize: "0.74rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>
+                    Last Admin Active
+                  </div>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", marginTop: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {adminActivitySummary.lastActiveAdmin?.full_name || "None"}
+                  </div>
+                  <div style={{ fontSize: "0.76rem", color: "#38bdf8", marginTop: "2px" }}>
+                    {adminActivitySummary.lastActiveDate ? formatMelbourneDateTime(adminActivitySummary.lastActiveDate) : "Not recorded"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderLeft: "3px solid #e2b53c",
+                  }}
+                >
+                  <div style={{ fontSize: "0.74rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>
+                    Last Admin Logged In
+                  </div>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", marginTop: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {adminActivitySummary.lastLoginAdmin?.full_name || "None"}
+                  </div>
+                  <div style={{ fontSize: "0.76rem", color: "#e2b53c", marginTop: "2px" }}>
+                    {adminActivitySummary.lastLoginDate ? formatMelbourneDateTime(adminActivitySummary.lastLoginDate) : "Not recorded"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderLeft: "3px solid #3b82f6",
+                  }}
+                >
+                  <div style={{ fontSize: "0.74rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>
+                    Admin Presence Now
+                  </div>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", marginTop: "4px" }}>
+                    {adminActivitySummary.onlineCount} of {adminActivitySummary.totalAdmins} Online
+                  </div>
+                  <div style={{ fontSize: "0.76rem", color: "#94a3b8", marginTop: "2px" }}>
+                    {adminActivitySummary.offlineCount} offline administrators
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderLeft: "3px solid #64748b",
+                  }}
+                >
+                  <div style={{ fontSize: "0.74rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>
+                    Last Offline Admin On
+                  </div>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", marginTop: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {adminActivitySummary.lastOfflineAdmin?.full_name || "None"}
+                  </div>
+                  <div style={{ fontSize: "0.76rem", color: "#94a3b8", marginTop: "2px" }}>
+                    {adminActivitySummary.lastOfflineDate ? formatMelbourneDateTime(adminActivitySummary.lastOfflineDate) : "All online or no history"}
+                  </div>
+                </div>
+              </div>
+
               <div style={{ overflowX: 'auto' }}>
                 <table className="custom-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: '#94a3b8', fontSize: '0.78rem' }}>
-                      <th style={{ padding: '12px 16px' }}>User</th>
-                      <th style={{ padding: '12px 16px' }}>Role</th>
-                      <th style={{ padding: '12px 16px' }}>Status</th>
-                      <th style={{ padding: '12px 16px' }}>Joined Date</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                    <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.08)", color: "#94a3b8", fontSize: "0.78rem" }}>
+                      <th style={{ padding: "12px 16px" }}>User</th>
+                      <th style={{ padding: "12px 16px" }}>Role</th>
+                      <th style={{ padding: "12px 16px" }}>Status</th>
+                      <th style={{ padding: "12px 16px" }}>Last Active & Logged In</th>
+                      <th style={{ padding: "12px 16px" }}>Joined Date</th>
+                      <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1052,63 +1351,107 @@ export const AdminPortalPage: React.FC<{ initialTab?: string }> = ({ initialTab 
                               <option value="viewer">Viewer</option>
                             </select>
                           </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span
-                                style={{
-                                  padding: '2px 8px',
-                                  borderRadius: '10px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: 600,
-                                  backgroundColor: isSuspended ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                                  color: isSuspended ? '#ef4444' : '#22c55e',
-                                }}
-                              >
-                                {isSuspended ? 'SUSPENDED' : 'ACTIVE'}
-                              </span>
-                              {isOnline ? (
+                          <td style={{ padding: "14px 16px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                 <span
                                   style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px',
-                                    padding: '2px 7px',
-                                    borderRadius: '10px',
-                                    fontSize: '0.70rem',
+                                    padding: "2px 8px",
+                                    borderRadius: "10px",
+                                    fontSize: "0.72rem",
                                     fontWeight: 600,
-                                    background: 'rgba(16, 185, 129, 0.15)',
-                                    color: '#6ee7b7',
-                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    backgroundColor: isSuspended ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.2)",
+                                    color: isSuspended ? "#ef4444" : "#22c55e",
                                   }}
-                                  title="Active in workspace right now"
                                 >
-                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                                  <span>ONLINE</span>
+                                  {isSuspended ? "SUSPENDED" : "ACTIVE"}
                                 </span>
-                              ) : (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px',
-                                    padding: '2px 7px',
-                                    borderRadius: '10px',
-                                    fontSize: '0.70rem',
-                                    fontWeight: 500,
-                                    background: 'rgba(100, 116, 139, 0.12)',
-                                    color: '#94a3b8',
-                                    border: '1px solid rgba(100, 116, 139, 0.2)',
-                                  }}
-                                  title={presence ? ('Last active ' + formatRelativeTime(presence.last_seen_at)) : 'Offline'}
-                                >
-                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#64748b' }} />
-                                  <span>OFFLINE</span>
-                                </span>
-                              )}
+                                {isOnline ? (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "5px",
+                                      padding: "2px 7px",
+                                      borderRadius: "10px",
+                                      fontSize: "0.70rem",
+                                      fontWeight: 600,
+                                      background: "rgba(16, 185, 129, 0.15)",
+                                      color: "#6ee7b7",
+                                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                                    }}
+                                    title="Active in workspace right now"
+                                  >
+                                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }} />
+                                    <span>ONLINE</span>
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "5px",
+                                      padding: "2px 7px",
+                                      borderRadius: "10px",
+                                      fontSize: "0.70rem",
+                                      fontWeight: 500,
+                                      background: "rgba(100, 116, 139, 0.12)",
+                                      color: "#94a3b8",
+                                      border: "1px solid rgba(100, 116, 139, 0.2)",
+                                    }}
+                                    title={presence ? ("Last active " + formatRelativeTime(presence.last_seen_at)) : "Offline"}
+                                  >
+                                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#64748b" }} />
+                                    <span>OFFLINE</span>
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: isOnline ? "#34d399" : "#94a3b8" }}>
+                                {isOnline ? (
+                                  <span>On now</span>
+                                ) : presence?.last_seen_at ? (
+                                  <span>Last on: {formatRelativeTime(presence.last_seen_at)}</span>
+                                ) : (
+                                  <span>Offline</span>
+                                )}
+                              </div>
                             </div>
                           </td>
-                          <td style={{ padding: '14px 16px', color: '#94a3b8', fontSize: '0.82rem' }}>
-                            {new Date(m.created_at).toLocaleDateString('en-AU')}
+                          <td style={{ padding: "14px 16px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                              {isOnline ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#4ade80", fontSize: "0.82rem", fontWeight: 600 }}>
+                                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e" }} />
+                                    <span>Active now</span>
+                                  </span>
+                                  <span style={{ color: "#cbd5e1", fontSize: "0.78rem" }}>
+                                    ({formatMelbourneDateTime(presence?.last_seen_at)})
+                                  </span>
+                                </div>
+                              ) : (
+                                <div style={{ color: "#f8fafc", fontSize: "0.82rem", fontWeight: 500 }}>
+                                  {presence?.last_seen_at ? formatMelbourneDateTime(presence.last_seen_at) : "No recorded activity"}
+                                  {presence?.last_seen_at && (
+                                    <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: "6px" }}>
+                                      ({formatRelativeTime(presence.last_seen_at)})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <div style={{ color: "#94a3b8", fontSize: "0.74rem" }}>
+                                {presence?.last_sign_in_at ? (
+                                  <span>Last login: {formatMelbourneDateTime(presence.last_sign_in_at)} ({formatRelativeTime(presence.last_sign_in_at)})</span>
+                                ) : presence?.last_seen_at ? (
+                                  <span>Last active: {formatRelativeTime(presence.last_seen_at)}</span>
+                                ) : (
+                                  <span>No sign-in recorded</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: "14px 16px", color: "#94a3b8", fontSize: "0.82rem" }}>
+                            {new Date(m.created_at).toLocaleDateString("en-AU")}
                           </td>
                           <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                             {!isOwner && (
