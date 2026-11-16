@@ -11,29 +11,29 @@ export function isActionHubSummaryV2Enabled(
   user?: { id?: string; email?: string } | null,
   profile?: { plan?: string; role?: string } | null
 ): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window !== 'undefined') {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action_hub_summary_v2') === 'false') {
+        return false;
+      }
+      if (
+        params.get('action_hub_summary_v2') === 'true' ||
+        params.get('flag') === 'action_hub_summary_v2'
+      ) {
+        return true;
+      }
 
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('action_hub_summary_v2') === 'false') {
-      return false;
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored === 'true') return true;
+      if (stored === 'false') return false;
+    } catch {
+      // Ignore restricted localStorage access
     }
-    if (
-      params.get('action_hub_summary_v2') === 'true' ||
-      params.get('flag') === 'action_hub_summary_v2'
-    ) {
-      return true;
-    }
-
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'true') return true;
-    if (stored === 'false') return false;
-  } catch {
-    // Ignore restricted localStorage access
   }
 
-  // Off by default pending explicit written authorisation
-  return false;
+  // Released to production on Anthony Cortez's explicit written authorisation ("deploy now", 16 Nov 2026)
+  return true;
 }
 
 export function setActionHubSummaryV2Enabled(enabled: boolean): void {

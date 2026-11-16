@@ -293,8 +293,8 @@ describe('Action Command Hub Summary v2 (MIX) Tests H1 to H14', () => {
     expect(dashboardContent).not.toContain('action_hub_summary_v2');
   });
 
-  it('Gate 1: isActionHubSummaryV2Enabled defaults to false (off by default)', () => {
-    expect(isActionHubSummaryV2Enabled(null, null)).toBe(false);
-    expect(isActionHubSummaryV2Enabled({ id: 'any-user' }, { role: 'admin' })).toBe(false);
+  it('Gate 1 & Release: isActionHubSummaryV2Enabled is released to production and enabled by default', () => {
+    expect(isActionHubSummaryV2Enabled(null, null)).toBe(true);
+    expect(isActionHubSummaryV2Enabled({ id: 'any-user' }, { role: 'admin' })).toBe(true);
   });
 });
