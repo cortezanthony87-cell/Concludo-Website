@@ -25,7 +25,7 @@ const ok = (c, n) => {
 async function run() {
   const browser = await chromium.launch({ headless: true });
 
-  // 1. Desktop 1440px - MIX Theme (Default)
+  // 1. Desktop 1440px - MIX Theme (Minimised by default)
   const ctxDesktop = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     locale: 'en-AU',
@@ -35,13 +35,59 @@ async function run() {
   page.on('pageerror', (err) => errors.push(err.message));
 
   await page.goto('file://' + path.join(harnessDir, 'index.html'));
-  await page.waitForSelector('.ach-summary-row');
+  await page.waitForSelector('.ach-summary-minimised-bar');
 
-  // Check center number & labels
-  const centerNum = await page.textContent('.ach-summary-donut-wrap text[font-size="54"]');
+  // Check minimised bar elements
+  const totalBadgeText = await page.textContent('.ach-summary-min-badge-num');
+  ok(totalBadgeText?.trim() === '102', 'H1: Minimised summary shows total 102 actions');
+
+  // Check 8 status chips in minimised bar
+  const chipTexts = await page.$$eval('.ach-summary-chip', (els) =>
+    els.map((el) => ({
+      n: el.querySelector('.ach-summary-chip-num')?.textContent?.trim(),
+      label: el.querySelector('span:nth-child(2)')?.textContent?.trim(),
+    }))
+  );
+  ok(chipTexts.length === 8, 'H1: Minimised bar renders exactly 8 status chips');
+  ok(chipTexts[0].label === 'Overdue' && chipTexts[0].n === '37', 'H1: Chip Overdue shows 37');
+  ok(chipTexts[1].label === 'Due today' && chipTexts[1].n === '1', 'H1: Chip Due today shows 1');
+  ok(chipTexts[2].label === 'Upcoming' && chipTexts[2].n === '18', 'H1: Chip Upcoming shows 18');
+  ok(chipTexts[3].label === 'Unscheduled' && chipTexts[3].n === '46', 'H1: Chip Unscheduled shows 46');
+  ok(chipTexts[4].label === 'In progress' && chipTexts[4].n === '0', 'H1: Chip In progress shows 0');
+  ok(chipTexts[5].label === 'Waiting' && chipTexts[5].n === '0', 'H1: Chip Waiting shows 0');
+  ok(chipTexts[6].label === 'Blocked' && chipTexts[6].n === '0', 'H1: Chip Blocked shows 0');
+  ok(chipTexts[7].label === 'Completed' && chipTexts[7].n === '0', 'H1: Chip Completed shows 0');
+
+  // Check that Action items table is visible and positioned high on screen
+  await page.waitForSelector('#ach-actions-table');
+  const tableBox = await page.locator('#ach-actions-table').boundingBox();
+  ok(tableBox !== null, 'Table: Action items table exists');
+  ok(tableBox && tableBox.y < 350, `Table: Action items table is visible high on screen (y = ${tableBox?.y}px < 350px)`);
+
+  // Screenshot 1: Desktop 1440px Minimised View (Action Items visible!)
+  await page.screenshot({ path: path.join(outDir, 'mix_minimised_desktop_1440.png'), fullPage: false });
+  console.log('Saved mix_minimised_desktop_1440.png');
+
+  // Test Chip click filtering in minimised view
+  const overdueChip = page.locator('.ach-summary-chip').first();
+  await overdueChip.click();
+  let chipPressed = await overdueChip.getAttribute('aria-pressed');
+  ok(chipPressed === 'true', 'H4: Clicking Overdue chip sets aria-pressed="true"');
+  await overdueChip.click();
+  chipPressed = await overdueChip.getAttribute('aria-pressed');
+  ok(chipPressed === 'false', 'H4: Clicking Overdue chip again clears filter');
+
+  // Expand Summary: Click "Expand summary"
+  const expandBtn = page.locator('.ach-summary-toggle-btn');
+  await expandBtn.click();
+  await page.waitForSelector('.ach-summary-expanded-wrap');
+  ok(true, 'Expand: Clicking Expand summary shows expanded compact summary');
+
+  // Check center number & labels in compact expanded view
+  const centerNum = await page.textContent('.ach-summary-donut-wrap text[font-weight="800"]');
   ok(centerNum?.trim() === '102', 'H1: Donut center shows total 102 actions');
 
-  // Check 8 tile numbers
+  // Check 8 tile numbers in expanded view
   const tileTexts = await page.$$eval('.ach-summary-tile', (els) =>
     els.map((el) => ({
       n: el.querySelector('span:first-child')?.textContent?.trim(),
@@ -71,9 +117,13 @@ async function run() {
   ok(legendRows[2].label === 'Due today' && legendRows[2].count === '1' && legendRows[2].pct === '1%', 'H1: Legend Due today is 1 (1%)');
   ok(legendRows[3].label === 'Pending' && legendRows[3].count === '64' && legendRows[3].pct === '63%', 'H1: Legend Pending is 64 (63%)');
 
-  // Screenshot 1: Desktop 1440px MIX
-  await page.screenshot({ path: path.join(outDir, 'mix_desktop_1440.png'), fullPage: false });
-  console.log('Saved mix_desktop_1440.png');
+  // Check that Action items table is STILL visible in expanded compact view
+  const tableBoxExpanded = await page.locator('#ach-actions-table').boundingBox();
+  ok(tableBoxExpanded && tableBoxExpanded.y < 500, `Table: Action items table is still visible in compact expanded view (y = ${tableBoxExpanded?.y}px < 500px)`);
+
+  // Screenshot 2: Desktop 1440px Compact Expanded MIX
+  await page.screenshot({ path: path.join(outDir, 'mix_compact_desktop_1440.png'), fullPage: false });
+  console.log('Saved mix_compact_desktop_1440.png');
 
   // Test H4: Click behaviour on status box (Overdue)
   const overdueBtn = page.locator('.ach-summary-tile').first();
@@ -187,7 +237,7 @@ async function run() {
     });
   });
   await page.waitForTimeout(100);
-  const zeroCenter = await page.textContent('.ach-summary-donut-wrap text[font-size="54"]');
+  const zeroCenter = await page.textContent('.ach-summary-donut-wrap text[font-weight="800"]');
   ok(zeroCenter?.trim() === '0', 'H7: Zero state shows 0 in center');
   const htmlContent = await page.content();
   ok(!htmlContent.includes('NaN'), 'H7: Zero state renders zero NaN characters');
@@ -211,6 +261,12 @@ async function run() {
     });
   });
 
+  // Test Minimise toggle back
+  const minimiseBtn = page.locator('.ach-summary-toggle-btn.is-light');
+  await minimiseBtn.click();
+  await page.waitForSelector('.ach-summary-minimised-bar');
+  ok(true, 'Minimise: Clicking Minimise summary restores minimised bar');
+
   // Test H9: Bright Theme Alternate
   await page.evaluate(() => {
     window.__setHarnessState({ themeKey: 'bright' });
@@ -227,19 +283,18 @@ async function run() {
   const mobilePage = await ctxMobile.newPage();
   mobilePage.on('pageerror', (err) => errors.push(err.message));
   await mobilePage.goto('file://' + path.join(harnessDir, 'index.html'));
-  await mobilePage.waitForSelector('.ach-summary-row');
+  await mobilePage.waitForSelector('.ach-summary-minimised-bar');
 
-  // Screenshot 3: Mobile 390px MIX
-  await mobilePage.screenshot({ path: path.join(outDir, 'mix_mobile_390.png'), fullPage: false });
-  console.log('Saved mix_mobile_390.png');
+  // Screenshot 3: Mobile 390px MIX Minimised
+  await mobilePage.screenshot({ path: path.join(outDir, 'mix_minimised_mobile_390.png'), fullPage: false });
+  console.log('Saved mix_minimised_mobile_390.png');
 
-  // Screenshot 4: Mobile 390px Bright
-  await mobilePage.evaluate(() => {
-    window.__setHarnessState({ themeKey: 'bright' });
-  });
-  await mobilePage.waitForTimeout(100);
-  await mobilePage.screenshot({ path: path.join(outDir, 'bright_mobile_390.png'), fullPage: false });
-  console.log('Saved bright_mobile_390.png');
+  // Expand on mobile
+  const mobileExpand = mobilePage.locator('.ach-summary-toggle-btn');
+  await mobileExpand.click();
+  await mobilePage.waitForSelector('.ach-summary-expanded-wrap');
+  await mobilePage.screenshot({ path: path.join(outDir, 'mix_compact_mobile_390.png'), fullPage: false });
+  console.log('Saved mix_compact_mobile_390.png');
 
   ok(errors.length === 0, 'No page errors observed during browser runs');
   await browser.close();

@@ -1,4 +1,4 @@
-import React, { useId, useMemo } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import { ActionBucketCounts } from '../../lib/actions/actionBuckets';
 import {
   ActionHubSummaryThemeKey,
@@ -27,7 +27,10 @@ export interface ActionHubSummaryProps {
   error?: string | null;
   onRetry?: () => void;
   themeKey?: ActionHubSummaryThemeKey;
+  defaultMinimised?: boolean;
 }
+
+const MINIMISED_STORAGE_KEY = 'concludo_ach_summary_minimised';
 
 /**
  * Calculates percentage distribution using the Largest Remainder Method (Hare-Niemeyer)
@@ -62,10 +65,35 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
   error = null,
   onRetry,
   themeKey = CURRENT_SUMMARY_THEME,
+  defaultMinimised = true,
 }) => {
   const id = useId();
   const filterId = `ach-glow-${id.replace(/:/g, '')}`;
   const coreGradId = `ach-core-${id.replace(/:/g, '')}`;
+
+  // Minimised state (defaults to true so action items list is visible immediately)
+  const [isMinimised, setIsMinimised] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = window.localStorage.getItem(MINIMISED_STORAGE_KEY);
+        if (stored === 'false') return false;
+        if (stored === 'true') return true;
+      } catch {}
+    }
+    return defaultMinimised;
+  });
+
+  const handleToggleMinimise = () => {
+    setIsMinimised((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(MINIMISED_STORAGE_KEY, String(next));
+        } catch {}
+      }
+      return next;
+    });
+  };
 
   const theme = actionHubSummaryTheme[themeKey] || actionHubSummaryTheme.mix;
 
@@ -219,33 +247,54 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
   }
 
   if (loading) {
-    return (
-      <div className="ach-summary-row">
+    if (isMinimised) {
+      return (
         <div
-          className="ach-summary-donut-panel"
+          className="ach-summary-minimised-bar"
           style={{
             background: theme.donutPanel.bg,
             border: theme.donutPanel.border,
             boxShadow: theme.donutPanel.glow,
-            minHeight: '356px',
           }}
         >
-          <div className="ach-summary-skeleton-box" style={{ width: '300px', height: '300px', borderRadius: '50%', margin: '0 auto' }} />
-          <div className="ach-summary-legend-wrap" style={{ gap: '16px' }}>
-            <div className="ach-summary-skeleton-box" style={{ minHeight: '38px', borderRadius: '8px' }} />
-            <div className="ach-summary-skeleton-box" style={{ minHeight: '38px', borderRadius: '8px' }} />
-            <div className="ach-summary-skeleton-box" style={{ minHeight: '38px', borderRadius: '8px' }} />
-            <div className="ach-summary-skeleton-box" style={{ minHeight: '38px', borderRadius: '8px' }} />
-          </div>
-        </div>
-        <div className="ach-summary-tiles-col">
-          <div className="ach-summary-tiles-grid">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="ach-summary-skeleton-box" />
+          <div className="ach-summary-skeleton-box" style={{ width: '130px', height: '34px', borderRadius: '8px' }} />
+          <div style={{ display: 'flex', gap: '8px', flex: '1 1 auto' }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="ach-summary-skeleton-box" style={{ width: '90px', height: '34px', borderRadius: '8px' }} />
             ))}
           </div>
-          <div className="ach-summary-footnote">
-            Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
+          <div className="ach-summary-skeleton-box" style={{ width: '120px', height: '34px', borderRadius: '8px' }} />
+        </div>
+      );
+    }
+    return (
+      <div className="ach-summary-expanded-wrap">
+        <div className="ach-summary-row">
+          <div
+            className="ach-summary-donut-panel"
+            style={{
+              background: theme.donutPanel.bg,
+              border: theme.donutPanel.border,
+              boxShadow: theme.donutPanel.glow,
+            }}
+          >
+            <div className="ach-summary-skeleton-box" style={{ width: '140px', height: '140px', borderRadius: '50%', margin: '0' }} />
+            <div className="ach-summary-legend-wrap" style={{ gap: '6px' }}>
+              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
+              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
+              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
+              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
+            </div>
+          </div>
+          <div className="ach-summary-tiles-col">
+            <div className="ach-summary-tiles-grid">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="ach-summary-skeleton-box" />
+              ))}
+            </div>
+            <div className="ach-summary-footnote">
+              Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
+            </div>
           </div>
         </div>
       </div>
@@ -254,7 +303,91 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
 
   const accessibleSummaryLabel = `${bucketCounts.total} actions: ${bucketCounts.overdue} overdue, ${bucketCounts.dueToday} due today, ${bucketCounts.pending} pending, ${bucketCounts.completed} completed`;
 
+  // Minimised view: Single sleek status bar
+  if (isMinimised) {
+    return (
+      <div
+        className="ach-summary-minimised-bar"
+        style={{
+          background: theme.donutPanel.bg,
+          border: theme.donutPanel.border,
+          boxShadow: theme.donutPanel.glow,
+        }}
+        role="region"
+        aria-label="Minimised actions summary"
+      >
+        {/* Left: Total badge and mini indicators */}
+        <div className="ach-summary-min-left">
+          <div className="ach-summary-min-badge" title={accessibleSummaryLabel}>
+            <span className="ach-summary-min-badge-num">{bucketCounts.total}</span>
+            <span className="ach-summary-min-badge-label">ACTIONS</span>
+          </div>
+        </div>
+
+        {/* Middle: 8 Status filter chips */}
+        <div className="ach-summary-min-chips">
+          {tiles.map((t) => {
+            const isActive = activeFilter === t.filterKey;
+            return (
+              <button
+                key={t.label}
+                type="button"
+                className={`ach-summary-chip ${isActive ? 'is-active' : ''}`}
+                aria-pressed={isActive}
+                aria-label={`${t.label}, ${t.n}, filter the table`}
+                onClick={() => handleToggleFilter(t.filterKey)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleToggleFilter(t.filterKey);
+                  }
+                }}
+              >
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: t.dot,
+                    boxShadow: `0 0 6px ${t.dot}`,
+                    flexShrink: 0,
+                  }}
+                />
+                <span>{t.label}</span>
+                <span className="ach-summary-chip-num">{t.n}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right: Expand toggle button */}
+        <button
+          type="button"
+          className="ach-summary-toggle-btn"
+          onClick={handleToggleMinimise}
+          aria-expanded={false}
+          aria-label="Expand summary to view chart"
+        >
+          Expand summary ▾
+        </button>
+      </div>
+    );
+  }
+
   return (
+    <div className="ach-summary-expanded-wrap">
+      <div className="ach-summary-expanded-header">
+        <span className="ach-summary-expanded-title">Summary overview</span>
+        <button
+          type="button"
+          className="ach-summary-toggle-btn is-light"
+          onClick={handleToggleMinimise}
+          aria-expanded={true}
+          aria-label="Minimise summary to show more action items"
+        >
+          Minimise summary ▴
+        </button>
+      </div>
     <div className="ach-summary-row">
       {/* Left: Donut Panel */}
       <div
@@ -273,8 +406,8 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
         <div className="ach-summary-donut-wrap">
           <svg
             viewBox="0 0 300 300"
-            width="300"
-            height="300"
+            width="140"
+            height="140"
             role="img"
             aria-label={accessibleSummaryLabel}
           >
@@ -498,8 +631,8 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
                 <span
                   className={item.pulse ? 'ach-summary-pulse' : ''}
                   style={{
-                    width: '14px',
-                    height: '14px',
+                    width: '10px',
+                    height: '10px',
                     borderRadius: '50%',
                     background: item.dot,
                     boxShadow: `0 0 10px ${item.dot}`,
@@ -509,7 +642,7 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
                 <span
                   style={{
                     flex: 1,
-                    fontSize: '18px',
+                    fontSize: '13px',
                     color: theme.donutPanel.text,
                     textAlign: 'left',
                   }}
@@ -520,7 +653,7 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
                   style={{
                     fontFamily: 'Poppins, Arial, sans-serif',
                     fontWeight: 700,
-                    fontSize: '20px',
+                    fontSize: '15px',
                     color: themeKey === 'mix' ? '#FFFFFF' : '#16263F',
                   }}
                 >
@@ -528,9 +661,9 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
                 </span>
                 <span
                   style={{
-                    width: '48px',
+                    width: '36px',
                     textAlign: 'right',
-                    fontSize: '15px',
+                    fontSize: '12px',
                     color: theme.donutPanel.mutedText,
                   }}
                 >
@@ -567,7 +700,7 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
                     style={{
                       fontFamily: 'Poppins, Arial, sans-serif',
                       fontWeight: 700,
-                      fontSize: '38px',
+                      fontSize: '22px',
                       lineHeight: 1,
                       color: theme.tiles.number,
                     }}
@@ -576,8 +709,8 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
                   </span>
                   <span
                     style={{
-                      width: '12px',
-                      height: '12px',
+                      width: '9px',
+                      height: '9px',
                       borderRadius: '50%',
                       background: t.dot,
                       boxShadow: `0 0 8px ${t.dot}`,
@@ -585,7 +718,7 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
                     }}
                   />
                 </div>
-                <div style={{ fontSize: '16px', color: theme.tiles.label }}>
+                <div style={{ fontSize: '12px', color: theme.tiles.label }}>
                   {t.label}
                 </div>
               </button>
@@ -596,6 +729,7 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
           Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
         </div>
       </div>
+    </div>
     </div>
   );
 };

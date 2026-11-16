@@ -19,6 +19,17 @@ const baselineCounts: ActionBucketCounts = {
   completed: 0,
 };
 
+const mockActionRows = [
+  { id: '1', title: 'Complete ASIC director identification verification', status: 'overdue', priority: 'high', dueDate: '2026-11-02', owner: 'Anthony Cortez', project: 'Governance' },
+  { id: '2', title: 'Review Q4 financial model and bank reconciliations', status: 'overdue', priority: 'high', dueDate: '2026-11-05', owner: 'Anthony Cortez', project: 'Finance' },
+  { id: '3', title: 'Execute customer feedback interview round 2', status: 'overdue', priority: 'medium', dueDate: '2026-11-08', owner: 'Anthony Cortez', project: 'Customer Ops' },
+  { id: '4', title: 'Finalise Concludo Meeting Mastery workbook distribution plan', status: 'overdue', priority: 'high', dueDate: '2026-11-10', owner: 'Anthony Cortez', project: 'Commercial' },
+  { id: '5', title: 'Submit Stripe live account verification documents', status: 'due_today', priority: 'high', dueDate: '2026-11-16', owner: 'Anthony Cortez', project: 'Billing' },
+  { id: '6', title: 'Prepare board meeting governance slide deck', status: 'upcoming', priority: 'medium', dueDate: '2026-11-20', owner: 'Anthony Cortez', project: 'Operations' },
+  { id: '7', title: 'Conduct website security audit checklist review', status: 'upcoming', priority: 'low', dueDate: '2026-11-25', owner: 'Anthony Cortez', project: 'Security' },
+  { id: '8', title: 'Draft enterprise pilot terms of service agreement', status: 'unscheduled', priority: 'normal', dueDate: 'Not set', owner: 'Anthony Cortez', project: 'Legal' },
+];
+
 interface HarnessState {
   bucketCounts: ActionBucketCounts;
   themeKey: ActionHubSummaryThemeKey;
@@ -137,6 +148,60 @@ const HarnessApp: React.FC = () => {
           <span style={{ fontWeight: state.activeTab === 'completed' ? 600 : 400, color: state.activeTab === 'completed' ? '#16263F' : '#5A6478', borderBottom: state.activeTab === 'completed' ? '3px solid #E2B53C' : 'none', paddingBottom: '9px' }}>
             Completed
           </span>
+        </div>
+
+        {/* Action Items List Table */}
+        <div id="ach-actions-table" style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #D5DBE6', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #EDF2F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontWeight: 700, fontSize: '18px', color: '#16263F' }}>
+              Action items ({mockActionRows.length})
+            </div>
+            <div style={{ fontSize: '14px', color: '#5A6478' }}>
+              Filter: {state.activeFilter || state.activeTab}
+            </div>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+            <thead>
+              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontWeight: 600 }}>
+                <th style={{ padding: '12px 16px', width: '40px' }}>Status</th>
+                <th style={{ padding: '12px 16px' }}>Action item</th>
+                <th style={{ padding: '12px 16px', width: '100px' }}>Priority</th>
+                <th style={{ padding: '12px 16px', width: '120px' }}>Due date</th>
+                <th style={{ padding: '12px 16px', width: '140px' }}>Assignee</th>
+                <th style={{ padding: '12px 16px', width: '120px' }}>Project</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mockActionRows
+                .filter((row) => {
+                  if (state.activeFilter === 'overdue' || state.activeTab === 'overdue') return row.status === 'overdue';
+                  if (state.activeFilter === 'due_today' || state.activeTab === 'due_today') return row.status === 'due_today';
+                  if (state.activeFilter === 'upcoming' || state.activeTab === 'upcoming') return row.status === 'upcoming';
+                  if (state.activeFilter === 'unscheduled' || state.activeTab === 'unscheduled') return row.status === 'unscheduled';
+                  return true;
+                })
+                .map((row) => (
+                  <tr key={row.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: row.status === 'overdue' ? '#FF5A6E' : row.status === 'due_today' ? '#FFC83D' : row.status === 'upcoming' ? '#3D7BE0' : '#8A94A6',
+                      }} />
+                    </td>
+                    <td style={{ padding: '12px 16px', fontWeight: 500, color: '#1E293B' }}>{row.title}</td>
+                    <td style={{ padding: '12px 16px', textTransform: 'capitalize' }}>{row.priority}</td>
+                    <td style={{ padding: '12px 16px', color: row.status === 'overdue' ? '#DC2626' : row.status === 'due_today' ? '#D97706' : '#64748B' }}>
+                      {row.dueDate}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#475569' }}>{row.owner}</td>
+                    <td style={{ padding: '12px 16px', color: '#64748B' }}>{row.project}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
