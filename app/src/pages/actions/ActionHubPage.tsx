@@ -4,6 +4,8 @@ import { useAuth } from '../../lib/auth/AuthContext';
 import { useFeatureAccess } from '../../lib/permissions/usePermissions';
 import { isActionTimelineFeatureFlagEnabled } from '../../lib/outputs/timeline/featureFlag';
 import { ActionTimelinePopover } from '../../components/actions/ActionTimelinePopover';
+import { ActionHubSummary, SummaryFilterKey } from '../../components/actions/ActionHubSummary';
+import { isActionHubSummaryV2Enabled } from '../../lib/actions/actionHubSummaryFlag';
 import {
   fetchActions,
   saveAction,
@@ -22,7 +24,7 @@ import {
 } from '../../lib/actions/types';
 import { approveCandidate, dismissCandidate, fetchCandidates } from '../../lib/actions/actionCandidates';
 import { calculateActionBuckets, getActionBucket } from '../../lib/actions/actionBuckets';
-import { melbourneToday } from '../../lib/intel/actionStatus';
+import { melbourneToday, effectiveStatus } from '../../lib/intel/actionStatus';
 import {
   parseActionRegisterCsv,
   importActionBatch,
@@ -61,6 +63,7 @@ export const ActionHubPage: React.FC = () => {
   const { supabase, user, profile } = useAuth();
   const { isAllowed: canExportTimeline } = useFeatureAccess('action_timeline_export');
   const showTimelineButton = isActionTimelineFeatureFlagEnabled(user, profile);
+  const isSummaryV2 = isActionHubSummaryV2Enabled(user, profile);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const timelineTriggerRef = React.useRef<HTMLButtonElement | null>(null);
   const mobileTimelineTriggerRef = React.useRef<HTMLButtonElement | null>(null);
@@ -73,6 +76,7 @@ export const ActionHubPage: React.FC = () => {
   // Scope & Tab state
   const [scope, setScope] = useState<'my' | 'all'>('my');
   const [activeTab, setActiveTab] = useState<string>('my');
+  const [activeSummaryFilter, setActiveSummaryFilter] = useState<SummaryFilterKey>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Modals & Drawers
@@ -706,6 +710,21 @@ export const ActionHubPage: React.FC = () => {
     return calculateActionBuckets(scopedActions, now);
   }, [actions, scope, user?.id, now]);
 
+  const handleSelectSummaryFilter = (filterKey: SummaryFilterKey) => {
+    setActiveSummaryFilter(filterKey);
+    if (!filterKey) {
+      if (['overdue', 'due_today', 'upcoming', 'unscheduled', 'completed'].includes(activeTab)) {
+        setActiveTab(scope === 'my' ? 'my' : 'all');
+      }
+      return;
+    }
+    if (filterKey === 'overdue') setActiveTab('overdue');
+    else if (filterKey === 'due_today') setActiveTab('due_today');
+    else if (filterKey === 'upcoming') setActiveTab('upcoming');
+    else if (filterKey === 'unscheduled') setActiveTab('unscheduled');
+    else if (filterKey === 'completed') setActiveTab('completed');
+  };
+
   // Filtered rows for grid
   const displayedActions = useMemo(() => {
     let list = actions;
@@ -715,17 +734,39 @@ export const ActionHubPage: React.FC = () => {
       list = list.filter((a) => a.user_id === user.id || a.assigned_user_id === user.id);
     }
 
-    // Tab filter
-    if (activeTab === 'due_today') {
+    // Filter by activeSummaryFilter or activeTab
+    const effectiveFilter =
+      activeSummaryFilter ||
+      (activeTab === 'due_today'
+        ? 'due_today'
+        : activeTab === 'overdue'
+        ? 'overdue'
+        : activeTab === 'upcoming'
+        ? 'upcoming'
+        : activeTab === 'unscheduled'
+        ? 'unscheduled'
+        : activeTab === 'completed'
+        ? 'completed'
+        : null);
+
+    if (effectiveFilter === 'due_today') {
       list = list.filter((a) => getActionBucket(a, now) === 'Due today');
-    } else if (activeTab === 'overdue') {
+    } else if (effectiveFilter === 'overdue') {
       list = list.filter((a) => getActionBucket(a, now) === 'Overdue');
-    } else if (activeTab === 'upcoming') {
+    } else if (effectiveFilter === 'upcoming') {
       list = list.filter((a) => a.due_date && a.due_date.slice(0, 10) > todayStr && a.status !== 'completed');
-    } else if (activeTab === 'unscheduled') {
+    } else if (effectiveFilter === 'unscheduled') {
       list = list.filter((a) => !a.due_date && a.status !== 'completed');
-    } else if (activeTab === 'completed') {
+    } else if (effectiveFilter === 'completed') {
       list = list.filter((a) => a.status === 'completed');
+    } else if (effectiveFilter === 'in_progress') {
+      list = list.filter((a) => effectiveStatus(a) === 'in_progress');
+    } else if (effectiveFilter === 'waiting') {
+      list = list.filter((a) => effectiveStatus(a) === 'waiting');
+    } else if (effectiveFilter === 'blocked') {
+      list = list.filter((a) => effectiveStatus(a) === 'blocked');
+    } else if (effectiveFilter === 'pending') {
+      list = list.filter((a) => getActionBucket(a, now) === 'Pending');
     }
 
     // Search query filter
@@ -744,6 +785,10 @@ export const ActionHubPage: React.FC = () => {
   }, [actions, scope, user?.id, activeTab, searchQuery, now, todayStr]);
 
   const currentViewLabel = useMemo(() => {
+    if (activeSummaryFilter === 'in_progress') return 'In progress';
+    if (activeSummaryFilter === 'waiting') return 'Waiting';
+    if (activeSummaryFilter === 'blocked') return 'Blocked';
+    if (activeSummaryFilter === 'pending') return 'Pending';
     if (activeTab === 'my') return 'My Actions';
     if (activeTab === 'all') return 'All permitted actions';
     if (activeTab === 'due_today') return 'Due today';
@@ -1083,7 +1128,17 @@ export const ActionHubPage: React.FC = () => {
         </div>
       )}
 
-      {/* Summary Strip (Doughnut and Counters) */}
+      {/* Summary Strip: Futuristic MIX (v2) if enabled, otherwise v1 strip */}
+      {isSummaryV2 ? (
+        <ActionHubSummary
+          bucketCounts={bucketCounts}
+          activeFilter={activeSummaryFilter}
+          onSelectFilter={handleSelectSummaryFilter}
+          loading={loading}
+          error={error}
+          onRetry={loadActions}
+        />
+      ) : (
       <div className="ach-sum">
         {/* Left: SVG Doughnut Chart */}
         <div className="ach-card ach-dn">
@@ -1192,54 +1247,72 @@ export const ActionHubPage: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Saved View Tabs */}
       <div className="ach-tabs">
         <button
-          className={activeTab === 'my' ? 'active' : ''}
+          className={activeTab === 'my' && !activeSummaryFilter ? 'active' : ''}
           onClick={() => {
             setActiveTab('my');
             setScope('my');
+            setActiveSummaryFilter(null);
           }}
         >
           My Actions
         </button>
         <button
-          className={activeTab === 'all' ? 'active' : ''}
+          className={activeTab === 'all' && !activeSummaryFilter ? 'active' : ''}
           onClick={() => {
             setActiveTab('all');
             setScope('all');
+            setActiveSummaryFilter(null);
           }}
         >
           All permitted actions
         </button>
         <button
-          className={activeTab === 'due_today' ? 'active' : ''}
-          onClick={() => setActiveTab('due_today')}
+          className={activeTab === 'due_today' || activeSummaryFilter === 'due_today' ? 'active' : ''}
+          onClick={() => {
+            setActiveTab('due_today');
+            setActiveSummaryFilter(activeSummaryFilter === 'due_today' ? null : 'due_today');
+          }}
         >
           Due today
         </button>
         <button
-          className={activeTab === 'overdue' ? 'active' : ''}
-          onClick={() => setActiveTab('overdue')}
+          className={activeTab === 'overdue' || activeSummaryFilter === 'overdue' ? 'active' : ''}
+          onClick={() => {
+            setActiveTab('overdue');
+            setActiveSummaryFilter(activeSummaryFilter === 'overdue' ? null : 'overdue');
+          }}
         >
           Overdue
         </button>
         <button
-          className={activeTab === 'upcoming' ? 'active' : ''}
-          onClick={() => setActiveTab('upcoming')}
+          className={activeTab === 'upcoming' || activeSummaryFilter === 'upcoming' ? 'active' : ''}
+          onClick={() => {
+            setActiveTab('upcoming');
+            setActiveSummaryFilter(activeSummaryFilter === 'upcoming' ? null : 'upcoming');
+          }}
         >
           Upcoming
         </button>
         <button
-          className={activeTab === 'unscheduled' ? 'active' : ''}
-          onClick={() => setActiveTab('unscheduled')}
+          className={activeTab === 'unscheduled' || activeSummaryFilter === 'unscheduled' ? 'active' : ''}
+          onClick={() => {
+            setActiveTab('unscheduled');
+            setActiveSummaryFilter(activeSummaryFilter === 'unscheduled' ? null : 'unscheduled');
+          }}
         >
           Unscheduled
         </button>
         <button
-          className={activeTab === 'completed' ? 'active' : ''}
-          onClick={() => setActiveTab('completed')}
+          className={activeTab === 'completed' || activeSummaryFilter === 'completed' ? 'active' : ''}
+          onClick={() => {
+            setActiveTab('completed');
+            setActiveSummaryFilter(activeSummaryFilter === 'completed' ? null : 'completed');
+          }}
         >
           Completed
         </button>
