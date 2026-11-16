@@ -31,8 +31,16 @@ export const fmt = (s, withDay = true) => {
 };
 const clean = (t) => String(t || '').replace(/\s*[–—]\s*/g, ', ').trim();
 const clip = (t, n) => { t = clean(t); return t.length <= n ? t : t.slice(0, t.lastIndexOf(' ', n - 1)) + '…'; };
-const ownerText = (o) => (o ? o : 'Owner to be agreed');
-const firstName = (o) => (o ? o.split(' ')[0] : 'Unassigned');
+const ownerText = (o) => {
+  const t = clean(o).replace(/[,;:–—-]+$/, '').trim();
+  return t ? t : 'Owner to be agreed';
+};
+const firstName = (o) => {
+  const t = clean(o).trim();
+  if (!t) return 'Owner to be agreed';
+  const f = t.split(' ')[0].replace(/[,;:–—-]+$/, '').trim();
+  return f ? f : 'Owner to be agreed';
+};
 
 /**
  * @typedef {{id:string,title:string,owner:string|null,due:string|null,status:'open'|'in_progress'|'completed',priority?:string|null}} TAction
@@ -193,7 +201,17 @@ export function renderTimeline(PptxGenJS, input, plan, assets) {
       s.addText('ACTION TIMELINE', { x: 0.6, y: 1.62, w: 8, h: 0.3, margin: 0, fontFace: F.body, fontSize: 11, bold: true, color: C.goldDeep, charSpacing: 4 });
       s.addText(clip(input.title, 34), { x: 0.6, y: 1.95, w: 10.5, h: 0.95, margin: 0, fontFace: F.head, fontSize: 44, bold: true, color: C.ink, valign: 'top', fit: 'none' });
       s.addText(clip(input.subtitle, 80), { x: 0.6, y: 2.88, w: 10.5, h: 0.45, margin: 0, fontFace: F.body, fontSize: 17, color: C.body });
-      s.addText(`${fmt(first, false)} to ${fmt(last, false)} ${last.slice(0, 4)}   |   ${input.source === 'meeting' ? 'From ' + input.sourceLabel : 'Exported ' + fmt(ref) + ' ' + ref.slice(0, 4)}   |   ${input.timezone.replace('_', ' ')}`, { x: 0.6, y: 3.36, w: 10.5, h: 0.3, margin: 0, fontFace: F.body, fontSize: 10.5, color: C.mute });
+      const firstYear = first ? first.slice(0, 4) : ref.slice(0, 4);
+      const lastYear = last ? last.slice(0, 4) : ref.slice(0, 4);
+      const dateRangeStr =
+        !first || !last
+          ? 'No dated actions'
+          : first === last
+          ? `Due on ${fmt(first, false)} ${firstYear}`
+          : firstYear === lastYear
+          ? `${fmt(first, false)} to ${fmt(last, false)} ${firstYear}`
+          : `${fmt(first, false)} ${firstYear} to ${fmt(last, false)} ${lastYear}`;
+      s.addText(`${dateRangeStr}   |   ${input.source === 'meeting' ? 'From ' + input.sourceLabel : 'Exported ' + fmt(ref) + ' ' + ref.slice(0, 4)}   |   ${input.timezone.replace('_', ' ')}`, { x: 0.6, y: 3.36, w: 10.5, h: 0.3, margin: 0, fontFace: F.body, fontSize: 10.5, color: C.mute });
       const kp = input.source === 'meeting'
         ? [['upcoming', plan.openDated.length], ['unscheduled', plan.undated.length], ...(plan.nm ? [['meeting', fmt(plan.nm.date, false)]] : [])]
         : ['upcoming', 'today', 'overdue', 'unscheduled', 'completed'].map((k) => [k, plan.counts[k]]);
@@ -286,7 +304,9 @@ export function renderTimeline(PptxGenJS, input, plan, assets) {
         p.items.slice(0, 4).forEach((a, j) => {
           const y = 2.42 + j * 0.62;
           s.addText(clip(a.title, 60), { x, y, w: 2.55, h: 0.36, margin: 0, fontFace: F.body, fontSize: 10, bold: true, color: C.ink, valign: 'top' });
-          s.addText(`${firstName(a.owner)}, ${a.due ? fmt(a.due) : 'date to be agreed'}`, { x, y: y + 0.33, w: 2.55, h: 0.22, margin: 0, fontFace: F.body, fontSize: 8.5, color: C.mute });
+          const ownerPart = firstName(a.owner);
+          const datePart = a.due ? fmt(a.due) : 'date to be agreed';
+          s.addText(`${ownerPart}, ${datePart}`, { x, y: y + 0.33, w: 2.55, h: 0.22, margin: 0, fontFace: F.body, fontSize: 8.5, color: C.mute });
         });
         if (p.items.length > 4) s.addText(`+ ${p.items.length - 4} more`, { x, y: 2.42 + 4 * 0.62, w: 2.55, h: 0.24, margin: 0, fontFace: F.body, fontSize: 9, bold: true, color: col });
       });
@@ -306,7 +326,7 @@ export function renderTimeline(PptxGenJS, input, plan, assets) {
           const ry = y + 1.05 + j * 0.66;
           if (j > 0) s.addShape(pptx.ShapeType.line, { x: x + 0.3, y: ry - 0.08, w: cw - 0.6, h: 0, line: { color: 'EDF0F5', width: 0.75 } });
           s.addText(clip(a.title, cw > 7 ? 90 : 44), { x: x + 0.3, y: ry, w: cw - 2.0, h: 0.3, margin: 0, fontFace: F.body, fontSize: 10.5, bold: true, color: C.ink, valign: 'middle' });
-          s.addText(`${a.id}  |  ${ownerText(a.owner)}${a.due ? '  |  was due ' + fmt(a.due) : ''}`, { x: x + 0.3, y: ry + 0.29, w: cw - 2.0, h: 0.22, margin: 0, fontFace: F.body, fontSize: 8.5, color: C.mute });
+          s.addText(`${ownerText(a.owner)}${a.due ? '  |  was due ' + fmt(a.due) : ''}`, { x: x + 0.3, y: ry + 0.29, w: cw - 2.0, h: 0.22, margin: 0, fontFace: F.body, fontSize: 8.5, color: C.mute });
           s.addText(c.badge(a), { x: x + cw - 0.3 - 1.35, y: ry + 0.08, w: 1.35, h: 0.3, margin: 0, shape: 'roundRect', rectRadius: 0.15, fill: { color: tint(col, 0.14) }, line: { color: col, width: 0.75 }, color: c.k === 'overdue' ? 'B4303E' : C.body, fontFace: F.body, fontSize: 8.5, bold: true, align: 'center', valign: 'middle' });
         });
       });

@@ -1,0 +1,56 @@
+{
+  "test_run": "Tasklet Brief Timeline PPTX Defects v2",
+  "status": "PASS",
+  "timestamp": "2026-11-16T12:30:00+11:00",
+  "gates": {
+    "feature_flag": "action_timeline_v1",
+    "dashboard_diff_lines": 0,
+    "production_migrations": 0
+  },
+  "defects_verified": {
+    "defect_1_raw_record_ids_removed": {
+      "status": "PASS",
+      "slides_checked": [
+        "Slide 6",
+        "Slide 7"
+      ],
+      "observed": "Zero database UUIDs or record IDs printed in slide text. Verified with regex [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} across all 8 slides."
+    },
+    "defect_2_double_comma_fixed": {
+      "status": "PASS",
+      "slides_checked": [
+        "Slide 6",
+        "Slide 7",
+        "Slide 8"
+      ],
+      "observed": "Zero occurrences of double comma. Multi-owner string Anthony, Tax agent formatted cleanly as Anthony, Mon 2 Nov. Missing owner prints Owner to be agreed."
+    },
+    "defect_3_wrong_year_and_date_range": {
+      "status": "PASS",
+      "cover_date_range": "Multi-year ranges crossing year boundaries print both years (for example, 24 Oct 2026 to 23 Jan 2027). Verified via automated test T14.",
+      "day_90_action_investigation": {
+        "action_id": "5e0754a7-da83-42d2-8b2e-3b275c358599",
+        "action_title": "Day 90 gate review.",
+        "imported_due_date": "2026-01-23",
+        "expected_due_date": "2027-01-23",
+        "origin": "stated_in_plan",
+        "source_document": "Concludo_Action_Plan_v1.docx",
+        "source_quote": "| D08 | Day 90 gate review. | Anthony | 23 Jan | Gate scored and recorded | \u2610 |",
+        "created_at": "2026-11-12 10:30:16+00",
+        "data_status": "UNTOUCHED (awaiting director instruction)"
+      },
+      "additional_actions_with_suspicious_due_dates_count": 5
+    }
+  },
+  "test_suite": {
+    "test_file": "app/tests/actionTimelineExport.test.ts",
+    "total_tests": 11,
+    "passed": 11,
+    "failed": 0
+  },
+  "dashboard_diff": {
+    "files_changed": 0,
+    "lines_added": 0,
+    "lines_deleted": 0
+  }
+}
