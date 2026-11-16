@@ -253,16 +253,10 @@ export function mountMeetingStudio(root, opts = {}) {
         </div>
         <div class="cmo-fut-top-right">
           <button class="cmo-fut-btn-s" data-act="sample" type="button">${ic('spark')}<span>Load fictional sample</span></button>
-          <div class="cmo-fut-stepper" aria-hidden="true">
-            <div class="cmo-fut-chip on"><b>1</b>Add</div>
-            <span class="cmo-fut-rail"></span>
-            <div class="cmo-fut-chip"><b>2</b>Review</div>
-            <span class="cmo-fut-rail"></span>
-            <div class="cmo-fut-chip"><b>3</b>Approve</div>
-          </div>
         </div>
       </div>
 
+      <div class="cmo-fut-import-grid">
       <section class="cmo-fut-card">
         <div class="cmo-fut-tabs" role="tablist" aria-label="Meeting source tabs">
           <button class="cmo-fut-tab ${S.tab === 'paste' ? 'on' : ''}" data-tab="paste" role="tab" id="cmo-tab-paste" aria-controls="cmo-panel-paste" aria-selected="${S.tab === 'paste' ? 'true' : 'false'}" tabindex="${S.tab === 'paste' ? '0' : '-1'}">${ic('paste')}<span>Paste transcript</span></button>
@@ -304,7 +298,7 @@ export function mountMeetingStudio(root, opts = {}) {
         ${S.error ? `<div class="err" style="margin-top:12px">${esc(S.error)}</div>` : ''}
       </section>
 
-      <section class="cmo-fut-card cmo-fut-card-gold">
+      <aside class="cmo-fut-card cmo-fut-card-gold">
         <div class="cmo-fut-dh">
           <h2>Meeting details</h2>
           <span class="cmo-fut-pill" id="wc">${wordPillText}</span>
@@ -340,7 +334,8 @@ export function mountMeetingStudio(root, opts = {}) {
         <div class="cmo-fut-note">
           Concludo proposes. You confirm. Every item it finds links back to the line it came from, and anything not said in the meeting is shown as a gap, not filled in.
         </div>
-      </section>
+      </aside>
+      </div>
     </div>`;
   }
 
