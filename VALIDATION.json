@@ -4,6 +4,11 @@
   "timestamp": "2026-11-16T12:30:00+11:00",
   "gates": {
     "feature_flag": "action_timeline_v1",
+    "openxml_sdk_validator": {
+      "version": "DocumentFormat.OpenXml 3.1.1 (Office 2019)",
+      "before_fix_errors": 74,
+      "after_fix_errors": 0
+    },
     "dashboard_diff_lines": 0,
     "production_migrations": 0
   },
@@ -40,12 +45,19 @@
         "data_status": "UNTOUCHED (awaiting director instruction)"
       },
       "additional_actions_with_suspicious_due_dates_count": 5
+    },
+    "defect_4_openxml_schema_conformance": {
+      "status": "PASS",
+      "presentation_xml_order": "notesMasterIdLst reordered before sldIdLst per ECMA-376",
+      "shadow_mutation_fixed": "fresh shadow factory prevents exponential number multiplication",
+      "duplicate_pPr_removed": "sanitized single a:pPr per paragraph",
+      "sdk_validator_result": "0 errors across all 8 slides"
     }
   },
   "test_suite": {
     "test_file": "app/tests/actionTimelineExport.test.ts",
-    "total_tests": 11,
-    "passed": 11,
+    "total_tests": 12,
+    "passed": 12,
     "failed": 0
   },
   "dashboard_diff": {

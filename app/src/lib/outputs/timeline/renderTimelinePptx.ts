@@ -19,7 +19,7 @@ import {
 const W = 13.333;
 const H = 7.5;
 const LOGO_ASPECT = 2261 / 885;
-const SHADOW = { type: 'outer' as const, blur: 6, offset: 2, angle: 90, color: '16263F', opacity: 0.18 };
+const makeShadow = () => ({ type: 'outer' as const, blur: 6, offset: 2, angle: 90, color: '16263F', opacity: 0.18 });
 
 // Road geometry bezier control points
 const ROAD_MAP = [{ x: -0.5, y: 6.6 }, { x: 4.4, y: 6.45 }, { x: 8.6, y: 4.35 }, { x: 13.9, y: 2.55 }];
@@ -315,7 +315,7 @@ export async function renderTimelinePptx(
         rectRadius: 0.12,
         fill: { color: C.white },
         line: { color: C.hair, width: 0.75 },
-        shadow: SHADOW,
+        shadow: makeShadow(),
       });
       s.addShape(pptx.ShapeType.rect, {
         x: x + 0.16,
@@ -363,7 +363,7 @@ export async function renderTimelinePptx(
         h: r * 2,
         fill: { color: (STATUS as any)[k].color },
         line: { color: C.white, width: 2 },
-        shadow: SHADOW,
+        shadow: makeShadow(),
       });
     });
 
@@ -414,7 +414,7 @@ export async function renderTimelinePptx(
         h: 0.22,
         fill: { color: col },
         line: { color: C.white, width: 2 },
-        shadow: SHADOW,
+        shadow: makeShadow(),
       });
       s.addShape(pptx.ShapeType.ellipse, {
         x: x - 0.29,
@@ -423,7 +423,7 @@ export async function renderTimelinePptx(
         h: 0.58,
         fill: { color: col },
         line: { color: C.white, width: 2.5 },
-        shadow: SHADOW,
+        shadow: makeShadow(),
       });
       s.addText(String(i + 1).padStart(2, '0'), {
         x: x - 0.29,
@@ -548,7 +548,7 @@ export async function renderTimelinePptx(
       rectRadius: 0.1,
       fill: { color: C.white },
       line: { color: C.hair, width: 0.75 },
-      shadow: SHADOW,
+      shadow: makeShadow(),
     });
 
     // Week columns
@@ -895,7 +895,7 @@ export async function renderTimelinePptx(
         rectRadius: 0.12,
         fill: { color: C.white },
         line: { color: C.hair, width: 0.75 },
-        shadow: SHADOW,
+        shadow: makeShadow(),
       });
       s.addShape(pptx.ShapeType.rect, {
         x: x + 0.3,
@@ -1014,7 +1014,7 @@ export async function renderTimelinePptx(
       rectRadius: 0.37,
       fill: { color: C.white },
       line: { color: C.hair, width: 0.75 },
-      shadow: SHADOW,
+      shadow: makeShadow(),
     });
 
     let cx = bx;
@@ -1166,12 +1166,88 @@ export async function renderTimelinePptx(
  */
 export async function sanitizePptxPackageBlob(rawBlob: Blob): Promise<Blob> {
   const zip = await JSZip.loadAsync(rawBlob);
+
+  // 1. Fix [Content_Types].xml: remove phantom slideMaster overrides
   const ctFile = zip.file('[Content_Types].xml');
   if (ctFile) {
     let ct = await ctFile.async('string');
     ct = ct.replace(/<Override PartName="\/ppt\/slideMasters\/slideMaster([2-9]|\d{2,})\.xml"[^>]*\/>/g, '');
     zip.file('[Content_Types].xml', ct);
   }
+
+  // 2. Fix ppt/presentation.xml: re-order <p:notesMasterIdLst> before <p:sldIdLst> per ECMA-376 schema
+  const presFile = zip.file('ppt/presentation.xml');
+  if (presFile) {
+    let presXml = await presFile.async('string');
+    const mNotes = presXml.match(/<p:notesMasterIdLst>.*?<\/p:notesMasterIdLst>/);
+    const mSldId = presXml.match(/<p:sldIdLst>.*?<\/p:sldIdLst>/);
+    if (mNotes && mSldId && presXml.indexOf(mNotes[0]) > presXml.indexOf(mSldId[0])) {
+      presXml = presXml.replace(mNotes[0], '');
+      presXml = presXml.replace(mSldId[0], mNotes[0] + mSldId[0]);
+      zip.file('ppt/presentation.xml', presXml);
+    }
+  }
+
+  // 3. Fix all slide XML files in ppt/slides/
+  const slideFiles = Object.keys(zip.files).filter(
+    (name) => name.startsWith('ppt/slides/slide') && name.endsWith('.xml')
+  );
+
+  for (const slideName of slideFiles) {
+    const sFile = zip.file(slideName);
+    if (!sFile) continue;
+    let sXml = await sFile.async('string');
+
+    // 3a. Remove duplicate <a:pPr> inside any single <a:p>
+    const pprPattern = /<a:pPr[^>]*\/>|<a:pPr[\s\S]*?<\/a:pPr>/g;
+    sXml = sXml.replace(/<a:p>[\s\S]*?<\/a:p>/g, (pMatch) => {
+      const pprs = pMatch.match(pprPattern);
+      if (pprs && pprs.length > 1) {
+        let first = true;
+        return pMatch.replace(pprPattern, (ppr) => {
+          if (first) {
+            first = false;
+            return ppr;
+          }
+          return '';
+        });
+      }
+      return pMatch;
+    });
+
+    // 3b. Sanitize shadow elements (<a:outerShdw>) against scientific notation or huge numbers
+    sXml = sXml.replace(/<a:outerShdw\b[\s\S]*?<\/a:outerShdw>/g, (shdw) => {
+      let clean = shdw;
+      clean = clean.replace(/blurRad="[^"]*e\+[^"]*"/g, 'blurRad="76200"');
+      clean = clean.replace(/dist="[^"]*e\+[^"]*"/g, 'dist="25400"');
+      clean = clean.replace(/dir="[^"]*e\+[^"]*"/g, 'dir="5400000"');
+      clean = clean.replace(/(<a:alpha\b[^>]*?\bval=")[^"]*e\+[^"]*(")/g, '$118000$2');
+
+      clean = clean.replace(/(blurRad|dist|dir)="(\d+)"/g, (m, attr, valStr) => {
+        try {
+          const v = parseInt(valStr, 10);
+          if (attr === 'dir' && v > 2147483647) return `${attr}="5400000"`;
+          if ((attr === 'blurRad' || attr === 'dist') && v > 2147483647) {
+            return attr === 'blurRad' ? `${attr}="76200"` : `${attr}="25400"`;
+          }
+        } catch (_) {}
+        return m;
+      });
+
+      clean = clean.replace(/(<a:alpha\b[^>]*?\bval=")(\d+)(")/g, (m, pfx, valStr, sfx) => {
+        try {
+          const v = parseInt(valStr, 10);
+          if (v > 100000) return `${pfx}18000${sfx}`;
+        } catch (_) {}
+        return m;
+      });
+
+      return clean;
+    });
+
+    zip.file(slideName, sXml);
+  }
+
   return await zip.generateAsync({
     type: 'blob',
     mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
