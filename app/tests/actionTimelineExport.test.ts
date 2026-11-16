@@ -340,4 +340,50 @@ describe('Action Timeline PowerPoint Export (Tasklet Brief v1)', () => {
       expect(xml).not.toContain('Unassigned');
     }
   });
+
+  it('T16: Strict ECMA-376 schema conformance: zero exponential shadow values, single a:pPr per a:p, and presentation.xml sequence', async () => {
+    const sampleActions = [
+      { id: '1', action_title: 'Task 1', due_date: '2026-11-20', status: 'not_started', priority: 'high', owner_name: 'Anthony' },
+      { id: '2', action_title: 'Task 2', due_date: '2026-11-21', status: 'in_progress', priority: 'medium', owner_name: 'David' },
+      { id: '3', action_title: 'Task 3', due_date: '2026-11-22', status: 'completed', priority: 'low', owner_name: 'Grace' },
+    ];
+    const payload = buildTimelinePayloadFromActions(sampleActions as any, {
+      viewName: 'Schema Test',
+      filterDescription: 'all permitted actions',
+      projectName: 'Schema Plan',
+      now: new Date('2026-11-16T00:00:00Z'),
+    });
+
+    const { pptx } = await renderTimelinePptx(PptxGenJS, payload);
+    const rawBlob = (await pptx.write({ outputType: 'blob' })) as Blob;
+    const cleanBlob = await sanitizePptxPackageBlob(rawBlob);
+    const buffer = await cleanBlob.arrayBuffer();
+
+    const zip = await JSZip.loadAsync(buffer);
+
+    // 1. presentation.xml sequence: notesMasterIdLst must precede sldIdLst
+    const presXml = await zip.file('ppt/presentation.xml')!.async('string');
+    const idxNotes = presXml.indexOf('<p:notesMasterIdLst>');
+    const idxSldId = presXml.indexOf('<p:sldIdLst>');
+    if (idxNotes !== -1 && idxSldId !== -1) {
+      expect(idxNotes).toBeLessThan(idxSldId);
+    }
+
+    // 2. Slide XMLs: no scientific notation in shadows, and each a:p has at most one a:pPr
+    const slideFiles = Object.keys(zip.files).filter((k) => k.startsWith('ppt/slides/slide') && k.endsWith('.xml'));
+    for (const slidePath of slideFiles) {
+      const xml = await zip.file(slidePath)!.async('string');
+      expect(xml).not.toMatch(/blurRad="[^"]*e\+[^"]*"/);
+      expect(xml).not.toMatch(/dist="[^"]*e\+[^"]*"/);
+      expect(xml).not.toMatch(/dir="[^"]*e\+[^"]*"/);
+      expect(xml).not.toMatch(/val="[^"]*e\+[^"]*"/);
+
+      // Each a:p must have at most one a:pPr
+      const paragraphs = xml.match(/<a:p>[\s\S]*?<\/a:p>/g) || [];
+      for (const p of paragraphs) {
+        const pprMatches = p.match(/<a:pPr[^>]*\/>|<a:pPr[\s\S]*?<\/a:pPr>/g) || [];
+        expect(pprMatches.length).toBeLessThanOrEqual(1);
+      }
+    }
+  });
 });
