@@ -627,3 +627,556 @@
   html.cmo-printing .cmo .page:last-child { break-after: auto; }
   html.cmo-printing .cmo * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ============================================================
+   STEP 1 BRIGHT FUTURISTIC THEME LAYER
+   Tokens from meetingInputTheme (tokens.json)
+   Flag: meeting_input_futuristic_v1
+   ============================================================ */
+.cmo.cmo-futuristic-step1 {
+  --cmo-fut-navy: #16263F;
+  --cmo-fut-navy2: #21395C;
+  --cmo-fut-gold: #E2B53C;
+  --cmo-fut-gold-deep: #BC8A1C;
+  --cmo-fut-light: #F4F6FA;
+  --cmo-fut-slate: #5A6478;
+  --cmo-fut-cy: #7DD3FC;
+  --cmo-fut-bl: #3D9BFF;
+  --cmo-fut-line: #D5E3F2;
+  --cmo-fut-field-border: #CFE3F5;
+  --cmo-fut-textarea-border: #BFE6FB;
+
+  background-color: var(--cmo-fut-light);
+  background-image:
+    radial-gradient(900px 420px at 88% -80px, rgba(125,211,252,.35), transparent 70%),
+    radial-gradient(700px 400px at -5% 40%, rgba(61,155,255,.10), transparent 70%),
+    linear-gradient(rgba(61,155,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(61,155,255,.06) 1px, transparent 1px);
+  background-size: auto, auto, 40px 40px, 40px 40px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px 40px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  box-sizing: border-box;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: .14em;
+  color: var(--cmo-fut-navy2);
+  text-transform: uppercase;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-eyebrow i {
+  width: 28px;
+  height: 3px;
+  background: var(--cmo-fut-gold);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(226,181,60,.7);
+  display: inline-block;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-top h1 {
+  margin: 8px 0 10px;
+  font-family: Poppins, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 1.08;
+  color: var(--cmo-fut-navy);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-sub {
+  max-width: 680px;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--cmo-fut-slate);
+  margin: 0;
+  font-family: Inter, sans-serif;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-top-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 420px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-btn-s {
+  min-height: 48px;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--cmo-fut-cy);
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--cmo-fut-navy);
+  box-shadow: 0 0 0 1px rgba(125,211,252,.4),0 0 18px rgba(61,155,255,.32),inset 0 0 12px rgba(125,211,252,.14);
+  cursor: pointer;
+  font-family: Inter, sans-serif;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-btn-s:focus-visible {
+  outline: 2px solid var(--cmo-fut-bl);
+  outline-offset: 2px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-btn-s svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px 0 8px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--cmo-fut-line);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cmo-fut-slate);
+  user-select: none;
+  font-family: Inter, sans-serif;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-chip b {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: Poppins, Arial, sans-serif;
+  font-size: 13px;
+  background: #EEF3FA;
+  color: var(--cmo-fut-navy2);
+  font-weight: 600;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-chip.on {
+  border-color: var(--cmo-fut-cy);
+  color: var(--cmo-fut-navy);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(125,211,252,.4),0 0 16px rgba(61,155,255,.3);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-chip.on b {
+  background: var(--cmo-fut-navy);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(61,155,255,.6);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-rail {
+  width: 28px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--cmo-fut-cy) 0 4px, transparent 4px 8px);
+  display: inline-block;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--cmo-fut-cy);
+  border-radius: 22px;
+  padding: 32px;
+  box-shadow: 0 0 0 1px rgba(125,211,252,.3),0 0 28px rgba(61,155,255,.22),0 14px 36px rgba(22,38,63,.07);
+  box-sizing: border-box;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-card:before,
+.cmo.cmo-futuristic-step1 .cmo-fut-card:after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--cmo-fut-bl);
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(61,155,255,.7));
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-card:before {
+  top: -2px;
+  left: -2px;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 22px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-card:after {
+  bottom: -2px;
+  right: -2px;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 22px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-card.cmo-fut-card-gold {
+  border-top: 3px solid var(--cmo-fut-gold);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 6px;
+  background: #EEF4FB;
+  border: 1px solid var(--cmo-fut-line);
+  border-radius: 16px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-tab {
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--cmo-fut-slate);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: Inter, sans-serif;
+  transition: all .15s ease;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-tab svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-tab.on {
+  background: #fff;
+  color: var(--cmo-fut-navy);
+  border: 1px solid var(--cmo-fut-cy);
+  box-shadow: 0 0 0 1px rgba(125,211,252,.35),0 0 16px rgba(61,155,255,.3);
+  position: relative;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-tab.on:after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--cmo-fut-gold);
+  box-shadow: 0 0 8px rgba(226,181,60,.8);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-tab:focus-visible {
+  outline: 2px solid var(--cmo-fut-bl);
+  outline-offset: 2px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-ta-box {
+  position: relative;
+  margin-top: 22px;
+  min-height: 340px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-ta-box:before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cmo-fut-bl), var(--cmo-fut-cy), transparent);
+  opacity: .9;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 60px;
+  top: 0;
+  background: linear-gradient(180deg, transparent, rgba(125,211,252,.16), transparent);
+  animation: cmoScan 6s linear infinite;
+  pointer-events: none;
+  border-radius: 16px;
+  z-index: 1;
+}
+
+@keyframes cmoScan {
+  from { transform: translateY(-60px); }
+  to { transform: translateY(340px); }
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-paste {
+  width: 100%;
+  min-height: 340px;
+  padding: 24px 26px;
+  border-radius: 16px;
+  border: 1px solid var(--cmo-fut-textarea-border);
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--cmo-fut-navy);
+  font-family: Inter, monospace, sans-serif;
+  background: linear-gradient(180deg, #FBFDFF, #F3F9FF);
+  box-shadow: inset 0 0 22px rgba(125,211,252,.16), 0 0 0 3px rgba(125,211,252,.12);
+  resize: vertical;
+  box-sizing: border-box;
+  display: block;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-paste:focus {
+  outline: none;
+  border-color: var(--cmo-fut-bl);
+  box-shadow: 0 0 0 3px rgba(61,155,255,.18), 0 0 18px rgba(61,155,255,.35);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-hint {
+  margin-top: 14px;
+  font-size: 15px;
+  color: var(--cmo-fut-slate);
+  line-height: 1.5;
+  font-family: Inter, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-dh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--cmo-fut-line);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-dh h2 {
+  margin: 0;
+  font-family: Poppins, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 24px;
+  color: var(--cmo-fut-navy);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cmo-fut-cy);
+  background: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--cmo-fut-navy2);
+  box-shadow: 0 0 12px rgba(61,155,255,.25);
+  font-family: Inter, sans-serif;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 22px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-f {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-f.full {
+  grid-column: 1 / -1;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-f label {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--cmo-fut-navy2);
+  font-family: Inter, sans-serif;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-in {
+  height: 56px;
+  border-radius: 12px;
+  border: 1px solid var(--cmo-fut-field-border);
+  background: #fff;
+  padding: 0 18px;
+  font-size: 17px;
+  color: var(--cmo-fut-navy);
+  box-shadow: inset 0 0 10px rgba(125,211,252,.10);
+  font-family: Inter, sans-serif;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-in:focus {
+  outline: none;
+  border-color: var(--cmo-fut-bl);
+  box-shadow: 0 0 0 3px rgba(61,155,255,.18), 0 0 18px rgba(61,155,255,.35);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-cta {
+  margin-top: 26px;
+  height: 60px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: Poppins, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--cmo-fut-navy);
+  background: #F1DE9E;
+  opacity: .75;
+  border: 1px solid transparent;
+  width: 100%;
+  cursor: not-allowed;
+  transition: all .15s ease;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-cta svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-cta.ready {
+  opacity: 1;
+  background: linear-gradient(180deg, #EDC453, var(--cmo-fut-gold));
+  border-color: #F3D77E;
+  box-shadow: 0 0 0 1px rgba(226,181,60,.5), 0 0 26px rgba(226,181,60,.55), 0 8px 20px rgba(188,138,28,.25);
+  cursor: pointer;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-cta:focus-visible {
+  outline: 2px solid var(--cmo-fut-bl);
+  outline-offset: 2px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-note {
+  margin-top: 20px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: #F3F9FF;
+  border: 1px solid #CFE8FA;
+  border-left: 4px solid var(--cmo-fut-bl);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--cmo-fut-navy2);
+  font-family: Inter, sans-serif;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-drop {
+  border: 1.5px dashed var(--cmo-fut-cy);
+  border-radius: 16px;
+  padding: 40px 20px;
+  text-align: center;
+  background: linear-gradient(180deg, #FBFDFF, #F3F9FF);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  color: var(--cmo-fut-slate);
+  min-height: 330px;
+  align-content: center;
+  box-shadow: inset 0 0 22px rgba(125,211,252,.12);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-drop.over {
+  border-color: var(--cmo-fut-gold);
+  background: #FFFDF5;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-drop .big {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #EEF4FB;
+  border: 1px solid var(--cmo-fut-cy);
+  display: grid;
+  place-items: center;
+  color: var(--cmo-fut-navy);
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-drop .big svg {
+  width: 28px;
+  height: 28px;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-drop b {
+  color: var(--cmo-fut-navy);
+  font-size: 16px;
+  font-family: Poppins, Arial, sans-serif;
+}
+
+.cmo.cmo-futuristic-step1 .cmo-fut-drop span {
+  font-size: 14px;
+  color: var(--cmo-fut-slate);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmo.cmo-futuristic-step1 .cmo-fut-scan {
+    animation: none !important;
+    display: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .cmo.cmo-futuristic-step1 .cmo-fut-wrap { padding: 24px 16px 48px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-top h1 { font-size: 32px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-card { padding: 20px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-grid { grid-template-columns: 1fr; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-tab { font-size: 13px; height: 56px; flex-direction: column; gap: 4px; text-align: center; line-height: 1.15; padding: 0 4px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-tabs { gap: 4px; padding: 4px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-tabs .cmo-fut-tab svg { width: 18px; height: 18px; flex: none; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-chip { padding: 0 12px 0 6px; font-size: 13px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-stepper { gap: 6px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-paste { min-height: 260px; font-size: 16px; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-stepper .cmo-fut-rail { display: none; }
+  .cmo.cmo-futuristic-step1 .cmo-fut-btn-s { width: 100%; justify-content: center; }
+}

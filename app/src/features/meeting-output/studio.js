@@ -136,6 +136,7 @@ export function mountMeetingStudio(root, opts = {}) {
   const CAN_EXPORT_TIMELINE = opts.canExportTimeline === true;
   const SHOW_TIMELINE = CAN_EXPORT_TIMELINE && opts.timelineReleased === true;
   const SHOW_DECK = CAN_EXPORT_DECK && opts.deckReleased === true;
+  const IS_FUTURISTIC = opts.futuristicInput === true;
   const deckSlots = [];
   const MEETING_TYPES = ['Leadership meeting', 'Board meeting', 'Steering committee', 'Project kick-off', 'Client meeting', 'Status meeting', 'Workshop', 'Meeting'];
 
@@ -148,6 +149,11 @@ export function mountMeetingStudio(root, opts = {}) {
 
   /* ----------------------------------------------------------- shell */
   function render() {
+    if (S.step === 1 && IS_FUTURISTIC) {
+      root.classList.add('cmo-futuristic-step1');
+    } else {
+      root.classList.remove('cmo-futuristic-step1');
+    }
     const app = root;
     const steps = [
       [1, 'Add sources'],
@@ -171,7 +177,7 @@ export function mountMeetingStudio(root, opts = {}) {
   }
 
   /* ======================================================= STEP 1: IMPORT */
-  function viewImport() {
+  function viewImportClassic() {
     const srcs = allSources();
     const words = srcs.reduce((a, s) => a + s.text.split(/\s+/).filter(Boolean).length, 0);
     const speakerLines = (S.draft.match(/^\s*(?:\[?\d{1,2}:\d{2}(?::\d{2})?\]?\s*)?[A-Z][\w.'-]*(?:\s+[A-Z][\w.'-]*){0,3}\s*(?:\([^)]*\))?\s*:\s+\S/gm) || []).length;
@@ -228,6 +234,121 @@ export function mountMeetingStudio(root, opts = {}) {
         <div><b><span>3</span>Document</b><p>A board-ready record in four templates, plus a follow-up email draft.</p></div>
       </div>
     </div>`;
+  }
+
+  function viewImportFuturistic() {
+    const srcs = allSources();
+    const words = srcs.reduce((a, s) => a + s.text.split(/\s+/).filter(Boolean).length, 0);
+    const speakerLines = (S.draft.match(/^\s*(?:\[?\d{1,2}:\d{2}(?::\d{2})?\]?\s*)?[A-Z][\w.'-]*(?:\s+[A-Z][\w.'-]*){0,3}\s*(?:\([^)]*\))?\s*:\s+\S/gm) || []).length;
+    const stamps = (S.draft.match(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g) || []).length;
+    const det = (k) => (S.detected[k] && S.meta[k] === S.detected[k] ? '<span class="detected">Detected</span>' : '');
+    const wordPillText = words === 1 ? '1 word in' : `${words.toLocaleString()} words in`;
+
+    return `<div class="cmo-fut-wrap">
+      <div class="cmo-fut-top">
+        <div>
+          <div class="cmo-fut-eyebrow"><i></i>STEP 1 OF 3</div>
+          <h1>Add the meeting</h1>
+          <p class="cmo-fut-sub">Paste a transcript, add your notes or import files. Concludo works from what you give it, whatever recorded the meeting. Nothing leaves this browser until you save.</p>
+        </div>
+        <div class="cmo-fut-top-right">
+          <button class="cmo-fut-btn-s" data-act="sample" type="button">${ic('spark')}<span>Load fictional sample</span></button>
+          <div class="cmo-fut-stepper" aria-hidden="true">
+            <div class="cmo-fut-chip on"><b>1</b>Add</div>
+            <span class="cmo-fut-rail"></span>
+            <div class="cmo-fut-chip"><b>2</b>Review</div>
+            <span class="cmo-fut-rail"></span>
+            <div class="cmo-fut-chip"><b>3</b>Approve</div>
+          </div>
+        </div>
+      </div>
+
+      <section class="cmo-fut-card">
+        <div class="cmo-fut-tabs" role="tablist" aria-label="Meeting source tabs">
+          <button class="cmo-fut-tab ${S.tab === 'paste' ? 'on' : ''}" data-tab="paste" role="tab" id="cmo-tab-paste" aria-controls="cmo-panel-paste" aria-selected="${S.tab === 'paste' ? 'true' : 'false'}" tabindex="${S.tab === 'paste' ? '0' : '-1'}">${ic('paste')}<span>Paste transcript</span></button>
+          <button class="cmo-fut-tab ${S.tab === 'notes' ? 'on' : ''}" data-tab="notes" role="tab" id="cmo-tab-notes" aria-controls="cmo-panel-notes" aria-selected="${S.tab === 'notes' ? 'true' : 'false'}" tabindex="${S.tab === 'notes' ? '0' : '-1'}">${ic('notes')}<span>Add notes</span></button>
+          <button class="cmo-fut-tab ${S.tab === 'files' ? 'on' : ''}" data-tab="files" role="tab" id="cmo-tab-files" aria-controls="cmo-panel-files" aria-selected="${S.tab === 'files' ? 'true' : 'false'}" tabindex="${S.tab === 'files' ? '0' : '-1'}">${ic('upload')}<span>Import files</span></button>
+        </div>
+        <div class="cmo-fut-tabcontent" id="cmo-panel-${S.tab}" role="tabpanel" aria-labelledby="cmo-tab-${S.tab}">
+          ${S.tab === 'paste'
+            ? `<div class="cmo-fut-ta-box">
+                 <div class="cmo-fut-scan" aria-hidden="true"></div>
+                 <label class="sr" for="draft">Transcript</label>
+                 <textarea id="draft" class="cmo-fut-paste" data-bind="draft" placeholder="Paste a transcript with speaker names, for example:&#10;&#10;[00:03:02] Mara Ellis: Decision: we cut over to the new CRM on Monday 16 November.&#10;[00:03:48] Tom Nguyen: I'll run two training sessions the week of the 9th.">${esc(S.draft)}</textarea>
+               </div>`
+            : S.tab === 'notes'
+            ? `<div class="cmo-fut-ta-box">
+                 <div class="cmo-fut-scan" aria-hidden="true"></div>
+                 <label class="sr" for="notes">Notes</label>
+                 <textarea id="notes" class="cmo-fut-paste" data-bind="draftNotes" placeholder="Meeting notes, minutes or a summary. Lines that start with Decision:, Action:, Risk: or Open question: are read exactly as written.">${esc(S.draftNotes)}</textarea>
+               </div>`
+            : `<div class="cmo-fut-drop drop" id="drop">
+                 <div class="big">${ic('upload')}</div>
+                 <b>Drop files here, or choose files</b>
+                 <span>Transcripts (.vtt, .srt, .txt), notes (.md, .txt) and documents (.docx, .pdf)</span>
+                 <button class="cmo-fut-btn-s sm" data-act="pick" type="button" style="margin-top:6px">Choose files</button>
+                 <input type="file" id="file" multiple accept=".txt,.md,.vtt,.srt,.csv,.json,.docx,.pdf" hidden>
+               </div>`
+          }
+        </div>
+        <div class="cmo-fut-hint">
+          ${S.tab === 'paste' && S.draft.trim()
+            ? `<span class="tag ${speakerLines >= 2 ? 'ok' : 'line'}">${ic(speakerLines >= 2 ? 'check' : 'alert')}${speakerLines >= 2 ? `${speakerLines} speaker lines` : 'No speaker labels found'}</span><span class="tag ${stamps ? 'ok' : 'line'}">${stamps ? `${stamps} timestamps` : 'No timestamps'}</span><span>${S.draft.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>`
+            : `<span>Speaker names and timestamps make owners and evidence more precise. Neither is required.</span>`}
+        </div>
+        ${srcs.length ? `<div class="sources" style="margin-top:16px">${srcs
+          .map((s, i) => `<div class="src"><div class="ic">${ic(s.kind === 'document' ? 'doc' : s.kind === 'notes' ? 'notes' : 'paste')}</div><div><div class="nm">${esc(s.name)}</div><div class="sub">${s.kind === 'transcript' ? 'Transcript' : s.kind === 'notes' ? 'Notes' : 'Supporting document'} · ${s.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></div>
+            <select data-kind="${i}" aria-label="Source type" class="btn sm" style="font-weight:500"><option value="transcript" ${s.kind === 'transcript' ? 'selected' : ''}>Transcript</option><option value="notes" ${s.kind === 'notes' ? 'selected' : ''}>Notes</option><option value="document" ${s.kind === 'document' ? 'selected' : ''}>Document</option></select>
+            <button class="btn ghost sm" data-rm="${i}" aria-label="Remove ${esc(s.name)}">${ic('trash')}</button></div>`)
+          .join('')}</div>` : ''}
+        ${S.error ? `<div class="err" style="margin-top:12px">${esc(S.error)}</div>` : ''}
+      </section>
+
+      <section class="cmo-fut-card cmo-fut-card-gold">
+        <div class="cmo-fut-dh">
+          <h2>Meeting details</h2>
+          <span class="cmo-fut-pill" id="wc">${wordPillText}</span>
+        </div>
+        <div class="cmo-fut-grid">
+          <div class="cmo-fut-f full">
+            <label for="m-title">Title ${det('title')}</label>
+            <input id="m-title" class="cmo-fut-in" data-meta="title" value="${esc(S.meta.title)}" placeholder="Found in the source if stated">
+          </div>
+          <div class="cmo-fut-f">
+            <label for="m-date">Date ${det('meetingDate')}</label>
+            <input id="m-date" class="cmo-fut-in" type="date" data-meta="meetingDate" value="${esc(S.meta.meetingDate)}">
+          </div>
+          <div class="cmo-fut-f">
+            <label for="m-type">Type ${det('meetingType')}</label>
+            <select id="m-type" class="cmo-fut-in" data-meta="meetingType">
+              <option value="">Detect from source</option>
+              ${[...new Set([S.meta.meetingType, ...MEETING_TYPES].filter(Boolean))].map((t) => `<option ${t === S.meta.meetingType ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="cmo-fut-f">
+            <label for="m-org">Organisation ${det('organisation')}</label>
+            <input id="m-org" class="cmo-fut-in" data-meta="organisation" value="${esc(S.meta.organisation)}" placeholder="Optional">
+          </div>
+          <div class="cmo-fut-f">
+            <label for="m-proj">Project ${det('project')}</label>
+            <input id="m-proj" class="cmo-fut-in" data-meta="project" value="${esc(S.meta.project)}" placeholder="Optional">
+          </div>
+        </div>
+        <button class="cmo-fut-cta ${srcs.length ? 'ready' : ''}" data-act="generate" ${srcs.length ? '' : 'disabled'} type="button">
+          ${ic('spark')}<span>Build the meeting record</span>
+        </button>
+        <div class="cmo-fut-note">
+          Concludo proposes. You confirm. Every item it finds links back to the line it came from, and anything not said in the meeting is shown as a gap, not filled in.
+        </div>
+      </section>
+    </div>`;
+  }
+
+  function viewImport() {
+    if (!IS_FUTURISTIC) {
+      return viewImportClassic();
+    }
+    return viewImportFuturistic();
   }
 
   let detectTimer;
@@ -1259,10 +1380,52 @@ export function mountMeetingStudio(root, opts = {}) {
     }
   });
   function updateSignals() {
-    // keep focus while typing: only refresh the Generate button state
+    // keep focus while typing: only refresh the Generate button state and word count
+    const srcs = allSources();
     const btn = root.querySelector('[data-act="generate"]');
-    if (btn) btn.disabled = !allSources().length;
+    if (btn) {
+      btn.disabled = !srcs.length;
+      if (srcs.length) btn.classList.add('ready');
+      else btn.classList.remove('ready');
+    }
+    const wc = root.querySelector('#wc');
+    if (wc) {
+      const words = srcs.reduce((a, s) => a + s.text.split(/\s+/).filter(Boolean).length, 0);
+      wc.textContent = words === 1 ? '1 word in' : `${words.toLocaleString()} words in`;
+    }
   }
+
+  on(root, 'keydown', (ev) => {
+    const tabBtn = ev.target.closest && ev.target.closest('[role="tab"][data-tab]');
+    if (!tabBtn) return;
+    const tabs = [...root.querySelectorAll('[role="tab"][data-tab]')];
+    const idx = tabs.indexOf(tabBtn);
+    if (idx === -1) return;
+
+    let targetIdx = -1;
+    if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      targetIdx = (idx + 1) % tabs.length;
+    } else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      targetIdx = (idx - 1 + tabs.length) % tabs.length;
+    } else if (ev.key === 'Home') {
+      ev.preventDefault();
+      targetIdx = 0;
+    } else if (ev.key === 'End') {
+      ev.preventDefault();
+      targetIdx = tabs.length - 1;
+    }
+
+    if (targetIdx !== -1) {
+      const targetTab = tabs[targetIdx];
+      targetTab.focus();
+      S.tab = targetTab.dataset.tab;
+      render();
+      const newActive = root.querySelector(`[role="tab"][data-tab="${S.tab}"]`);
+      if (newActive) newActive.focus();
+    }
+  });
   on(root, 'change', (ev) => {
     const t = ev.target;
     if (t.hasAttribute('data-preview-size')) { previewMode = t.value === 'actual' ? 'actual' : 'fit'; fitPreview(); return; }
