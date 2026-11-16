@@ -60,12 +60,16 @@ export function clipText(t: string, maxLen: number): string {
 
 export function shortOwner(name: string | null | undefined): string {
   const sanitized = sanitizeTimelineText(name);
-  return sanitized ? sanitized : 'Owner to be agreed';
+  if (!sanitized) return 'Owner to be agreed';
+  const clean = sanitized.replace(/[,;:–—-]+$/, '').trim();
+  return clean || 'Owner to be agreed';
 }
 
 export function firstWordOwner(name: string | null | undefined): string {
   const sanitized = sanitizeTimelineText(name);
-  return sanitized ? sanitized.split(' ')[0] : 'Unassigned';
+  if (!sanitized) return 'Owner to be agreed';
+  const first = sanitized.split(' ')[0].replace(/[,;:–—-]+$/, '').trim();
+  return first || 'Owner to be agreed';
 }
 
 export function tintColor(hex: string, a: number): string {

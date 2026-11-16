@@ -270,12 +270,16 @@ export async function renderTimelinePptx(
       color: C.body,
     });
 
+    const firstYear = first.slice(0, 4);
+    const lastYear = last.slice(0, 4);
     const dateRangeStr =
       dated.length === 0
         ? 'No dated actions'
         : dated.length === 1
-        ? `Due on ${fmt(first, false)} ${exportYear}`
-        : `${fmt(first, false)} to ${fmt(last, false)} ${exportYear}`;
+        ? `Due on ${fmt(first, false)} ${firstYear}`
+        : firstYear === lastYear
+        ? `${fmt(first, false)} to ${fmt(last, false)} ${firstYear}`
+        : `${fmt(first, false)} ${firstYear} to ${fmt(last, false)} ${lastYear}`;
 
     s.addText(
       `${dateRangeStr}   |   Exported ${fmt(TODAY)} ${exportYear}   |   ${payload.timezone.replace('_', ' ')}`,
@@ -816,7 +820,9 @@ export async function renderTimelinePptx(
           valign: 'top',
           fit: 'shrink',
         });
-        s.addText(`${first2(a.owner)}, ${fmt(a.due)}`, {
+        const ownerPart = first2(a.owner).replace(/[,;:]+$/, '').trim() || 'Owner to be agreed';
+        const datePart = a.due ? fmt(a.due) : 'Date to be agreed';
+        s.addText(`${ownerPart}, ${datePart}`, {
           x,
           y: y + 0.33,
           w: 2.55,
@@ -953,7 +959,7 @@ export async function renderTimelinePptx(
           valign: 'middle',
           fit: 'shrink',
         });
-        s.addText(`${a.id}  |  ${short(a.owner)}${a.due ? '  |  was due ' + fmt(a.due) : ''}`, {
+        s.addText(`${short(a.owner)}${a.due ? '  |  was due ' + fmt(a.due) : ''}`, {
           x: x + 0.3,
           y: ry + 0.29,
           w: 3.6,
