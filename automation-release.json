@@ -1,0 +1,25 @@
+{
+  "feature": "Concludo Automation v2.1",
+  "sourceCommit": "f5cc9fae52729a23d8c47d88a36c02dee2aafed8",
+  "previousDeployment": "26375316d44c5a34292b8e20a1f0fd6fb15b5f85",
+  "builtAt": "2026-10-27T12:40:37.629Z",
+  "assets": [
+    {
+      "path": "/assets/index-QS_ptaET.js",
+      "bytes": 8276106,
+      "sha256": "4e43675742e663dc9a4e34fa93afe7f83d805cec79195d3b6225d0b80836337e"
+    },
+    {
+      "path": "/assets/index-Cq_CY7wo.css",
+      "bytes": 332570,
+      "sha256": "2b8e69a44c4bbdc1eaddc58906cf73bbb54b6cb4240e12799491a0a604a18f59"
+    }
+  ],
+  "validation": {
+    "automationCoreTests": 19,
+    "agentsCoreTests": 12,
+    "invariantTests": 10,
+    "crmAndShellTests": 70
+  },
+  "note": "Bright Automation redesign, 6 new AI agents, shared engine, no migration, human approval gate enforced"
+}
