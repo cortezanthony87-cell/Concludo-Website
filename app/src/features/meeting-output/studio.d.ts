@@ -36,6 +36,8 @@ export interface StudioOptions {
   /** false locks client deck export with the Pro/Team upgrade notice. Default true. */
   canExportDeck?: boolean;
   canUseModelDrafting?: boolean;
+  /** Bright futuristic redesign for Step 1 (Add the meeting). Default false. */
+  futuristicInput?: boolean;
   /** Pro and above (feature key action_timeline_export). Default false. */
   canExportTimeline?: boolean;
   /** Written release "release the timeline". Default false. Adds the Action timeline to the full report. */

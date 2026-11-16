@@ -7,6 +7,7 @@ import { saveMeetingRecord } from '../lib/outputs/saveMeetingRecord';
 import { mountMeetingStudio } from '../features/meeting-output/studio';
 import { TIMELINE_RELEASED, DECK_RELEASED } from '../features/meeting-output/releases';
 import { useFeatureAccess } from '../lib/permissions/usePermissions';
+import { isMeetingInputFuturisticEnabled } from '../lib/meeting-output/meetingInputFlag';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import '../features/meeting-output/meeting-output.css';
@@ -37,6 +38,7 @@ export const MeetingOutputPage: React.FC = () => {
       timelineReleased: TIMELINE_RELEASED,
       deckReleased: DECK_RELEASED,
       canUseModelDrafting,
+      futuristicInput: isMeetingInputFuturisticEnabled(),
       parseFile: async (file) => {
         // Keep the matching PDF worker local instead of depending on a CDN version.
         pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
