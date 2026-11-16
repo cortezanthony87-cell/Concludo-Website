@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useId, useMemo } from 'react';
 import { ActionBucketCounts } from '../../lib/actions/actionBuckets';
 import {
   ActionHubSummaryThemeKey,
@@ -27,10 +27,7 @@ export interface ActionHubSummaryProps {
   error?: string | null;
   onRetry?: () => void;
   themeKey?: ActionHubSummaryThemeKey;
-  defaultMinimised?: boolean;
 }
-
-const MINIMISED_STORAGE_KEY = 'concludo_ach_summary_minimised';
 
 /**
  * Calculates percentage distribution using the Largest Remainder Method (Hare-Niemeyer)
@@ -65,35 +62,10 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
   error = null,
   onRetry,
   themeKey = CURRENT_SUMMARY_THEME,
-  defaultMinimised = true,
 }) => {
   const id = useId();
   const filterId = `ach-glow-${id.replace(/:/g, '')}`;
   const coreGradId = `ach-core-${id.replace(/:/g, '')}`;
-
-  // Minimised state (defaults to true so action items list is visible immediately)
-  const [isMinimised, setIsMinimised] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = window.localStorage.getItem(MINIMISED_STORAGE_KEY);
-        if (stored === 'false') return false;
-        if (stored === 'true') return true;
-      } catch {}
-    }
-    return defaultMinimised;
-  });
-
-  const handleToggleMinimise = () => {
-    setIsMinimised((prev) => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem(MINIMISED_STORAGE_KEY, String(next));
-        } catch {}
-      }
-      return next;
-    });
-  };
 
   const theme = actionHubSummaryTheme[themeKey] || actionHubSummaryTheme.mix;
 
@@ -111,7 +83,7 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
     return calculateLargestRemainderPercentages(sliceCounts, bucketCounts.total);
   }, [sliceCounts, bucketCounts.total]);
 
-  // SVG Donut geometry
+  // SVG Donut geometry (viewBox 0 0 300 300)
   const C = 2 * Math.PI * 108; // Circumference ~678.584px
   const minWidth = C / 360; // 1 degree minimum visible width ~1.885px
 
@@ -229,6 +201,13 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent, filterKey: SummaryFilterKey) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleToggleFilter(filterKey);
+    }
+  };
+
   if (error) {
     return (
       <div className="ach-summary-error-bar" role="alert">
@@ -247,54 +226,32 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
   }
 
   if (loading) {
-    if (isMinimised) {
-      return (
+    return (
+      <div className="ach-summary-side-row">
         <div
-          className="ach-summary-minimised-bar"
+          className="ach-summary-donut-panel"
           style={{
             background: theme.donutPanel.bg,
             border: theme.donutPanel.border,
             boxShadow: theme.donutPanel.glow,
           }}
         >
-          <div className="ach-summary-skeleton-box" style={{ width: '130px', height: '34px', borderRadius: '8px' }} />
-          <div style={{ display: 'flex', gap: '8px', flex: '1 1 auto' }}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="ach-summary-skeleton-box" style={{ width: '90px', height: '34px', borderRadius: '8px' }} />
+          <div className="ach-summary-skeleton-box" style={{ width: '132px', height: '132px', borderRadius: '50%' }} />
+          <div className="ach-summary-legend-wrap" style={{ gap: '8px', flex: 1 }}>
+            <div className="ach-summary-skeleton-box" style={{ height: '24px', borderRadius: '6px' }} />
+            <div className="ach-summary-skeleton-box" style={{ height: '24px', borderRadius: '6px' }} />
+            <div className="ach-summary-skeleton-box" style={{ height: '24px', borderRadius: '6px' }} />
+            <div className="ach-summary-skeleton-box" style={{ height: '24px', borderRadius: '6px' }} />
+          </div>
+        </div>
+        <div className="ach-summary-tiles-col">
+          <div className="ach-summary-tiles-grid">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="ach-summary-skeleton-box" style={{ height: '68px', borderRadius: '10px' }} />
             ))}
           </div>
-          <div className="ach-summary-skeleton-box" style={{ width: '120px', height: '34px', borderRadius: '8px' }} />
-        </div>
-      );
-    }
-    return (
-      <div className="ach-summary-expanded-wrap">
-        <div className="ach-summary-row">
-          <div
-            className="ach-summary-donut-panel"
-            style={{
-              background: theme.donutPanel.bg,
-              border: theme.donutPanel.border,
-              boxShadow: theme.donutPanel.glow,
-            }}
-          >
-            <div className="ach-summary-skeleton-box" style={{ width: '140px', height: '140px', borderRadius: '50%', margin: '0' }} />
-            <div className="ach-summary-legend-wrap" style={{ gap: '6px' }}>
-              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
-              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
-              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
-              <div className="ach-summary-skeleton-box" style={{ minHeight: '26px', borderRadius: '6px' }} />
-            </div>
-          </div>
-          <div className="ach-summary-tiles-col">
-            <div className="ach-summary-tiles-grid">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="ach-summary-skeleton-box" />
-              ))}
-            </div>
-            <div className="ach-summary-footnote">
-              Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
-            </div>
+          <div className="ach-summary-footnote">
+            Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
           </div>
         </div>
       </div>
@@ -303,93 +260,9 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
 
   const accessibleSummaryLabel = `${bucketCounts.total} actions: ${bucketCounts.overdue} overdue, ${bucketCounts.dueToday} due today, ${bucketCounts.pending} pending, ${bucketCounts.completed} completed`;
 
-  // Minimised view: Single sleek status bar
-  if (isMinimised) {
-    return (
-      <div
-        className="ach-summary-minimised-bar"
-        style={{
-          background: theme.donutPanel.bg,
-          border: theme.donutPanel.border,
-          boxShadow: theme.donutPanel.glow,
-        }}
-        role="region"
-        aria-label="Minimised actions summary"
-      >
-        {/* Left: Total badge and mini indicators */}
-        <div className="ach-summary-min-left">
-          <div className="ach-summary-min-badge" title={accessibleSummaryLabel}>
-            <span className="ach-summary-min-badge-num">{bucketCounts.total}</span>
-            <span className="ach-summary-min-badge-label">ACTIONS</span>
-          </div>
-        </div>
-
-        {/* Middle: 8 Status filter chips */}
-        <div className="ach-summary-min-chips">
-          {tiles.map((t) => {
-            const isActive = activeFilter === t.filterKey;
-            return (
-              <button
-                key={t.label}
-                type="button"
-                className={`ach-summary-chip ${isActive ? 'is-active' : ''}`}
-                aria-pressed={isActive}
-                aria-label={`${t.label}, ${t.n}, filter the table`}
-                onClick={() => handleToggleFilter(t.filterKey)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleToggleFilter(t.filterKey);
-                  }
-                }}
-              >
-                <span
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    background: t.dot,
-                    boxShadow: `0 0 6px ${t.dot}`,
-                    flexShrink: 0,
-                  }}
-                />
-                <span>{t.label}</span>
-                <span className="ach-summary-chip-num">{t.n}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right: Expand toggle button */}
-        <button
-          type="button"
-          className="ach-summary-toggle-btn"
-          onClick={handleToggleMinimise}
-          aria-expanded={false}
-          aria-label="Expand summary to view chart"
-        >
-          Expand summary ▾
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="ach-summary-expanded-wrap">
-      <div className="ach-summary-expanded-header">
-        <span className="ach-summary-expanded-title">Summary overview</span>
-        <button
-          type="button"
-          className="ach-summary-toggle-btn is-light"
-          onClick={handleToggleMinimise}
-          aria-expanded={true}
-          aria-label="Minimise summary to show more action items"
-        >
-          Minimise summary ▴
-        </button>
-      </div>
-    <div className="ach-summary-row">
-      {/* Left: Donut Panel */}
+    <div className="ach-summary-side-row">
+      {/* Left Column: Futuristic MIX Donut Card (the way it used to be: side-by-side with counters) */}
       <div
         className="ach-summary-donut-panel"
         style={{
@@ -403,11 +276,12 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
           style={{ background: theme.donutPanel.radialGlow }}
         />
 
+        {/* SVG Donut */}
         <div className="ach-summary-donut-wrap">
           <svg
             viewBox="0 0 300 300"
-            width="140"
-            height="140"
+            width="132"
+            height="132"
             role="img"
             aria-label={accessibleSummaryLabel}
           >
@@ -486,47 +360,37 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
               strokeWidth="20"
               strokeLinecap="butt"
             >
-              {segments.map((seg) => {
-                const isSegActive = activeFilter === seg.filterKey;
-                return (
-                  <circle
-                    key={seg.key}
-                    cx="150"
-                    cy="150"
-                    r="108"
-                    stroke={seg.color}
-                    strokeDasharray={seg.dashArray}
-                    strokeDashoffset={seg.dashOffset}
-                    strokeWidth={isSegActive ? 24 : 20}
-                    opacity={activeFilter && !isSegActive ? 0.45 : 1}
-                    style={{ cursor: 'pointer', transition: 'stroke-width 0.2s, opacity 0.2s' }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`${seg.label}, ${seg.count}, filter the table`}
-                    aria-pressed={isSegActive}
-                    onClick={() => handleToggleFilter(seg.filterKey)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleToggleFilter(seg.filterKey);
-                      }
-                    }}
-                  />
-                );
-              })}
+              {segments.map((seg) => (
+                <circle
+                  key={seg.key}
+                  cx="150"
+                  cy="150"
+                  r="108"
+                  stroke={seg.color}
+                  strokeDasharray={seg.dashArray}
+                  strokeDashoffset={seg.dashOffset}
+                  className="ach-summary-segment-hit"
+                  onClick={() => handleToggleFilter(seg.filterKey)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <title>{`${seg.label}: ${seg.count}`}</title>
+                </circle>
+              ))}
             </g>
 
-            {/* Core inner background and border */}
+            {/* Core circular background */}
             <circle
               cx="150"
               cy="150"
               r="88"
               fill={`url(#${coreGradId})`}
-              stroke="#7DD3FC"
+              stroke={theme.donutPanel.coreDashStroke}
               strokeOpacity={theme.donutPanel.coreStrokeOpacity}
               strokeWidth="1.5"
               style={{ pointerEvents: 'none' }}
             />
+
+            {/* Decorative inner dotted circle */}
             <circle
               cx="150"
               cy="150"
@@ -539,7 +403,7 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
               style={{ pointerEvents: 'none' }}
             />
 
-            {/* Center numbers and text */}
+            {/* Center number and label */}
             <text
               x="150"
               y="152"
@@ -568,106 +432,85 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
           </svg>
         </div>
 
-        {/* Legend */}
+        {/* Legend on the right side of the donut card */}
         <div className="ach-summary-legend-wrap">
-          {[
-            {
-              key: 'completed' as const,
-              filterKey: 'completed' as SummaryFilterKey,
-              label: 'Completed',
-              count: bucketCounts.completed,
-              pct: percentages[0],
-              dot: theme.segments.completed,
-              hasBorder: true,
-            },
-            {
-              key: 'overdue' as const,
-              filterKey: 'overdue' as SummaryFilterKey,
-              label: 'Overdue',
-              count: bucketCounts.overdue,
-              pct: percentages[1],
-              dot: theme.segments.overdue,
-              hasBorder: true,
-            },
-            {
-              key: 'dueToday' as const,
-              filterKey: 'due_today' as SummaryFilterKey,
-              label: 'Due today',
-              count: bucketCounts.dueToday,
-              pct: percentages[2],
-              dot: theme.segments.dueToday,
-              pulse: true,
-              hasBorder: true,
-            },
-            {
-              key: 'pending' as const,
-              filterKey: 'pending' as SummaryFilterKey,
-              label: 'Pending',
-              count: bucketCounts.pending,
-              pct: percentages[3],
-              dot: theme.segments.pending,
-              hasBorder: false,
-            },
-          ].map((item) => {
-            const isActive = activeFilter === item.filterKey;
+          {(
+            [
+              {
+                key: 'completed' as const,
+                filterKey: 'completed' as SummaryFilterKey,
+                label: 'Completed',
+                count: bucketCounts.completed,
+                pct: percentages[0],
+                color: theme.segments.completed,
+                pulse: false,
+              },
+              {
+                key: 'overdue' as const,
+                filterKey: 'overdue' as SummaryFilterKey,
+                label: 'Overdue',
+                count: bucketCounts.overdue,
+                pct: percentages[1],
+                color: theme.segments.overdue,
+                pulse: false,
+              },
+              {
+                key: 'dueToday' as const,
+                filterKey: 'due_today' as SummaryFilterKey,
+                label: 'Due today',
+                count: bucketCounts.dueToday,
+                pct: percentages[2],
+                color: theme.segments.dueToday,
+                pulse: true,
+              },
+              {
+                key: 'pending' as const,
+                filterKey: 'pending' as SummaryFilterKey,
+                label: 'Pending',
+                count: bucketCounts.pending,
+                pct: percentages[3],
+                color: theme.segments.pending,
+                pulse: false,
+              },
+            ] as const
+          ).map((row) => {
+            const isRowActive = activeFilter === row.filterKey;
             return (
               <button
-                key={item.key}
+                key={row.key}
                 type="button"
-                className={`ach-summary-legend-btn ${isActive ? 'is-active' : ''}`}
-                style={{
-                  borderBottom: item.hasBorder ? `1px solid ${theme.donutPanel.rowBorder}` : 'none',
-                }}
-                aria-pressed={isActive}
-                aria-label={`${item.label}, ${item.count}, ${item.pct} percent, filter the table`}
-                onClick={() => handleToggleFilter(item.filterKey)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleToggleFilter(item.filterKey);
-                  }
-                }}
+                role="button"
+                tabIndex={0}
+                className={`ach-summary-legend-row ${isRowActive ? 'active' : ''}`}
+                onClick={() => handleToggleFilter(row.filterKey)}
+                onKeyDown={(e) => handleKeyDown(e, row.filterKey)}
+                aria-pressed={isRowActive}
+                aria-label={`${row.label}, ${row.count} actions, ${row.pct} percent, filter table`}
               >
                 <span
-                  className={item.pulse ? 'ach-summary-pulse' : ''}
+                  className={`ach-summary-dot ${row.pulse ? 'ach-summary-pulse' : ''}`}
                   style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: item.dot,
-                    boxShadow: `0 0 10px ${item.dot}`,
-                    flexShrink: 0,
+                    background: row.color,
+                    boxShadow: `0 0 8px ${row.color}`,
                   }}
                 />
                 <span
-                  style={{
-                    flex: 1,
-                    fontSize: '13px',
-                    color: theme.donutPanel.text,
-                    textAlign: 'left',
-                  }}
+                  className="ach-summary-legend-label"
+                  style={{ color: theme.donutPanel.text }}
                 >
-                  {item.label}
+                  {row.label}
                 </span>
                 <span
-                  style={{
-                    fontFamily: 'Poppins, Arial, sans-serif',
-                    fontWeight: 700,
-                    fontSize: '15px',
-                    color: themeKey === 'mix' ? '#FFFFFF' : '#16263F',
-                  }}
+                  className="ach-summary-legend-count"
+                  style={{ color: theme.donutPanel.centerNumber }}
                 >
-                  {item.count}
+                  {row.count}
                 </span>
                 <span
-                  style={{
-                    width: '36px',
-                    textAlign: 'right',
-                    fontSize: '12px',
-                    color: theme.donutPanel.mutedText,
-                  }}
+                  className="ach-summary-legend-pct"
+                  style={{ color: theme.donutPanel.mutedText }}
                 >
-                  {item.pct}%
+                  {row.pct}%
                 </span>
               </button>
             );
@@ -675,61 +518,61 @@ export const ActionHubSummary: React.FC<ActionHubSummaryProps> = ({
         </div>
       </div>
 
-      {/* Right: Status Boxes Grid */}
+      {/* Right Column: 8 Status Boxes in a 4x2 grid (the way it used to be) + Footnote */}
       <div className="ach-summary-tiles-col">
         <div className="ach-summary-tiles-grid">
-          {tiles.map((t) => {
-            const isActive = activeFilter === t.filterKey;
+          {tiles.map((tile) => {
+            const isActive = activeFilter === tile.filterKey;
             return (
               <button
-                key={t.label}
+                key={tile.label}
                 type="button"
-                className={`ach-summary-tile ${isActive ? 'is-active' : ''}`}
-                aria-pressed={isActive}
-                aria-label={`${t.label}, ${t.n}, filter the table`}
-                onClick={() => handleToggleFilter(t.filterKey)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleToggleFilter(t.filterKey);
-                  }
+                role="button"
+                tabIndex={0}
+                className={`ach-summary-tile ${isActive ? 'active' : ''}`}
+                style={{
+                  background: theme.tiles.bg,
+                  border: `1px solid ${theme.tiles.border}`,
+                  boxShadow: isActive
+                    ? `0 0 0 1px ${theme.tiles.border}, 0 0 20px rgba(61,155,255,0.45), inset 0 0 12px rgba(125,211,252,0.2)`
+                    : theme.tiles.glow,
                 }}
+                onClick={() => handleToggleFilter(tile.filterKey)}
+                onKeyDown={(e) => handleKeyDown(e, tile.filterKey)}
+                aria-pressed={isActive}
+                aria-label={`${tile.label}, ${tile.n}, filter the table`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div className="ach-summary-tile-top">
                   <span
-                    style={{
-                      fontFamily: 'Poppins, Arial, sans-serif',
-                      fontWeight: 700,
-                      fontSize: '22px',
-                      lineHeight: 1,
-                      color: theme.tiles.number,
-                    }}
+                    className="ach-summary-tile-number"
+                    style={{ color: theme.tiles.number }}
                   >
-                    {t.n}
+                    {tile.n}
                   </span>
                   <span
+                    className={`ach-summary-tile-dot ${tile.label === 'Due today' ? 'ach-summary-pulse' : ''}`}
                     style={{
-                      width: '9px',
-                      height: '9px',
-                      borderRadius: '50%',
-                      background: t.dot,
-                      boxShadow: `0 0 8px ${t.dot}`,
-                      flexShrink: 0,
+                      background: tile.dot,
+                      boxShadow: `0 0 8px ${tile.dot}`,
                     }}
                   />
                 </div>
-                <div style={{ fontSize: '12px', color: theme.tiles.label }}>
-                  {t.label}
+                <div
+                  className="ach-summary-tile-label"
+                  style={{ color: theme.tiles.label }}
+                >
+                  {tile.label}
                 </div>
               </button>
             );
           })}
         </div>
+
+        {/* Footnote directly under the 8 status boxes */}
         <div className="ach-summary-footnote">
           Buckets are exclusive: Completed, then Overdue, then Due today, then Pending. In progress and Blocked are filters, not slices.
         </div>
       </div>
-    </div>
     </div>
   );
 };
