@@ -244,4 +244,100 @@ describe('Action Timeline PowerPoint Export (Tasklet Brief v1)', () => {
     const slideMasters = ct?.match(/slideMaster\d+\.xml/g) || [];
     expect(slideMasters).toEqual(['slideMaster1.xml']);
   });
+  it('T13: Zero UUIDs, zero double commas, zero undefined/NaN across 102-action fixture', async () => {
+    // Load the 102 actions from Anthony's real Concludo Operations view
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const rawActions = JSON.parse(fs.readFileSync('/tmp/anthony_102_actions.json', 'utf8'));
+
+    const payload = buildTimelinePayloadFromActions(rawActions, {
+      viewName: 'All Actions',
+      filterDescription: 'all permitted actions',
+      projectName: 'Concludo Operations',
+      now: new Date('2026-11-16T00:00:00Z'),
+    });
+
+    const { pptx, slideCount } = await renderTimelinePptx(PptxGenJS, payload);
+    expect(slideCount).toBeGreaterThanOrEqual(6);
+
+    const rawBlob = (await pptx.write({ outputType: 'blob' })) as Blob;
+    const cleanBlob = await sanitizePptxPackageBlob(rawBlob);
+    const buffer = await cleanBlob.arrayBuffer();
+
+    const zip = await JSZip.loadAsync(buffer);
+    const slideFiles = Object.keys(zip.files).filter((k) => k.startsWith('ppt/slides/slide') && k.endsWith('.xml'));
+
+    const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+    for (const slidePath of slideFiles) {
+      const xml = await zip.file(slidePath)!.async('string');
+
+      // 1. No raw record IDs / UUIDs
+      expect(uuidRegex.test(xml)).toBe(false);
+
+      // 2. No double comma in slide text
+      expect(xml).not.toContain(',,');
+
+      // 3. No undefined or NaN
+      expect(xml).not.toContain('undefined');
+      expect(xml).not.toContain('NaN');
+
+      // 4. No Unassigned in slide text
+      expect(xml).not.toContain('Unassigned,');
+    }
+  });
+
+  it('T14: Multi-year cover date range prints both years when crossing year boundary', async () => {
+    const crossYearActions = [
+      { id: '1', action_title: 'Early action', due_date: '2026-10-24', status: 'not_started', priority: 'high' },
+      { id: '2', action_title: 'Future action', due_date: '2027-01-23', status: 'not_started', priority: 'high' },
+    ];
+    const payload = buildTimelinePayloadFromActions(crossYearActions as any, {
+      viewName: 'Cross Year Actions',
+      filterDescription: 'all permitted actions',
+      projectName: 'Multi-Year Plan',
+      now: new Date('2026-11-16T00:00:00Z'),
+    });
+
+    const { pptx } = await renderTimelinePptx(PptxGenJS, payload);
+    const rawBlob = (await pptx.write({ outputType: 'blob' })) as Blob;
+    const cleanBlob = await sanitizePptxPackageBlob(rawBlob);
+    const buffer = await cleanBlob.arrayBuffer();
+
+    const zip = await JSZip.loadAsync(buffer);
+    const slide1Xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
+
+    // Must print both 2026 and 2027 on the cover
+    expect(slide1Xml).toContain('2026');
+    expect(slide1Xml).toContain('2027');
+    expect(slide1Xml).toContain('24 Oct 2026 to 23 Jan 2027');
+  });
+
+  it('T15: Missing owner prints "Owner to be agreed" and multi-owner with comma does not double comma', async () => {
+    const multiOwnerActions = [
+      { id: '1', action_title: 'Task without owner', due_date: '2026-11-20', status: 'not_started', priority: 'high', owner_name: null },
+      { id: '2', action_title: 'Task with comma owner', due_date: '2026-11-20', status: 'not_started', priority: 'high', owner_name: 'Anthony, Tax agent' },
+    ];
+    const payload = buildTimelinePayloadFromActions(multiOwnerActions as any, {
+      viewName: 'Owner Tests',
+      filterDescription: 'all permitted actions',
+      projectName: 'Owner Sanity Plan',
+      now: new Date('2026-11-16T00:00:00Z'),
+    });
+
+    const { pptx } = await renderTimelinePptx(PptxGenJS, payload);
+    const rawBlob = (await pptx.write({ outputType: 'blob' })) as Blob;
+    const cleanBlob = await sanitizePptxPackageBlob(rawBlob);
+    const buffer = await cleanBlob.arrayBuffer();
+
+    const zip = await JSZip.loadAsync(buffer);
+    const slideFiles = Object.keys(zip.files).filter((k) => k.startsWith('ppt/slides/slide') && k.endsWith('.xml'));
+
+    for (const slidePath of slideFiles) {
+      const xml = await zip.file(slidePath)!.async('string');
+      expect(xml).not.toContain(',,');
+      expect(xml).not.toContain('Anthony,,');
+      expect(xml).not.toContain('Unassigned');
+    }
+  });
 });
