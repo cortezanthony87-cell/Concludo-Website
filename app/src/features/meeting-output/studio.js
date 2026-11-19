@@ -723,8 +723,17 @@ export function mountMeetingStudio(root, opts = {}) {
     });
     return { type: 'table', pre: '', head: '<tr><th style="width:10mm">Ref</th><th>Quote</th><th style="width:20mm">Source</th><th style="width:26mm">Speaker</th></tr>', rows };
   }
-  const pending = () => [...S.model.decisions, ...S.model.actions, ...S.model.risks, ...S.model.openItems].filter((x) => x.review === 'proposed').length;
-  const reviewLine = () => (pending() ? `Draft: ${plural(pending(), 'item has', 'items have')} not yet been confirmed by a person.` : 'Every item was confirmed or excluded by a person before circulation.');
+  const allItems = () => [...(S.model.decisions || []), ...(S.model.actions || []), ...(S.model.risks || []), ...(S.model.openItems || [])];
+  const pending = () => allItems().filter((x) => x.review === 'proposed').length;
+  const confirmed = () => allItems().filter((x) => x.review === 'confirmed').length;
+  const reviewLine = () => {
+    const p = pending();
+    const c = confirmed();
+    const total = allItems().length;
+    if (p > 0) return `Draft: ${plural(p, 'item has', 'items have')} not yet been confirmed by a person.`;
+    if (total > 0 && c > 0) return 'Every item was confirmed or excluded by a person before circulation.';
+    return 'Draft record for review. Outcomes have not been confirmed by a person.';
+  };
   const fine = () => `<div class="fineprint">Prepared with Concludo from the sources listed in this record. Items were extracted from those sources. ${reviewLine()} Nothing in this record is added from outside the sources; where the meeting did not state an owner, a date or a response, the record says so. Risk ratings and meeting measures are indicative and meeting level only: Concludo does not score individuals.${/fictional/i.test(S.model.meta.organisation || '') ? ' This record uses a fictional sample meeting.' : ''}</div>`;
 
   /* --------------------------------------- templates -> blocks */
@@ -1568,4 +1577,50 @@ export function mountMeetingStudio(root, opts = {}) {
 /** Read-only document view of a saved v2 record, for the project page. */
 export function mountMeetingDocument(root, model, options = {}) {
   return mountMeetingStudio(root, { ...options, model: CE.refresh(model), viewer: true, embedded: true });
+}
+
+/** Export actions to CSV format */
+export function exportActionsToCsv(actions = []) {
+  const header = 'ID,Task,Owner,Due Date,Status,Horizon\r\n';
+  const rows = actions.map((a) => {
+    const id = a.id || '';
+    const task = `"${(a.task || '').replace(/"/g, '""')}"`;
+    const owner = `"${(a.owner || 'Who will own this?').replace(/"/g, '""')}"`;
+    const due = a.due ? `"${a.due}"` : '"Date to be agreed"';
+    const status = a.review || 'proposed';
+    const horizon = a.horizon || 'undated';
+    return `${id},${task},${owner},${due},${status},${horizon}`;
+  });
+  return header + rows.join('\r\n') + '\r\n';
+}
+
+/** Export standalone printable HTML document */
+export function exportStandaloneHtml(model) {
+  const title = (model && model.meta && model.meta.title) || 'Meeting Output';
+  const org = (model && model.meta && model.meta.organisation) || '';
+  const date = (model && model.meta && model.meta.meetingDate) || '';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: Inter, -apple-system, sans-serif; color: #0f172a; margin: 40px; }
+    @media print { body { margin: 20mm; } }
+    .header { border-bottom: 2px solid #002060; padding-bottom: 16px; margin-bottom: 24px; }
+    .muted { color: #64748b; font-size: 14px; }
+    .confidential { color: #94a3b8; font-size: 12px; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${title}</h1>
+    <div class="muted">${org ? `${org} · ` : ''}${date}</div>
+  </div>
+  <div class="content">
+    <p>${(model && model.bottomLine) || ''}</p>
+  </div>
+  <div class="confidential">Commercial in confidence</div>
+</body>
+</html>`;
 }
