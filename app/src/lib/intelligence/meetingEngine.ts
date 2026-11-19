@@ -700,34 +700,79 @@ function parseHeader(text: string): HeaderInfo {
 }
 
 const TURN_RE =
-  /^\s*(?:[-*•]\s*)?(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?\s*[-–]?\s*)?(?:\*\*)?([A-Z][A-Za-z0-9'.-]*(?:\s+[A-Za-z0-9'.-]+){0,3})(?:\*\*)?\s*(?:\(([^)]{1,40})\))?\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+)$/;
+  /^\s*(?:[-*•]\s*)?(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?\s*[-–]?\s*)?(?:\*\*)?([A-Z][A-Za-z'.-]+(?:\s+[A-Za-z'.-]+){0,3})(?:\*\*)?\s*(?:\(([^)]{1,40})\))?(?:\s+\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?)?\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+)$/;
+
+const NON_SPEAKER_LABELS = /^(?:unclear|inaudible|crosstalk|applause|break)$/i;
+
+const STANDALONE_HEADER_RE =
+  /^\s*(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\b\]?\s+)?(?:\*\*)?([A-Z][A-Za-z'.-]+(?:\s+[A-Za-z'.-]+){0,3})(?:\*\*)?(?:\s*\(([^)]{1,40})\))?(?:\s+\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\b\]?)?\s*:?\s*$/;
 
 function parseTurns(src: SourceInput, sourceId: string): Turn[] {
   const turns: Turn[] = [];
   const lines = src.text.split(/\r?\n/);
+  let pendingSpeaker: string | undefined;
+  let pendingTimestamp: string | undefined;
+  let pendingLine: number | undefined;
+
   lines.forEach((raw, i) => {
     const line = raw.trim();
     if (!line || /^(?:WEBVTT|NOTE)\b/.test(line) || /-->/.test(line) || /^\d+$/.test(line) || /^-{3,}$/.test(line)) return;
     const cleanLine = line.replace(/[–—]/g, '-');
     const vtt = cleanLine.match(/^<v\s+([^>]+)>(.+)$/);
     if (vtt) {
+      pendingSpeaker = undefined;
       turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, speaker: vtt[1].trim(), text: vtt[2].trim() });
       return;
     }
+
+    // 1. Standalone speaker header line (e.g. "Anthony 00:07", "[00:07] Anthony", "Anthony:")
+    if (src.kind !== 'document') {
+      const sm = cleanLine.match(STANDALONE_HEADER_RE);
+      const hasTs = sm && (sm[1] || sm[4]);
+      const hasColon = sm && cleanLine.endsWith(':');
+      if (sm && (hasTs || hasColon) && !META_LABELS.test(sm[2].trim()) && !/^(?:WEBVTT|NOTE|RESOLVED|ACTION)$/i.test(sm[2])) {
+        const spk = sm[2].trim();
+        if (!NON_SPEAKER_LABELS.test(spk)) {
+          pendingSpeaker = spk;
+          pendingTimestamp = sm[1] || sm[4];
+          pendingLine = i + 1;
+          return;
+        }
+      }
+    }
+
+    // 2. Inline speaker turn (e.g. "Anthony: Hello", "[00:07] Anthony: Hello")
     const m = src.kind === 'document' ? null : cleanLine.match(TURN_RE);
     if (m && !META_LABELS.test(m[2].trim()) && !/^(?:RESOLVED|ACTION)$/i.test(m[2].trim()) && m[2].split(/\s+/).length <= 4) {
-      turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, timestamp: m[1], speaker: m[2].trim(), text: m[4].trim() });
+      pendingSpeaker = undefined;
+      const spk = m[2].trim();
+      const ts = m[1] || m[4];
+      if (!NON_SPEAKER_LABELS.test(spk)) {
+        turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, timestamp: ts, speaker: spk, text: m[5].trim() });
+        return;
+      }
+    }
+
+    // 3. Spoken dialogue following a standalone speaker header
+    if (pendingSpeaker) {
+      turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: pendingLine ?? (i + 1), timestamp: pendingTimestamp, speaker: pendingSpeaker, text: line });
+      pendingSpeaker = undefined;
+      pendingTimestamp = undefined;
+      pendingLine = undefined;
       return;
     }
-    const tsOnly = line.match(/^\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\]?\s+(.+)$/);
+
+    // 4. Continuation of a speaker turn (wrapped line)
     const prev = turns[turns.length - 1];
-    // Continuation of a speaker turn (wrapped line) when the previous turn is the line before.
-    if (prev && prev.speaker && prev.line === i && !/^(?:#|[-*•]|\d+[.)])/.test(line) && !/^[A-Za-z ]{3,22}:/.test(line)) {
+    if (prev && prev.speaker && !/^(?:#|[-*•]|\d+[.)])/.test(line) && !/^[A-Za-z ]{3,22}:/.test(line)) {
       prev.text += ' ' + line;
-      prev.line = prev.line; // keep start line
+      prev.line = prev.line;
       (prev as Turn & { end?: number }).end = i + 1;
       return;
     }
+
+    // 5. Generic turn or note line
+    const tsOnly = line.match(/^\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\]?\s+(.+)$/);
     turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, timestamp: tsOnly?.[1], text: (tsOnly?.[2] ?? line).replace(/^#+\s*/, '').trim() });
   });
   return turns;
@@ -985,12 +1030,28 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       const needsApproval = /\b(?:needs?|need|requires?|subject to|pending|waiting (?:on|for)|until)\b[^.]{0,40}\b(?:sign[- ]?off|approval|approve|signs? off|board|cfo|finance)\b/i.test(sentence);
 
       /* F2: assent to a proposal in previous turn */
-      if (/^(?:yes|yep|agreed|let's do that|works for me|sounds good|let's do it)[,.]?$/i.test(sentence) && ti > 0) {
+      const isAssent = /^(?:yes|yep|yeah|agreed|let's do that|works for me|sounds good|let's do it|absolutely|definitely|no problem|that would be great)\b/i.test(sentence);
+      if (isAssent && ti > 0 && speakerOf(allTurns[ti - 1]) !== speaker) {
         const prevText = allTurns[ti - 1].text;
-        const prop = prevText.match(/\b(?:so the plan is to|the plan is to|let's|we go with|we proceed with|we will|how about we|why don't we|we should|proposal is to|what if we)\s+([^.?]+)/i);
-        if (prop) {
+        // Consent check (e.g. recording consent)
+        const consentMatch = prevText.match(/\b(?:do I have your consent|consent to record|is it okay to record|okay to record this meeting)\b/i);
+        if (consentMatch) {
           pushDecision({
-            statement: cap(stripEnd(clean(prop[1]))),
+            statement: 'Record the meeting with consent of participants',
+            calledBy: speakerOf(allTurns[ti - 1]),
+            status: 'agreed',
+            evidence: [evidenceOf(allTurns[ti - 1], consentMatch[0]), evidenceOf(turn, rawSentence)],
+            confidence: 'explicit',
+          });
+          claimed.add(key);
+          return;
+        }
+
+        const prop = prevText.match(/\b(?:so the plan is to|the plan is to|let's|let us|we go with|we proceed with|we will|how about we|why don't we|we should|proposal is to|what if we|happy to|open to)\s+([^.?]+)/i);
+        if (prop) {
+          let stmt = prop[1].replace(/^(?:definitely|also|just)\s+/i, '');
+          pushDecision({
+            statement: cap(stripEnd(clean(stmt))),
             calledBy: speakerOf(allTurns[ti - 1]),
             status: 'agreed',
             evidence: [evidenceOf(allTurns[ti - 1], prop[0]), evidenceOf(turn, rawSentence)],
@@ -1059,9 +1120,10 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       }
 
       /* actions: first-person commitments */
-      const commit = sentence.match(/\b(?:I'll|I will|I can|I'm going to|I am going to|I'll take|I'll own|leave (?:it|that) with me,?\s*I'll|I'll get)\s+(.+)$/i);
+      const isNarrative = /\b(?:I can|I'll|I will)\s+(?:see|hear|tell|imagine|remember|understand|start with|start by|give you a bit of insight|share a bit of story)\b/i.test(sentence);
+      const commit = sentence.match(/\b(?:I'll|I will|I can|I'm going to|I am going to|I'll take|I'll own|leave (?:it|that) with me,?\s*I'll|I'll get|happy to|I'm happy to|I am happy to)\s+(.+)$/i);
       const isNeedFromOther = /\b(?:I(?:'ll| will)?\s*need|we(?:'ll| will)?\s*need)\b/i.test(sentence);
-      if (commit && !isNeedFromOther && !HEDGE_I.test(sentence) && !/^(?:if|when)\b/i.test(sentence) && !isQuestion && turn.speaker) {
+      if (commit && !isNarrative && !isNeedFromOther && !HEDGE_I.test(sentence) && !/^(?:if|when)\b/i.test(sentence) && !isQuestion && turn.speaker) {
         const owner = speaker;
         let task = commit[1];
         const due = resolveDue(task, meetingDate);
@@ -1164,7 +1226,7 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       }
 
       /* risks */
-      const riskCue = /\b(?:risk|risky|my (?:worry|concern)|i(?:'m| am) (?:worried|concerned)|concern(?:ed)? (?:is|that)|exposed|exposure|blocker|bottleneck|single point of failure|only (?:one|person) (?:who|that)|the only one who|could slip|might slip|will slip|if (?:that|this|it|we|the \w+) (?:slips?|misses?|fails?|goes wrong|doesn't)|can't afford|we(?:'ll| will) lose|fall over|knock-on|dependency|depends on)\b/i;
+      const riskCue = /\b(?:risk|risky|my (?:worry|concern)|i(?:'m| am) (?:worried|concerned)|concern(?:ed)? (?:is|that)|exposed|exposure|blocker|bottleneck|single point of failure|only (?:one|person) (?:who|that)|the only one who|could slip|might slip|will slip|if (?:that|this|it|we|the \w+) (?:slips?|misses?|fails?|goes wrong|doesn't)|can't afford|we(?:'ll| will) lose|fall over|knock-on|dependency|depends on|rely on (?:only|one|a single)|relying on (?:only|one|a single)|cannot just rely|can't just rely|consumer laws?|compliance risk)\b/i;
       if (riskCue.test(sentence) && !claimed.has(key)) {
         const idx = sentences.indexOf(rawSentence);
         let riskText = stripEnd(clean(sentence));
@@ -1204,6 +1266,7 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     for (const sent of sents) {
       if (/\?\s*$/.test(sent) || /^Question raised:\s*/i.test(sent)) {
         if (/^(?:yeah|right|is that right|by \w+)\?\s*$/i.test(sent.trim())) continue;
+        if (/\b(?:isn't it|aren't they|doesn't it|don't they|wouldn't it|won't it|you know|know what i mean)\?\s*$/i.test(sent.trim())) continue;
         if (/^(?:can you|could you|will you|would you)\s+.*\b(?:by|before|tomorrow)\b/i.test(sent)) continue;
         const nextTurns = allTurns.slice(ti + 1, ti + 3);
         const hasDef = nextTurns.some((nt) => DEFERRAL_RE.test(nt.text));
@@ -1276,6 +1339,12 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     balance = Math.round((H / Math.log(shares.length)) * 100);
   }
   if (!allTurns.some((t) => t.speaker)) warnings.push('No speaker labels found. Owners can only be taken from explicit “Action:” lines.');
+
+  const totalWords = sources.reduce((sum, s) => sum + s.words, 0);
+  const totalOutcomes = decisions.length + actions.length + risks.length + openItems.length;
+  if (totalWords > 1000 && totalOutcomes <= 2) {
+    warnings.push(`Low extraction yield: ${totalWords.toLocaleString('en-AU')} words yielded only ${totalOutcomes} outcome${totalOutcomes === 1 ? '' : 's'}. Check transcript formatting or speaker labels before circulating.`);
+  }
 
   const nextMeeting = extractNextMeeting(allTurns, meetingDate, header.time);
   if (actions.some((a) => a.dueApprox) || warnings.some((w) => /date/i.test(w))) {
@@ -1352,8 +1421,8 @@ export function refresh(m: MeetingModel): MeetingModel {
   const checks: GateCheck[] = [
     { label: 'Every item traces to the source', pass: true, detail: 'Each item links to a quote, source and line.' },
     { label: 'Decisions recorded', pass: decisions.length > 0, detail: decisions.length ? `${decisions.length} decision${decisions.length === 1 ? '' : 's'} on record.` : 'No decisions found. Check the record before circulating.' },
-    { label: 'Every action has an owner', pass: actions.length > 0 && owned === actions.length, detail: actions.length - owned ? `${actions.length - owned} without a confirmed owner.` : 'All owned.' },
-    { label: 'Every action has a date', pass: actions.length > 0 && dated === actions.length, detail: actions.length - dated ? `${actions.length - dated} without a date.` : 'All dated.' },
+    { label: 'Every action has an owner', pass: actions.length > 0 && owned === actions.length, detail: actions.length === 0 ? 'Not applicable, 0 actions.' : actions.length - owned ? `${actions.length - owned} without a confirmed owner.` : 'All owned.' },
+    { label: 'Every action has a date', pass: actions.length > 0 && dated === actions.length, detail: actions.length === 0 ? 'Not applicable, 0 actions.' : actions.length - dated ? `${actions.length - dated} without a date.` : 'All dated.' },
     { label: 'Attendees recorded', pass: m.participants.length > 0, detail: m.participants.length ? `${m.participants.filter((p) => p.present).length} present, ${m.participants.filter((p) => !p.present).length} ${m.participants.filter((p) => !p.present).length === 1 ? 'apology' : 'apologies'}.` : 'No attendee list or speaker labels.' },
     { label: 'Meeting date confirmed', pass: dateConfirmed, detail: dateConfirmed ? fmtDate(m.meta.meetingDate) : 'Date assumed. Confirm it.' },
   ];
@@ -1443,7 +1512,7 @@ function buildBottomLine(decisions: Decision[], actions: Action[], open: OpenIte
         : `The meeting made ${decisions.length} decisions. The headline: ${lowerFirst(lead)}.`
     );
     if (conditional.length) parts.push(`${conditional.length === 1 ? 'One is' : `${conditional.length} are`} conditional on approval still to come${agreed.length ? '' : ', so nothing is final yet'}.`);
-  } else parts.push('No decision was recorded in this meeting.');
+  } else parts.push('No decisions were extracted from the supplied transcript.');
   if (actions.length) {
     const noOwner = actions.filter((a) => !a.owner).length;
     const noDate = actions.filter((a) => !a.due).length;
