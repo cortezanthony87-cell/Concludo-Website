@@ -723,8 +723,17 @@ export function mountMeetingStudio(root, opts = {}) {
     });
     return { type: 'table', pre: '', head: '<tr><th style="width:10mm">Ref</th><th>Quote</th><th style="width:20mm">Source</th><th style="width:26mm">Speaker</th></tr>', rows };
   }
-  const pending = () => [...S.model.decisions, ...S.model.actions, ...S.model.risks, ...S.model.openItems].filter((x) => x.review === 'proposed').length;
-  const reviewLine = () => (pending() ? `Draft: ${plural(pending(), 'item has', 'items have')} not yet been confirmed by a person.` : 'Every item was confirmed or excluded by a person before circulation.');
+  const allItems = () => [...(S.model.decisions || []), ...(S.model.actions || []), ...(S.model.risks || []), ...(S.model.openItems || [])];
+  const pending = () => allItems().filter((x) => x.review === 'proposed').length;
+  const confirmed = () => allItems().filter((x) => x.review === 'confirmed').length;
+  const reviewLine = () => {
+    const p = pending();
+    const c = confirmed();
+    const total = allItems().length;
+    if (p > 0) return `Draft: ${plural(p, 'item has', 'items have')} not yet been confirmed by a person.`;
+    if (total > 0 && c > 0) return 'Every item was confirmed or excluded by a person before circulation.';
+    return 'Draft record for review. Outcomes have not been confirmed by a person.';
+  };
   const fine = () => `<div class="fineprint">Prepared with Concludo from the sources listed in this record. Items were extracted from those sources. ${reviewLine()} Nothing in this record is added from outside the sources; where the meeting did not state an owner, a date or a response, the record says so. Risk ratings and meeting measures are indicative and meeting level only: Concludo does not score individuals.${/fictional/i.test(S.model.meta.organisation || '') ? ' This record uses a fictional sample meeting.' : ''}</div>`;
 
   /* --------------------------------------- templates -> blocks */
@@ -1568,4 +1577,136 @@ export function mountMeetingStudio(root, opts = {}) {
 /** Read-only document view of a saved v2 record, for the project page. */
 export function mountMeetingDocument(root, model, options = {}) {
   return mountMeetingStudio(root, { ...options, model: CE.refresh(model), viewer: true, embedded: true });
+}
+
+/** Export actions to CSV format */
+export function exportActionsToCsv(actions = []) {
+  const header = 'ID,Task,Owner,Due Date,Status,Horizon\r\n';
+  const rows = actions.map((a) => {
+    const id = a.id || '';
+    const task = `"${(a.task || '').replace(/"/g, '""')}"`;
+    const owner = `"${(a.owner || 'Who will own this?').replace(/"/g, '""')}"`;
+    const due = a.due ? `"${a.due}"` : '"Date to be agreed"';
+    const status = a.review || 'proposed';
+    const horizon = a.horizon || 'undated';
+    return `${id},${task},${owner},${due},${status},${horizon}`;
+  });
+  return header + rows.join('\r\n') + '\r\n';
+}
+
+/** Export standalone printable HTML document */
+export function exportStandaloneHtml(model) {
+  const title = (model && model.meta && model.meta.title) || 'Meeting Output';
+  const org = (model && model.meta && model.meta.organisation) || '';
+  const date = (model && model.meta && model.meta.meetingDate) || '';
+  const decisions = (model && model.decisions) || [];
+  const actions = (model && model.actions) || [];
+  const risks = (model && model.risks) || [];
+  const openQuestions = (model && (model.open_questions || model.openItems)) || [];
+  const insights = (model && model.insights) || [];
+  const stv = (model && model.statements_to_verify) || [];
+  const nextMeeting = (model && (model.next_meeting || model.nextMeeting));
+  const hasThirdParty = (model && model.entities && model.entities.some(e => e.kind === 'third_party_brand'));
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #16263F; background: #FFFFFF; margin: 40px; line-height: 1.5; }
+    @media print { body { margin: 15mm; } }
+    .header { border-bottom: 2px solid #16263F; padding-bottom: 16px; margin-bottom: 24px; }
+    h1 { font-family: Poppins, sans-serif; color: #16263F; margin: 0 0 8px; font-size: 24px; }
+    .subtitle { color: #4A5568; font-size: 14px; }
+    h2 { font-family: Poppins, sans-serif; color: #21395C; font-size: 18px; margin-top: 24px; margin-bottom: 12px; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+    th { text-align: left; background: #F4F6FA; padding: 8px; border: 1px solid #CBD5E1; color: #16263F; }
+    td { padding: 8px; border: 1px solid #CBD5E1; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    .quote { font-style: italic; color: #64748B; font-size: 12px; margin-top: 2px; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #E2B53C; color: #16263F; }
+    .footer { margin-top: 40px; border-top: 1px solid #CBD5E1; padding-top: 12px; font-size: 12px; color: #64748B; }
+    .disclaimer { font-size: 11px; color: #94A3B8; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${title}</h1>
+    <div class="subtitle">${org ? `${org} · ` : ''}${date} · Concludo Meeting Output</div>
+  </div>
+
+  <div class="section">
+    <h2>Bottom Line</h2>
+    <p>${(model && model.bottomLine) || ''}</p>
+  </div>
+
+  ${decisions.length ? `
+  <div class="section">
+    <h2>Decisions</h2>
+    <ul>
+      ${decisions.map(d => `<li><strong>${d.id || 'DEC'}:</strong> ${d.statement || d.text}${d.conditions ? ` <em>(Conditional: ${d.conditions})</em>` : ''}${d.source_quote ? `<div class="quote">“${d.source_quote}”</div>` : ''}</li>`).join('')}
+    </ul>
+  </div>` : ''}
+
+  ${actions.length ? `
+  <div class="section">
+    <h2>Actions</h2>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Action</th><th>Owner</th><th>Due</th></tr>
+      </thead>
+      <tbody>
+        ${actions.map(a => `<tr><td>${a.id || 'ACT'}</td><td>${a.task || a.text}${a.source_quote ? `<div class="quote">“${a.source_quote}”</div>` : ''}</td><td>${a.owner || 'Not named'}</td><td>${a.due_date || a.due || 'Date to be agreed'}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  </div>` : ''}
+
+  ${risks.length ? `
+  <div class="section">
+    <h2>Risks (Internal)</h2>
+    <ul>
+      ${risks.map(r => `<li><strong>${r.id || 'RSK'}:</strong> ${r.risk || r.text} <em>(${r.rating || 'not_rated'})</em>${r.source_quote ? `<div class="quote">“${r.source_quote}”</div>` : ''}</li>`).join('')}
+    </ul>
+  </div>` : ''}
+
+  ${openQuestions.length ? `
+  <div class="section">
+    <h2>Open Questions</h2>
+    <ul>
+      ${openQuestions.map(q => `<li><strong>${q.id || 'Q'}:</strong> ${q.question || q.text}${q.raised_by ? ` <em>(Raised by ${q.raised_by})</em>` : ''}${q.source_quote ? `<div class="quote">“${q.source_quote}”</div>` : ''}</li>`).join('')}
+    </ul>
+  </div>` : ''}
+
+  ${insights.length ? `
+  <div class="section">
+    <h2>Insights (Internal)</h2>
+    <ul>
+      ${insights.map(ins => `<li><span class="badge">${ins.kind}</span> <strong>${ins.who}:</strong> ${ins.insight}${ins.source_quote ? `<div class="quote">“${ins.source_quote}”</div>` : ''}</li>`).join('')}
+    </ul>
+  </div>` : ''}
+
+  ${stv.length ? `
+  <div class="section">
+    <h2>Statements to Verify (Internal)</h2>
+    <ul>
+      ${stv.map(s => `<li><strong>${s.said_by}:</strong> “${s.statement}” <em>(${s.why_check})</em>${s.source_quote ? `<div class="quote">“${s.source_quote}”</div>` : ''}</li>`).join('')}
+    </ul>
+  </div>` : ''}
+
+  ${nextMeeting && (nextMeeting.date || nextMeeting.summary) ? `
+  <div class="section">
+    <h2>Next Meeting</h2>
+    <p><strong>Date:</strong> ${nextMeeting.date || 'To be scheduled'} ${nextMeeting.time ? `at ${nextMeeting.time}` : ''}</p>
+    ${nextMeeting.summary ? `<p><strong>Focus:</strong> ${nextMeeting.summary}</p>` : ''}
+  </div>` : ''}
+
+  <div class="footer">
+    Draft record for review. Outcomes have not been confirmed by a person.
+    <div class="confidential">Commercial in confidence</div>
+    ${hasThirdParty ? `<div class="disclaimer">Third-party trademarks and product names are referenced for context only and imply no endorsement or affiliation.</div>` : ''}
+  </div>
+</body>
+</html>`;
 }
