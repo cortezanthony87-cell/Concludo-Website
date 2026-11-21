@@ -241,6 +241,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           metadata.timezone = locationMeta.timezone.trim();
         }
       }
+      metadata.legal_terms_accepted_at = new Date().toISOString();
+      metadata.legal_terms_version = '2026-11-21';
 
       const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,

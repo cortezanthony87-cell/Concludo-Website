@@ -3732,6 +3732,27 @@ export const ProjectDetailPage: React.FC = () => {
               </div>
 
               <div>
+            {/* Preview Banner */}
+            <div
+              style={{
+                background: 'rgba(226, 181, 60, 0.12)',
+                border: '1px solid rgba(226, 181, 60, 0.38)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: '#f3c958',
+                fontSize: '0.85rem',
+                lineHeight: 1.45,
+              }}
+            >
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>
+                <strong>Preview.</strong> Use sample information only. Do not paste real client conversations.
+              </span>
+            </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1' }}>
                     Transcript or Minutes Text *

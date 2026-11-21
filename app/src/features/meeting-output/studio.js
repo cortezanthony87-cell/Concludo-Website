@@ -199,7 +199,7 @@ export function mountMeetingStudio(root, opts = {}) {
             </div>
             <div style="margin-top:14px">
             ${S.tab === 'paste'
-              ? `<label class="sr" for="draft">Transcript</label><textarea id="draft" class="paste" data-bind="draft" placeholder="Paste a transcript with speaker names, for example:\n\n[00:03:02] Mara Ellis: Decision: we cut over to the new CRM on Monday 16 November.\n[00:03:48] Tom Nguyen: I'll run two training sessions the week of the 9th.">${esc(S.draft)}</textarea>
+              ? `<div class="cmo-preview-banner" style="background:rgba(226,181,60,0.12);border:1px solid rgba(226,181,60,0.38);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;color:#f3c958;font-size:0.86rem;line-height:1.45;"><span style="font-weight:700;display:inline-flex;align-items:center;gap:6px;">${ic('alert')}Preview.</span><span>Use sample information only. Do not paste real client conversations.</span></div><label class="sr" for="draft">Transcript</label><textarea id="draft" class="paste" data-bind="draft" placeholder="Paste a transcript with speaker names, for example:\n\n[00:03:02] Mara Ellis: Decision: we cut over to the new CRM on Monday 16 November.\n[00:03:48] Tom Nguyen: I'll run two training sessions the week of the 9th.">${esc(S.draft)}</textarea>
                  <div class="signals">${S.draft.trim() ? `<span class="tag ${speakerLines >= 2 ? 'ok' : 'line'}">${ic(speakerLines >= 2 ? 'check' : 'alert')}${speakerLines >= 2 ? `${speakerLines} speaker lines` : 'No speaker labels found'}</span><span class="tag ${stamps ? 'ok' : 'line'}">${stamps ? `${stamps} timestamps` : 'No timestamps'}</span><span>${S.draft.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>` : '<span>Speaker names and timestamps make owners and evidence more precise. Neither is required.</span>'}</div>`
               : S.tab === 'notes'
               ? `<label class="sr" for="notes">Notes</label><textarea id="notes" class="paste" data-bind="draftNotes" placeholder="Meeting notes, minutes or a summary. Lines that start with Decision:, Action:, Risk: or Open question: are read exactly as written.">${esc(S.draftNotes)}</textarea>`
@@ -265,7 +265,7 @@ export function mountMeetingStudio(root, opts = {}) {
         </div>
         <div class="cmo-fut-tabcontent" id="cmo-panel-${S.tab}" role="tabpanel" aria-labelledby="cmo-tab-${S.tab}">
           ${S.tab === 'paste'
-            ? `<div class="cmo-fut-ta-box">
+            ? `<div class="cmo-preview-banner" style="background:rgba(226,181,60,0.12);border:1px solid rgba(226,181,60,0.38);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;color:#f3c958;font-size:0.86rem;line-height:1.45;"><span style="font-weight:700;display:inline-flex;align-items:center;gap:6px;">${ic('alert')}Preview.</span><span>Use sample information only. Do not paste real client conversations.</span></div><div class="cmo-fut-ta-box">
                  <div class="cmo-fut-scan" aria-hidden="true"></div>
                  <label class="sr" for="draft">Transcript</label>
                  <textarea id="draft" class="cmo-fut-paste" data-bind="draft" placeholder="Paste a transcript with speaker names, for example:&#10;&#10;[00:03:02] Mara Ellis: Decision: we cut over to the new CRM on Monday 16 November.&#10;[00:03:48] Tom Nguyen: I'll run two training sessions the week of the 9th.">${esc(S.draft)}</textarea>

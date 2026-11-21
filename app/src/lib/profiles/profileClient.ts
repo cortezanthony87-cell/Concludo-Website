@@ -137,3 +137,45 @@ export async function updateUserLocation(
     };
   }
 }
+
+/**
+ * Records user acceptance of pre-release preview legal terms (Privacy Policy and Terms of Service).
+ */
+export async function updateUserLegalTermsAcceptance(
+  userId: string,
+  version: string = '2026-11-21'
+): Promise<{ profile: UserProfile | null; error: Error | null }> {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const acceptedAt = new Date().toISOString();
+    
+    // Also record on auth user metadata
+    await supabase.auth.updateUser({
+      data: {
+        legal_terms_accepted_at: acceptedAt,
+        legal_terms_version: version,
+      },
+    }).catch(() => {});
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        legal_terms_accepted_at: acceptedAt,
+        legal_terms_version: version,
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      return { profile: null, error: new Error(error.message) };
+    }
+
+    return { profile: data as UserProfile, error: null };
+  } catch (err) {
+    return {
+      profile: null,
+      error: err instanceof Error ? err : new Error('Failed to record legal terms acceptance'),
+    };
+  }
+}

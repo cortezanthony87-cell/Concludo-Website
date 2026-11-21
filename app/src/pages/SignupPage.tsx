@@ -27,6 +27,7 @@ export const SignupPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [confirmationSent, setConfirmationSent] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +58,11 @@ export const SignupPage: React.FC = () => {
 
     if (password !== confirmPassword) {
       setErrorMessage('Passwords do not match. Please verify both passwords match.');
+      return;
+    }
+
+    if (!termsAccepted) {
+      setErrorMessage('You must read and accept the preview terms to create an account.');
       return;
     }
 
@@ -389,11 +395,69 @@ export const SignupPage: React.FC = () => {
             </div>
           </div>
 
+          <div className="form-group" style={{ marginTop: '16px', marginBottom: '12px' }}>
+            <label
+              htmlFor="signup-terms"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                fontSize: '0.84rem',
+                lineHeight: 1.5,
+                color: '#cbd5e1',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                id="signup-terms"
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => {
+                  setTermsAccepted(e.target.checked);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                style={{
+                  marginTop: '3px',
+                  width: '18px',
+                  height: '18px',
+                  accentColor: '#f3c958',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+                required
+              />
+              <span>
+                I understand the Concludo Workspace is a pre-release preview. I will use sample information only, not real client transcripts, recordings or personal information about other people. I have read the{' ' }
+                <a
+                  href="https://www.concludo.au/privacy-policy/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#f3c958', textDecoration: 'underline' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Privacy Policy
+                </a>{' ' }
+                and{' ' }
+                <a
+                  href="https://www.concludo.au/terms-of-service/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#f3c958', textDecoration: 'underline' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Terms of Service
+                </a>
+                .
+              </span>
+            </label>
+          </div>
+
           <button
             type="submit"
             className="btn-gold"
-            style={{ width: '100%', marginTop: '10px' }}
-            disabled={loading}
+            style={{ width: '100%', marginTop: '10px', opacity: !termsAccepted && !loading ? 0.65 : 1 }}
+            disabled={loading || !termsAccepted}
           >
             {loading ? (
               <>

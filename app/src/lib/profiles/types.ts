@@ -17,6 +17,8 @@ export interface UserProfile {
   country?: string | null;
   city?: string | null;
   timezone?: string | null;
+  legal_terms_accepted_at?: string | null;
+  legal_terms_version?: string | null;
   plan: PlanType;
   role: RoleType;
   trial_start_date?: string | null;
