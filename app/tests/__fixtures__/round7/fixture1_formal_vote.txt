@@ -1,0 +1,15 @@
+[09:00:10] Beatrice Vance: Welcome everyone. Before we begin, I am recording this governance meeting for the minutes. Does anyone object?
+[09:00:22] Colin Campbell: No objection from me, Beatrice.
+[09:00:26] Deirdre Moore: All fine with me as well.
+[09:00:32] Beatrice Vance: Wonderful. We have never missed an annual compliance deadline, and I want to keep that track record intact.
+[09:00:48] Colin Campbell: That was an excellent draft submission, Deirdre.
+[09:01:05] Deirdre Moore: Thank you Colin. Arthur is the only one who has access to the billing gateway credentials, so if he falls ill we cannot issue invoices.
+[09:01:25] Beatrice Vance: That is a serious operational exposure. I suggest we create a secondary administrator account immediately.
+[09:01:40] Colin Campbell: I move that we adopt the updated cyber security policy across all regional branch offices.
+[09:01:52] Deirdre Moore: I support that motion.
+[09:01:56] Colin Campbell: All in favour?
+[09:02:00] Deirdre Moore: Agreed.
+[09:02:02] Beatrice Vance: Motion carried. We adopt the updated cyber security policy across all regional branch offices.
+[09:02:18] Ewan Ross: Apologies for joining late, I was delayed in traffic.
+[09:02:30] Colin Campbell: I will submit the regulatory filing by Friday the fourth of December at 4:00 pm.
+[09:02:45] Beatrice Vance: Thank you Ewan for joining. We will adjourn until next Tuesday.

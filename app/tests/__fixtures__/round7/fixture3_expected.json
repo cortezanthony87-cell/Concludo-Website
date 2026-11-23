@@ -1,0 +1,43 @@
+{
+ "fixture": "fixture3_compromise_and_deferral.txt",
+ "turn_format": "Name (Role): text",
+ "participants": [
+  "Judith Clark",
+  "Keith Brennan",
+  "Lorraine Young"
+ ],
+ "decisions": [
+  {
+   "summary_includes": "replace the four critical pumps now and service the remaining four in July",
+   "shape": "compromise_counter_proposal"
+  },
+  {
+   "summary_includes": "defer the warehouse expansion until after the March financial audit",
+   "shape": "deferral_accepted",
+   "known_gap": "Engine records the chair statement (we will defer the expansion to March). The audit condition sits in the superseded proposal turn, which is deliberately not attached as evidence (trap protection)."
+  }
+ ],
+ "actions": [
+  {
+   "owner": "Keith Brennan",
+   "due_date": "2026-11-23",
+   "text_includes": "delivery schedule"
+  }
+ ],
+ "open_questions": [
+  {
+   "text_includes": "Do we have spare gaskets in the regional depot?"
+  }
+ ],
+ "risks": [
+  {
+   "text_includes": "regional distributor is unhappy about the delayed freight and threatened to cancel their contract",
+   "kind": "client_attrition"
+  },
+  {
+   "text_includes": "software migration clashes with our quarterly stocktake during late November",
+   "kind": "collision"
+  }
+ ],
+ "consent": null
+}

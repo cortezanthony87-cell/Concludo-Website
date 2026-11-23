@@ -1,0 +1,26 @@
+Tanya Lawson 00:05
+Good morning team. Last month we agreed to review the fleet leases, the IT helpdesk, and the office sublease.
+
+Ulysses Grant 00:22
+We have never experienced a primary server outage on our internal network, and we will always maintain twenty-four hour emergency coverage for tier one incidents.
+
+Valerie Mercer 00:40
+We currently have about three hundred active licences, give or take, across the accounting division.
+
+Tanya Lawson 00:58
+That was an exceptionally thorough investigation report, Ulysses, thank you for putting it together.
+
+Ulysses Grant 01:12
+Thank you Tanya. However, I worry that the cloud hosting costs will surge after the launch of the customer portal.
+
+Valerie Mercer 01:28
+I move that we license the analytics module, provided the vendor signs our standard data privacy addendum.
+
+Tanya Lawson 01:42
+Agreed, that protects our governance requirements. Approved.
+
+Valerie Mercer 01:56
+I will circulate the data privacy addendum to the vendor by Monday the thirtieth of November at 9:00 am.
+
+Ulysses Grant 02:12
+Sounds good. Let us adjourn until our December meeting.

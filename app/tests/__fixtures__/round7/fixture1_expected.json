@@ -1,0 +1,43 @@
+{
+  "fixture": "fixture1_formal_vote.txt",
+  "turn_format": "[hh:mm:ss] Name: text",
+  "participants": ["Beatrice Vance", "Colin Campbell", "Deirdre Moore", "Ewan Ross"],
+  "decisions": [
+    {
+      "summary_includes": "adopt the updated cyber security policy across all regional branch offices",
+      "shape": "motion_vote_chair_close"
+    }
+  ],
+  "actions": [
+    {
+      "owner": "Colin Campbell",
+      "due_date": "2026-12-04",
+      "text_includes": "regulatory filing"
+    }
+  ],
+  "open_questions": [],
+  "risks": [
+    {
+      "text_includes": "Arthur is the only one who has access to the billing gateway credentials",
+      "kind": "single_point_of_failure"
+    },
+    {
+      "text_includes": "Ewan Ross",
+      "kind": "consent_late_joiner"
+    }
+  ],
+  "consent": {
+    "asked_by": "Beatrice Vance",
+    "unasked_speakers": ["Ewan Ross"]
+  },
+  "statements_to_verify": [
+    {
+      "text_includes": "never missed an annual compliance deadline"
+    }
+  ],
+  "insights": [
+    { "kind": "feedback_positive", "speaker": "Colin Campbell" },
+    { "kind": "concern", "speaker": "Deirdre Moore" },
+    { "kind": "advice", "speaker": "Beatrice Vance" }
+  ]
+}

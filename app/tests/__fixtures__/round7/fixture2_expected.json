@@ -1,0 +1,40 @@
+{
+  "fixture": "fixture2_chair_recap_retaining.txt",
+  "turn_format": "Name mm:ss with text on next line",
+  "participants": ["Graham Thorpe", "Helena Boyd", "Ian Sutherland"],
+  "decisions": [
+    {
+      "summary_includes": "adopting the revised inspection checklist for all field audits",
+      "condition_includes": "subject to legal reviewing clause four first",
+      "shape": "chair_recap_with_condition"
+    }
+  ],
+  "actions": [
+    {
+      "owner": "Ian Sutherland",
+      "due_date": "2026-11-18",
+      "text_includes": "checklist templates"
+    }
+  ],
+  "open_questions": [
+    {
+      "text_includes": "Who will verify the calibration certificates before next month?"
+    }
+  ],
+  "risks": [
+    {
+      "text_includes": "We need eight technicians for the rollout and we only have five qualified staff on the roster",
+      "kind": "capacity_shortfall"
+    },
+    {
+      "text_includes": "I am on leave from the tenth to the twentieth of December, so nobody is covering the safety sign-offs",
+      "kind": "unavailable"
+    }
+  ],
+  "consent": null,
+  "statements_to_verify": [
+    {
+      "text_includes": "twenty-four thousand dollars, I think"
+    }
+  ]
+}
