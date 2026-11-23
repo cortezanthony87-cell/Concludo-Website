@@ -75,6 +75,8 @@ export interface ValidationResult {
   accepted: Record<DraftCategory, any[]>;
   rejected: RejectedModelItem[];
   capNotes: CategoryCapNote[];
+  /** Categories whose key the draft contained as an array, even an empty one. */
+  suppliedCategories: DraftCategory[];
   /** Items the draft contained across the six categories. */
   totalItems: number;
   rejectedCount: number;
@@ -149,6 +151,29 @@ function itemQuotes(item: Record<string, any>): string[] {
     for (const e of item.evidence) if (isObject(e) && typeof e.quote === 'string') out.push(e.quote);
   }
   return out;
+}
+
+/** True when a display quote (any length) appears in the normalised source. */
+function displayQuoteInSource(normSource: string, quote: unknown): boolean {
+  if (typeof quote !== 'string') return false;
+  const q = normaliseText(quote);
+  if (!q) return false;
+  return ` ${normSource} `.includes(` ${q} `);
+}
+
+/**
+ * Returns a copy of an accepted item whose display_quote, when present, is found
+ * in the source. Otherwise it is replaced by the first validated quote. An item
+ * with no display_quote is left without one.
+ */
+function withSafeDisplayQuote(item: Record<string, any>, normSource: string): Record<string, any> {
+  if (!('display_quote' in item)) return item;
+  if (displayQuoteInSource(normSource, item.display_quote)) return item;
+  const validated = itemQuotes(item).find((q) => quoteInSource(normSource, q));
+  const copy = { ...item };
+  if (validated !== undefined) copy.display_quote = validated;
+  else delete copy.display_quote;
+  return copy;
 }
 
 function wordOverlap(a: string[], b: string[]): number {
@@ -233,6 +258,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     accepted: emptyAccepted(),
     rejected: [],
     capNotes: [],
+    suppliedCategories: [],
     totalItems: 0,
     rejectedCount: 0,
     nextMeeting: null,
@@ -250,6 +276,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
   for (const category of DRAFT_CATEGORIES) {
     const raw = draft[category];
     if (!Array.isArray(raw)) continue;
+    result.suppliedCategories.push(category);
     const field = TEXT_FIELD[category];
     const survivors: any[] = [];
     const keptWords: string[][] = [];
@@ -281,7 +308,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         reject('duplicate');
         continue;
       }
-      survivors.push(item);
+      survivors.push(withSafeDisplayQuote(item, normSource));
       keptWords.push(w);
     }
     const ruleCount = Array.isArray((input.ruleRecord as any)?.[category]) ? (input.ruleRecord as any)[category].length : 0;
@@ -331,9 +358,15 @@ export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, s
   // Consent, participants, participant count and signals are never copied.
   const out = structuredClone(ruleRecord) as MergedRecord;
   const o = out as any;
+  // A category the draft supplies (even as an empty array) is replaced by the
+  // model's validated items. A category the draft omits keeps the rule items.
+  const emptied: DraftCategory[] = [];
   for (const category of DRAFT_CATEGORIES) {
+    if (!v.suppliedCategories.includes(category)) continue;
     const kept = v.accepted[category];
-    if (kept.length > 0) o[category] = structuredClone(kept);
+    const ruleItems = Array.isArray(o[category]) ? o[category] : [];
+    if (kept.length === 0 && ruleItems.length > 0) emptied.push(category);
+    o[category] = structuredClone(kept);
   }
   if (!hasNextMeeting(ruleRecord.next_meeting) && !hasNextMeeting((ruleRecord as any).nextMeeting) && v.nextMeeting) {
     out.next_meeting = v.nextMeeting;
@@ -343,6 +376,9 @@ export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, s
   const warnings = Array.isArray(out.warnings) ? out.warnings : [];
   warnings.push(`Model draft used with ${v.rejectedCount} rejected item${v.rejectedCount === 1 ? '' : 's'} of ${v.totalItems}. See rejected_model_items.`);
   for (const n of v.capNotes) warnings.push(n.reason);
+  for (const category of emptied) {
+    warnings.push(`Model draft emptied ${category}: the draft supplied no validated items, so the rule engine items for this category were removed.`);
+  }
   out.warnings = warnings;
   return out;
 }

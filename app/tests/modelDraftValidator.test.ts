@@ -230,6 +230,100 @@ describe('modelDraftValidator', () => {
   });
 });
 
+describe('modelDraftValidator follow-up: display_quote and explicit empty categories', () => {
+  const norm = (t: string) => t.toLowerCase().replace(/[\u2018\u2019'`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const inSource = (q: string) => ` ${norm(SOURCE)} `.includes(` ${norm(q)} `);
+
+  test('12. a display_quote found in the source is kept', () => {
+    const d = { ...goodDecision(), display_quote: 'move the review' };
+    const merged = mergeModelDraft(ruleRecord(), { decisions: [d] }, source);
+    expect(merged.drafting_method).toBe('model');
+    expect(merged.decisions[0].display_quote).toBe('move the review');
+  });
+
+  test('13. a display_quote not in the source is replaced by the validated source quote and the item is kept', () => {
+    const d = { ...goodDecision(), display_quote: 'The board unanimously approved a new budget' };
+    const merged = mergeModelDraft(ruleRecord(), { decisions: [d] }, source);
+    expect(merged.decisions).toHaveLength(1);
+    expect(merged.decisions[0].display_quote).toBe(goodDecision().source_quote);
+    expect(merged.rejected_model_items).toEqual([]);
+  });
+
+  test('13b. with no source_quote, the first validated evidence quote is used', () => {
+    const d = {
+      statement: 'Move the review to Thursday afternoon',
+      evidence: [{ quote: 'invented words not present anywhere' }, { quote: 'We agreed to move the review to Thursday afternoon' }],
+      display_quote: 'made up text',
+    };
+    const merged = mergeModelDraft(ruleRecord(), { decisions: [d] }, source);
+    expect(merged.decisions[0].display_quote).toBe('We agreed to move the review to Thursday afternoon');
+  });
+
+  test('14. no output item carries a display_quote absent from the source (mixed draft)', () => {
+    const draft = {
+      decisions: [
+        { ...goodDecision(), display_quote: 'invented decision quote' },
+        { statement: 'Move the review to Thursday afternoon please', source_quote: 'We agreed to move the review to Thursday afternoon', display_quote: 'Thursday afternoon' },
+      ],
+      actions: [
+        { ...goodAction(), display_quote: 'a made up action line' },
+        { ...goodAction(), task: 'Send the checklist to the whole group', display_quote: '' },
+      ],
+      risks: [{ risk: 'The supplier quote may arrive late', source_quote: 'The main risk is that the supplier quote may arrive late', display_quote: 'nothing like the source' }],
+      open_questions: [{ question: 'Who will confirm the room booking', source_quote: 'Who is going to confirm the room booking for the review', display_quote: 123 }],
+    };
+    const merged: any = mergeModelDraft(ruleRecord(), draft, source);
+    expect(merged.drafting_method).toBe('model');
+    for (const c of ['decisions', 'actions', 'risks', 'open_questions']) {
+      for (const item of merged[c]) {
+        if ('display_quote' in item) expect(inSource(item.display_quote)).toBe(true);
+      }
+    }
+    const v = run(draft);
+    for (const c of Object.keys(v.accepted)) {
+      for (const item of (v.accepted as any)[c]) if ('display_quote' in item) expect(inSource(item.display_quote)).toBe(true);
+    }
+  });
+
+  test('14b. the input draft object is not mutated', () => {
+    const d = { ...goodDecision(), display_quote: 'invented decision quote' };
+    mergeModelDraft(ruleRecord(), { decisions: [d] }, source);
+    expect(d.display_quote).toBe('invented decision quote');
+  });
+
+  test('15. an explicit empty category empties it and adds a warning naming it', () => {
+    const merged: any = mergeModelDraft(ruleRecord(), { decisions: [goodDecision()], risks: [] }, source);
+    expect(merged.drafting_method).toBe('model');
+    expect(merged.risks).toEqual([]);
+    expect(merged.warnings.join(' ')).toMatch(/emptied risks/);
+    expect(merged.warnings.join(' ')).not.toMatch(/emptied decisions/);
+  });
+
+  test('16. an omitted category keeps the rule items', () => {
+    const rule = ruleRecord();
+    const merged: any = mergeModelDraft(rule, { decisions: [goodDecision()] }, source);
+    expect(merged.risks).toEqual(rule.risks);
+    expect(merged.actions).toEqual(rule.actions);
+    expect(merged.warnings.join(' ')).not.toMatch(/emptied/);
+  });
+
+  test('16b. a category that is not an array counts as omitted', () => {
+    const rule = ruleRecord();
+    const merged: any = mergeModelDraft(rule, { decisions: [goodDecision()], risks: 'none' }, source);
+    expect(merged.risks).toEqual(rule.risks);
+  });
+
+  test('17. fallback rules are unchanged: unparseable, wholly empty, and over half rejected', () => {
+    const rule = ruleRecord();
+    expect(mergeModelDraft(rule, '{bad', source).drafting_method).toBe('basic');
+    expect(mergeModelDraft(rule, { decisions: [], risks: [] }, source).drafting_method).toBe('basic');
+    const bad = (n: number) => ({ statement: `Invented outcome number ${n} here`, source_quote: `we agreed on invented outcome ${n} here` });
+    const m = mergeModelDraft(rule, { decisions: [goodDecision(), bad(1), bad(2)], risks: [] }, source);
+    expect(m.drafting_method).toBe('basic');
+    expect(m.risks).toEqual(rule.risks);
+  });
+});
+
 describe('modelDraftValidator makes no network calls', () => {
   const g = globalThis as any;
   const saved: Record<string, any> = {};
