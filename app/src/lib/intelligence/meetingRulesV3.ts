@@ -671,6 +671,9 @@ export function findOpenQuestions(turns: RTurn[]): OqOut[] {
         if (UNKNOWN.test(head) || UNKNOWN.test(first.text.slice(0, 160))) {
           status = /\b(?:next|later|another|leave|park|come back|open item)\b/i.test(head) ? 'Postponed' : 'Not answered';
           note = 'Answered with "not known" or postponed';
+        } else if (nxt.some((n2) => DEFER_PHRASE.test(n2.text.slice(0, 200)))) {
+          status = 'Not answered';
+          note = 'Deferred or not answered';
         } else if (nxt[1] && UNKNOWN.test(nxt[1].text.slice(0, 160)) && /^(?:so|right|okay|ok|well|hm+)\b/i.test(first.text) && wc(first.text) < 12) {
           status = 'Not answered';
           note = 'Left open';
@@ -896,6 +899,7 @@ export function findStatements(turns: RTurn[]): StvOut[] {
 const CORE_COMMIT = /\b(?:i'll|i will|i'm going to|i am going to|i shall|let me|i can have|i'd be happy to|i'm happy to|i'll also|i'll just)\b/i;
 const SOFT_COMMIT = /\bi can\b/i;
 const ACTION_NOT = /^(?:be (?:honest|quick|brief|clear|direct|upfront|there|back|late|away|on)|say\b|admit|tell you (?:now|straight)|stop there|leave it|keep it (?:short|brief)|hand (?:it )?(?:back|over)|pass\b|just say|put (?:it|the pen)|go with the|drop off|take (?:another|that|this|it) (?:file|on|one)|take (?:another|on)\b|live with|accept\b|see (?:how|what|if|whether)\b|imagine|take your word|leave that|come back|follow the|follow along|sit tight|move on|start (?:by|with|there)|think about|hear (?:from|what)|mention it|wait and see|worry|stay\b|keep going|let (?:you|that|it|them) )/i;
+const DEFER_PHRASE = /\b(?:not sure|i'll check|no idea|park (?:it|that)|let me think|good question|don't know|dunno|have a think|hard to say|i'll find out|that's your (?:call|decision)|i'll confirm|check with|i'll ask|haven't agreed|not yet decided|to be considered)\b/i;
 const TAG_Q = /\b(?:isn't it|aren't they|doesn't it|don't they|wouldn't it|won't it|you know|know what i mean)\?\s*$/i;
 const REQ_SENT = /^(?:(?:and|okay|ok|so|right|now|then)[,.]?\s+)?(?:([A-Z][a-z]+),?\s+)?(?:[Cc]an|[Cc]ould|[Ww]ill|[Ww]ould) (?:you|someone|somebody|anyone)(?: please)? (.+?)\?$/;
 const REQ_ASSIGN = /^(?:([A-Z][a-z]+),?\s+)(?:please |I need you to |I'd like you to |I want you to |you need to |you'll )(.+?)[.!]?$/;
@@ -1118,6 +1122,19 @@ export function findNextMeeting(turns: RTurn[], meetingDate: string, deps: Rules
           let ap = part === 'afternoon' || part === 'evening' ? 'pm' : part === 'morning' ? 'am' : '';
           if (!ap) ap = h >= 7 && h <= 11 ? 'am' : 'pm';
           time = `${h}:${mins} ${ap}`;
+        }
+      }
+      if (!tm) {
+        // numeric forms the base extractor reads: "at 10", "10:00", "10 o'clock"; am or pm only when the words or the hour make it plain
+        const nb = scope.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\b(?!\s*(?:am|pm|per|percent|%|people|sites|items))/i) || scope.match(/\b(\d{1,2}):(\d{2})\b/) || scope.match(/\b(\d{1,2})\s+o'clock\b/i);
+        const hh = nb ? parseInt(nb[1], 10) : 0;
+        if (nb && hh >= 1 && hh <= 12) {
+          let ap = '';
+          if (/\b(?:morning|am)\b/i.test(scope)) ap = 'am';
+          else if (/\b(?:afternoon|evening|pm)\b/i.test(scope)) ap = 'pm';
+          else if (hh >= 8 && hh <= 11) ap = 'am';
+          else if (hh >= 1 && hh <= 6) ap = 'pm';
+          if (ap) time = `${hh}:${nb[2] && /^\d{2}$/.test(nb[2]) ? nb[2] : '00'} ${ap}`;
         }
       }
       if (due?.iso || time) {

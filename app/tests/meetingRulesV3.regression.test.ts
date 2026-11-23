@@ -39,4 +39,25 @@ describe('meetingRulesV3 regression guards', () => {
     expect(m.actions.length).toBeGreaterThanOrEqual(1);
     expect(m.actions[0].owner).toBeUndefined();
   });
+
+  test('a question met with a non-answer stays open', () => {
+    const m = run('transcript', [
+      'Alice Wong: Morning everyone, let us get started on the hiring plan.',
+      'Ben Carter: Sounds good, I have the numbers ready.',
+      'Alice Wong: What happens to the onboarding timeline if the start date moves?',
+      'Ben Carter: Good question, hard to say.',
+      'Alice Wong: Right, moving on to the budget.',
+    ].join('\n'));
+    expect(m.openItems.some((q: any) => /onboarding timeline/i.test(q.question))).toBe(true);
+  });
+
+  test('a plain numeric next-meeting time is read', () => {
+    const m = run('transcript', [
+      'Marcus Hale: That covers the plan for this month.',
+      'Elena Ruiz: Agreed, I will send the notes today.',
+      'Marcus Hale: Next meeting is Wednesday 2 December at 10.',
+      'Elena Ruiz: Fine, see you then.',
+    ].join('\n'));
+    expect(m.next_meeting?.time).toBe('10:00 am');
+  });
 });
