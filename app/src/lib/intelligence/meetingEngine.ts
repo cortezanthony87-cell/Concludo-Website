@@ -308,6 +308,7 @@ export interface MeetingModel {
   documentMeta?: DocumentMeta;
 }
 
+import { applyRulesV3 } from './meetingRulesV3';
 import {
   detectSourceType,
   analyseDocumentMode,
@@ -1725,6 +1726,10 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     warnings,
     signals: { balance, speakers: shares.length, dateConfirmed: !!(metaIn.meetingDate || header.date) },
   };
+  try {
+    const rawText = usable.map((u) => u.text).join('\n\n');
+    applyRulesV3(model, rawText, usable[0]?.name || 'transcript', meetingDate, { resolveDue });
+  } catch (e) { if ((globalThis as any).__RULES_DEBUG) console.error(e); /* keep the base result when the rules module cannot parse this source */ }
   return refresh(model);
 }
 
