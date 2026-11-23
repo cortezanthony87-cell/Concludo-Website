@@ -1108,8 +1108,8 @@ export function findNextMeeting(turns: RTurn[], meetingDate: string, deps: Rules
       let time: string | null = null;
       if (tm) {
         const rel = tm[1]; const word = tm[2] || tm[4] || tm[6]; const part = (tm[3] || tm[5] || '').toLowerCase();
-        if (tm[10]) {
-          time = `${parseInt(tm[8], 10)}:${tm[9] || '00'} ${tm[10].toLowerCase()}`;
+        if (tm[9]) {
+          time = `${parseInt(tm[7], 10)}:${tm[8] || '00'} ${tm[9].toLowerCase()}`;
         } else if (word) {
           let h = HOURS[lc(word)];
           let mins = '00';

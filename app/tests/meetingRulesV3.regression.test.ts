@@ -60,4 +60,14 @@ describe('meetingRulesV3 regression guards', () => {
     ].join('\n'));
     expect(m.next_meeting?.time).toBe('10:00 am');
   });
+
+  test('an "at 10 am" next-meeting time is read', () => {
+    const m = run('transcript', [
+      'Marcus Hale: That covers the plan for this month.',
+      'Elena Ruiz: Agreed, I will send the notes today.',
+      'Marcus Hale: Thanks Elena. We will meet same time next Wednesday at 10 am to review the results.',
+      'Elena Ruiz: Fine, see you then.',
+    ].join('\n'));
+    expect(m.next_meeting?.time).toBe('10:00 am');
+  });
 });
