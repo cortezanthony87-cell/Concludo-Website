@@ -51,11 +51,63 @@ export interface Evidence {
 export type Basis = 'stated' | 'speaker' | 'none';
 export type Review = 'proposed' | 'confirmed' | 'excluded';
 
+
+export interface ConsentRecord {
+  asked_by: string | null;
+  answered_by: string | null;
+  at: string | null;
+  note?: string | null;
+  source_quote: string | null;
+}
+
+export interface OpenQuestionItem {
+  question: string;
+  raised_by: string;
+  who_can_answer?: string | null;
+  status: string;
+  at?: string | null;
+  source_quote: string;
+}
+
+export interface InsightItem {
+  kind: 'feedback_positive' | 'concern' | 'advice' | 'offer' | 'market_intel' | 'context';
+  who: string;
+  insight: string;
+  at?: string | null;
+  source_quote: string;
+  audience?: 'internal' | 'shareable';
+}
+
+export interface StatementToVerify {
+  said_by: string;
+  statement: string;
+  why_check: string;
+  at?: string | null;
+  source_quote: string;
+}
+
+export interface NextMeetingV3 {
+  summary?: string | null;
+  date?: string | null;
+  time?: string | null;
+  raw_text?: string | null;
+}
+
+export interface EntityItem {
+  name: string;
+  kind: 'third_party_brand' | 'organisation' | 'person' | 'place';
+}
+
 export interface Decision {
   id: string;
   statement: string;
   title: string;
   calledBy?: string;
+  decided_by?: string | null;
+  conditions?: string | null;
+  at?: string | null;
+  source_quote?: string;
+  display_quote?: string;
   status: 'agreed' | 'conditional';
   condition?: string;
   evidence: Evidence[];
@@ -68,6 +120,14 @@ export interface Action {
   task: string;
   owner?: string;
   ownerBasis: Basis;
+  owner_basis?: string | null;
+  due_date?: string | null;
+  due_raw?: string | null;
+  due_approximate?: boolean;
+  done_when?: string | null;
+  at?: string | null;
+  source_quote?: string;
+  display_quote?: string;
   ownerRaw?: string;
   suggestedOwner?: string;
   due?: string;
@@ -92,9 +152,14 @@ export interface Risk {
   id: string;
   risk: string;
   raisedBy?: string;
+  raised_by?: string | null;
+  suggested_response?: string | null;
+  at?: string | null;
+  source_quote?: string;
+  display_quote?: string;
   likelihood: number; // 1 to 5, indicative
   consequence: number; // 1 to 5, indicative
-  rating: 'high' | 'medium' | 'low';
+  rating: 'high' | 'medium' | 'low' | 'not_rated';
   mitigation?: string;
   statedResponse?: string;
   linkedAction?: string;
@@ -107,6 +172,11 @@ export interface OpenItem {
   question: string;
   kind: 'approval' | 'deferred' | 'unresolved';
   raisedBy?: string;
+  raised_by?: string | null;
+  suggested_response?: string | null;
+  at?: string | null;
+  source_quote?: string;
+  display_quote?: string;
   resolver?: string;
   neededBy?: string;
   evidence: Evidence[];
@@ -186,53 +256,59 @@ export interface DocumentMeta {
 }
 
 export interface MeetingModel {
-  version: '2.0';
+  version: '3.0' | '2.0';
+  schema_version?: '3.0';
+  drafting_method?: 'model' | 'basic';
   meta: Required<Pick<MeetingMetaInput, 'title' | 'meetingType' | 'meetingDate'>> & {
     organisation?: string;
     project?: string;
     duration?: string;
     chair?: string;
+    date?: string;
+    start?: string | null;
+    platform?: string | null;
+    duration_min?: number | null;
   };
   sources: SourceSummary[];
   participants: Participant[];
+  consent?: ConsentRecord;
+  summary?: {
+    headline: string;
+    paragraph: string;
+    outcome_line: string;
+  };
+  topics?: Array<{
+    title: string;
+    from: string;
+    to: string;
+    summary: string;
+  }>;
   decisions: Decision[];
   actions: Action[];
   risks: Risk[];
   openItems: OpenItem[];
+  open_questions?: OpenQuestionItem[];
+  insights?: InsightItem[];
+  statements_to_verify?: StatementToVerify[];
   figures: Figure[];
   recommendations: Recommendation[];
   health: { dimensions: HealthDimension[]; notScored: string[] };
-  gate: { status: 'Ready to circulate' | 'Circulate after review' | 'Not ready'; checks: GateCheck[] };
+  nextMeeting?: NextMeeting;
+  next_meeting?: NextMeetingV3 | null;
+  entities?: EntityItem[];
+  flags?: string[];
   bottomLine: string;
-  stats: {
-    decisions: number;
-    actions: number;
-    owned: number;
-    dated: number;
-    openItems: number;
-    risks: number;
-    highRisks: number;
-  };
-  warnings: string[];
-  signals: { balance: number | null; speakers: number; dateConfirmed: boolean };
+  stats: MeetingStats;
+  gate?: QualityGate;
   followUp?: {
     audience: 'internal' | 'client';
     correctionDeadline: string;
   };
-  nextMeeting?: {
-    date?: string;
-    time?: string;
-    mustProduce?: string;
-    rawText?: string;
-  };
-  flags?: string[];
   sourceType?: 'transcript' | 'minutes' | 'document';
   documentMeta?: DocumentMeta;
-  gates?: GateRecord[];
-  excludedItems?: ExcludedItem[];
-  coverage?: CoverageRecord;
 }
 
+import { applyRulesV3 } from './meetingRulesV3';
 import {
   detectSourceType,
   analyseDocumentMode,
@@ -540,6 +616,54 @@ function splitPeople(list: string): string[] {
   out.push(cur);
   return out.map((s) => s.replace(/\band\b/i, '').trim()).filter((s) => s && !/^(?:nil|none|n\/a)$/i.test(s));
 }
+
+/**
+ * Hard rule (5.2): Every emitted item's source_quote is one contiguous span
+ * copied character-for-character from a single turn, 4 to 60 words.
+ */
+export function getVerbatimQuote(turnText: string, hint?: string, minWords = 4, maxWords = 60): string {
+  if (!turnText || !turnText.trim()) return '';
+  const rawTurn = turnText.trim();
+  const rawWords = rawTurn.split(/\s+/);
+  if (rawWords.length <= maxWords && rawWords.length >= minWords) return rawTurn;
+  if (rawWords.length < minWords) return rawTurn;
+
+  if (hint && hint.trim()) {
+    const h = hint.trim();
+    const idx = rawTurn.toLowerCase().indexOf(h.toLowerCase());
+    if (idx !== -1) {
+      let start = idx;
+      while (start > 0 && rawTurn[start - 1] !== ' ' && rawTurn[start - 1] !== '\n') start--;
+      let end = idx + h.length;
+      while (end < rawTurn.length && rawTurn[end] !== ' ' && rawTurn[end] !== '\n') end++;
+      const candidate = rawTurn.slice(start, end).trim();
+      const cWords = candidate.split(/\s+/);
+      if (cWords.length >= minWords && cWords.length <= maxWords) return candidate;
+      if (cWords.length > maxWords) {
+        const spanWords = cWords.slice(0, maxWords);
+        const lastWord = spanWords[spanWords.length - 1];
+        const subEnd = candidate.indexOf(lastWord) + lastWord.length;
+        return candidate.slice(0, subEnd);
+      }
+      // Expand to minWords if possible
+      const rest = rawTurn.slice(start).trim();
+      const restWords = rest.split(/\s+/);
+      const take = Math.min(maxWords, Math.max(minWords, Math.min(restWords.length, cWords.length + 6)));
+      const spanWords = restWords.slice(0, take);
+      const lastWord = spanWords[spanWords.length - 1];
+      const subEnd = rest.indexOf(lastWord) + lastWord.length;
+      return rest.slice(0, subEnd);
+    }
+  }
+
+  // Fallback: first min(maxWords, words.length) words
+  const take = Math.min(maxWords, rawWords.length);
+  const spanWords = rawWords.slice(0, take);
+  const lastWord = spanWords[spanWords.length - 1];
+  const subEnd = rawTurn.indexOf(lastWord) + lastWord.length;
+  return rawTurn.slice(0, subEnd);
+}
+
 function parsePerson(raw: string, present: boolean): Participant | null {
   const m = raw.match(/^([A-Z][A-Za-z'.-]+(?:\s+[A-Z][A-Za-z'.-]+){0,3})\s*(?:\(([^)]+)\)|[-,]\s*(.+))?$/);
   if (!m) return null;
@@ -619,19 +743,47 @@ function extractNextMeeting(
       }
     }
 
-    const tm = text.match(/\b(?:at\s+)?(\d{1,2}(?::\d{2})?|six|seven|eight|nine|ten|eleven|twelve|one|two|three|four|five)(?:\s*(am|pm|o'clock))?\b/i);
+    // Match explicit time cues first (e.g. "at 9", "9 am", "nine o'clock", "9:30")
+    const tm = text.match(/\b(?:at\s+)?(\d{1,2}(?::\d{2})?|six|seven|eight|nine|ten|eleven|twelve|one|two|three|four|five)\s*(am|pm|o'clock)\b/i) ||
+      text.match(/\bat\s+(\d{1,2}(?::\d{2})?|six|seven|eight|nine|ten|eleven|twelve|one|two|three|four|five)\b/i) ||
+      text.match(/\b(\d{1,2}:\d{2})\b/i);
     if (tm) {
       const wordMap: Record<string, string> = {
         six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12',
         one: '1', two: '2', three: '3', four: '4', five: '5'
       };
       const numStr = wordMap[tm[1].toLowerCase()] || tm[1];
-      const ampm = tm[2]?.toLowerCase() || (/pm|morning|evening|afternoon/.test(text) ? 'pm' : (Number(numStr) < 8 || Number(numStr) === 12 ? 'pm' : 'am'));
-      const actualAmpm = ampm === "o'clock" ? 'am' : (ampm === 'pm' ? 'pm' : 'am');
-      if (numStr.includes(':')) {
-        time = `${numStr} ${actualAmpm}`;
+      let actualAmpm: string | undefined;
+      if (tm[2]) {
+        const rawCue = tm[2].toLowerCase();
+        if (rawCue === 'am' || rawCue === 'pm') {
+          actualAmpm = rawCue;
+        } else if (rawCue === "o'clock") {
+          if (/\b(?:morning|am)\b/i.test(text) || (meetingTime && /\b(?:morning|am)\b/i.test(meetingTime))) {
+            actualAmpm = 'am';
+          } else if (/\b(?:afternoon|evening|pm)\b/i.test(text) || (meetingTime && /\b(?:afternoon|evening|pm)\b/i.test(meetingTime))) {
+            actualAmpm = 'pm';
+          } else {
+            const n = parseInt(numStr, 10);
+            if (n >= 8 && n <= 11) actualAmpm = 'am';
+            else if (n >= 1 && n <= 6) actualAmpm = 'pm';
+          }
+        }
       } else {
-        time = `${numStr}:00 ${actualAmpm}`;
+        if (/\b(?:morning|am)\b/i.test(text) || (meetingTime && /\b(?:morning|am)\b/i.test(meetingTime))) {
+          actualAmpm = 'am';
+        } else if (/\b(?:afternoon|evening|pm)\b/i.test(text) || (meetingTime && /\b(?:afternoon|evening|pm)\b/i.test(meetingTime))) {
+          actualAmpm = 'pm';
+        } else {
+          const n = parseInt(numStr, 10);
+          if (n >= 8 && n <= 11) actualAmpm = 'am';
+          else if (n >= 1 && n <= 6) actualAmpm = 'pm';
+        }
+      }
+      if (actualAmpm) {
+        time = numStr.includes(':') ? `${numStr} ${actualAmpm}` : `${numStr}:00 ${actualAmpm}`;
+      } else {
+        time = undefined;
       }
     }
 
@@ -700,34 +852,79 @@ function parseHeader(text: string): HeaderInfo {
 }
 
 const TURN_RE =
-  /^\s*(?:[-*•]\s*)?(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?\s*[-–]?\s*)?(?:\*\*)?([A-Z][A-Za-z0-9'.-]*(?:\s+[A-Za-z0-9'.-]+){0,3})(?:\*\*)?\s*(?:\(([^)]{1,40})\))?\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+)$/;
+  /^\s*(?:[-*•]\s*)?(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?\s*[-–]?\s*)?(?:\*\*)?([A-Z][A-Za-z'.-]+(?:\s+[A-Za-z'.-]+){0,3})(?:\*\*)?\s*(?:\(([^)]{1,40})\))?(?:\s+\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?)?\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+)$/;
+
+const NON_SPEAKER_LABELS = /^(?:unclear|inaudible|crosstalk|applause|break)$/i;
+
+const STANDALONE_HEADER_RE =
+  /^\s*(?:\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\b\]?\s+)?(?:\*\*)?([A-Z][A-Za-z'.-]+(?:\s+[A-Za-z'.-]+){0,3})(?:\*\*)?(?:\s*\(([^)]{1,40})\))?(?:\s+\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\b\]?)?\s*:?\s*$/;
 
 function parseTurns(src: SourceInput, sourceId: string): Turn[] {
   const turns: Turn[] = [];
   const lines = src.text.split(/\r?\n/);
+  let pendingSpeaker: string | undefined;
+  let pendingTimestamp: string | undefined;
+  let pendingLine: number | undefined;
+
   lines.forEach((raw, i) => {
     const line = raw.trim();
     if (!line || /^(?:WEBVTT|NOTE)\b/.test(line) || /-->/.test(line) || /^\d+$/.test(line) || /^-{3,}$/.test(line)) return;
     const cleanLine = line.replace(/[–—]/g, '-');
     const vtt = cleanLine.match(/^<v\s+([^>]+)>(.+)$/);
     if (vtt) {
+      pendingSpeaker = undefined;
       turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, speaker: vtt[1].trim(), text: vtt[2].trim() });
       return;
     }
+
+    // 1. Standalone speaker header line (e.g. "Anthony 00:07", "[00:07] Anthony", "Anthony:")
+    if (src.kind !== 'document') {
+      const sm = cleanLine.match(STANDALONE_HEADER_RE);
+      const hasTs = sm && (sm[1] || sm[4]);
+      const hasColon = sm && cleanLine.endsWith(':');
+      if (sm && (hasTs || hasColon) && !META_LABELS.test(sm[2].trim()) && !/^(?:WEBVTT|NOTE|RESOLVED|ACTION)$/i.test(sm[2])) {
+        const spk = sm[2].trim();
+        if (!NON_SPEAKER_LABELS.test(spk)) {
+          pendingSpeaker = spk;
+          pendingTimestamp = sm[1] || sm[4];
+          pendingLine = i + 1;
+          return;
+        }
+      }
+    }
+
+    // 2. Inline speaker turn (e.g. "Anthony: Hello", "[00:07] Anthony: Hello")
     const m = src.kind === 'document' ? null : cleanLine.match(TURN_RE);
     if (m && !META_LABELS.test(m[2].trim()) && !/^(?:RESOLVED|ACTION)$/i.test(m[2].trim()) && m[2].split(/\s+/).length <= 4) {
-      turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, timestamp: m[1], speaker: m[2].trim(), text: m[4].trim() });
+      pendingSpeaker = undefined;
+      const spk = m[2].trim();
+      const ts = m[1] || m[4];
+      if (!NON_SPEAKER_LABELS.test(spk)) {
+        turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, timestamp: ts, speaker: spk, text: m[5].trim() });
+        return;
+      }
+    }
+
+    // 3. Spoken dialogue following a standalone speaker header
+    if (pendingSpeaker) {
+      turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: pendingLine ?? (i + 1), timestamp: pendingTimestamp, speaker: pendingSpeaker, text: line });
+      pendingSpeaker = undefined;
+      pendingTimestamp = undefined;
+      pendingLine = undefined;
       return;
     }
-    const tsOnly = line.match(/^\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\]?\s+(.+)$/);
+
+    // 4. Continuation of a speaker turn (wrapped line)
     const prev = turns[turns.length - 1];
-    // Continuation of a speaker turn (wrapped line) when the previous turn is the line before.
-    if (prev && prev.speaker && prev.line === i && !/^(?:#|[-*•]|\d+[.)])/.test(line) && !/^[A-Za-z ]{3,22}:/.test(line)) {
+    if (prev && prev.speaker && !/^(?:#|[-*•]|\d+[.)])/.test(line) && !/^[A-Za-z ]{3,22}:/.test(line)) {
       prev.text += ' ' + line;
-      prev.line = prev.line; // keep start line
+      prev.line = prev.line;
       (prev as Turn & { end?: number }).end = i + 1;
       return;
     }
+
+    // 5. Generic turn or note line
+    const tsOnly = line.match(/^\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\]?\s+(.+)$/);
     turns.push({ sourceId, sourceName: src.name, sourceKind: src.kind, line: i + 1, timestamp: tsOnly?.[1], text: (tsOnly?.[2] ?? line).replace(/^#+\s*/, '').trim() });
   });
   return turns;
@@ -985,12 +1182,28 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       const needsApproval = /\b(?:needs?|need|requires?|subject to|pending|waiting (?:on|for)|until)\b[^.]{0,40}\b(?:sign[- ]?off|approval|approve|signs? off|board|cfo|finance)\b/i.test(sentence);
 
       /* F2: assent to a proposal in previous turn */
-      if (/^(?:yes|yep|agreed|let's do that|works for me|sounds good|let's do it)[,.]?$/i.test(sentence) && ti > 0) {
+      const isAssent = /^(?:yes|yep|yeah|agreed|let's do that|works for me|sounds good|let's do it|absolutely|definitely|no problem|that would be great)\b/i.test(sentence);
+      if (isAssent && ti > 0 && speakerOf(allTurns[ti - 1]) !== speaker) {
         const prevText = allTurns[ti - 1].text;
-        const prop = prevText.match(/\b(?:so the plan is to|the plan is to|let's|we go with|we proceed with|we will|how about we|why don't we|we should|proposal is to|what if we)\s+([^.?]+)/i);
-        if (prop) {
+        // Consent check (e.g. recording consent)
+        const consentMatch = prevText.match(/\b(?:do I have your consent|consent to record|is it okay to record|okay to record this meeting)\b/i);
+        if (consentMatch) {
           pushDecision({
-            statement: cap(stripEnd(clean(prop[1]))),
+            statement: 'Record the meeting with consent of participants',
+            calledBy: speakerOf(allTurns[ti - 1]),
+            status: 'agreed',
+            evidence: [evidenceOf(allTurns[ti - 1], consentMatch[0]), evidenceOf(turn, rawSentence)],
+            confidence: 'explicit',
+          });
+          claimed.add(key);
+          return;
+        }
+
+        const prop = prevText.match(/\b(?:so the plan is to|the plan is to|let's|let us|we go with|we proceed with|we will|how about we|why don't we|we should|proposal is to|what if we|happy to|open to)\s+([^.?]+)/i);
+        if (prop) {
+          let stmt = prop[1].replace(/^(?:definitely|also|just)\s+/i, '');
+          pushDecision({
+            statement: cap(stripEnd(clean(stmt))),
             calledBy: speakerOf(allTurns[ti - 1]),
             status: 'agreed',
             evidence: [evidenceOf(allTurns[ti - 1], prop[0]), evidenceOf(turn, rawSentence)],
@@ -1059,9 +1272,10 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       }
 
       /* actions: first-person commitments */
-      const commit = sentence.match(/\b(?:I'll|I will|I can|I'm going to|I am going to|I'll take|I'll own|leave (?:it|that) with me,?\s*I'll|I'll get)\s+(.+)$/i);
+      const isNarrative = /\b(?:I can|I'll|I will)\s+(?:see|hear|tell|imagine|remember|understand|start with|start by|provide some context|share background)\b/i.test(sentence);
+      const commit = sentence.match(/\b(?:I'll|I will|I can|I'm going to|I am going to|I'll take|I'll own|leave (?:it|that) with me,?\s*I'll|I'll get|happy to|I'm happy to|I am happy to)\s+(.+)$/i);
       const isNeedFromOther = /\b(?:I(?:'ll| will)?\s*need|we(?:'ll| will)?\s*need)\b/i.test(sentence);
-      if (commit && !isNeedFromOther && !HEDGE_I.test(sentence) && !/^(?:if|when)\b/i.test(sentence) && !isQuestion && turn.speaker) {
+      if (commit && !isNarrative && !isNeedFromOther && !HEDGE_I.test(sentence) && !/^(?:if|when)\b/i.test(sentence) && !isQuestion && turn.speaker) {
         const owner = speaker;
         let task = commit[1];
         const due = resolveDue(task, meetingDate);
@@ -1164,7 +1378,7 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
       }
 
       /* risks */
-      const riskCue = /\b(?:risk|risky|my (?:worry|concern)|i(?:'m| am) (?:worried|concerned)|concern(?:ed)? (?:is|that)|exposed|exposure|blocker|bottleneck|single point of failure|only (?:one|person) (?:who|that)|the only one who|could slip|might slip|will slip|if (?:that|this|it|we|the \w+) (?:slips?|misses?|fails?|goes wrong|doesn't)|can't afford|we(?:'ll| will) lose|fall over|knock-on|dependency|depends on)\b/i;
+      const riskCue = /\b(?:risk|risky|my (?:worry|concern)|i(?:'m| am) (?:worried|concerned)|concern(?:ed)? (?:is|that)|exposed|exposure|blocker|bottleneck|single point of failure|only (?:one|person) (?:who|that)|the only one who|could slip|might slip|will slip|if (?:that|this|it|we|the \w+) (?:slips?|misses?|fails?|goes wrong|doesn't)|can't afford|we(?:'ll| will) lose|fall over|knock-on|dependency|depends on|rely on (?:only|one|a single)|relying on (?:only|one|a single)|cannot just rely|can't just rely|consumer laws?|compliance risk)\b/i;
       if (riskCue.test(sentence) && !claimed.has(key)) {
         const idx = sentences.indexOf(rawSentence);
         let riskText = stripEnd(clean(sentence));
@@ -1204,6 +1418,7 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     for (const sent of sents) {
       if (/\?\s*$/.test(sent) || /^Question raised:\s*/i.test(sent)) {
         if (/^(?:yeah|right|is that right|by \w+)\?\s*$/i.test(sent.trim())) continue;
+        if (/\b(?:isn't it|aren't they|doesn't it|don't they|wouldn't it|won't it|you know|know what i mean)\?\s*$/i.test(sent.trim())) continue;
         if (/^(?:can you|could you|will you|would you)\s+.*\b(?:by|before|tomorrow)\b/i.test(sent)) continue;
         const nextTurns = allTurns.slice(ti + 1, ti + 3);
         const hasDef = nextTurns.some((nt) => DEFERRAL_RE.test(nt.text));
@@ -1277,14 +1492,223 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
   }
   if (!allTurns.some((t) => t.speaker)) warnings.push('No speaker labels found. Owners can only be taken from explicit “Action:” lines.');
 
+  const totalWords = sources.reduce((sum, s) => sum + s.words, 0);
+  const totalOutcomes = decisions.length + actions.length + risks.length + openItems.length;
+  if (totalWords > 1000 && totalOutcomes <= 2) {
+    warnings.push(`Low extraction yield: ${totalWords.toLocaleString('en-AU')} words yielded only ${totalOutcomes} outcome${totalOutcomes === 1 ? '' : 's'}. Check transcript formatting or speaker labels before circulating.`);
+  }
+
   const nextMeeting = extractNextMeeting(allTurns, meetingDate, header.time);
   if (actions.some((a) => a.dueApprox) || warnings.some((w) => /date/i.test(w))) {
     if (!warnings.includes('date_uncertainty')) warnings.push('date_uncertainty');
   }
 
+  // v3 collections
+  const open_questions: OpenQuestionItem[] = [];
+  const insights: InsightItem[] = [];
+  const statements_to_verify: StatementToVerify[] = [];
+  const entities: EntityItem[] = [];
+
+  // Determine organiser (header chair, or most active speaker in first 2 mins)
+  const organiser = header.chair || (allTurns.length > 0 ? (allTurns.slice(0, 5).find(t => t.speaker)?.speaker || participants[0]?.name) : participants[0]?.name);
+
+  // 1. Consent detection (Rule 5.3)
+  let consentRecord: ConsentRecord | undefined;
+  const consentAskTurnIdx = allTurns.findIndex(t => /\b(?:is everyone fine with|okay if I|do you mind|fine if we|okay with everyone if|do I have your consent|consent to record|is it okay to record|okay to record this meeting)\b/i.test(t.text) && /\b(?:record|recording|recorder|notes|transcribe|transcription)\b/i.test(t.text));
+
+  if (consentAskTurnIdx !== -1) {
+    const askTurn = allTurns[consentAskTurnIdx];
+    const askSpeaker = speakerOf(askTurn) || askTurn.speaker || null;
+    const askQuote = getVerbatimQuote(askTurn.text);
+    const replies: string[] = [];
+    for (let idx = consentAskTurnIdx + 1; idx < Math.min(allTurns.length, consentAskTurnIdx + 4); idx++) {
+      const repTurn = allTurns[idx];
+      if (/\b(?:yes|yep|yeah|fine|go ahead|no problem|sure|happy with that)\b/i.test(repTurn.text)) {
+        const s = speakerOf(repTurn) || repTurn.speaker;
+        if (s && !replies.includes(s) && s !== askSpeaker) replies.push(s);
+      }
+    }
+    const notAnswered = participants.filter(p => p.name !== askSpeaker && !replies.includes(p.name)).map(p => p.name);
+    consentRecord = {
+      asked_by: askSpeaker,
+      answered_by: replies.join(', ') || null,
+      at: askTurn.timestamp || null,
+      note: notAnswered.length > 0 ? `Not answered separately: ${notAnswered.join(', ')}` : null,
+      source_quote: askQuote,
+    };
+    if (notAnswered.length > 0) {
+      uniqRisks.push({
+        id: `R${String(uniqRisks.length + 1).padStart(2, '0')}`,
+        risk: `Recording consent was not confirmed by all participants (${notAnswered.join(', ')}).`,
+        raisedBy: 'System',
+        likelihood: 2,
+        consequence: 3,
+        rating: 'not_rated',
+        evidence: [evidenceOf(askTurn, askQuote)],
+        review: 'proposed',
+        source_quote: askQuote,
+      });
+    }
+  } else {
+    consentRecord = {
+      asked_by: null,
+      answered_by: null,
+      at: null,
+      note: 'Consent was not recorded in the supplied transcript.',
+      source_quote: null,
+    };
+    // Consent not recorded: recorded in consentRecord.note, and flagged in flags if transcript
+    if (usable.some(u => u.kind === 'transcript') && allTurns.length > 5) {
+      if (!warnings.includes('consent_not_recorded')) warnings.push('consent_not_recorded');
+    }
+  }
+
+  // 2. Open questions (Rule 5.6)
+  openItems.forEach(oi => {
+    const ev = oi.evidence[0];
+    const matchedTurn = allTurns.find(t => t.line === ev?.line) || allTurns[0];
+    const sq = matchedTurn ? getVerbatimQuote(matchedTurn.text, oi.question) : oi.question;
+    open_questions.push({
+      question: oi.question,
+      raised_by: oi.raisedBy || (matchedTurn ? (speakerOf(matchedTurn) || 'Unknown') : 'Unknown'),
+      who_can_answer: oi.resolver || null,
+      status: 'Not answered',
+      at: ev?.timestamp || null,
+      source_quote: sq,
+    });
+  });
+
+  // 3. Insights from non-organisers (Rule 5.8)
+  allTurns.forEach(t => {
+    const spk = speakerOf(t) || t.speaker;
+    if (!spk || spk.toLowerCase() === (organiser || '').toLowerCase()) return;
+    const text = t.text;
+    const sents = splitSentences(text);
+    sents.forEach(s => {
+      let kind: InsightItem['kind'] | null = null;
+      if (/\b(?:like|love|great|good|valuable|helpful|impressed|clever|promising)\b/i.test(s) && !/\b(?:don't|not|never)\b/i.test(s)) {
+        kind = 'feedback_positive';
+      } else if (/\b(?:worry|concerned|risk|issue|problem|danger|careful|hesitant|drawback|tough|crowded)\b/i.test(s)) {
+        kind = 'concern';
+      } else if (/\b(?:suggest|recommend|advice|should|ought to|better to|focus on|aim for|my view)\b/i.test(s)) {
+        kind = 'advice';
+      } else if (/\b(?:happy to|can help|offer|could be|can introduce|open to|willing to|partner)\b/i.test(s)) {
+        kind = 'offer';
+      } else if (/\b(?:market|competitor|industry|players|pricing|budget|sector|enterprise|customers|clients)\b/i.test(s)) {
+        kind = 'market_intel';
+      } else if (/\b(?:experience|background|history|previously|context|story)\b/i.test(s)) {
+        kind = 'context';
+      }
+      if (kind && s.split(/\s+/).length >= 5) {
+        const sq = getVerbatimQuote(t.text, s);
+        if (sq && !insights.some(existing => similarity(existing.insight, s) > 0.6)) {
+          insights.push({
+            kind,
+            who: spk,
+            insight: cap(stripEnd(clean(s))),
+            at: t.timestamp || null,
+            source_quote: sq,
+            audience: 'internal',
+          });
+        }
+      }
+    });
+  });
+
+  // 4. Statements to verify (Rule 5.9)
+  allTurns.forEach(t => {
+    const spk = speakerOf(t) || t.speaker;
+    if (!spk) return;
+    const sents = splitSentences(t.text);
+    sents.forEach(s => {
+      const isNum = /\b\d+(?:\.\d+)?%|\b\d+\s+per\s*cent|\b\d{2,}\b/i.test(s);
+      const isAbsolute = /\b(?:always|never|guarantee|certified|compliant|compliance|all of our|every single)\b/i.test(s);
+      const isHedged = /\b(?:roughly|I think|don't quote me|from memory|might be wrong|approximate|around|best guess)\b/i.test(s);
+      if ((isNum || isAbsolute || isHedged) && s.split(/\s+/).length >= 5) {
+        let why_check = 'Factual assertion with specific figures or absolutes';
+        if (isHedged) why_check = 'Speaker hedged this statement ("from memory", "roughly", or "I think")';
+        else if (isAbsolute) why_check = 'Absolute claim of compliance, guarantee, or universality';
+        else if (isNum) why_check = 'Specific numerical or percentage claim';
+
+        const sq = getVerbatimQuote(t.text, s);
+        if (sq && !statements_to_verify.some(existing => similarity(existing.statement, s) > 0.6)) {
+          statements_to_verify.push({
+            said_by: spk,
+            statement: cap(stripEnd(clean(s))),
+            why_check,
+            at: t.timestamp || null,
+            source_quote: sq,
+          });
+        }
+      }
+    });
+  });
+
+  // 5. Entities detection (Rule 5.11)
+  const fullContent = allTurns.map(t => t.text).join(' ');
+  const capTerms = fullContent.match(/\b[A-Z][a-z0-9]+(?:\s+[A-Z][a-z0-9]+)*\b/g) || [];
+  const entityCounts = new Map<string, number>();
+  capTerms.forEach(term => {
+    if (term.length > 2 && !KNOWN_NAMES.includes(term) && !/^(?:The|And|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December|Yes|No|Meeting|Action|Decision|Risk|Notes)$/i.test(term)) {
+      entityCounts.set(term, (entityCounts.get(term) || 0) + 1);
+    }
+  });
+  entityCounts.forEach((count, name) => {
+    if (count >= 2 && !entities.some(e => e.name.toLowerCase() === name.toLowerCase())) {
+      entities.push({ name, kind: 'third_party_brand' });
+    }
+  });
+
+  // Attach verbatim quotes and v3 fields to decisions, actions, risks
+  decisions.forEach(d => {
+    const ev = d.evidence[0];
+    const t = allTurns.find(turn => turn.line === ev?.line) || allTurns[0];
+    d.source_quote = getVerbatimQuote(t ? t.text : d.statement, ev?.quote || d.statement);
+    d.display_quote = d.source_quote;
+    d.decided_by = d.calledBy || null;
+    d.at = ev?.timestamp || null;
+  });
+
+  actions.forEach(a => {
+    const ev = a.evidence[0];
+    const t = allTurns.find(turn => turn.line === ev?.line) || allTurns[0];
+    a.source_quote = getVerbatimQuote(t ? t.text : a.task, ev?.quote || a.task);
+    a.display_quote = a.source_quote;
+    a.owner_basis = a.ownerBasis === 'stated' ? 'Stated explicitly in turn' : 'Speaker commitment';
+    a.at = ev?.timestamp || null;
+    a.due_date = a.due || null;
+    a.due_raw = a.dueText || null;
+    a.due_approximate = a.dueApprox;
+  });
+
+  uniqRisks.forEach(r => {
+    const ev = r.evidence[0];
+    const t = allTurns.find(turn => turn.line === ev?.line) || allTurns[0];
+    r.source_quote = getVerbatimQuote(t ? t.text : r.risk, ev?.quote || r.risk);
+    r.display_quote = r.source_quote;
+    r.raised_by = r.raisedBy || null;
+    r.rating = 'not_rated'; // Hard rule: basic mode is not_rated
+    r.at = ev?.timestamp || null;
+  });
+
+  const next_meeting: NextMeetingV3 | null = nextMeeting ? {
+    date: nextMeeting.date || null,
+    time: nextMeeting.time || null,
+    summary: nextMeeting.mustProduce || null,
+    raw_text: nextMeeting.rawText || null,
+  } : null;
+
   const model: MeetingModel = {
-    version: '2.0',
+    version: '3.0',
+    schema_version: '3.0',
+    drafting_method: 'basic',
     nextMeeting,
+    next_meeting,
+    consent: consentRecord,
+    open_questions,
+    insights,
+    statements_to_verify,
+    entities,
     flags: [...warnings],
     meta,
     sources,
@@ -1302,6 +1726,11 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
     warnings,
     signals: { balance, speakers: shares.length, dateConfirmed: !!(metaIn.meetingDate || header.date) },
   };
+  try {
+    const rawText = usable.map((u) => u.text).join('\n\n');
+    // the rules read speaker turns only: leave notes, minutes and document sources to the base extractor
+    if (usable.every((u) => u.kind === 'transcript')) applyRulesV3(model, rawText, usable[0]?.name || 'transcript', meetingDate, { resolveDue });
+  } catch (e) { if ((globalThis as any).__RULES_DEBUG) console.error(e); /* keep the base result when the rules module cannot parse this source */ }
   return refresh(model);
 }
 
@@ -1352,8 +1781,8 @@ export function refresh(m: MeetingModel): MeetingModel {
   const checks: GateCheck[] = [
     { label: 'Every item traces to the source', pass: true, detail: 'Each item links to a quote, source and line.' },
     { label: 'Decisions recorded', pass: decisions.length > 0, detail: decisions.length ? `${decisions.length} decision${decisions.length === 1 ? '' : 's'} on record.` : 'No decisions found. Check the record before circulating.' },
-    { label: 'Every action has an owner', pass: actions.length > 0 && owned === actions.length, detail: actions.length - owned ? `${actions.length - owned} without a confirmed owner.` : 'All owned.' },
-    { label: 'Every action has a date', pass: actions.length > 0 && dated === actions.length, detail: actions.length - dated ? `${actions.length - dated} without a date.` : 'All dated.' },
+    { label: 'Every action has an owner', pass: actions.length > 0 && owned === actions.length, detail: actions.length === 0 ? 'Not applicable, 0 actions.' : actions.length - owned ? `${actions.length - owned} without a confirmed owner.` : 'All owned.' },
+    { label: 'Every action has a date', pass: actions.length > 0 && dated === actions.length, detail: actions.length === 0 ? 'Not applicable, 0 actions.' : actions.length - dated ? `${actions.length - dated} without a date.` : 'All dated.' },
     { label: 'Attendees recorded', pass: m.participants.length > 0, detail: m.participants.length ? `${m.participants.filter((p) => p.present).length} present, ${m.participants.filter((p) => !p.present).length} ${m.participants.filter((p) => !p.present).length === 1 ? 'apology' : 'apologies'}.` : 'No attendee list or speaker labels.' },
     { label: 'Meeting date confirmed', pass: dateConfirmed, detail: dateConfirmed ? fmtDate(m.meta.meetingDate) : 'Date assumed. Confirm it.' },
   ];
@@ -1443,7 +1872,7 @@ function buildBottomLine(decisions: Decision[], actions: Action[], open: OpenIte
         : `The meeting made ${decisions.length} decisions. The headline: ${lowerFirst(lead)}.`
     );
     if (conditional.length) parts.push(`${conditional.length === 1 ? 'One is' : `${conditional.length} are`} conditional on approval still to come${agreed.length ? '' : ', so nothing is final yet'}.`);
-  } else parts.push('No decision was recorded in this meeting.');
+  } else parts.push('No decisions were extracted from the supplied transcript.');
   if (actions.length) {
     const noOwner = actions.filter((a) => !a.owner).length;
     const noDate = actions.filter((a) => !a.due).length;
@@ -1474,7 +1903,24 @@ export function toMarkdown(m: MeetingModel, include: (r: { review: Review }) => 
   r.forEach((x) => L.push(`- **${x.id}** (${x.rating}) ${x.risk}${x.mitigation ? `  \n  Response stated: ${x.mitigation}` : '  \n  Response: not stated'}`));
   L.push('', '## Open items', '');
   o.forEach((x) => L.push(`- **${x.id}** ${x.question}`));
-  L.push('', '---', 'Prepared with Concludo. Items were extracted from the source and reviewed by a person before circulation.');
+  if (m.open_questions && m.open_questions.length > 0) {
+    L.push('', '## Open questions', '');
+    m.open_questions.forEach((q, i) => L.push(`- **Q${String(i + 1).padStart(2, '0')}** ${q.question} _(Raised by ${q.raised_by})_`));
+  }
+  if (m.insights && m.insights.length > 0) {
+    L.push('', '## Insights (Internal)', '');
+    m.insights.forEach((ins) => L.push(`- [${ins.kind}] **${ins.who}**: ${ins.insight}`));
+  }
+  if (m.statements_to_verify && m.statements_to_verify.length > 0) {
+    L.push('', '## Statements to verify (Internal)', '');
+    m.statements_to_verify.forEach((stv) => L.push(`- **${stv.said_by}**: "${stv.statement}" _(Reason to check: ${stv.why_check})_`));
+  }
+  if (m.next_meeting && (m.next_meeting.date || m.next_meeting.summary)) {
+    L.push('', '## Next meeting', '');
+    L.push(`- Date: ${m.next_meeting.date || 'To be scheduled'} ${m.next_meeting.time ? `at ${m.next_meeting.time}` : ''}`);
+    if (m.next_meeting.summary) L.push(`  Focus: ${m.next_meeting.summary}`);
+  }
+  L.push('', '---', 'Draft record for review. Outcomes have not been confirmed by a person.');
   return L.join('\n');
 }
 

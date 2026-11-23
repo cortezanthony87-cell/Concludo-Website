@@ -1,0 +1,31 @@
+{
+  "fixture": "fixture4_proposal_assent_unresolved_cover.txt",
+  "turn_format": "Name: text (plain)",
+  "participants": ["Nigel Frost", "Olivia Chen", "Patrick Walsh"],
+  "decisions": [
+    {
+      "summary_includes": "engage the specialist acoustic engineer for the environmental review",
+      "shape": "proposal_and_assent"
+    }
+  ],
+  "actions": [
+    {
+      "owner": "Nigel Frost",
+      "due_date": "2026-11-05",
+      "text_includes": "acoustic brief"
+    }
+  ],
+  "open_questions": [
+    {
+      "text_includes": "Who is covering site inspections while Douglas is away in Queensland?"
+    }
+  ],
+  "risks": [],
+  "consent": null,
+  "insights": [
+    {
+      "kind": "offer",
+      "text_includes": "happy to draft the introductory letter"
+    }
+  ]
+}

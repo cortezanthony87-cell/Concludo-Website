@@ -1,0 +1,48 @@
+{
+  "fixture": "fixture5_conditional_harmful_deadline.txt",
+  "turn_format": "[hh:mm:ss] Name: text",
+  "participants": ["Quentin Blake", "Rhonda Miller", "Simon Vance"],
+  "decisions": [
+    {
+      "summary_includes": "approve the revised drainage specification immediately",
+      "shape": "proposal_and_assent"
+    }
+  ],
+  "actions": [
+    {
+      "owner": "Rhonda Miller",
+      "due_date": "2026-11-24",
+      "text_includes": "drainage specification"
+    }
+  ],
+  "open_questions": [],
+  "risks": [
+    {
+      "text_includes": "tender offer closes on Tuesday the twenty-second of December at 5:00 pm",
+      "kind": "deadline_expiry"
+    },
+    {
+      "text_includes": "If the structural certificate fails we lose the entire deposit and incur council penalties",
+      "kind": "conditional_harm"
+    },
+    {
+      "text_includes": "remediation could cost around forty-five thousand dollars, I believe",
+      "kind": "cost_exposure"
+    }
+  ],
+  "consent": null,
+  "insights": [
+    {
+      "kind": "market_intel",
+      "text_includes": "steel fabricator has an eight-week backlog"
+    },
+    {
+      "kind": "context",
+      "text_includes": "civil engineering portion"
+    },
+    {
+      "kind": "advice",
+      "text_includes": "seal the footing before the winter rains begin"
+    }
+  ]
+}

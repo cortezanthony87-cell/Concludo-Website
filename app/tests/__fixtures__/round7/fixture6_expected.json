@@ -1,0 +1,45 @@
+{
+  "fixture": "fixture6_all_consent_unasked_and_absolutes.txt",
+  "turn_format": "Name mm:ss with text on next line",
+  "participants": ["Tanya Lawson", "Ulysses Grant", "Valerie Mercer"],
+  "decisions": [
+    {
+      "summary_includes": "license the analytics module, provided the vendor signs our standard data privacy addendum",
+      "shape": "motion_with_condition"
+    }
+  ],
+  "actions": [
+    {
+      "owner": "Valerie Mercer",
+      "due_date": "2026-11-30",
+      "text_includes": "data privacy addendum"
+    }
+  ],
+  "open_questions": [],
+  "risks": [],
+  "consent": {
+    "recorded": false,
+    "unasked_speakers": ["Tanya Lawson", "Ulysses Grant", "Valerie Mercer"]
+  },
+  "statements_to_verify": [
+    {
+      "text_includes": "never experienced a primary server outage"
+    },
+    {
+      "text_includes": "always maintain twenty-four hour emergency coverage"
+    },
+    {
+      "text_includes": "three hundred active licences, give or take"
+    }
+  ],
+  "insights": [
+    {
+      "kind": "feedback_positive",
+      "text_includes": "exceptionally thorough investigation report"
+    },
+    {
+      "kind": "concern",
+      "text_includes": "cloud hosting costs will surge"
+    }
+  ]
+}
