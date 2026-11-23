@@ -296,7 +296,7 @@ export function findConsent(turns: RTurn[], speakers: string[]): { out: ConsentO
         asked_by: null,
         answered_by: null,
         at: first?.at ?? null,
-        note: 'Consent to record was not asked or not recorded in the transcript.',
+        note: 'Consent was not recorded in the supplied transcript.',
         source_quote: null,
         not_asked: speakers.slice(),
         conditional: [],
@@ -650,6 +650,7 @@ export function findOpenQuestions(turns: RTurn[]): OqOut[] {
       if (!/\?\s*$/.test(q)) continue;
       const qb = q.replace(LEAD_FILLER, '');
       if (wc(qb) < 4) continue;
+      if (TAG_Q.test(q.trim())) continue;
       if (Q_SKIP.test(qb) || OBJ_Q.test(qb)) continue;
       if (Q_REQUEST.test(qb) || Q_REQUEST2.test(qb)) continue;
       if (/\b(?:the (?:football|footy|cricket|game|match|rugby))\b/i.test(qb)) continue;
@@ -895,7 +896,8 @@ export function findStatements(turns: RTurn[]): StvOut[] {
 const CORE_COMMIT = /\b(?:i'll|i will|i'm going to|i am going to|i shall|let me|i can have|i'd be happy to|i'm happy to|i'll also|i'll just)\b/i;
 const SOFT_COMMIT = /\bi can\b/i;
 const ACTION_NOT = /^(?:be (?:honest|quick|brief|clear|direct|upfront|there|back|late|away|on)|say\b|admit|tell you (?:now|straight)|stop there|leave it|keep it (?:short|brief)|hand (?:it )?(?:back|over)|pass\b|just say|put (?:it|the pen)|go with the|drop off|take (?:another|that|this|it) (?:file|on|one)|take (?:another|on)\b|live with|accept\b|see (?:how|what|if|whether)\b|imagine|take your word|leave that|come back|follow the|follow along|sit tight|move on|start (?:by|with|there)|think about|hear (?:from|what)|mention it|wait and see|worry|stay\b|keep going|let (?:you|that|it|them) )/i;
-const REQ_SENT = /^(?:(?:and|okay|ok|so|right|now|then)[,.]?\s+)?(?:([A-Z][a-z]+),?\s+)?(?:can|could|will|would) (?:you|someone|somebody|anyone)(?: please)? (.+?)\?$/;
+const TAG_Q = /\b(?:isn't it|aren't they|doesn't it|don't they|wouldn't it|won't it|you know|know what i mean)\?\s*$/i;
+const REQ_SENT = /^(?:(?:and|okay|ok|so|right|now|then)[,.]?\s+)?(?:([A-Z][a-z]+),?\s+)?(?:[Cc]an|[Cc]ould|[Ww]ill|[Ww]ould) (?:you|someone|somebody|anyone)(?: please)? (.+?)\?$/;
 const REQ_ASSIGN = /^(?:([A-Z][a-z]+),?\s+)(?:please |I need you to |I'd like you to |I want you to |you need to |you'll )(.+?)[.!]?$/;
 const REQ_ANY = /\b(?:i'd like you to|i need you to|i want you to|i'd suggest you|i would suggest you|you should|you might want to|you need to|you'll need to|please)\s+(.+?)(?:[.!?]|$)/i;
 const REQ_HAVE = /^(?:and )?can i (?:have|get) (.+?)\?$/i;

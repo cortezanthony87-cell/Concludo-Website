@@ -1728,7 +1728,8 @@ export function analyseMeeting(inputs: SourceInput[], metaIn: MeetingMetaInput =
   };
   try {
     const rawText = usable.map((u) => u.text).join('\n\n');
-    applyRulesV3(model, rawText, usable[0]?.name || 'transcript', meetingDate, { resolveDue });
+    // the rules read speaker turns only: leave notes, minutes and document sources to the base extractor
+    if (usable.every((u) => u.kind === 'transcript')) applyRulesV3(model, rawText, usable[0]?.name || 'transcript', meetingDate, { resolveDue });
   } catch (e) { if ((globalThis as any).__RULES_DEBUG) console.error(e); /* keep the base result when the rules module cannot parse this source */ }
   return refresh(model);
 }
