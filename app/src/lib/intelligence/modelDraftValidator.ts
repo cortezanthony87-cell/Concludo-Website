@@ -80,6 +80,8 @@ export interface ValidationResult {
   /** Items the draft contained across the six categories. */
   totalItems: number;
   rejectedCount: number;
+  /** Evidence entries removed from accepted items because their quote is not in the source. */
+  evidenceDropped: number;
   nextMeeting: NextMeetingV3 | null;
 }
 
@@ -176,6 +178,44 @@ function withSafeDisplayQuote(item: Record<string, any>, normSource: string): Re
   return copy;
 }
 
+/** Field names that normally carry quoted source text, checked at any length. */
+const QUOTE_BEARING_FIELDS = new Set([
+  'text', 'excerpt', 'snippet', 'passage', 'context', 'line', 'utterance', 'content', 'verbatim', 'source_text', 'display_quote',
+]);
+
+/**
+ * Keeps only the evidence entries whose quote is found in the source under the
+ * acceptance rule (four or more words, same normalisation, whole word match).
+ * An entry that is not an object, or has no quote string, is dropped. On a kept
+ * entry, any other quote-bearing text field (a known quote field name, or any
+ * string of four or more words) is removed unless it is also found in the source.
+ * Returns a copy and the number of entries dropped. The input is not changed.
+ */
+function sanitiseEvidence(item: Record<string, any>, normSource: string): { item: Record<string, any>; dropped: number } {
+  if (!Array.isArray(item.evidence)) return { item, dropped: 0 };
+  const kept: any[] = [];
+  let dropped = 0;
+  for (const entry of item.evidence) {
+    if (!isObject(entry) || !quoteInSource(normSource, entry.quote)) {
+      dropped++;
+      continue;
+    }
+    const copy: Record<string, any> = {};
+    for (const [key, value] of Object.entries(entry)) {
+      if (key !== 'quote' && typeof value === 'string') {
+        const bearing = QUOTE_BEARING_FIELDS.has(key.toLowerCase()) || words(value).length >= MIN_QUOTE_WORDS;
+        if (bearing && !displayQuoteInSource(normSource, value)) continue;
+      }
+      copy[key] = value;
+    }
+    kept.push(copy);
+  }
+  if (dropped === 0 && kept.every((e, i) => Object.keys(e).length === Object.keys(item.evidence[i]).length)) {
+    return { item, dropped: 0 };
+  }
+  return { item: { ...item, evidence: kept }, dropped };
+}
+
 function wordOverlap(a: string[], b: string[]): number {
   if (!a.length || !b.length) return 0;
   const A = new Set(a);
@@ -261,6 +301,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     suppliedCategories: [],
     totalItems: 0,
     rejectedCount: 0,
+    evidenceDropped: 0,
     nextMeeting: null,
   };
   const parsed = parseDraft(input?.draft);
@@ -280,6 +321,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     const field = TEXT_FIELD[category];
     const survivors: any[] = [];
     const keptWords: string[][] = [];
+    const survivorDropped: number[] = [];
     for (const item of raw) {
       result.totalItems++;
       const reject = (rule: RejectionRule) => result.rejected.push({ category, item, rule });
@@ -308,7 +350,9 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         reject('duplicate');
         continue;
       }
-      survivors.push(withSafeDisplayQuote(item, normSource));
+      const cleaned = sanitiseEvidence(item, normSource);
+      survivorDropped.push(cleaned.dropped);
+      survivors.push(withSafeDisplayQuote(cleaned.item, normSource));
       keptWords.push(w);
     }
     const ruleCount = Array.isArray((input.ruleRecord as any)?.[category]) ? (input.ruleRecord as any)[category].length : 0;
@@ -326,8 +370,10 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         reason: `${category} exceeded the cap of ${cap} (twice the ${ruleCount} rule engine item${ruleCount === 1 ? '' : 's'} plus ${CAP_ALLOWANCE}); ${trimmed.length} trimmed`,
       });
       result.accepted[category] = survivors.slice(0, cap);
+      result.evidenceDropped += survivorDropped.slice(0, cap).reduce((a, b) => a + b, 0);
     } else {
       result.accepted[category] = survivors;
+      result.evidenceDropped += survivorDropped.reduce((a, b) => a + b, 0);
     }
   }
   result.rejectedCount = result.rejected.length;
@@ -376,6 +422,9 @@ export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, s
   const warnings = Array.isArray(out.warnings) ? out.warnings : [];
   warnings.push(`Model draft used with ${v.rejectedCount} rejected item${v.rejectedCount === 1 ? '' : 's'} of ${v.totalItems}. See rejected_model_items.`);
   for (const n of v.capNotes) warnings.push(n.reason);
+  if (v.evidenceDropped > 0) {
+    warnings.push(`Model draft: ${v.evidenceDropped} evidence entr${v.evidenceDropped === 1 ? 'y was' : 'ies were'} dropped because the quote was not found in the source.`);
+  }
   for (const category of emptied) {
     warnings.push(`Model draft emptied ${category}: the draft supplied no validated items, so the rule engine items for this category were removed.`);
   }

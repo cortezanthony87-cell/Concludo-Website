@@ -324,6 +324,122 @@ describe('modelDraftValidator follow-up: display_quote and explicit empty catego
   });
 });
 
+describe('modelDraftValidator evidence entries', () => {
+  const VALID_Q = 'We agreed to move the review to Thursday afternoon';
+  const OTHER_VALID_Q = 'The main risk is that the supplier quote may arrive late';
+  const INVENTED_Q = 'The director promised an unlimited budget for the whole year';
+  const withEvidence = (evidence: unknown) => ({ ...goodDecision(), evidence });
+  const accepted = (evidence: unknown): any => {
+    const merged: any = mergeModelDraft(ruleRecord(), { decisions: [withEvidence(evidence)] }, source);
+    return merged;
+  };
+
+  test('E1. a valid evidence entry is kept', () => {
+    const m = accepted([{ quote: VALID_Q }]);
+    expect(m.drafting_method).toBe('model');
+    expect(m.decisions[0].evidence).toEqual([{ quote: VALID_Q }]);
+    expect(m.warnings.join(' ')).not.toMatch(/evidence entr/);
+  });
+
+  test('E2. an invented entry beside a valid one is dropped and the item is kept', () => {
+    const m = accepted([{ quote: VALID_Q }, { quote: INVENTED_Q }]);
+    expect(m.decisions).toHaveLength(1);
+    expect(m.decisions[0].evidence).toEqual([{ quote: VALID_Q }]);
+    expect(m.rejected_model_items).toEqual([]);
+  });
+
+  test('E2b. an entry whose quote is under four words is dropped', () => {
+    const m = accepted([{ quote: VALID_Q }, { quote: 'move the review' }]);
+    expect(m.decisions[0].evidence).toEqual([{ quote: VALID_Q }]);
+  });
+
+  test('E3. an entry with no quote string is dropped, including non object entries', () => {
+    const m = accepted([{ quote: VALID_Q }, { text: VALID_Q }, { quote: 42 }, 'We agreed to move the review to Thursday afternoon', null]);
+    expect(m.decisions[0].evidence).toEqual([{ quote: VALID_Q }]);
+    expect(m.warnings.join(' ')).toMatch(/4 evidence entries were dropped/);
+  });
+
+  test('E4. an extra text field not found in the source is removed from a kept entry', () => {
+    const m = accepted([{ quote: VALID_Q, text: INVENTED_Q, excerpt: VALID_Q, note: 'checked', label: 'main' }]);
+    expect(m.decisions[0].evidence).toEqual([{ quote: VALID_Q, excerpt: VALID_Q, note: 'checked', label: 'main' }]);
+    expect(m.warnings.join(' ')).not.toMatch(/evidence entr/);
+  });
+
+  test('E4b. an unnamed long text field is removed unless it is in the source', () => {
+    const m = accepted([{ quote: VALID_Q, remark: INVENTED_Q, found: OTHER_VALID_Q }]);
+    expect(m.decisions[0].evidence).toEqual([{ quote: VALID_Q, found: OTHER_VALID_Q }]);
+  });
+
+  test('E5. the dropped count warning has the right number and is absent at zero', () => {
+    const two = accepted([{ quote: VALID_Q }, { quote: INVENTED_Q }, { quote: 'We agreed on a budget of nothing at all' }]);
+    expect(two.warnings.filter((w: string) => /evidence entr/.test(w))).toEqual([
+      'Model draft: 2 evidence entries were dropped because the quote was not found in the source.',
+    ]);
+    const one = accepted([{ quote: VALID_Q }, { quote: INVENTED_Q }]);
+    expect(one.warnings.filter((w: string) => /evidence entr/.test(w))).toEqual([
+      'Model draft: 1 evidence entry was dropped because the quote was not found in the source.',
+    ]);
+    const zero = accepted([{ quote: VALID_Q }]);
+    expect(zero.warnings.join(' ')).not.toMatch(/evidence entr/);
+    const none: any = mergeModelDraft(ruleRecord(), { decisions: [goodDecision()] }, source);
+    expect(none.warnings.join(' ')).not.toMatch(/evidence entr/);
+  });
+
+  test('E5b. entries on items that are rejected or trimmed are not counted', () => {
+    const bad = { statement: 'Cancel the review entirely', source_quote: 'We agreed to cancel the review entirely', evidence: [{ quote: INVENTED_Q }] };
+    const m: any = mergeModelDraft(ruleRecord(), { decisions: [goodDecision(), bad, { ...goodDecision(), statement: 'Hold a separate budget workshop next quarter', evidence: [{ quote: VALID_Q }] }] }, source);
+    expect(m.drafting_method).toBe('model');
+    expect(m.warnings.join(' ')).not.toMatch(/evidence entr/);
+  });
+
+  test('E6. no exported item or next meeting carries an evidence quote absent from the source', () => {
+    const normalise = (s: string) => ` ${s.toLowerCase().replace(/[\u2018\u2019'`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()} `;
+    const nSource = normalise(SOURCE);
+    const mixed = [{ quote: VALID_Q, text: INVENTED_Q }, { quote: INVENTED_Q }, { quote: OTHER_VALID_Q }, {}, { quote: 'too short' }];
+    const draft = {
+      decisions: [withEvidence(mixed)],
+      actions: [{ ...goodAction(), evidence: mixed }],
+      risks: [{ risk: 'Supplier quote may arrive late', source_quote: OTHER_VALID_Q, evidence: mixed }],
+      next_meeting: {
+        date: '2026-02-09',
+        raw_text: 'The next meeting is Tuesday 9 February at ten am',
+        source_quote: 'The next meeting is Tuesday 9 February at ten am',
+        evidence: mixed,
+      },
+    };
+    const m: any = mergeModelDraft(ruleRecord(), draft, source);
+    expect(m.drafting_method).toBe('model');
+    let checked = 0;
+    for (const c of ['decisions', 'actions', 'risks']) {
+      for (const item of m[c]) {
+        for (const e of item.evidence ?? []) {
+          checked++;
+          expect(nSource.includes(normalise(e.quote))).toBe(true);
+          for (const [k, v] of Object.entries(e)) if (typeof v === 'string' && k !== 'quote' && v.split(/\s+/).length >= 4) expect(nSource.includes(normalise(v))).toBe(true);
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+    expect(m.next_meeting).toBeTruthy();
+    expect('evidence' in m.next_meeting).toBe(false);
+  });
+
+  test('E6b. the input draft is not mutated by evidence cleaning', () => {
+    const evidence = [{ quote: VALID_Q }, { quote: INVENTED_Q }];
+    const d = withEvidence(evidence);
+    mergeModelDraft(ruleRecord(), { decisions: [d] }, source);
+    expect(d.evidence).toHaveLength(2);
+  });
+
+  test('E6c. rejected_model_items is unchanged: it keeps the original rejected items', () => {
+    const bad = { statement: 'Cancel the review entirely', source_quote: 'We agreed to cancel the review entirely', evidence: [{ quote: INVENTED_Q }] };
+    const m: any = mergeModelDraft(ruleRecord(), { decisions: [goodDecision(), { ...goodDecision(), statement: 'A second distinct decision about the venue' }, bad] }, source);
+    const r = m.rejected_model_items.find((x: any) => x.item === bad || x.item?.statement === bad.statement);
+    expect(r).toBeTruthy();
+    expect(r.item.evidence).toEqual([{ quote: INVENTED_Q }]);
+  });
+});
+
 describe('modelDraftValidator makes no network calls', () => {
   const g = globalThis as any;
   const saved: Record<string, any> = {};
