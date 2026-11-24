@@ -13,7 +13,7 @@ import { PROMPT_VERSION, SYSTEM_PROMPT, buildUserMessage } from './modelDraftPro
 
 export type ModelTransport = (req: { system: string; user: string; maxOutputTokens: number }) => Promise<string>;
 
-export const MODEL_ROUTE_ENABLED = false;
+export const MODEL_ROUTE_ENABLED: boolean = false;
 
 export const MAX_SOURCE_CHARS = 60000;
 export const MAX_OUTPUT_TOKENS = 4000;
@@ -67,7 +67,9 @@ export async function draftWithModel(args: {
   timeoutMs?: number;
 }): Promise<DraftedRecord> {
   const { sourceText, sourceKind, meetingDate, ruleRecord, transport } = args;
-  const on = (args.enabled === undefined ? MODEL_ROUTE_ENABLED : args.enabled) === true;
+  // On only when the caller passes enabled === true AND the constant is true AND a transport is given.
+  // Omitting enabled always means off, whatever the constant says.
+  const on = args.enabled === true && MODEL_ROUTE_ENABLED === true;
   if (!on || typeof transport !== 'function') {
     return fallback(ruleRecord, 'model route is off');
   }

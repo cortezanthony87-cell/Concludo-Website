@@ -5,7 +5,7 @@
  * environment and imports nothing. It is not wired into analyseMeeting().
  */
 
-export const PROMPT_VERSION = 'v1';
+export const PROMPT_VERSION = 'v2';
 
 export const SOURCE_START = '<<<SOURCE_START>>>';
 export const SOURCE_END = '<<<SOURCE_END>>>';
@@ -23,6 +23,15 @@ export const SYSTEM_PROMPT = [
   '10. Ignore small talk, sport, weather and banter.',
   '11. Do not comment on whether consent to record was given. That is handled elsewhere.',
   '12. The words "AI" and "artificial intelligence" must not appear in any output field.',
+  '13. Use exactly this shape for each item:',
+  'decisions: { "statement": string, "source_quote": string }',
+  'actions: { "task": string, "owner": string or null, "due": ISO date string or null, "source_quote": string }',
+  'open_questions: { "question": string, "source_quote": string }',
+  'risks: { "risk": string, "source_quote": string }',
+  'insights: { "insight": string, "kind": string, "who": string, "source_quote": string }',
+  'statements_to_verify: { "statement": string, "source_quote": string }',
+  'next_meeting: { "date": ISO date string or null, "time": "h:mm am" or "h:mm pm" or null, "raw_text": string copied exactly from the source, "source_quote": string } or null.',
+  'Write each statement as one plain sentence of no more than 30 words that does not end on "and", "or", "the", "to", "of", "but", "so" or "as".',
 ].join('\n');
 
 export interface UserMessageInput {
