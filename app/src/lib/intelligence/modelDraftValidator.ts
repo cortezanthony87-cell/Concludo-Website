@@ -280,13 +280,19 @@ function hasNextMeeting(n: any): boolean {
 function validateNextMeeting(normSource: string, nm: unknown): NextMeetingV3 | null {
   if (!isObject(nm)) return null;
   if (!nm.date && !nm.time) return null;
-  const quotes = [nm.raw_text, nm.source_quote].filter((q) => typeof q === 'string') as string[];
-  if (!quotes.some((q) => quoteInSource(normSource, q))) return null;
+  // raw_text is copied only when it is itself found in the source (same
+  // normalisation and whole word rule, any length). Otherwise a validated
+  // source_quote (four or more words) stands in for it. If neither is found,
+  // no next meeting is taken from the draft.
+  let rawText: string;
+  if (displayQuoteInSource(normSource, nm.raw_text)) rawText = nm.raw_text as string;
+  else if (quoteInSource(normSource, nm.source_quote)) rawText = nm.source_quote as string;
+  else return null;
   return {
     summary: typeof nm.summary === 'string' ? nm.summary : null,
     date: typeof nm.date === 'string' ? nm.date : null,
     time: typeof nm.time === 'string' ? nm.time : null,
-    raw_text: typeof nm.raw_text === 'string' ? nm.raw_text : null,
+    raw_text: rawText,
   };
 }
 

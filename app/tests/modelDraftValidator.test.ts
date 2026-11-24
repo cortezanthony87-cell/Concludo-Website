@@ -477,3 +477,36 @@ describe('modelDraftValidator makes no network calls', () => {
     expect(imports).toEqual(["import type { MeetingModel, NextMeetingV3 } from './meetingEngine';"]);
   });
 });
+
+describe('next_meeting.raw_text (Part A)', () => {
+  const base = () => ({ decisions: [goodDecision()], actions: [goodAction()] });
+
+  test('A1. raw_text found in the source is copied as it is', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { ...base(), next_meeting: { date: '2026-02-09', time: '10:00', raw_text: 'The next meeting is Tuesday 9 February at ten am', source_quote: 'The next meeting is Tuesday 9 February at ten am' } }, source);
+    expect(m.next_meeting.raw_text).toBe('The next meeting is Tuesday 9 February at ten am');
+  });
+
+  test('A1b. a short raw_text found in the source whole is copied (any length)', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { ...base(), next_meeting: { date: '2026-02-09', raw_text: 'Tuesday 9 February' } }, source);
+    expect(m.next_meeting.raw_text).toBe('Tuesday 9 February');
+  });
+
+  test('A2. an invented raw_text with a valid source_quote is replaced by the source_quote', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { ...base(), next_meeting: { date: '2026-02-09', time: '10:00', raw_text: 'Zed will present the budget at the harbour', source_quote: 'The next meeting is Tuesday 9 February at ten am' } }, source);
+    expect(m.next_meeting).toBeTruthy();
+    expect(m.next_meeting.raw_text).toBe('The next meeting is Tuesday 9 February at ten am');
+    expect(JSON.stringify(m.next_meeting)).not.toContain('harbour');
+  });
+
+  test('A2b. a missing raw_text with a valid source_quote also takes the source_quote', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { ...base(), next_meeting: { date: '2026-02-09', source_quote: 'The next meeting is Tuesday 9 February at ten am' } }, source);
+    expect(m.next_meeting.raw_text).toBe('The next meeting is Tuesday 9 February at ten am');
+  });
+
+  test('A3. neither found in the source: no next meeting is taken from the draft', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { ...base(), next_meeting: { date: '2026-02-09', time: '10:00', raw_text: 'Zed will present the budget at the harbour', source_quote: 'We gather again beside the old harbour wall' } }, source);
+    expect(m.next_meeting).toBeNull();
+    const v = validateModelDraft({ source, ruleRecord: ruleRecord(), draft: { ...base(), next_meeting: { date: '2026-02-09', raw_text: 'invented line about the harbour', source_quote: 'another invented line about the harbour' } } });
+    expect(v.nextMeeting).toBeNull();
+  });
+});
