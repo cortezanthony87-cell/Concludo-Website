@@ -119,6 +119,8 @@ const CAP_MULTIPLIER = 2;
 const CAP_ALLOWANCE = 4;
 /** The cap never falls below this, so a weak rule engine count (notes, documents) does not trim real items. */
 const CAP_FLOOR = 15;
+/** Insights are views, one per person and point, so long meetings carry more of them. */
+const INSIGHT_CAP_FLOOR = 20;
 const MAJORITY_LOSS = 0.5;
 
 /** The text field that carries each category's statement. */
@@ -315,6 +317,26 @@ function ownerIsParticipant(owner: string, participants: string[]): boolean {
   });
 }
 
+/** True when every name in a list such as "A, B and C" is a participant. */
+function allNamesAreParticipants(who: string, participants: string[]): boolean {
+  if (ownerIsParticipant(who, participants)) return true;
+  const parts = who.split(/\s*(?:,|&|\band\b)\s*/i).map((x) => x.trim()).filter(Boolean);
+  if (parts.length < 2) return false;
+  return parts.every((n) => ownerIsParticipant(n, participants));
+}
+
+/** Lower is kept first when a category is over its cap. Views outrank plain context. */
+const INSIGHT_KIND_PRIORITY: Record<string, number> = {
+  concern: 0, disagreement: 0, feedback_negative: 0, advice: 1, feedback_positive: 1, context: 2,
+};
+
+function capOrder(category: string, items: any[]): number[] {
+  const idx = items.map((_, i) => i);
+  if (category !== 'insights') return idx;
+  const pr = (i: number) => INSIGHT_KIND_PRIORITY[String(items[i]?.kind ?? '').toLowerCase()] ?? 1;
+  return idx.sort((a, b) => pr(a) - pr(b) || a - b);
+}
+
 function isFragment(text: string): boolean {
   const w = words(text);
   if (!w.length) return true;
@@ -421,13 +443,13 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       if (category === 'actions') {
         const owner = item.owner;
         const hasOwner = typeof owner === 'string' ? owner.trim() !== '' : owner != null;
-        if (hasOwner && (typeof owner !== 'string' || !ownerIsParticipant(owner, participants))) {
+        if (hasOwner && (typeof owner !== 'string' || !allNamesAreParticipants(owner, participants))) {
           reject('owner_not_participant');
           continue;
         }
       }
       if (category === 'insights' && item.who !== undefined && item.who !== null && item.who !== '') {
-        if (typeof item.who !== 'string' || !ownerIsParticipant(item.who, participants)) {
+        if (typeof item.who !== 'string' || !allNamesAreParticipants(item.who, participants)) {
           reject('who_not_participant');
           continue;
         }
@@ -447,9 +469,13 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       keptWords.push(w);
     }
     const ruleCount = Array.isArray((input.ruleRecord as any)?.[category]) ? (input.ruleRecord as any)[category].length : 0;
-    const cap = Math.max(CAP_MULTIPLIER * ruleCount + CAP_ALLOWANCE, CAP_FLOOR);
+    const floor = category === 'insights' ? INSIGHT_CAP_FLOOR : CAP_FLOOR;
+    const cap = Math.max(CAP_MULTIPLIER * ruleCount + CAP_ALLOWANCE, floor);
     if (survivors.length > cap) {
-      const trimmed = survivors.slice(cap);
+      const order = capOrder(category, survivors);
+      const keepIdx = order.slice(0, cap).sort((a, b) => a - b);
+      const dropIdx = order.slice(cap).sort((a, b) => a - b);
+      const trimmed = dropIdx.map((i) => survivors[i]);
       for (const item of trimmed) result.rejected.push({ category, item, rule: 'category_cap' });
       result.capNotes.push({
         category,
@@ -458,10 +484,10 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         survivors: survivors.length,
         kept: cap,
         trimmed: trimmed.length,
-        reason: `${category} exceeded the cap of ${cap} (twice the ${ruleCount} rule engine item${ruleCount === 1 ? '' : 's'} plus ${CAP_ALLOWANCE}, at least ${CAP_FLOOR}); ${trimmed.length} trimmed`,
+        reason: `${category} exceeded the cap of ${cap} (twice the ${ruleCount} rule engine item${ruleCount === 1 ? '' : 's'} plus ${CAP_ALLOWANCE}, at least ${floor}); ${trimmed.length} trimmed`,
       });
-      result.accepted[category] = survivors.slice(0, cap);
-      result.evidenceDropped += survivorDropped.slice(0, cap).reduce((a, b) => a + b, 0);
+      result.accepted[category] = keepIdx.map((i) => survivors[i]);
+      result.evidenceDropped += keepIdx.reduce((a, i) => a + survivorDropped[i], 0);
     } else {
       result.accepted[category] = survivors;
       result.evidenceDropped += survivorDropped.reduce((a, b) => a + b, 0);
@@ -498,12 +524,14 @@ function validateConsent(normSource: string, c: unknown, participants: string[])
   const askedBy = typeof c.asked_by === 'string' && c.asked_by.trim() ? c.asked_by.trim() : null;
   const all = [...agreed, ...declined, ...notAsked, ...(askedBy ? [askedBy] : [])];
   if (all.some((n) => !ownerIsParticipant(n, participants))) return null;
+  const aboutRaw = typeof c.about === 'string' ? c.about.replace(/[^\p{L}\s']/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase() : '';
+  const about = aboutRaw && aboutRaw.split(' ').length <= 8 && !/\bai\b|artificial intelligence/.test(aboutRaw) ? aboutRaw : 'recording';
   const parts: string[] = [];
-  if (askedBy) parts.push(`${askedBy} asked about recording.`);
+  if (askedBy) parts.push(`${askedBy} asked about ${about}.`);
   if (agreed.length) parts.push(`Agreed: ${agreed.join(', ')}.`);
-  if (declined.length) parts.push(`Declined: ${declined.join(', ')}, so the meeting was not recorded with their consent.`);
+  if (declined.length) parts.push(`Declined: ${declined.join(', ')}.`);
   if (notAsked.length) parts.push(`Not asked: ${notAsked.join(', ')}. Consent was not recorded for them.`);
-  if (!askedBy) parts.push(agreed.length + declined.length > 0 ? 'Recording was raised without a recorded request.' : 'Consent was not asked.');
+  if (!askedBy) parts.push(agreed.length + declined.length > 0 ? `Consent to ${about} was given without a recorded request.` : 'Consent was not asked.');
   return {
     asked_by: askedBy,
     answered_by: agreed.length ? agreed.join(', ') : null,
