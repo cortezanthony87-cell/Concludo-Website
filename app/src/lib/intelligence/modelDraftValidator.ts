@@ -264,7 +264,10 @@ function resolveParticipants(
   sourceKind: SourceKind,
 ): { names: string[]; replacement: { name: string; role?: string; present: boolean }[] | null; dropped: string[] } {
   const ruleNames = participantNames(rule);
-  if (sourceKind === 'transcript' || !Array.isArray(draft.participants)) return { names: ruleNames, replacement: null, dropped: [] };
+  // Transcripts keep the rule engine's speaker list, unless it found no real names (no speakers, or only
+  // generic labels such as "Speaker 1"); then the model's names, checked against the source, are used.
+  const genericOnly = ruleNames.length === 0 || ruleNames.every((n) => /^(speaker|participant|person|unknown|guest)\s*\d*$/i.test(n.trim()));
+  if ((sourceKind === 'transcript' && !genericOnly) || !Array.isArray(draft.participants)) return { names: ruleNames, replacement: null, dropped: [] };
   const kept: string[] = [];
   const seen = new Set<string>();
   const dropped: string[] = [];
@@ -495,13 +498,12 @@ function validateConsent(normSource: string, c: unknown, participants: string[])
   const askedBy = typeof c.asked_by === 'string' && c.asked_by.trim() ? c.asked_by.trim() : null;
   const all = [...agreed, ...declined, ...notAsked, ...(askedBy ? [askedBy] : [])];
   if (all.some((n) => !ownerIsParticipant(n, participants))) return null;
-  if (!askedBy && agreed.length + declined.length > 0) return null;
   const parts: string[] = [];
   if (askedBy) parts.push(`${askedBy} asked about recording.`);
   if (agreed.length) parts.push(`Agreed: ${agreed.join(', ')}.`);
   if (declined.length) parts.push(`Declined: ${declined.join(', ')}, so the meeting was not recorded with their consent.`);
   if (notAsked.length) parts.push(`Not asked: ${notAsked.join(', ')}. Consent was not recorded for them.`);
-  if (!askedBy) parts.push('Consent was not asked.');
+  if (!askedBy) parts.push(agreed.length + declined.length > 0 ? 'Recording was raised without a recorded request.' : 'Consent was not asked.');
   return {
     asked_by: askedBy,
     answered_by: agreed.length ? agreed.join(', ') : null,

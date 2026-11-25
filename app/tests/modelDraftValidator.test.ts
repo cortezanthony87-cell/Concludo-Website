@@ -650,11 +650,33 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
       expect(m.consent.note).toContain('Declined: Anne-Marie Cole');
     });
 
+    test('C5. a model consent with no asker can still record who declined or was never asked', () => {
+      const m: any = mergeModelDraft(noConsentRule(), draft({ asked_by: null, agreed: [], declined: ['Anne-Marie Cole'], not_asked: ['Casey Park'], source_quote: 'I would rather you did not record it.' }), { ...source, text: CTEXT });
+      expect(m.consent.asked_by).toBeNull();
+      expect(m.consent.note).toContain('Declined: Anne-Marie Cole');
+      expect(m.consent.note).toContain('Not asked: Casey Park');
+    });
+
     test('C3. a model consent with an unfound quote or a non participant is ignored', () => {
       const badQuote: any = mergeModelDraft(noConsentRule(), draft({ asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: [], not_asked: [], source_quote: 'Everyone agreed to be recorded today' }), { ...source, text: CTEXT });
       expect(badQuote.consent.asked_by).toBeNull();
       const badName: any = mergeModelDraft(noConsentRule(), draft({ asked_by: 'Jordan Lee', agreed: ['Invented Person'], declined: [], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
       expect(badName.consent.asked_by).toBeNull();
     });
+  });
+
+  test('P1. a transcript whose speakers are only generic labels takes the model names found in the source', () => {
+    const text = ['Speaker 1: Hi, I am Hana from leasing.', 'Speaker 2: I am Beau Ferraro from the bakery.', 'Speaker 1: I will send the written confirmation by tomorrow afternoon.'].join('\n');
+    const rule = ruleRecord({ participants: [{ name: 'Speaker 1', present: true }, { name: 'Speaker 2', present: true }] });
+    const m: any = mergeModelDraft(rule, { participants: [{ name: 'Hana' }, { name: 'Beau Ferraro' }], actions: [{ task: 'Send the written confirmation', owner: 'Hana', source_quote: 'I will send the written confirmation by tomorrow afternoon.' }] }, { name: 'call.txt', kind: 'transcript', text }, 'transcript');
+    expect(m.drafting_method).toBe('model');
+    expect(m.participants.map((p: any) => p.name)).toEqual(['Hana', 'Beau Ferraro']);
+    expect(m.actions[0].owner).toBe('Hana');
+  });
+
+  test('P2. a transcript with real speaker names keeps the rule list', () => {
+    const rule = ruleRecord();
+    const m: any = mergeModelDraft(rule, { participants: [{ name: 'Jordan Lee' }], decisions: [goodDecision()] }, source, 'transcript');
+    expect(m.participants).toEqual(rule.participants);
   });
 });

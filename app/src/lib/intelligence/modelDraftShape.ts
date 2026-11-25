@@ -273,6 +273,8 @@ export function shapeModelRecord<T extends MeetingModel>(merged: T, source: Shap
   if (m.health && m.signals && m.meta && Array.isArray(m.participants)) refresh(m as MeetingModel);
   // The rule engine can leave a stale 'consent_not_recorded' warning after consent was found.
   if (m.consent && m.consent.asked_by && Array.isArray(m.warnings)) m.warnings = m.warnings.filter((w: unknown) => w !== 'consent_not_recorded');
+  // Likewise the rule engine's note about missing speaker labels no longer applies once drafted actions carry owners.
+  if (Array.isArray(m.warnings) && actions.some((a) => a.owner)) m.warnings = m.warnings.filter((w: unknown) => !(typeof w === 'string' && w.startsWith('No speaker labels found.')));
   if (unlocated > 0) {
     const w: string[] = Array.isArray(m.warnings) ? m.warnings : [];
     w.push(`Model draft: ${unlocated} item${unlocated === 1 ? ' was' : 's were'} removed because the quote could not be placed on a source line.`);

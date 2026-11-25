@@ -17,8 +17,8 @@ export type ModelTransport = (req: { system: string; user: string; maxOutputToke
 export const MODEL_ROUTE_ENABLED: boolean = false;
 
 export const MAX_SOURCE_CHARS = 60000;
-export const MAX_OUTPUT_TOKENS = 4000;
-export const CALL_TIMEOUT_MS = 60000;
+export const MAX_OUTPUT_TOKENS = 16000;
+export const CALL_TIMEOUT_MS = 240000;
 
 export type DraftedRecord = MergedRecord & { drafting_prompt_version?: string };
 

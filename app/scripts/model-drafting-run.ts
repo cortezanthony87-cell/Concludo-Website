@@ -41,14 +41,14 @@ const participants: string[] = (ruleRecord.participants ?? []).map((p: any) => p
 const user = buildUserMessage({ sourceText: text, sourceKind: kind, meetingDate, participants });
 
 const ctl = new AbortController();
-const timer = setTimeout(() => ctl.abort(), 120000);
+const timer = setTimeout(() => ctl.abort(), 240000);
 let status = 0;
 let body: any;
 try {
   const res = await fetch(URL, {
     method: 'POST',
     headers: { 'x-api-key': key as string, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 8000, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 16000, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: user }] }),
     signal: ctl.signal,
   });
   status = res.status;
