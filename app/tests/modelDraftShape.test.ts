@@ -98,4 +98,14 @@ describe('modelDraftShape', () => {
     const notes = 'Minutes\nPresent: Ruth Okafor, Dev Patel\n1. The committee decided to repaint the hall in January.';
     expect(locateQuote({ text: notes, kind: 'notes' }, ['Ruth Okafor'], 'The committee decided to repaint the hall')).toEqual({ line: 3 });
   });
+
+  test('S7. a stale consent_not_recorded warning is removed once consent shows who asked', () => {
+    const rule = analyseMeeting([{ name: SOURCE.name, kind: 'transcript', text: TRANSCRIPT }], { meetingDate: '2026-11-30', sourceType: 'transcript' } as any);
+    const merged: any = mergeModelDraft(rule, JSON.stringify(DRAFT), SOURCE, 'transcript');
+    merged.consent = { asked_by: 'Ruth Okafor', answered_by: 'Dev Patel', at: null, note: 'Asked.', source_quote: 'Thanks both.' };
+    merged.warnings = ['consent_not_recorded', 'other'];
+    shapeModelRecord(merged, SOURCE);
+    expect(merged.warnings).not.toContain('consent_not_recorded');
+    expect(merged.warnings).toContain('other');
+  });
 });

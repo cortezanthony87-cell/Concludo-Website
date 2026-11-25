@@ -271,6 +271,8 @@ export function shapeModelRecord<T extends MeetingModel>(merged: T, source: Shap
   // refresh() needs the engine's own record parts. Every record from analyseMeeting() has them;
   // a hand-built record without them is shaped but not refreshed.
   if (m.health && m.signals && m.meta && Array.isArray(m.participants)) refresh(m as MeetingModel);
+  // The rule engine can leave a stale 'consent_not_recorded' warning after consent was found.
+  if (m.consent && m.consent.asked_by && Array.isArray(m.warnings)) m.warnings = m.warnings.filter((w: unknown) => w !== 'consent_not_recorded');
   if (unlocated > 0) {
     const w: string[] = Array.isArray(m.warnings) ? m.warnings : [];
     w.push(`Model draft: ${unlocated} item${unlocated === 1 ? ' was' : 's were'} removed because the quote could not be placed on a source line.`);
