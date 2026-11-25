@@ -72,9 +72,17 @@ describe('modelDraftValidator', () => {
     expect(v.rejected.map((r) => r.rule)).toEqual(['evidence_not_in_source']);
   });
 
-  test('2b. a quote under four words is rejected even when it is in the source', () => {
-    const v = run({ decisions: [{ statement: 'Move the review to Thursday afternoon', source_quote: 'move the review' }] });
+  test('2b. a quote under four words that occurs more than once in the source is rejected', () => {
+    const v = run({ decisions: [{ statement: 'Move the review to Thursday afternoon', source_quote: 'the review' }] });
     expect(v.rejected.map((r) => r.rule)).toEqual(['evidence_not_in_source']);
+  });
+
+  test('2d. a quote under four words that occurs once is widened to its whole source line, verbatim', () => {
+    const v = run({ decisions: [{ statement: 'Move the review to Thursday afternoon', source_quote: 'move the review' }] });
+    expect(v.accepted.decisions).toHaveLength(1);
+    expect(v.accepted.decisions[0].source_quote).toBe('Jordan Lee: We agreed to move the review to Thursday afternoon.');
+    const missing = run({ decisions: [{ statement: 'Move the review to Thursday afternoon', source_quote: 'invented short bit' }] });
+    expect(missing.rejected.map((r) => r.rule)).toEqual(['evidence_not_in_source']);
   });
 
   test('2c. case, punctuation and whitespace are normalised when matching a quote', () => {
@@ -348,8 +356,8 @@ describe('modelDraftValidator evidence entries', () => {
     expect(m.rejected_model_items).toEqual([]);
   });
 
-  test('E2b. an entry whose quote is under four words is dropped', () => {
-    const m = accepted([{ quote: VALID_Q }, { quote: 'move the review' }]);
+  test('E2b. an entry whose quote is under four words and not unique in the source is dropped', () => {
+    const m = accepted([{ quote: VALID_Q }, { quote: 'the review' }]);
     expect(m.decisions[0].evidence).toEqual([{ quote: VALID_Q }]);
   });
 
@@ -641,13 +649,29 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
       expect(m.consent).toEqual(rule.consent);
     });
 
-    test('C4. when the rule record found who asked, a validated model finding only adds who declined', () => {
-      const rule = ruleRecord({ consent: { asked_by: 'Jordan Lee', answered_by: 'Casey Park', at: null, note: 'Jordan Lee asked.', source_quote: 'Is everyone happy for me to record this call?' } });
-      const m: any = mergeModelDraft(rule, draft({ asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Anne-Marie Cole'], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
+    test('C4. when the rule and the model name the same asker, the model answer lists replace the rule lists', () => {
+      const rule = ruleRecord({ consent: { asked_by: 'Jordan Lee', answered_by: null, at: '00:00:05', note: 'Jordan Lee asked. Casey Park was not asked or did not answer.', source_quote: 'Is everyone happy for me to record this call?', not_asked: ['Casey Park'] } });
+      const m: any = mergeModelDraft(rule, draft({ asked_by: 'Jordan', agreed: ['Casey Park'], declined: ['Anne-Marie Cole'], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
+      expect(m.consent.asked_by).toBe('Jordan Lee');
+      expect(m.consent.at).toBe('00:00:05');
+      expect(m.consent.answered_by).toBe('Casey Park');
+      expect(m.consent.not_asked).toBeUndefined();
+      expect(m.consent.note).toContain('Declined: Anne-Marie Cole');
+      expect(m.consent.note).not.toContain('was not asked');
+    });
+
+    test('C6. when the rule took someone who answered for the asker, the model finding replaces it', () => {
+      const rule = ruleRecord({ consent: { asked_by: 'Casey Park', answered_by: 'Jordan Lee', at: null, note: 'Casey Park asked.', source_quote: 'Yes, go ahead.' } });
+      const m: any = mergeModelDraft(rule, draft({ asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: [], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
       expect(m.consent.asked_by).toBe('Jordan Lee');
       expect(m.consent.answered_by).toBe('Casey Park');
-      expect(m.consent.note).toContain('Jordan Lee asked.');
-      expect(m.consent.note).toContain('Declined: Anne-Marie Cole');
+    });
+
+    test('C7. a different model asker who is not among the answers cannot replace the rule asker', () => {
+      const rule = ruleRecord({ consent: { asked_by: 'Jordan Lee', answered_by: 'Casey Park', at: null, note: 'Jordan Lee asked.', source_quote: 'Is everyone happy for me to record this call?' } });
+      const m: any = mergeModelDraft(rule, draft({ asked_by: 'Anne-Marie Cole', agreed: ['Casey Park'], declined: [], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
+      expect(m.consent.asked_by).toBe('Jordan Lee');
+      expect(m.consent.note).toBe('Jordan Lee asked.');
     });
 
     test('C5. a model consent with no asker can still record who declined or was never asked', () => {

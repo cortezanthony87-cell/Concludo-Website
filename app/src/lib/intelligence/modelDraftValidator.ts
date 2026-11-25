@@ -99,9 +99,12 @@ export interface ValidationResult {
 export interface ModelConsent {
   asked_by: string | null;
   answered_by: string | null;
-  at: null;
+  at: string | null;
   note: string;
   source_quote: string;
+  agreed: string[];
+  declined: string[];
+  not_asked: string[];
 }
 
 export interface MergedRecord extends MeetingModel {
@@ -167,6 +170,35 @@ function quoteInSource(normSource: string, quote: unknown): boolean {
   const q = normaliseText(quote);
   if (!q || q.split(' ').length < MIN_QUOTE_WORDS) return false;
   return ` ${normSource} `.includes(` ${q} `);
+}
+
+/**
+ * A quote under the minimum length that occurs exactly once in the source is widened to the
+ * whole source line that holds it, copied verbatim. Anything else is returned unchanged.
+ */
+export function widenShortQuote(sourceText: string, normSource: string, quote: unknown): unknown {
+  if (typeof quote !== 'string') return quote;
+  const q = normaliseText(quote);
+  if (!q || q.split(' ').length >= MIN_QUOTE_WORDS) return quote;
+  const hay = ` ${normSource} `;
+  const needle = ` ${q} `;
+  const first = hay.indexOf(needle);
+  if (first < 0 || hay.indexOf(needle, first + 1) >= 0) return quote;
+  const line = String(sourceText ?? '').split(/\r?\n/).find((l) => ` ${normaliseText(l)} `.includes(needle));
+  if (!line || normaliseText(line).split(' ').length < MIN_QUOTE_WORDS) return quote;
+  return line.trim();
+}
+
+function widenItemQuotes(item: unknown, sourceText: string, normSource: string): unknown {
+  if (!isObject(item)) return item;
+  let copy: Record<string, any> | null = null;
+  const w = widenShortQuote(sourceText, normSource, item.source_quote);
+  if (w !== item.source_quote) copy = { ...item, source_quote: w };
+  if (Array.isArray(item.evidence)) {
+    const ev = item.evidence.map((e: any) => (isObject(e) ? { ...e, quote: widenShortQuote(sourceText, normSource, e.quote) } : e));
+    if (ev.some((e: any, i: number) => isObject(e) && e.quote !== (item.evidence as any[])[i].quote)) copy = { ...(copy ?? item), evidence: ev };
+  }
+  return copy ?? item;
 }
 
 function itemQuotes(item: Record<string, any>): string[] {
@@ -429,7 +461,8 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     const survivors: any[] = [];
     const keptWords: string[][] = [];
     const survivorDropped: number[] = [];
-    for (const item of raw) {
+    for (const rawItem of raw) {
+      const item: any = widenItemQuotes(rawItem, input.source?.text ?? '', normSource);
       result.totalItems++;
       const reject = (rule: RejectionRule) => result.rejected.push({ category, item, rule });
       if (!isObject(item) || typeof item[field] !== 'string' || !item[field].trim()) {
@@ -495,7 +528,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
   }
   result.rejectedCount = result.rejected.length;
   result.nextMeeting = validateNextMeeting(normSource, draft.next_meeting);
-  result.consent = validateConsent(normSource, draft.consent, participants);
+  result.consent = validateConsent(normSource, draft.consent, participants, input.source?.text ?? '');
   return result;
 }
 
@@ -514,9 +547,10 @@ function nameList(v: unknown): string[] | null {
  * The model's account of recording consent. Used only when the rule record found none.
  * Accepted only if its quote is in the source and every name it gives is a participant.
  */
-function validateConsent(normSource: string, c: unknown, participants: string[]): ModelConsent | null {
+function validateConsent(normSource: string, c: unknown, participants: string[], sourceText?: string): ModelConsent | null {
   if (!isObject(c)) return null;
-  if (!quoteInSource(normSource, c.source_quote)) return null;
+  if (sourceText !== undefined) c = { ...c, source_quote: widenShortQuote(sourceText, normSource, c.source_quote) };
+  if (!isObject(c) || !quoteInSource(normSource, c.source_quote)) return null;
   const agreed = nameList(c.agreed);
   const declined = nameList(c.declined);
   const notAsked = nameList(c.not_asked);
@@ -529,7 +563,7 @@ function validateConsent(normSource: string, c: unknown, participants: string[])
   const parts: string[] = [];
   if (askedBy) parts.push(`${askedBy} asked about ${about}.`);
   if (agreed.length) parts.push(`Agreed: ${agreed.join(', ')}.`);
-  if (declined.length) parts.push(`Declined: ${declined.join(', ')}.`);
+  if (declined.length) parts.push(`Declined: ${declined.join(', ')}. There is no consent from them for ${about}.`);
   if (notAsked.length) parts.push(`Not asked: ${notAsked.join(', ')}. Consent was not recorded for them.`);
   if (!askedBy) parts.push(agreed.length + declined.length > 0 ? `Consent to ${about} was given without a recorded request.` : 'Consent was not asked.');
   return {
@@ -538,7 +572,21 @@ function validateConsent(normSource: string, c: unknown, participants: string[])
     at: null,
     note: parts.join(' '),
     source_quote: String(c.source_quote),
+    agreed,
+    declined,
+    not_asked: notAsked,
   };
+}
+
+/** True when two names refer to the same participant (full name or first name). */
+function samePerson(a: unknown, b: unknown, participants: string[]): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const na = normaliseName(a);
+  const nb = normaliseName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const full = (n: string) => participants.map(normaliseName).find((p) => p === n || p.split(' ')[0] === n) ?? n;
+  return full(na) === full(nb);
 }
 
 /* ------------------------------------------------------------------ merge */
@@ -578,13 +626,25 @@ export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, s
     out.next_meeting = v.nextMeeting;
   }
   if (v.replacementParticipants) o.participants = structuredClone(v.replacementParticipants);
-  // Consent: the rule record's finding stands whenever it found who asked. Only when it found
-  // nothing does a validated model finding fill the gap.
+  // Consent: the rule record's finding stands whenever it found who asked, with three exceptions
+  // that rest only on a validated model finding (quote in the source, every name a participant):
+  // 1. the rule's asker is someone the model shows answering, so the rule mistook an answer for
+  //    the request: the model finding replaces it;
+  // 2. both name the same asker: the model's answer lists replace the rule's, keeping the rule's time;
+  // 3. otherwise the model finding can only add who declined or was never asked to the note.
+  // Only when the rule found no asker does a validated model finding fill the gap outright.
   const ruleConsent = (ruleRecord as any).consent;
-  if (v.consent && !(ruleConsent && ruleConsent.asked_by)) o.consent = structuredClone(v.consent);
-  else if (v.consent && ruleConsent && ruleConsent.asked_by && /Declined:|Not asked:/.test(v.consent.note)) {
-    // The rule finding stands, but a validated model finding can add who declined or was never asked.
-    const extra = v.consent.note.split(/(?<=\.)\s+/).filter((p) => /^(Declined|Not asked):/.test(p)).join(' ');
+  // Empty name lists are left out of the record, as the rule engine does.
+  const mc = v.consent ? (Object.fromEntries(Object.entries(v.consent).filter(([, val]) => !(Array.isArray(val) && val.length === 0))) as unknown as ModelConsent) : null;
+  const list = (c: ModelConsent, k: 'agreed' | 'declined'): string[] => (Array.isArray(c[k]) ? c[k] : []);
+  const people = (Array.isArray(o.participants) ? o.participants : []).map((p: any) => String(p?.name ?? '')).filter(Boolean);
+  if (mc && !(ruleConsent && ruleConsent.asked_by)) o.consent = structuredClone(mc);
+  else if (mc && ruleConsent && ruleConsent.asked_by && [...list(mc, 'agreed'), ...list(mc, 'declined')].some((n) => samePerson(n, ruleConsent.asked_by, people))) {
+    o.consent = structuredClone(mc);
+  } else if (mc && ruleConsent && ruleConsent.asked_by && samePerson(mc.asked_by, ruleConsent.asked_by, people)) {
+    o.consent = { ...structuredClone(mc), asked_by: ruleConsent.asked_by, at: ruleConsent.at ?? null };
+  } else if (mc && ruleConsent && ruleConsent.asked_by && /Declined:|Not asked:/.test(mc.note)) {
+    const extra = mc.note.split(/(?<=\.)\s+/).filter((p) => /^(Declined|Not asked):/.test(p)).join(' ');
     if (extra && !String(o.consent.note ?? '').includes(extra)) o.consent = { ...o.consent, note: `${o.consent.note ? `${o.consent.note} ` : ''}Model draft adds: ${extra}`.trim() };
   }
   out.drafting_method = 'model';
