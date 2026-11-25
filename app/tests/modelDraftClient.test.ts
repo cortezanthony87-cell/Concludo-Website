@@ -211,7 +211,7 @@ describe('modelDraftClient', () => {
     for (const key of ['decisions', 'actions', 'open_questions', 'risks', 'insights', 'statements_to_verify', 'next_meeting', 'source_quote']) {
       expect(SYSTEM_PROMPT).toContain(key);
     }
-    expect(PROMPT_VERSION).toBe('v2');
+    expect(PROMPT_VERSION).toBe('v3');
   });
 
   test('10. the two new modules have no network, SDK, environment or supabase use', () => {
@@ -228,8 +228,8 @@ describe('modelDraftClient', () => {
     }
   });
 
-  test('11. prompt v2 carries rule 13 and every field name the validator reads', () => {
-    expect(PROMPT_VERSION).toBe('v2');
+  test('11. prompt v3 carries rule 13 and every field name the validator reads', () => {
+    expect(PROMPT_VERSION).toBe('v3');
     expect(SYSTEM_PROMPT).toContain('13. Use exactly this shape for each item:');
     const lines = SYSTEM_PROMPT.split('\n');
     const i12 = lines.findIndex((l) => l.startsWith('12.'));

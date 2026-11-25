@@ -5,7 +5,7 @@
  * environment and imports nothing. It is not wired into analyseMeeting().
  */
 
-export const PROMPT_VERSION = 'v2';
+export const PROMPT_VERSION = 'v3';
 
 export const SOURCE_START = '<<<SOURCE_START>>>';
 export const SOURCE_END = '<<<SOURCE_END>>>';
@@ -25,7 +25,7 @@ export const SYSTEM_PROMPT = [
   '12. The words "AI" and "artificial intelligence" must not appear in any output field.',
   '13. Use exactly this shape for each item:',
   'decisions: { "statement": string, "source_quote": string }',
-  'actions: { "task": string, "owner": string or null, "due": ISO date string or null, "source_quote": string }',
+  'actions: { "task": string, "owner": a participant name from the list given, "due": ISO date string or null, "source_quote": string }',
   'open_questions: { "question": string, "source_quote": string }',
   'risks: { "risk": string, "source_quote": string }',
   'insights: { "insight": string, "kind": string, "who": string, "source_quote": string }',
