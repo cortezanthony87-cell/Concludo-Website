@@ -745,4 +745,29 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
       expect(odd.consent.note).toContain('Jordan Lee asked about recording.');
     });
   });
+  describe('v10b: quotes read down a table column', () => {
+    const TABLE = [
+      'Present: Jordan Lee, Casey Park, Anne-Marie Cole',
+      '| Item          | Outcome                   | Owner  |',
+      '|---------------|---------------------------|--------|',
+      '| 1. Software   | Renewal agreed with       | Casey  |',
+      '|               | the same vendor for one   |        |',
+      '|               | year only.                |        |',
+    ].join('\n');
+    test('T1. a quote that wraps inside one column is accepted; one that mixes columns is not', () => {
+      const ok = run({ decisions: [{ statement: 'Renew with the same vendor for one year', source_quote: 'Renewal agreed with the same vendor for one year only.' }] }, ruleRecord(), TABLE);
+      expect(ok.accepted.decisions).toHaveLength(1);
+      const bad = run({ decisions: [{ statement: 'Renew the software with Casey', source_quote: 'Software the same vendor for one year' }] }, ruleRecord(), TABLE);
+      expect(bad.rejected.map((r) => r.rule)).toEqual(['evidence_not_in_source']);
+    });
+  });
+  test('T2. the same task drafted twice for two participants becomes one action naming both owners', () => {
+    const a = { task: 'Cover one Saturday next December so the other can take leave', owner: 'Casey Park', due: null, source_quote: 'We agreed to move the review to Thursday afternoon.' };
+    const v = run({ actions: [a, { ...a, task: 'Cover one Saturday next December so the other can take some leave', owner: 'Jordan Lee' }] });
+    expect(v.accepted.actions).toHaveLength(1);
+    expect(v.accepted.actions[0].owner).toBe('Casey Park and Jordan Lee');
+    expect(v.rejected).toHaveLength(0);
+    const same = run({ actions: [a, { ...a, task: 'Cover one Saturday next December so the other can take some leave' }] });
+    expect(same.rejected.map((r) => r.rule)).toEqual(['duplicate']);
+  });
 });

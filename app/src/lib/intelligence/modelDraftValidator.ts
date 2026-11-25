@@ -165,6 +165,49 @@ function isObject(v: unknown): v is Record<string, any> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+/** One cell of a | table column: its normalised text and its 0-based source line. */
+export interface ColumnSegment {
+  norm: string;
+  line: number;
+}
+
+/**
+ * Reads each column of every | table in the source top to bottom, so a cell whose text wraps over
+ * several rows can be quoted as written in that cell. Only columns with text on two or more rows
+ * are returned.
+ */
+export function tableColumns(text: string): ColumnSegment[][] {
+  const cols: ColumnSegment[][] = [];
+  let block: Map<number, ColumnSegment[]> | null = null;
+  const flush = () => {
+    if (block) for (const segs of block.values()) if (segs.length > 1) cols.push(segs);
+    block = null;
+  };
+  String(text ?? '').split(/\r?\n/).forEach((l, i) => {
+    if ((l.match(/\|/g) ?? []).length >= 2) {
+      const b: Map<number, ColumnSegment[]> = block ?? new Map();
+      block = b;
+      l.split('|').forEach((cell, ci) => {
+        const n = normaliseText(cell);
+        if (!n) return;
+        const arr = b.get(ci) ?? [];
+        arr.push({ norm: n, line: i });
+        b.set(ci, arr);
+      });
+    } else flush();
+  });
+  flush();
+  return cols;
+}
+
+const COLUMN_SEPARATOR = ' zqzcolzqz ';
+
+/** The normalised source, followed by its table columns read top to bottom, for quote checks only. */
+function quoteHaystack(normSource: string, text: string): string {
+  const cols = tableColumns(text).map((segs) => segs.map((s) => s.norm).join(' '));
+  return cols.length ? `${normSource}${COLUMN_SEPARATOR}${cols.join(COLUMN_SEPARATOR)}` : normSource;
+}
+
 function quoteInSource(normSource: string, quote: unknown): boolean {
   if (typeof quote !== 'string') return false;
   const q = normaliseText(quote);
@@ -448,6 +491,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
   result.parsed = true;
   const draft = parsed.value;
   const normSource = normaliseText(input.source?.text ?? '');
+  const normHay = quoteHaystack(normSource, input.source?.text ?? '');
   const resolved = resolveParticipants(draft, input.ruleRecord, normSource, input.sourceKind ?? 'transcript');
   const participants = resolved.names;
   result.replacementParticipants = resolved.replacement;
@@ -469,7 +513,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         reject('malformed_item');
         continue;
       }
-      if (!itemQuotes(item).some((q) => quoteInSource(normSource, q))) {
+      if (!itemQuotes(item).some((q) => quoteInSource(normHay, q))) {
         reject('evidence_not_in_source');
         continue;
       }
@@ -492,13 +536,20 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         continue;
       }
       const w = words(item[field]);
-      if (keptWords.some((k) => wordOverlap(k, w) >= DUPLICATE_OVERLAP)) {
+      const dupAt = keptWords.findIndex((k) => wordOverlap(k, w) >= DUPLICATE_OVERLAP);
+      if (dupAt >= 0) {
+        // The same task for a different participant: one action that names both owners.
+        const kept = survivors[dupAt];
+        if (category === 'actions' && typeof item.owner === 'string' && item.owner.trim() && typeof kept?.owner === 'string' && kept.owner.trim() && !kept.owner.toLowerCase().includes(item.owner.trim().toLowerCase())) {
+          survivors[dupAt] = { ...kept, owner: `${kept.owner} and ${item.owner.trim()}` };
+          continue;
+        }
         reject('duplicate');
         continue;
       }
-      const cleaned = sanitiseEvidence(item, normSource);
+      const cleaned = sanitiseEvidence(item, normHay);
       survivorDropped.push(cleaned.dropped);
-      survivors.push(withReadableEvidence(withSafeDisplayQuote(cleaned.item, normSource), normSource));
+      survivors.push(withReadableEvidence(withSafeDisplayQuote(cleaned.item, normHay), normHay));
       keptWords.push(w);
     }
     const ruleCount = Array.isArray((input.ruleRecord as any)?.[category]) ? (input.ruleRecord as any)[category].length : 0;
@@ -527,8 +578,8 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     }
   }
   result.rejectedCount = result.rejected.length;
-  result.nextMeeting = validateNextMeeting(normSource, draft.next_meeting);
-  result.consent = validateConsent(normSource, draft.consent, participants, input.source?.text ?? '');
+  result.nextMeeting = validateNextMeeting(normHay, draft.next_meeting);
+  result.consent = validateConsent(normSource, draft.consent, participants, input.source?.text ?? '', normHay);
   return result;
 }
 
@@ -547,10 +598,10 @@ function nameList(v: unknown): string[] | null {
  * The model's account of recording consent. Used only when the rule record found none.
  * Accepted only if its quote is in the source and every name it gives is a participant.
  */
-function validateConsent(normSource: string, c: unknown, participants: string[], sourceText?: string): ModelConsent | null {
+function validateConsent(normSource: string, c: unknown, participants: string[], sourceText?: string, normHay: string = normSource): ModelConsent | null {
   if (!isObject(c)) return null;
   if (sourceText !== undefined) c = { ...c, source_quote: widenShortQuote(sourceText, normSource, c.source_quote) };
-  if (!isObject(c) || !quoteInSource(normSource, c.source_quote)) return null;
+  if (!isObject(c) || !quoteInSource(normHay, c.source_quote)) return null;
   const agreed = nameList(c.agreed);
   const declined = nameList(c.declined);
   const notAsked = nameList(c.not_asked);

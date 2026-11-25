@@ -108,4 +108,9 @@ describe('modelDraftShape', () => {
     expect(merged.warnings).not.toContain('consent_not_recorded');
     expect(merged.warnings).toContain('other');
   });
+  test('S8. locateQuote finds a quote read down a table column at the row where it starts', () => {
+    const table = ['Notes', '| Item | Outcome |', '| 1. Software | Renewal agreed with |', '|  | the same vendor for one |', '|  | year only. |'].join('\n');
+    expect(locateQuote({ text: table, kind: 'notes' }, [], 'Renewal agreed with the same vendor for one year only.')).toEqual({ line: 3 });
+    expect(locateQuote({ text: table, kind: 'notes' }, [], 'the same vendor for one year only')).toEqual({ line: 4 });
+  });
 });

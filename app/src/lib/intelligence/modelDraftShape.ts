@@ -13,7 +13,7 @@
  */
 import { refresh } from './meetingEngine';
 import type { MeetingModel, Evidence, Decision, Action, Risk, OpenItem, InsightItem, StatementToVerify, OpenQuestionItem } from './meetingEngine';
-import { normaliseText } from './modelDraftValidator';
+import { normaliseText, tableColumns } from './modelDraftValidator';
 
 const MIN_MATCH_WORDS = 4;
 const INSIGHT_KINDS = new Set(['feedback_positive', 'concern', 'advice', 'offer', 'market_intel', 'context']);
@@ -31,6 +31,24 @@ interface LocatedQuote {
   speaker?: string;
 }
 
+/** The 0-based line where a quote read down one table column starts, or -1. */
+function locateInColumns(text: string, q: string): number {
+  for (const segs of tableColumns(text)) {
+    let joined = '';
+    const starts: number[] = [];
+    for (const seg of segs) {
+      starts.push(joined.length + 1);
+      joined += ` ${seg.norm}`;
+    }
+    const at = `${joined} `.indexOf(` ${q} `);
+    if (at < 0) continue;
+    let k = 0;
+    while (k + 1 < starts.length && starts[k + 1] <= at + 1) k++;
+    return segs[k].line;
+  }
+  return -1;
+}
+
 /** Finds the 1-based line where a quote starts, and the speaker and time for that line. */
 export function locateQuote(source: ShapeSource, participants: string[], quote: string): LocatedQuote | null {
   const lines = source.text.split(/\r?\n/);
@@ -43,6 +61,7 @@ export function locateQuote(source: ShapeSource, participants: string[], quote: 
     const probe = ` ${qWords.slice(0, n).join(' ')} `;
     found = normLines.findIndex((l) => l.includes(probe));
   }
+  if (found < 0) found = locateInColumns(source.text, qWords.join(' '));
   if (found < 0) return null;
   const out: LocatedQuote = { line: found + 1 };
   if (source.kind !== 'transcript') return out;
