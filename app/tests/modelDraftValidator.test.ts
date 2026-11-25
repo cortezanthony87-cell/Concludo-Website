@@ -122,16 +122,16 @@ describe('modelDraftValidator', () => {
   });
 
   test('6. a category over the cap is trimmed and reported', () => {
-    // rule record has 1 decision, so the cap is 2 * 1 + 4 = 6
-    const items = Array.from({ length: 8 }, (_, i) => ({
+    // rule record has 1 decision, so the formula gives 2 * 1 + 4 = 6, raised to the floor of 15
+    const items = Array.from({ length: 17 }, (_, i) => ({
       statement: `Distinct invented topic number${'x'.repeat(i + 1)} alpha${'y'.repeat(i + 1)} beta${'z'.repeat(i + 1)}`,
       source_quote: 'We agreed to move the review to Thursday afternoon',
     }));
     const v = run({ decisions: items });
-    expect(v.accepted.decisions).toHaveLength(6);
+    expect(v.accepted.decisions).toHaveLength(15);
     expect(v.rejected.filter((r) => r.rule === 'category_cap')).toHaveLength(2);
     expect(v.capNotes).toHaveLength(1);
-    expect(v.capNotes[0]).toMatchObject({ category: 'decisions', cap: 6, ruleCount: 1, survivors: 8, kept: 6, trimmed: 2 });
+    expect(v.capNotes[0]).toMatchObject({ category: 'decisions', cap: 15, ruleCount: 1, survivors: 17, kept: 15, trimmed: 2 });
     // trimmed items are the later ones
     expect(v.accepted.decisions[0]).toEqual({ ...items[0], evidence: [{ quote: items[0].source_quote }] });
   });
@@ -615,5 +615,37 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
     const m: any = mergeModelDraft(rule, { decisions: [{ statement: 'Move the review to Thursday afternoon', source_quote: 'We agreed to move the review to Thursday afternoon' }] }, { name: 'invented.txt', kind: 'transcript', text });
     expect(m.drafting_method).toBe('model');
     expect(() => toMarkdown(m)).not.toThrow();
+  });
+
+  describe('consent from the model (only when the rule record found none)', () => {
+    const CTEXT = [
+      'Jordan Lee: Is everyone happy for me to record this call?',
+      'Casey Park: Yes, go ahead.',
+      'Anne-Marie Cole: I would rather you did not record it.',
+      'Jordan Lee: We agreed to move the review to Thursday afternoon.',
+    ].join('\n');
+    const noConsentRule = () => ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } });
+    const draft = (consent: unknown) => ({ consent, decisions: [goodDecision()] });
+
+    test('C1. a validated model consent fills a rule record that found none', () => {
+      const m: any = mergeModelDraft(noConsentRule(), draft({ asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Anne-Marie Cole'], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
+      expect(m.consent.asked_by).toBe('Jordan Lee');
+      expect(m.consent.answered_by).toBe('Casey Park');
+      expect(m.consent.note).toContain('Declined: Anne-Marie Cole');
+      expect(m.consent.source_quote).toBe('Is everyone happy for me to record this call?');
+    });
+
+    test('C2. the rule record wins when it already found who asked', () => {
+      const rule = ruleRecord();
+      const m: any = mergeModelDraft(rule, draft({ asked_by: 'Casey Park', agreed: [], declined: [], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
+      expect(m.consent).toEqual(rule.consent);
+    });
+
+    test('C3. a model consent with an unfound quote or a non participant is ignored', () => {
+      const badQuote: any = mergeModelDraft(noConsentRule(), draft({ asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: [], not_asked: [], source_quote: 'Everyone agreed to be recorded today' }), { ...source, text: CTEXT });
+      expect(badQuote.consent.asked_by).toBeNull();
+      const badName: any = mergeModelDraft(noConsentRule(), draft({ asked_by: 'Jordan Lee', agreed: ['Invented Person'], declined: [], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
+      expect(badName.consent.asked_by).toBeNull();
+    });
   });
 });

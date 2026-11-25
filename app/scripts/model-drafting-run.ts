@@ -1,7 +1,7 @@
 /**
  * Command-line test script for one model drafting run. Never imported by app
  * code, never bundled. Usage:
- *   bun run scripts/model-drafting-run.ts <sourceFile> <transcript|notes> <YYYY-MM-DD> <outDir>
+ *   bun run scripts/model-drafting-run.ts <sourceFile> <transcript|notes|document> <YYYY-MM-DD> <outDir>
  * The key is read only from the environment variable ANTHROPIC_DRAFTING_TEST_KEY.
  * It is never printed, logged or written.
  */
@@ -11,6 +11,7 @@ import { analyseMeeting, toMarkdown } from '../src/lib/intelligence/meetingEngin
 import { exportStandaloneHtml } from '../src/features/meeting-output/studio.js';
 import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserMessage } from '../src/lib/intelligence/modelDraftPrompt';
 import { mergeModelDraft } from '../src/lib/intelligence/modelDraftValidator';
+import { shapeModelRecord } from '../src/lib/intelligence/modelDraftShape';
 
 const MODEL = 'claude-sonnet-5-5';
 const URL = 'https://api.anthropic.com/v1/messages';
@@ -24,9 +25,9 @@ const key = process.env.ANTHROPIC_DRAFTING_TEST_KEY;
 if (!key) fail('the required environment variable ANTHROPIC_DRAFTING_TEST_KEY is not set');
 
 const [srcPath, kindArg, meetingDate, outDir] = process.argv.slice(2);
-if (!srcPath || !kindArg || !meetingDate || !outDir) fail('usage: model-drafting-run.ts <sourceFile> <transcript|notes> <YYYY-MM-DD> <outDir>');
-if (kindArg !== 'transcript' && kindArg !== 'notes') fail('source kind must be transcript or notes');
-const kind = kindArg as 'transcript' | 'notes';
+if (!srcPath || !kindArg || !meetingDate || !outDir) fail('usage: model-drafting-run.ts <sourceFile> <transcript|notes|document> <YYYY-MM-DD> <outDir>');
+if (kindArg !== 'transcript' && kindArg !== 'notes' && kindArg !== 'document') fail('source kind must be transcript, notes or document');
+const kind = kindArg as 'transcript' | 'notes' | 'document';
 if (existsSync(join(outDir, 'usage.json')) || existsSync(join(outDir, 'model_raw_response.txt'))) fail('an attempt is already recorded in this folder; no retry');
 mkdirSync(outDir, { recursive: true });
 
@@ -40,7 +41,7 @@ const participants: string[] = (ruleRecord.participants ?? []).map((p: any) => p
 const user = buildUserMessage({ sourceText: text, sourceKind: kind, meetingDate, participants });
 
 const ctl = new AbortController();
-const timer = setTimeout(() => ctl.abort(), 60000);
+const timer = setTimeout(() => ctl.abort(), 120000);
 let status = 0;
 let body: any;
 try {
@@ -84,6 +85,7 @@ const fence = draftText.match(/^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```$/);
 if (fence) draftText = fence[1].trim();
 
 const merged: any = mergeModelDraft(ruleRecord, draftText, { text, kind, name }, kind);
+if (merged.drafting_method === 'model') shapeModelRecord(merged, { text, kind, name });
 writeFileSync(join(outDir, 'meeting_record.json'), JSON.stringify(merged, null, 2));
 const counts: Record<string, number> = {};
 for (const c of ['decisions', 'actions', 'open_questions', 'risks', 'insights', 'statements_to_verify']) counts[c] = Array.isArray(merged[c]) ? merged[c].length : 0;

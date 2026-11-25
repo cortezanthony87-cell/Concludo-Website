@@ -92,6 +92,16 @@ export interface ValidationResult {
   replacementParticipants: { name: string; role?: string; present: boolean }[] | null;
   /** Model participant names dropped because they do not appear in the source. */
   droppedParticipants: string[];
+  /** The model's consent finding, only when its quote is found in the source and every name is a participant. */
+  consent: ModelConsent | null;
+}
+
+export interface ModelConsent {
+  asked_by: string | null;
+  answered_by: string | null;
+  at: null;
+  note: string;
+  source_quote: string;
 }
 
 export interface MergedRecord extends MeetingModel {
@@ -107,6 +117,8 @@ const MIN_QUOTE_WORDS = 4;
 const DUPLICATE_OVERLAP = 0.8;
 const CAP_MULTIPLIER = 2;
 const CAP_ALLOWANCE = 4;
+/** The cap never falls below this, so a weak rule engine count (notes, documents) does not trim real items. */
+const CAP_FLOOR = 15;
 const MAJORITY_LOSS = 0.5;
 
 /** The text field that carries each category's statement. */
@@ -369,6 +381,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     nextMeeting: null,
     replacementParticipants: null,
     droppedParticipants: [],
+    consent: null,
   };
   const parsed = parseDraft(input?.draft);
   if (!parsed.ok) {
@@ -431,7 +444,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       keptWords.push(w);
     }
     const ruleCount = Array.isArray((input.ruleRecord as any)?.[category]) ? (input.ruleRecord as any)[category].length : 0;
-    const cap = CAP_MULTIPLIER * ruleCount + CAP_ALLOWANCE;
+    const cap = Math.max(CAP_MULTIPLIER * ruleCount + CAP_ALLOWANCE, CAP_FLOOR);
     if (survivors.length > cap) {
       const trimmed = survivors.slice(cap);
       for (const item of trimmed) result.rejected.push({ category, item, rule: 'category_cap' });
@@ -442,7 +455,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         survivors: survivors.length,
         kept: cap,
         trimmed: trimmed.length,
-        reason: `${category} exceeded the cap of ${cap} (twice the ${ruleCount} rule engine item${ruleCount === 1 ? '' : 's'} plus ${CAP_ALLOWANCE}); ${trimmed.length} trimmed`,
+        reason: `${category} exceeded the cap of ${cap} (twice the ${ruleCount} rule engine item${ruleCount === 1 ? '' : 's'} plus ${CAP_ALLOWANCE}, at least ${CAP_FLOOR}); ${trimmed.length} trimmed`,
       });
       result.accepted[category] = survivors.slice(0, cap);
       result.evidenceDropped += survivorDropped.slice(0, cap).reduce((a, b) => a + b, 0);
@@ -453,7 +466,49 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
   }
   result.rejectedCount = result.rejected.length;
   result.nextMeeting = validateNextMeeting(normSource, draft.next_meeting);
+  result.consent = validateConsent(normSource, draft.consent, participants);
   return result;
+}
+
+function nameList(v: unknown): string[] | null {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) return null;
+  const out: string[] = [];
+  for (const n of v) {
+    if (typeof n !== 'string' || !n.trim()) return null;
+    out.push(n.trim());
+  }
+  return out;
+}
+
+/**
+ * The model's account of recording consent. Used only when the rule record found none.
+ * Accepted only if its quote is in the source and every name it gives is a participant.
+ */
+function validateConsent(normSource: string, c: unknown, participants: string[]): ModelConsent | null {
+  if (!isObject(c)) return null;
+  if (!quoteInSource(normSource, c.source_quote)) return null;
+  const agreed = nameList(c.agreed);
+  const declined = nameList(c.declined);
+  const notAsked = nameList(c.not_asked);
+  if (!agreed || !declined || !notAsked) return null;
+  const askedBy = typeof c.asked_by === 'string' && c.asked_by.trim() ? c.asked_by.trim() : null;
+  const all = [...agreed, ...declined, ...notAsked, ...(askedBy ? [askedBy] : [])];
+  if (all.some((n) => !ownerIsParticipant(n, participants))) return null;
+  if (!askedBy && agreed.length + declined.length > 0) return null;
+  const parts: string[] = [];
+  if (askedBy) parts.push(`${askedBy} asked about recording.`);
+  if (agreed.length) parts.push(`Agreed: ${agreed.join(', ')}.`);
+  if (declined.length) parts.push(`Declined: ${declined.join(', ')}, so the meeting was not recorded with their consent.`);
+  if (notAsked.length) parts.push(`Not asked: ${notAsked.join(', ')}. Consent was not recorded for them.`);
+  if (!askedBy) parts.push('Consent was not asked.');
+  return {
+    asked_by: askedBy,
+    answered_by: agreed.length ? agreed.join(', ') : null,
+    at: null,
+    note: parts.join(' '),
+    source_quote: String(c.source_quote),
+  };
 }
 
 /* ------------------------------------------------------------------ merge */
@@ -493,6 +548,10 @@ export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, s
     out.next_meeting = v.nextMeeting;
   }
   if (v.replacementParticipants) o.participants = structuredClone(v.replacementParticipants);
+  // Consent: the rule record's finding stands whenever it found who asked. Only when it found
+  // nothing does a validated model finding fill the gap.
+  const ruleConsent = (ruleRecord as any).consent;
+  if (v.consent && !(ruleConsent && ruleConsent.asked_by)) o.consent = structuredClone(v.consent);
   out.drafting_method = 'model';
   out.rejected_model_items = structuredClone(v.rejected);
   const warnings = Array.isArray(out.warnings) ? out.warnings : [];

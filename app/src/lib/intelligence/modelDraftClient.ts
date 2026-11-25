@@ -10,6 +10,7 @@
 import type { MeetingModel } from './meetingEngine';
 import { mergeModelDraft, type MergedRecord } from './modelDraftValidator';
 import { PROMPT_VERSION, SYSTEM_PROMPT, buildUserMessage } from './modelDraftPrompt';
+import { shapeModelRecord } from './modelDraftShape';
 
 export type ModelTransport = (req: { system: string; user: string; maxOutputTokens: number }) => Promise<string>;
 
@@ -95,6 +96,9 @@ export async function draftWithModel(args: {
   if (typeof response !== 'string') return fallback(ruleRecord, 'model call failed');
 
   const merged = mergeModelDraft(ruleRecord, response, { text: sourceText, kind: sourceKind }, sourceKind) as DraftedRecord;
-  if (merged.drafting_method === 'model') merged.drafting_prompt_version = PROMPT_VERSION;
+  if (merged.drafting_method === 'model') {
+    shapeModelRecord(merged, { text: sourceText, kind: sourceKind });
+    merged.drafting_prompt_version = PROMPT_VERSION;
+  }
   return merged;
 }

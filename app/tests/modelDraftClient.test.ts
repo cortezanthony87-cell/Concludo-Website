@@ -211,11 +211,11 @@ describe('modelDraftClient', () => {
     for (const key of ['decisions', 'actions', 'open_questions', 'risks', 'insights', 'statements_to_verify', 'next_meeting', 'source_quote']) {
       expect(SYSTEM_PROMPT).toContain(key);
     }
-    expect(PROMPT_VERSION).toBe('v4');
+    expect(PROMPT_VERSION).toBe('v5');
   });
 
   test('10. the two new modules have no network, SDK, environment or supabase use', () => {
-    for (const f of ['modelDraftPrompt.ts', 'modelDraftClient.ts']) {
+    for (const f of ['modelDraftPrompt.ts', 'modelDraftClient.ts', 'modelDraftShape.ts']) {
       const text = readFileSync(join(import.meta.dir, '../src/lib/intelligence', f), 'utf8');
       expect(text).not.toMatch(/\bfetch\b/);
       expect(text).not.toMatch(/XMLHttpRequest|WebSocket|node:net|node:http|node:https|node:dgram|node:tls/);
@@ -224,12 +224,12 @@ describe('modelDraftClient', () => {
       expect(text).not.toMatch(/@anthropic|anthropic|openai|@google|\bsdk\b/i);
       expect(text).not.toMatch(/console\./);
       const imports = text.match(/^import .*$/gm) ?? [];
-      for (const i of imports) expect(i).toMatch(/from '\.\/(meetingEngine|modelDraftValidator|modelDraftPrompt)'/);
+      for (const i of imports) expect(i).toMatch(/from '\.\/(meetingEngine|modelDraftValidator|modelDraftPrompt|modelDraftShape)'/);
     }
   });
 
-  test('11. prompt v4 carries rule 13 and every field name the validator reads', () => {
-    expect(PROMPT_VERSION).toBe('v4');
+  test('11. prompt v5 carries rule 13 and every field name the validator reads', () => {
+    expect(PROMPT_VERSION).toBe('v5');
     expect(SYSTEM_PROMPT).toContain('13. Use exactly this shape for each item:');
     const lines = SYSTEM_PROMPT.split('\n');
     const i12 = lines.findIndex((l) => l.startsWith('12.'));
