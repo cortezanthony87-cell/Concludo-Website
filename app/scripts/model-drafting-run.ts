@@ -47,7 +47,7 @@ try {
   const res = await fetch(URL, {
     method: 'POST',
     headers: { 'x-api-key': key as string, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 4000, temperature: 0, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 4000, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: user }] }),
     signal: ctl.signal,
   });
   status = res.status;
