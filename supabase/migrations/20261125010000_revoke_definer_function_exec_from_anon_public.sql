@@ -1,0 +1,143 @@
+-- Migration 1: close SECURITY DEFINER function exposure (live project dikthezsghsssnwtctem)
+-- Authorised by Anthony (brief Live_Definer_Function_Fix_v1, 25 Nov 2026). Grants only: no table, policy, function body or setting changes.
+-- Rollback file: rollback_restore_grants.sql (captured before this migration).
+
+-- 1. Revoke EXECUTE from anon and PUBLIC on every SECURITY DEFINER function in public (120, incl. overloads)
+revoke execute on function public.accept_team_invitation(uuid) from public, anon;
+revoke execute on function public.active_grant_tier(uuid) from public, anon;
+revoke execute on function public.add_organization_member_by_email(uuid,text,text) from public, anon;
+revoke execute on function public.admin_set_user_suspension(uuid,uuid,boolean) from public, anon;
+revoke execute on function public.apply_stripe_webhook_event(text,jsonb) from public, anon;
+revoke execute on function public.attach_stripe_customer_to_checkout_attempt(uuid,uuid,text) from public, anon;
+revoke execute on function public.can_use_feature(uuid,text) from public, anon;
+revoke execute on function public.check_endpoint_report_permission() from public, anon;
+revoke execute on function public.check_feature_access(text) from public, anon;
+revoke execute on function public.check_team_creation_permission() from public, anon;
+revoke execute on function public.claim_stripe_webhook_event(text,text,jsonb) from public, anon;
+revoke execute on function public.create_or_reuse_checkout_attempt(uuid,text,text,integer,text,uuid) from public, anon;
+revoke execute on function public.create_team_invitation(uuid,text,text) from public, anon;
+revoke execute on function public.current_entitlement() from public, anon;
+revoke execute on function public.decline_or_revoke_team_invitation(uuid) from public, anon;
+revoke execute on function public.effective_plan_for_user(uuid) from public, anon;
+revoke execute on function public.enforce_billing_account_scope() from public, anon;
+revoke execute on function public.expire_abandoned_team_pending_accounts() from public, anon;
+revoke execute on function public.expire_stripe_checkout_attempt(uuid,uuid,text) from public, anon;
+revoke execute on function public.get_organization_admin_presence(uuid) from public, anon;
+revoke execute on function public.get_organization_retention_days(uuid,uuid,text) from public, anon;
+revoke execute on function public.get_organization_role(uuid,uuid) from public, anon;
+revoke execute on function public.get_team_member_role(uuid,uuid) from public, anon;
+revoke execute on function public.handle_action_tracker_update() from public, anon;
+revoke execute on function public.handle_decision_memory_update() from public, anon;
+revoke execute on function public.handle_new_user_claude_connection() from public, anon;
+revoke execute on function public.handle_new_user() from public, anon;
+revoke execute on function public.handle_output_insert() from public, anon;
+revoke execute on function public.handle_output_update() from public, anon;
+revoke execute on function public.handle_project_compatibility() from public, anon;
+revoke execute on function public.handle_project_update() from public, anon;
+revoke execute on function public.handle_transcript_insert() from public, anon;
+revoke execute on function public.handle_transcript_update() from public, anon;
+revoke execute on function public.has_active_project_scope(uuid,uuid) from public, anon;
+revoke execute on function public.has_active_team_seat(uuid,uuid) from public, anon;
+revoke execute on function public.has_feature(uuid,text) from public, anon;
+revoke execute on function public.is_admin() from public, anon;
+revoke execute on function public.is_org_admin(uuid,uuid) from public, anon;
+revoke execute on function public.is_org_member(uuid,uuid) from public, anon;
+revoke execute on function public.is_organization_member(uuid,uuid) from public, anon;
+revoke execute on function public.is_record_on_legal_hold(uuid,uuid) from public, anon;
+revoke execute on function public.is_team_member(uuid,uuid) from public, anon;
+revoke execute on function public.is_video_owner() from public, anon;
+revoke execute on function public.mark_stripe_webhook_event_failed(text,text) from public, anon;
+revoke execute on function public.okh_expire_old_proposals() from public, anon;
+revoke execute on function public.okh_generate_weekly_report() from public, anon;
+revoke execute on function public.okh_has_role(uuid,text) from public, anon;
+revoke execute on function public.okh_hub_is_privileged(uuid) from public, anon;
+revoke execute on function public.okh_prune_snapshots() from public, anon;
+revoke execute on function public.okh_run_freshness_check() from public, anon;
+revoke execute on function public.okh_send_stale_digest() from public, anon;
+revoke execute on function public.okh_user_workspace_role(uuid) from public, anon;
+revoke execute on function public.on_team_created_link_billing() from public, anon;
+revoke execute on function public.permanent_delete_action(uuid) from public, anon;
+revoke execute on function public.permanent_delete_copilot_conversation(uuid,uuid) from public, anon;
+revoke execute on function public.permanent_delete_copilot_prompt(uuid,uuid) from public, anon;
+revoke execute on function public.permanent_delete_decision(uuid) from public, anon;
+revoke execute on function public.permanent_delete_endpoint_report(uuid) from public, anon;
+revoke execute on function public.permanent_delete_executive_briefing(uuid,uuid) from public, anon;
+revoke execute on function public.permanent_delete_knowledge_node(uuid,uuid) from public, anon;
+revoke execute on function public.permanent_delete_lesson_learned(uuid,uuid) from public, anon;
+revoke execute on function public.permanent_delete_output(uuid) from public, anon;
+revoke execute on function public.permanent_delete_project(uuid) from public, anon;
+revoke execute on function public.permanent_delete_strategic_briefing(uuid,uuid) from public, anon;
+revoke execute on function public.permanent_delete_strategic_digital_twin(uuid,uuid) from public, anon;
+revoke execute on function public.permanent_delete_strategic_scenario(uuid,uuid) from public, anon;
+revoke execute on function public.prevent_checkout_session_snapshot_mutation() from public, anon;
+revoke execute on function public.protect_profile_fields() from public, anon;
+revoke execute on function public.purge_expired_records() from public, anon;
+revoke execute on function public.purge_unconfirmed_auth_users() from public, anon;
+revoke execute on function public.purge_user_expired_records() from public, anon;
+revoke execute on function public.purge_user_expired_records(uuid) from public, anon;
+revoke execute on function public.record_admin_heartbeat(uuid,text,text,text) from public, anon;
+revoke execute on function public.record_stripe_checkout_session(uuid,uuid,text,text) from public, anon;
+revoke execute on function public.record_team_activity(uuid,text,text,text,uuid,text) from public, anon;
+revoke execute on function public.redeem_access_grant(text,uuid,inet) from public, anon;
+revoke execute on function public.remove_team_member(uuid,uuid) from public, anon;
+revoke execute on function public.rename_team(uuid,text) from public, anon;
+revoke execute on function public.rep_activate_release(text) from public, anon;
+revoke execute on function public.rep_add_spend(numeric) from public, anon;
+revoke execute on function public.rep_hit(text,integer,integer) from public, anon;
+revoke execute on function public.rep_is_admin() from public, anon;
+revoke execute on function public.rep_purge() from public, anon;
+revoke execute on function public.rep_repeat_alert() from public, anon;
+revoke execute on function public.rep_spend_today() from public, anon;
+revoke execute on function public.restore_action(uuid) from public, anon;
+revoke execute on function public.restore_copilot_conversation(uuid) from public, anon;
+revoke execute on function public.restore_copilot_prompt(uuid) from public, anon;
+revoke execute on function public.restore_decision(uuid) from public, anon;
+revoke execute on function public.restore_endpoint_report(uuid) from public, anon;
+revoke execute on function public.restore_executive_briefing(uuid,uuid) from public, anon;
+revoke execute on function public.restore_knowledge_node(uuid,uuid) from public, anon;
+revoke execute on function public.restore_lesson_learned(uuid,uuid) from public, anon;
+revoke execute on function public.restore_output(uuid) from public, anon;
+revoke execute on function public.restore_project(uuid) from public, anon;
+revoke execute on function public.restore_strategic_briefing(uuid) from public, anon;
+revoke execute on function public.restore_strategic_digital_twin(uuid) from public, anon;
+revoke execute on function public.restore_strategic_scenario(uuid) from public, anon;
+revoke execute on function public.revoke_access_grant(text,text) from public, anon;
+revoke execute on function public.search_meeting_history(text,text,text,text,text,date,date,text,uuid) from public, anon;
+revoke execute on function public.search_meeting_history(text,text,text,text,text,date,date) from public, anon;
+revoke execute on function public.soft_delete_action(uuid) from public, anon;
+revoke execute on function public.soft_delete_copilot_conversation(uuid,uuid) from public, anon;
+revoke execute on function public.soft_delete_copilot_prompt(uuid,uuid) from public, anon;
+revoke execute on function public.soft_delete_decision(uuid) from public, anon;
+revoke execute on function public.soft_delete_endpoint_report(uuid) from public, anon;
+revoke execute on function public.soft_delete_executive_briefing(uuid,uuid) from public, anon;
+revoke execute on function public.soft_delete_knowledge_node(uuid,uuid) from public, anon;
+revoke execute on function public.soft_delete_lesson_learned(uuid,uuid) from public, anon;
+revoke execute on function public.soft_delete_paid_team(uuid) from public, anon;
+revoke execute on function public.soft_delete_strategic_briefing(uuid,uuid) from public, anon;
+revoke execute on function public.soft_delete_strategic_digital_twin(uuid,uuid) from public, anon;
+revoke execute on function public.soft_delete_strategic_scenario(uuid,uuid) from public, anon;
+revoke execute on function public.sync_billing_account_profile_plans(uuid) from public, anon;
+revoke execute on function public.sync_profile_plan(uuid) from public, anon;
+revoke execute on function public.sync_project_team_context() from public, anon;
+revoke execute on function public.team_has_live_subscription(uuid) from public, anon;
+revoke execute on function public.transfer_team_ownership(uuid,uuid) from public, anon;
+revoke execute on function public.update_team_member_role(uuid,uuid,text) from public, anon;
+revoke execute on function public.verify_organization_domain(uuid) from public, anon;
+
+-- 2. New functions created by postgres in public are no longer executable by anon or PUBLIC by default
+alter default privileges for role postgres in schema public revoke execute on functions from anon, public;
+-- (supabase_admin default privileges: NOT DONE, the applying role postgres is not a member of supabase_admin)
+
+-- 3. System jobs: revoke from authenticated (service_role and owner keep execute; cron runs as postgres)
+revoke execute on function public.okh_expire_old_proposals() from authenticated;
+revoke execute on function public.okh_generate_weekly_report() from authenticated;
+revoke execute on function public.okh_prune_snapshots() from authenticated;
+revoke execute on function public.okh_run_freshness_check() from authenticated;
+revoke execute on function public.okh_send_stale_digest() from authenticated;
+revoke execute on function public.purge_unconfirmed_auth_users() from authenticated;
+
+-- Post-check: fail the migration if anon or PUBLIC can still execute any SECURITY DEFINER function in public
+do $$ declare n int; begin
+  select count(*) into n from pg_proc p where p.pronamespace='public'::regnamespace and p.prosecdef and p.prokind='f' and (has_function_privilege('anon',p.oid,'execute'));
+  if n <> 0 then raise exception 'anon can still execute % definer functions', n; end if;
+end $$;
