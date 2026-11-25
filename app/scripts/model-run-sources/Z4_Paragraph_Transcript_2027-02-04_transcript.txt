@@ -1,0 +1,113 @@
+Anika Rosen
+Thanks for making time, everyone. This is the monthly clinic management meeting for Harbourview Physiotherapy. Tomasz is going to run the agenda and Louise has kindly agreed to take rough notes, but I also want to record the audio so we don't miss anything. Before we do, I'll ask each of you in turn whether that's all right. Tomasz, are you comfortable being recorded?
+
+Tomasz Wilk
+Yes, that's fine with me. I run the agenda anyway so I'm used to being on the record. First item is the waiting list. As of this morning we have forty-one people waiting for a first appointment with a senior physio, and the longest wait is about five weeks. I'd call that unsustainable, because the target we set in November was three weeks. Chidi, you carry most of the senior caseload, so I wanted your view on what is realistic.
+
+Chidi Okafor
+I'm happy to be recorded as well. On the waiting list, honestly, the problem is not demand, it is that I am the only person doing the complex shoulder and spine assessments, and I'm booked out until the middle of March. I should say now, since it affects everything, that my partner has accepted a job in Perth and I will be leaving the clinic in June. I wasn't going to announce it today but it would be dishonest to plan the next six months without saying so. I would like to start handing over the complex cases from April so that nobody is left stranded.
+
+Anika Rosen
+Thank you for telling us, Chidi. I appreciate that. It is a real loss but we will plan around it, and it does mean the waiting list conversation is also a succession conversation. Louise, I haven't asked you yet about the recording.
+
+Louise Ferreira
+Oh, I'd actually rather not be recorded, if that's all right. I'm happy to be in the notes but I get nervous when I know there's audio. I know that's awkward since I'm meant to be the one taking notes.
+
+Anika Rosen
+That's perfectly fine, Louise. Tomasz, please stop the audio capture for Louise's part, and Louise, you carry on with your notes. We'll keep the written notes only for anything you say. Now, back to the waiting list. I had a thought on the way in. What if we added a Saturday morning clinic? Hypothetically, if two of us worked every second Saturday, that would clear about twelve appointments a month. I'm not proposing it as settled, I'm asking whether it's worth exploring.
+
+Tomasz Wilk
+I'd say it's worth exploring, but I think we need numbers. If we open on Saturdays we pay penalty rates for reception and cleaning, and I haven't priced that. My instinct is that it would cost around two thousand a month, but that is only a guess. Ben, from the technology side, would the booking software even allow a different Saturday template?
+
+Ben Hartigan
+Joining late, sorry. From the technology side, yes, the software supports a separate template for Saturdays and it takes me about an hour to set up. I'll also say the booking system has never gone down in the three years I've looked after it, so I wouldn't worry about that part. The thing I would worry about is the backup. At the moment the nightly backup goes to a single drive in the storage cupboard, and that's the only copy. If that drive fails, we lose the appointment history. That is a genuine single point of failure and I have been meaning to raise it for months.
+
+Anika Rosen
+Ben, thank you for raising it. Is anyone against fixing the backup? Does anybody think we can leave it as it is?
+
+Tomasz Wilk
+No, I think we have to fix it.
+
+Louise Ferreira
+Agreed, absolutely.
+
+Chidi Okafor
+Same. A lost appointment history would be a disaster.
+
+Anika Rosen
+Then we are all of one mind. Ben, would you set up an offsite cloud backup and send me the monthly cost before you switch it on? Please don't switch anything on until I've seen the cost. Can you do that by the end of next week?
+
+Ben Hartigan
+Yes, I'll have the options and costs to you by the thirteenth.
+
+Anika Rosen
+Good. Now, the proposal from last month about moving to a four day clinic week. Tomasz, you drafted it.
+
+Tomasz Wilk
+I did, and having thought about it, I would withdraw it. The staff survey showed that most people want five days. Rather than pretend otherwise, I'd like the committee to vote it down formally so it's on the record that we considered it.
+
+Anika Rosen
+All right. Is there a seconder to reject it? Chidi?
+
+Chidi Okafor
+I second the motion to reject it.
+
+Anika Rosen
+Then all in favour of rejecting the four day week proposal? That's all four of us in the room, and Ben, are you with us on that?
+
+Ben Hartigan
+Yes, I vote to reject it.
+
+Anika Rosen
+Carried unanimously. The four day week proposal is formally rejected. On to the Saturday clinic. We have two views. Tomasz would like to wait until we have costings, and I would like to start in two weeks. Could we meet in the middle?
+
+Tomasz Wilk
+What if we ran a four week trial, starting on the twenty first of March, with one physio and one receptionist, and we judge it by how many appointments are actually booked? That way we don't commit to ongoing penalty rates.
+
+Anika Rosen
+I can live with that. Chidi?
+
+Chidi Okafor
+That works for me, as long as it is not me every Saturday, because I'm already stretched.
+
+Anika Rosen
+It won't be you every week. So the decision is a four week Saturday trial from the twenty first of March, one physio and one receptionist per Saturday, reviewed in April. Tomasz, can you work out the rosters?
+
+Tomasz Wilk
+Yes, I'll have draft rosters out within a fortnight.
+
+Anika Rosen
+Thank you. Next, the front desk. Louise, you've raised the phone system before.
+
+Louise Ferreira
+Yes. The problem is that after hours the phones go to a voicemail box that nobody checks until Monday, and last month we missed a request that turned out to be a workers compensation referral. Who is supposed to check the voicemail on weekends? I genuinely don't know whose job it is.
+
+Anika Rosen
+It's a good question and I'm not sure I have an answer. Does anyone want to take it on?
+
+Tomasz Wilk
+I can't do weekends, I have the kids.
+
+Chidi Okafor
+I'm not on the roster for admin tasks.
+
+Ben Hartigan
+I could set up a notification to someone's phone, but I'm not the right person to listen to the messages.
+
+Anika Rosen
+Right. So nobody has it. I'll leave that open and think about who it should be. Moving on, because we are running short. Ben, one more thing. Was there an answer to the question we asked last month about whether our accounting software can export to the new payroll tool?
+
+Ben Hartigan
+Yes, I checked this week. It can, through a standard CSV export, so there's no need to replace anything.
+
+Anika Rosen
+Wonderful, that closes that one. Finally, a quick bit of good news. A patient wrote a long note praising the exercise programme that Chidi designed for her knee recovery. She said she was back hiking after eight weeks.
+
+Chidi Okafor
+That's kind of her. Thank you.
+
+Louise Ferreira
+She was lovely. She also told me she'd recommend us to everyone she knows.
+
+Anika Rosen
+Let's pass that on to the whole team. Is there anything else? No? Then I'll close the meeting. Tomasz, please send the summary by the end of the day tomorrow, and remember to leave out anything Louise said about the recording. Thanks, everyone.
