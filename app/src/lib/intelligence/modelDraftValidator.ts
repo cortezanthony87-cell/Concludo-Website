@@ -552,6 +552,11 @@ export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, s
   // nothing does a validated model finding fill the gap.
   const ruleConsent = (ruleRecord as any).consent;
   if (v.consent && !(ruleConsent && ruleConsent.asked_by)) o.consent = structuredClone(v.consent);
+  else if (v.consent && ruleConsent && ruleConsent.asked_by && /Declined:|Not asked:/.test(v.consent.note)) {
+    // The rule finding stands, but a validated model finding can add who declined or was never asked.
+    const extra = v.consent.note.split(/(?<=\.)\s+/).filter((p) => /^(Declined|Not asked):/.test(p)).join(' ');
+    if (extra && !String(o.consent.note ?? '').includes(extra)) o.consent = { ...o.consent, note: `${o.consent.note ? `${o.consent.note} ` : ''}Model draft adds: ${extra}`.trim() };
+  }
   out.drafting_method = 'model';
   out.rejected_model_items = structuredClone(v.rejected);
   const warnings = Array.isArray(out.warnings) ? out.warnings : [];

@@ -641,6 +641,15 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
       expect(m.consent).toEqual(rule.consent);
     });
 
+    test('C4. when the rule record found who asked, a validated model finding only adds who declined', () => {
+      const rule = ruleRecord({ consent: { asked_by: 'Jordan Lee', answered_by: 'Casey Park', at: null, note: 'Jordan Lee asked.', source_quote: 'Is everyone happy for me to record this call?' } });
+      const m: any = mergeModelDraft(rule, draft({ asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Anne-Marie Cole'], not_asked: [], source_quote: 'Is everyone happy for me to record this call?' }), { ...source, text: CTEXT });
+      expect(m.consent.asked_by).toBe('Jordan Lee');
+      expect(m.consent.answered_by).toBe('Casey Park');
+      expect(m.consent.note).toContain('Jordan Lee asked.');
+      expect(m.consent.note).toContain('Declined: Anne-Marie Cole');
+    });
+
     test('C3. a model consent with an unfound quote or a non participant is ignored', () => {
       const badQuote: any = mergeModelDraft(noConsentRule(), draft({ asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: [], not_asked: [], source_quote: 'Everyone agreed to be recorded today' }), { ...source, text: CTEXT });
       expect(badQuote.consent.asked_by).toBeNull();
