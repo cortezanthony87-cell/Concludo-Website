@@ -47,7 +47,7 @@ try {
   const res = await fetch(URL, {
     method: 'POST',
     headers: { 'x-api-key': key as string, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 4000, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 8000, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: user }] }),
     signal: ctl.signal,
   });
   status = res.status;
@@ -66,7 +66,9 @@ if (status < 200 || status >= 300) {
   fail(`API returned HTTP ${status}: ${msg}`);
 }
 
-const raw: string = String(body?.content?.[0]?.text ?? '');
+const blocks: any[] = Array.isArray(body?.content) ? body.content : [];
+writeFileSync(join(outDir, 'content_block_types.json'), JSON.stringify(blocks.map((b: any) => b?.type ?? null), null, 2));
+const raw: string = blocks.filter((b: any) => b?.type === 'text').map((b: any) => String(b?.text ?? '')).join('');
 writeFileSync(join(outDir, 'model_raw_response.txt'), raw);
 writeFileSync(join(outDir, 'usage.json'), JSON.stringify({
   model_requested: MODEL,
