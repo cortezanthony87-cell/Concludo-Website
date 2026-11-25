@@ -94,7 +94,7 @@ export async function draftWithModel(args: {
   }
   if (typeof response !== 'string') return fallback(ruleRecord, 'model call failed');
 
-  const merged = mergeModelDraft(ruleRecord, response, { text: sourceText, kind: sourceKind }) as DraftedRecord;
+  const merged = mergeModelDraft(ruleRecord, response, { text: sourceText, kind: sourceKind }, sourceKind) as DraftedRecord;
   if (merged.drafting_method === 'model') merged.drafting_prompt_version = PROMPT_VERSION;
   return merged;
 }

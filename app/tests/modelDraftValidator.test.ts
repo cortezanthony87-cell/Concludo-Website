@@ -108,7 +108,7 @@ describe('modelDraftValidator', () => {
     const first = goodDecision();
     const dup = { ...goodDecision(), statement: 'Move the review to Thursday afternoon.' };
     const v = run({ decisions: [first, dup] });
-    expect(v.accepted.decisions).toEqual([first]);
+    expect(v.accepted.decisions).toEqual([{ ...first, evidence: [{ quote: first.source_quote }] }]);
     expect(v.rejected.map((r) => r.rule)).toEqual(['duplicate']);
   });
 
@@ -133,7 +133,7 @@ describe('modelDraftValidator', () => {
     expect(v.capNotes).toHaveLength(1);
     expect(v.capNotes[0]).toMatchObject({ category: 'decisions', cap: 6, ruleCount: 1, survivors: 8, kept: 6, trimmed: 2 });
     // trimmed items are the later ones
-    expect(v.accepted.decisions[0]).toEqual(items[0]);
+    expect(v.accepted.decisions[0]).toEqual({ ...items[0], evidence: [{ quote: items[0].source_quote }] });
   });
 
   test('7. the model cannot change the consent finding, participants or participant count', () => {
@@ -508,5 +508,112 @@ describe('next_meeting.raw_text (Part A)', () => {
     expect(m.next_meeting).toBeNull();
     const v = validateModelDraft({ source, ruleRecord: ruleRecord(), draft: { ...base(), next_meeting: { date: '2026-02-09', raw_text: 'invented line about the harbour', source_quote: 'another invented line about the harbour' } } });
     expect(v.nextMeeting).toBeNull();
+  });
+});
+
+describe('prompt v4 merge changes (invented snippets only)', () => {
+  const NOTES = [
+    'Attendees: Morgan Reyes, Sam Ortiz and Priya Nair.',
+    'Morgan Reyes confirmed the courtyard repaint will start in March.',
+    'Sam Ortiz will collect two quotes from painters by the end of the month.',
+    'Priya Nair is concerned that the scaffold hire may cost more than planned.',
+  ].join('\n');
+  const notesSource = { name: 'invented-notes.txt', kind: 'notes' as const, text: NOTES };
+  const notesRule = () =>
+    ruleRecord({
+      participants: [
+        { name: 'Morgan Reyes', role: 'chair', present: true },
+        { name: 'Recording', present: true },
+      ],
+    });
+  const notesDecision = () => ({
+    statement: 'The courtyard repaint will start in March',
+    source_quote: 'Morgan Reyes confirmed the courtyard repaint will start in March',
+  });
+
+  test('V1. evidence is added from source_quote when the item has none', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { decisions: [goodDecision()] }, source);
+    expect(m.decisions[0].evidence).toEqual([{ quote: 'We agreed to move the review to Thursday afternoon' }]);
+  });
+
+  test('V1b. valid existing evidence is left as it is', () => {
+    const ev = [{ quote: 'We agreed to move the review to Thursday afternoon', note: 'kept' }];
+    const m: any = mergeModelDraft(ruleRecord(), { decisions: [{ ...goodDecision(), evidence: ev }] }, source);
+    expect(m.decisions[0].evidence).toEqual(ev);
+  });
+
+  test('V1c. evidence whose entries were all dropped is rebuilt from the validated quote', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { decisions: [{ ...goodDecision(), evidence: [{ quote: 'The director promised an unlimited budget for the whole year' }] }] }, source);
+    expect(m.decisions[0].evidence).toEqual([{ quote: 'We agreed to move the review to Thursday afternoon' }]);
+  });
+
+  test('V2. notes: the model names replace a Recording style label', () => {
+    const m: any = mergeModelDraft(
+      notesRule(),
+      { decisions: [notesDecision()], participants: [{ name: 'Morgan Reyes' }, { name: 'Sam Ortiz' }, { name: 'Priya Nair' }] },
+      notesSource,
+      'notes',
+    );
+    expect(m.participants.map((p: any) => p.name)).toEqual(['Morgan Reyes', 'Sam Ortiz', 'Priya Nair']);
+    expect(m.participants.find((p: any) => p.name === 'Morgan Reyes').role).toBe('chair');
+    expect(JSON.stringify(m.participants)).not.toContain('Recording');
+  });
+
+  test('V3. a model name not in the source is dropped, with a warning naming it', () => {
+    const m: any = mergeModelDraft(
+      notesRule(),
+      { decisions: [notesDecision()], participants: [{ name: 'Morgan Reyes' }, { name: 'Zed Quill' }, { name: 'morgan reyes' }] },
+      notesSource,
+      'notes',
+    );
+    expect(m.participants.map((p: any) => p.name)).toEqual(['Morgan Reyes']);
+    expect(m.warnings.some((w: string) => w.includes('Zed Quill'))).toBe(true);
+  });
+
+  test('V3b. when no model name survives, the rule list is kept', () => {
+    const m: any = mergeModelDraft(notesRule(), { decisions: [notesDecision()], participants: [{ name: 'Zed Quill' }] }, notesSource, 'notes');
+    expect(m.participants.map((p: any) => p.name)).toEqual(['Morgan Reyes', 'Recording']);
+  });
+
+  test('V4. a transcript always keeps the rule list', () => {
+    const m: any = mergeModelDraft(ruleRecord(), { decisions: [goodDecision()], participants: [{ name: 'Jordan Lee' }] }, source);
+    expect(m.participants.map((p: any) => p.name)).toEqual(['Jordan Lee', 'Casey Park', 'Anne-Marie Cole']);
+    const explicit: any = mergeModelDraft(ruleRecord(), { decisions: [goodDecision()], participants: [{ name: 'Jordan Lee' }] }, source, 'transcript');
+    expect(explicit.participants.length).toBe(3);
+  });
+
+  test('V5. owners and who are checked against the final participant list', () => {
+    const draft = {
+      decisions: [notesDecision()],
+      participants: [{ name: 'Morgan Reyes' }, { name: 'Sam Ortiz' }],
+      actions: [
+        { task: 'Collect two quotes from painters', owner: 'Sam', due: null, source_quote: 'Sam Ortiz will collect two quotes from painters by the end of the month' },
+        { task: 'Collect two quotes from painters again', owner: 'Priya', due: null, source_quote: 'Sam Ortiz will collect two quotes from painters by the end of the month' },
+      ],
+      insights: [
+        { insight: 'Scaffold hire may cost more than planned', kind: 'concern', who: 'Priya Nair', source_quote: 'Priya Nair is concerned that the scaffold hire may cost more than planned' },
+        { insight: 'The repaint will start in March', kind: 'context', who: 'Morgan', source_quote: 'Morgan Reyes confirmed the courtyard repaint will start in March' },
+      ],
+    };
+    const m: any = mergeModelDraft(notesRule(), draft, notesSource, 'notes');
+    expect(m.actions.length).toBe(1);
+    expect(m.actions[0].owner).toBe('Sam');
+    expect(m.insights.length).toBe(1);
+    expect(m.insights[0].who).toBe('Morgan');
+    expect(m.rejected_model_items.map((r: any) => r.rule).sort()).toEqual(['owner_not_participant', 'who_not_participant']);
+  });
+
+  test('V6. toMarkdown runs on a merged record without throwing', async () => {
+    const { analyseMeeting, toMarkdown } = await import('../src/lib/intelligence/meetingEngine');
+    const text = [
+      'Jordan Lee: We agreed to move the review to Thursday afternoon.',
+      'Casey Park: I will send the updated checklist to the group by Friday.',
+      'Jordan Lee: Okay to record this meeting?',
+      'Casey Park: Yes, fine with me.',
+    ].join('\n');
+    const rule: any = analyseMeeting([{ name: 'invented.txt', kind: 'transcript', text }], { meetingDate: '2026-02-01', sourceType: 'transcript' });
+    const m: any = mergeModelDraft(rule, { decisions: [{ statement: 'Move the review to Thursday afternoon', source_quote: 'We agreed to move the review to Thursday afternoon' }] }, { name: 'invented.txt', kind: 'transcript', text });
+    expect(m.drafting_method).toBe('model');
+    expect(() => toMarkdown(m)).not.toThrow();
   });
 });

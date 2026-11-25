@@ -83,7 +83,7 @@ let draftText = raw.trim();
 const fence = draftText.match(/^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```$/);
 if (fence) draftText = fence[1].trim();
 
-const merged: any = mergeModelDraft(ruleRecord, draftText, { text, kind, name });
+const merged: any = mergeModelDraft(ruleRecord, draftText, { text, kind, name }, kind);
 writeFileSync(join(outDir, 'meeting_record.json'), JSON.stringify(merged, null, 2));
 const counts: Record<string, number> = {};
 for (const c of ['decisions', 'actions', 'open_questions', 'risks', 'insights', 'statements_to_verify']) counts[c] = Array.isArray(merged[c]) ? merged[c].length : 0;

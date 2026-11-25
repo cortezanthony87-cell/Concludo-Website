@@ -36,6 +36,7 @@ export type RejectionRule =
   | 'malformed_item'
   | 'evidence_not_in_source'
   | 'owner_not_participant'
+  | 'who_not_participant'
   | 'duplicate'
   | 'fragment'
   | 'category_cap';
@@ -56,6 +57,8 @@ export interface CategoryCapNote {
   reason: string;
 }
 
+export type SourceKind = 'transcript' | 'notes' | 'document';
+
 export interface ValidatorSource {
   text: string;
   kind: 'transcript' | 'notes' | 'document';
@@ -67,6 +70,8 @@ export interface ValidateInput {
   ruleRecord: MeetingModel;
   /** A parsed draft object, or a JSON string that is parsed here. */
   draft: unknown;
+  /** Source kind. Defaults to transcript. */
+  sourceKind?: SourceKind;
 }
 
 export interface ValidationResult {
@@ -83,6 +88,10 @@ export interface ValidationResult {
   /** Evidence entries removed from accepted items because their quote is not in the source. */
   evidenceDropped: number;
   nextMeeting: NextMeetingV3 | null;
+  /** The model's participants, only when they replace the rule record's list (notes and documents). */
+  replacementParticipants: { name: string; role?: string; present: boolean }[] | null;
+  /** Model participant names dropped because they do not appear in the source. */
+  droppedParticipants: string[];
 }
 
 export interface MergedRecord extends MeetingModel {
@@ -231,6 +240,55 @@ function participantNames(rule: MeetingModel): string[] {
     .filter(Boolean);
 }
 
+/**
+ * For notes and documents, the model's participants replace the rule record's
+ * list, but only names found whole in the source, deduplicated, and only when at
+ * least one name survives. Transcripts always keep the rule record's list.
+ */
+function resolveParticipants(
+  draft: Record<string, any>,
+  rule: MeetingModel,
+  normSource: string,
+  sourceKind: SourceKind,
+): { names: string[]; replacement: { name: string; role?: string; present: boolean }[] | null; dropped: string[] } {
+  const ruleNames = participantNames(rule);
+  if (sourceKind === 'transcript' || !Array.isArray(draft.participants)) return { names: ruleNames, replacement: null, dropped: [] };
+  const kept: string[] = [];
+  const seen = new Set<string>();
+  const dropped: string[] = [];
+  for (const entry of draft.participants) {
+    const name = typeof entry === 'string' ? entry : isObject(entry) && typeof entry.name === 'string' ? entry.name : '';
+    const key = normaliseText(name);
+    if (!key) continue;
+    if (!` ${normSource} `.includes(` ${key} `)) {
+      dropped.push(name.trim());
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(name.trim());
+  }
+  if (kept.length === 0) return { names: ruleNames, replacement: null, dropped };
+  const ruleList = Array.isArray(rule?.participants) ? rule.participants : [];
+  const replacement = kept.map((name) => {
+    const match = ruleList.find((p) => p && typeof p.name === 'string' && normaliseText(p.name) === normaliseText(name));
+    return match ? { ...match, name } : { name, present: true };
+  });
+  return { names: kept, replacement, dropped };
+}
+
+/**
+ * When an accepted item has no valid evidence array, set it to the validated
+ * source_quote so that toMarkdown and the app can read it. Existing valid
+ * evidence is left as it is.
+ */
+function withReadableEvidence(item: Record<string, any>, normSource: string): Record<string, any> {
+  if (Array.isArray(item.evidence) && item.evidence.length > 0) return item;
+  const quote = itemQuotes(item).find((q) => quoteInSource(normSource, q));
+  if (quote === undefined) return item;
+  return { ...item, evidence: [{ quote }] };
+}
+
 function ownerIsParticipant(owner: string, participants: string[]): boolean {
   const o = normaliseName(owner);
   if (!o) return false;
@@ -309,6 +367,8 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     rejectedCount: 0,
     evidenceDropped: 0,
     nextMeeting: null,
+    replacementParticipants: null,
+    droppedParticipants: [],
   };
   const parsed = parseDraft(input?.draft);
   if (!parsed.ok) {
@@ -318,7 +378,10 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
   result.parsed = true;
   const draft = parsed.value;
   const normSource = normaliseText(input.source?.text ?? '');
-  const participants = participantNames(input.ruleRecord);
+  const resolved = resolveParticipants(draft, input.ruleRecord, normSource, input.sourceKind ?? 'transcript');
+  const participants = resolved.names;
+  result.replacementParticipants = resolved.replacement;
+  result.droppedParticipants = resolved.dropped;
 
   for (const category of DRAFT_CATEGORIES) {
     const raw = draft[category];
@@ -347,6 +410,12 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
           continue;
         }
       }
+      if (category === 'insights' && item.who !== undefined && item.who !== null && item.who !== '') {
+        if (typeof item.who !== 'string' || !ownerIsParticipant(item.who, participants)) {
+          reject('who_not_participant');
+          continue;
+        }
+      }
       if (isFragment(item[field])) {
         reject('fragment');
         continue;
@@ -358,7 +427,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       }
       const cleaned = sanitiseEvidence(item, normSource);
       survivorDropped.push(cleaned.dropped);
-      survivors.push(withSafeDisplayQuote(cleaned.item, normSource));
+      survivors.push(withReadableEvidence(withSafeDisplayQuote(cleaned.item, normSource), normSource));
       keptWords.push(w);
     }
     const ruleCount = Array.isArray((input.ruleRecord as any)?.[category]) ? (input.ruleRecord as any)[category].length : 0;
@@ -398,8 +467,8 @@ function fallback(rule: MeetingModel, reason: string): MergedRecord {
   return out;
 }
 
-export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, source: ValidatorSource): MergedRecord {
-  const v = validateModelDraft({ source, ruleRecord, draft: modelDraft });
+export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, source: ValidatorSource, sourceKind: SourceKind = 'transcript'): MergedRecord {
+  const v = validateModelDraft({ source, ruleRecord, draft: modelDraft, sourceKind });
   if (!v.parsed) return fallback(ruleRecord, 'unparseable output');
   if (v.totalItems === 0) return fallback(ruleRecord, 'empty draft');
   if (v.rejectedCount > v.totalItems * MAJORITY_LOSS) {
@@ -423,11 +492,15 @@ export function mergeModelDraft(ruleRecord: MeetingModel, modelDraft: unknown, s
   if (!hasNextMeeting(ruleRecord.next_meeting) && !hasNextMeeting((ruleRecord as any).nextMeeting) && v.nextMeeting) {
     out.next_meeting = v.nextMeeting;
   }
+  if (v.replacementParticipants) o.participants = structuredClone(v.replacementParticipants);
   out.drafting_method = 'model';
   out.rejected_model_items = structuredClone(v.rejected);
   const warnings = Array.isArray(out.warnings) ? out.warnings : [];
   warnings.push(`Model draft used with ${v.rejectedCount} rejected item${v.rejectedCount === 1 ? '' : 's'} of ${v.totalItems}. See rejected_model_items.`);
   for (const n of v.capNotes) warnings.push(n.reason);
+  if (v.droppedParticipants.length > 0) {
+    warnings.push(`Model draft: participant${v.droppedParticipants.length === 1 ? '' : 's'} dropped because not found in the source: ${v.droppedParticipants.join(', ')}.`);
+  }
   if (v.evidenceDropped > 0) {
     warnings.push(`Model draft: ${v.evidenceDropped} evidence entr${v.evidenceDropped === 1 ? 'y was' : 'ies were'} dropped because the quote was not found in the source.`);
   }
