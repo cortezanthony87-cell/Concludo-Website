@@ -8,8 +8,8 @@
  * wired into analyseMeeting().
  */
 import type { MeetingModel } from './meetingEngine';
-import { mergeModelDraft, type MergedRecord } from './modelDraftValidator';
-import { PROMPT_VERSION, SYSTEM_PROMPT, buildUserMessage } from './modelDraftPrompt';
+import { combineDrafts, mergeModelDraft, type MergedRecord } from './modelDraftValidator';
+import { PROMPT_VERSION, SYSTEM_PROMPT, buildReviewMessage, buildUserMessage } from './modelDraftPrompt';
 import { shapeModelRecord } from './modelDraftShape';
 
 export type ModelTransport = (req: { system: string; user: string; maxOutputTokens: number }) => Promise<string>;
@@ -21,6 +21,16 @@ export const MAX_OUTPUT_TOKENS = 16000;
 export const CALL_TIMEOUT_MS = 240000;
 
 export type DraftedRecord = MergedRecord & { drafting_prompt_version?: string };
+
+function parsesAsDraft(t: string): boolean {
+  try {
+    const x = t.trim().replace(/^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```$/, '$1');
+    const v = JSON.parse(x);
+    return v !== null && typeof v === 'object' && !Array.isArray(v);
+  } catch {
+    return false;
+  }
+}
 
 function fallback(rule: MeetingModel, reason: string): DraftedRecord {
   const out = structuredClone(rule) as DraftedRecord;
@@ -66,6 +76,8 @@ export async function draftWithModel(args: {
   enabled?: boolean;
   /** Test hook only. Defaults to 60 seconds. */
   timeoutMs?: number;
+  /** Second pass for missed items. On unless false is passed. */
+  reviewPass?: boolean;
 }): Promise<DraftedRecord> {
   const { sourceText, sourceKind, meetingDate, ruleRecord, transport } = args;
   // On only when the caller passes enabled === true AND the constant is true AND a transport is given.
@@ -95,7 +107,22 @@ export async function draftWithModel(args: {
   }
   if (typeof response !== 'string') return fallback(ruleRecord, 'model call failed');
 
-  const merged = mergeModelDraft(ruleRecord, response, { text: sourceText, kind: sourceKind }, sourceKind) as DraftedRecord;
+  let draftText: string = response;
+  if (args.reviewPass !== false && parsesAsDraft(response)) {
+    // A failed or unusable second pass is ignored; the first draft stands.
+    try {
+      const review = await callWithTimeout(
+        transport,
+        { system: SYSTEM_PROMPT, user: buildReviewMessage({ sourceText, sourceKind, meetingDate, participants }, response), maxOutputTokens: MAX_OUTPUT_TOKENS },
+        typeof args.timeoutMs === 'number' ? args.timeoutMs : CALL_TIMEOUT_MS,
+      );
+      if (typeof review === 'string') draftText = combineDrafts(response, review);
+    } catch {
+      draftText = response;
+    }
+  }
+
+  const merged = mergeModelDraft(ruleRecord, draftText, { text: sourceText, kind: sourceKind }, sourceKind) as DraftedRecord;
   if (merged.drafting_method === 'model') {
     shapeModelRecord(merged, { text: sourceText, kind: sourceKind });
     merged.drafting_prompt_version = PROMPT_VERSION;

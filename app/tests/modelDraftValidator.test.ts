@@ -796,4 +796,25 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
     expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Jordan Lee', 'Casey Park']);
     expect(v.droppedParticipants).toEqual(['Video call transcript']);
   });
+  describe('v13: roles as owners, shared room microphone', () => {
+    const MEMO = ['MEMORANDUM', 'The Board resolved to keep the van. The Treasurer is to obtain a written estimate by 28 May.', 'Two Board members recorded that they were opposed.'].join('\n');
+    test('R1. a role the source names can own an action or hold a view; an unnamed role cannot', () => {
+      const v = validateModelDraft({ source: { ...source, kind: 'document', text: MEMO }, sourceKind: 'document', ruleRecord: ruleRecord({ participants: [] }), draft: {
+        participants: ['Treasurer'],
+        actions: [{ task: 'Obtain a written estimate for the tyres', owner: 'The Treasurer', due: '2027-05-28', source_quote: 'The Treasurer is to obtain a written estimate by 28 May.' },
+          { task: 'Approve the estimate for the tyres', owner: 'The President', due: null, source_quote: 'The Treasurer is to obtain a written estimate by 28 May.' }],
+        insights: [{ insight: 'Two members opposed the change', kind: 'disagreement', who: 'Two Board members', source_quote: 'Two Board members recorded that they were opposed.' }],
+      } } as any);
+      expect(v.accepted.actions.map((a: any) => a.owner)).toEqual(['The Treasurer']);
+      expect(v.rejected.map((r) => r.rule)).toEqual(['owner_not_participant']);
+      expect(v.accepted.insights).toHaveLength(1);
+    });
+    test('R2. with a shared room microphone, named people from the source join the speaker list', () => {
+      const text = ['Room: Okay, we are live. Amira, can you hear us?', 'Amira Haddad: Loud and clear.', 'Room: Joanne, you ran the numbers?', 'Room: Yes. Wes agrees.', 'Amira Haddad: Good.', 'Room: We agreed to move the review to Thursday afternoon.'].join('\n');
+      const rule = ruleRecord({ participants: [{ name: 'Amira Haddad', present: true }] });
+      const v = validateModelDraft({ source: { ...source, text }, sourceKind: 'transcript', ruleRecord: rule, draft: { participants: ['Amira Haddad', 'Joanne', 'Wes', 'Invented Person'], decisions: [] } } as any);
+      expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Amira Haddad', 'Joanne', 'Wes']);
+      expect(v.droppedParticipants).toEqual(['Invented Person']);
+    });
+  });
 });

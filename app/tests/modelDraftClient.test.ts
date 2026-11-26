@@ -100,12 +100,13 @@ describe('modelDraftClient', () => {
     expect(s.calls.length).toBe(0);
   });
 
-  test('2. enabled with a valid stub: model result, prompt version, one call, 16000 tokens', async () => {
+  test('2. enabled with a valid stub: model result, prompt version, a first call and a review call, 16000 tokens', async () => {
     const s = stub(async () => validDraft);
     const r: any = await draftOn({ ...base, ruleRecord: ruleRecord(), transport: s.fn, enabled: true });
     expect(r.drafting_method).toBe('model');
     expect(r.drafting_prompt_version).toBe(PROMPT_VERSION);
-    expect(s.calls.length).toBe(1);
+    expect(s.calls.length).toBe(2);
+    expect(s.calls[1].user).toContain('FIRST DRAFT START');
     expect(s.calls[0].maxOutputTokens).toBe(16000);
   });
 
@@ -162,7 +163,7 @@ describe('modelDraftClient', () => {
     expect(r.warnings).toContain('Model draft not used: source too long');
     const exact = stub(async () => validDraft);
     await draftOn({ ...base, sourceText: 'a'.repeat(60000), ruleRecord: ruleRecord(), transport: exact.fn, enabled: true });
-    expect(exact.calls.length).toBe(1);
+    expect(exact.calls.length).toBe(2);
     expect(exact.calls[0].user).toContain('a'.repeat(60000));
   });
 
@@ -211,7 +212,7 @@ describe('modelDraftClient', () => {
     for (const key of ['decisions', 'actions', 'open_questions', 'risks', 'insights', 'statements_to_verify', 'next_meeting', 'source_quote']) {
       expect(SYSTEM_PROMPT).toContain(key);
     }
-    expect(PROMPT_VERSION).toBe('v12');
+    expect(PROMPT_VERSION).toBe('v14');
   });
 
   test('10. the two new modules have no network, SDK, environment or supabase use', () => {
@@ -228,8 +229,8 @@ describe('modelDraftClient', () => {
     }
   });
 
-  test('11. prompt v12 carries rule 13 and every field name the validator reads', () => {
-    expect(PROMPT_VERSION).toBe('v12');
+  test('11. prompt v14 carries rule 13 and every field name the validator reads', () => {
+    expect(PROMPT_VERSION).toBe('v14');
     expect(SYSTEM_PROMPT).toContain('13. Use exactly this shape for each item:');
     const lines = SYSTEM_PROMPT.split('\n');
     const i12 = lines.findIndex((l) => l.startsWith('12.'));
@@ -268,7 +269,7 @@ describe('modelDraftClient', () => {
     // The same draft through the client with a stub transport.
     const s = stub(async () => JSON.stringify(draft));
     const r: any = await draftOn({ ...base, ruleRecord: ruleRecord(), transport: s.fn, enabled: true });
-    expect(s.calls.length).toBe(1);
+    expect(s.calls.length).toBe(2);
     expect(r.drafting_method).toBe('model');
     expect(JSON.stringify(r.rejected_model_items ?? [])).not.toContain('malformed_item');
   });
@@ -307,5 +308,44 @@ describe('modelDraftClient', () => {
     const noTransport: any = await draftOn({ ...base, ruleRecord: ruleRecord(), enabled: true });
     expect(noTransport.warnings).toContain('Model draft not used: model route is off');
     expect(s.calls.length).toBe(0);
+  });
+  describe('second pass for missed items', () => {
+    const missed = JSON.stringify({
+      participants: [], consent: null,
+      decisions: [{ statement: 'Move the review to Thursday afternoon please', source_quote: 'We agreed to move the review to Thursday afternoon' }],
+      actions: [], open_questions: [], risks: [], insights: [],
+      statements_to_verify: [{ statement: 'Casey said Friday for the checklist', source_quote: 'I will send the updated checklist to the group by Friday' }],
+      next_meeting: null,
+    });
+    test('P1. items the review adds are kept, repeats of first-draft items are not', async () => {
+      let n = 0;
+      const s = stub(async () => (n++ === 0 ? validDraft : missed));
+      const r: any = await draftOn({ ...base, ruleRecord: ruleRecord(), transport: s.fn, enabled: true });
+      expect(s.calls.length).toBe(2);
+      expect(r.drafting_method).toBe('model');
+      expect(r.decisions).toHaveLength(1);
+      expect(r.statements_to_verify).toHaveLength(1);
+    });
+    test('P2. a failed or unusable review leaves the first draft standing', async () => {
+      let n = 0;
+      const fails = stub(async () => { if (n++ === 0) return validDraft; throw new Error('down'); });
+      const a: any = await draftOn({ ...base, ruleRecord: ruleRecord(), transport: fails.fn, enabled: true });
+      expect(a.drafting_method).toBe('model');
+      expect(a.actions).toHaveLength(1);
+      let m = 0;
+      const junk = stub(async () => (m++ === 0 ? validDraft : 'not json at all'));
+      const b: any = await draftOn({ ...base, ruleRecord: ruleRecord(), transport: junk.fn, enabled: true });
+      expect(b.drafting_method).toBe('model');
+      expect(b.decisions).toHaveLength(1);
+    });
+    test('P3. reviewPass false makes one call; an unusable first reply makes no review call', async () => {
+      const one = stub(async () => validDraft);
+      await draftOn({ ...base, ruleRecord: ruleRecord(), transport: one.fn, enabled: true, reviewPass: false });
+      expect(one.calls.length).toBe(1);
+      const bad = stub(async () => 'not json');
+      const r: any = await draftOn({ ...base, ruleRecord: ruleRecord(), transport: bad.fn, enabled: true });
+      expect(bad.calls.length).toBe(1);
+      expect(r.drafting_method).toBe('basic');
+    });
   });
 });

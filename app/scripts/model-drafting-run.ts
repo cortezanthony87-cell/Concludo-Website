@@ -9,8 +9,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { analyseMeeting, toMarkdown } from '../src/lib/intelligence/meetingEngine';
 import { exportStandaloneHtml } from '../src/features/meeting-output/studio.js';
-import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserMessage } from '../src/lib/intelligence/modelDraftPrompt';
-import { mergeModelDraft } from '../src/lib/intelligence/modelDraftValidator';
+import { SYSTEM_PROMPT, PROMPT_VERSION, buildReviewMessage, buildUserMessage } from '../src/lib/intelligence/modelDraftPrompt';
+import { combineDrafts, mergeModelDraft } from '../src/lib/intelligence/modelDraftValidator';
 import { shapeModelRecord } from '../src/lib/intelligence/modelDraftShape';
 
 const MODEL = 'claude-sonnet-5-5';
@@ -40,43 +40,61 @@ writeFileSync(join(outDir, 'rule_record.json'), JSON.stringify(ruleRecord, null,
 const participants: string[] = (ruleRecord.participants ?? []).map((p: any) => p?.name).filter((n: unknown) => typeof n === 'string' && n.trim() !== '');
 const user = buildUserMessage({ sourceText: text, sourceKind: kind, meetingDate, participants });
 
-const ctl = new AbortController();
-const timer = setTimeout(() => ctl.abort(), 240000);
-let status = 0;
-let body: any;
-try {
-  const res = await fetch(URL, {
-    method: 'POST',
-    headers: { 'x-api-key': key as string, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 16000, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: user }] }),
-    signal: ctl.signal,
-  });
-  status = res.status;
-  body = await res.json().catch(() => ({ error: { message: 'response was not JSON' } }));
-} catch (e) {
+async function callModel(userText: string, label: string): Promise<{ raw: string; body: any } | null> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 240000);
+  let status = 0;
+  let body: any;
+  try {
+    const res = await fetch(URL, {
+      method: 'POST',
+      headers: { 'x-api-key': key as string, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 16000, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: userText }] }),
+      signal: ctl.signal,
+    });
+    status = res.status;
+    body = await res.json().catch(() => ({ error: { message: 'response was not JSON' } }));
+  } catch (e) {
+    clearTimeout(timer);
+    const m = e instanceof Error ? e.name : 'unknown';
+    if (label === 'first') {
+      writeFileSync(join(outDir, 'usage.json'), JSON.stringify({ failed: true, reason: `request error: ${m}` }, null, 2));
+      fail(`request failed (${m}); no retry`);
+    }
+    return null;
+  }
   clearTimeout(timer);
-  const m = e instanceof Error ? e.name : 'unknown';
-  writeFileSync(join(outDir, 'usage.json'), JSON.stringify({ failed: true, reason: `request error: ${m}` }, null, 2));
-  fail(`request failed (${m}); no retry`);
+  if (status < 200 || status >= 300) {
+    const msg = String(body?.error?.message ?? 'no message').slice(0, 500);
+    if (label === 'first') {
+      writeFileSync(join(outDir, 'usage.json'), JSON.stringify({ failed: true, httpStatus: status, errorType: body?.error?.type ?? null, errorMessage: msg }, null, 2));
+      fail(`API returned HTTP ${status}: ${msg}`);
+    }
+    return null;
+  }
+  const blocks: any[] = Array.isArray(body?.content) ? body.content : [];
+  if (label === 'first') writeFileSync(join(outDir, 'content_block_types.json'), JSON.stringify(blocks.map((b: any) => b?.type ?? null), null, 2));
+  const raw: string = blocks.filter((b: any) => b?.type === 'text').map((b: any) => String(b?.text ?? '')).join('');
+  return { raw, body };
 }
-clearTimeout(timer);
 
-if (status < 200 || status >= 300) {
-  const msg = String(body?.error?.message ?? 'no message').slice(0, 500);
-  writeFileSync(join(outDir, 'usage.json'), JSON.stringify({ failed: true, httpStatus: status, errorType: body?.error?.type ?? null, errorMessage: msg }, null, 2));
-  fail(`API returned HTTP ${status}: ${msg}`);
-}
-
-const blocks: any[] = Array.isArray(body?.content) ? body.content : [];
-writeFileSync(join(outDir, 'content_block_types.json'), JSON.stringify(blocks.map((b: any) => b?.type ?? null), null, 2));
-const raw: string = blocks.filter((b: any) => b?.type === 'text').map((b: any) => String(b?.text ?? '')).join('');
+const first = (await callModel(user, 'first'))!;
+const raw = first.raw;
+const body = first.body;
 writeFileSync(join(outDir, 'model_raw_response.txt'), raw);
+// Second pass for missed items, as the app does. A failed review leaves the first draft standing.
+const review = await callModel(buildReviewMessage({ sourceText: text, sourceKind: kind, meetingDate, participants }, raw), 'review');
+writeFileSync(join(outDir, 'model_review_response.txt'), review ? review.raw : '');
 writeFileSync(join(outDir, 'usage.json'), JSON.stringify({
   model_requested: MODEL,
   model_returned: body?.model ?? null,
   input_tokens: body?.usage?.input_tokens ?? null,
   output_tokens: body?.usage?.output_tokens ?? null,
   stop_reason: body?.stop_reason ?? null,
+  review_ok: Boolean(review),
+  review_input_tokens: review?.body?.usage?.input_tokens ?? null,
+  review_output_tokens: review?.body?.usage?.output_tokens ?? null,
+  review_stop_reason: review?.body?.stop_reason ?? null,
   prompt_version: PROMPT_VERSION,
 }, null, 2));
 
@@ -84,7 +102,8 @@ let draftText = raw.trim();
 const fence = draftText.match(/^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```$/);
 if (fence) draftText = fence[1].trim();
 
-const merged: any = mergeModelDraft(ruleRecord, draftText, { text, kind, name }, kind);
+const combined = review ? combineDrafts(draftText, review.raw) : draftText;
+const merged: any = mergeModelDraft(ruleRecord, combined, { text, kind, name }, kind);
 if (merged.drafting_method === 'model') shapeModelRecord(merged, { text, kind, name });
 writeFileSync(join(outDir, 'meeting_record.json'), JSON.stringify(merged, null, 2));
 const counts: Record<string, number> = {};

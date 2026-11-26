@@ -395,7 +395,10 @@ function resolveParticipants(
     const list = (Array.isArray(rule?.participants) ? rule.participants : []).filter((p: any) => p && !removed.includes(p.name));
     return { names: ruleNames, replacement: list as any, dropped: removed };
   };
-  if ((sourceKind === 'transcript' && !genericOnly) || !Array.isArray(draft.participants)) return ruleOnly();
+  // One microphone for a room ("Room: ...") hides the people in it, so their names come from the model,
+  // checked against the source, alongside the rule engine's speakers.
+  const sharedMic = (String(sourceText ?? '').match(/^\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*)?(?:room|meeting room|boardroom|conference room|in the room)\s*:/gim) ?? []).length >= 2;
+  if ((sourceKind === 'transcript' && !genericOnly && !sharedMic) || !Array.isArray(draft.participants)) return ruleOnly();
   const kept: string[] = [];
   const seen = new Set<string>();
   const dropped: string[] = [];
@@ -412,6 +415,9 @@ function resolveParticipants(
     kept.push(name.trim());
   }
   if (kept.length === 0) return { ...ruleOnly(), dropped: [...dropped, ...removed] };
+  if (sourceKind === 'transcript' && sharedMic) {
+    for (const n of ruleNames) if (!/^(room|meeting room|boardroom|conference room)$/i.test(n.trim()) && !kept.some((k) => normaliseText(k) === normaliseText(n))) kept.unshift(n);
+  }
   const ruleList = Array.isArray(rule?.participants) ? rule.participants : [];
   const replacement = kept.map((name) => {
     const match = ruleList.find((p) => p && typeof p.name === 'string' && normaliseText(p.name) === normaliseText(name));
@@ -443,12 +449,32 @@ function ownerIsParticipant(owner: string, participants: string[]): boolean {
   });
 }
 
-/** True when every name in a list such as "A, B and C" is a participant. */
-function allNamesAreParticipants(who: string, participants: string[]): boolean {
-  if (ownerIsParticipant(who, participants)) return true;
+/** Office holders and groups a source may name instead of a person. */
+const ROLE_WORDS = new Set([
+  'chair', 'chairperson', 'chairman', 'chairwoman', 'secretary', 'treasurer', 'manager', 'president', 'director',
+  'directors', 'coordinator', 'board', 'committee', 'trustee', 'trustees', 'member', 'members', 'owner', 'owners',
+  'partners', 'staff', 'team',
+]);
+
+/**
+ * True when the text names a role or group, such as "the Treasurer", "the owners corporation manager" or
+ * "Two Board members", and those words appear in the source. A role is never invented: it must be written there.
+ */
+export function isSourceRole(who: string, normSource: string): boolean {
+  const words = normaliseText(who).split(' ').filter(Boolean);
+  while (words.length && /^(the|a|an|all|both|two|three|four|five|six|several|some|other|another)$/.test(words[0])) words.shift();
+  if (!words.length || words.length > 4) return false;
+  if (!ROLE_WORDS.has(words[words.length - 1])) return false;
+  return ` ${normSource} `.includes(` ${words.join(' ')} `);
+}
+
+/** True when every name in a list such as "A, B and C" is a participant, or a role the source names. */
+function allNamesAreParticipants(who: string, participants: string[], normSource = ''): boolean {
+  const ok = (n: string) => ownerIsParticipant(n, participants) || (normSource !== '' && isSourceRole(n, normSource));
+  if (ok(who)) return true;
   const parts = who.split(/\s*(?:,|&|\band\b)\s*/i).map((x) => x.trim()).filter(Boolean);
   if (parts.length < 2) return false;
-  return parts.every((n) => ownerIsParticipant(n, participants));
+  return parts.every(ok);
 }
 
 /** Lower is kept first when a category is over its cap. Views outrank plain context. */
@@ -481,6 +507,47 @@ function parseDraft(draft: unknown): { ok: true; value: Record<string, any> } | 
   }
   if (!isObject(v)) return { ok: false, reason: 'unparseable' };
   return { ok: true, value: v };
+}
+
+function stripFence(t: string): string {
+  const x = String(t ?? '').trim();
+  const f = x.match(/^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```$/);
+  return f ? f[1].trim() : x;
+}
+
+/** Items from a second pass that overlap a first-draft item this much are treated as repeats. */
+const REVIEW_REPEAT_OVERLAP = 0.5;
+
+/**
+ * Joins a first draft and a second-pass draft of only missed items into one draft. Second-pass items
+ * that repeat a first-draft item (word overlap 0.5 or more in the same category) are left out. The first
+ * draft's participants and consent stand unless it had none. An unusable second pass changes nothing.
+ */
+export function combineDrafts(first: string, review: string | null | undefined): string {
+  const a = parseDraft(stripFence(first));
+  if (!a.ok) return first;
+  if (typeof review !== 'string' || !review.trim()) return JSON.stringify(a.value);
+  const b = parseDraft(stripFence(review));
+  if (!b.ok) return JSON.stringify(a.value);
+  const out: Record<string, any> = { ...a.value };
+  for (const c of DRAFT_CATEGORIES) {
+    const base = Array.isArray(a.value[c]) ? a.value[c] : [];
+    const extra = Array.isArray(b.value[c]) ? b.value[c] : [];
+    const field = TEXT_FIELD[c];
+    const seen = base.map((i: any) => words(String(i?.[field] ?? '')));
+    const added: any[] = [];
+    for (const i of extra) {
+      const w = words(String(i?.[field] ?? ''));
+      if (!w.length || seen.some((k: string[]) => wordOverlap(k, w) >= REVIEW_REPEAT_OVERLAP)) continue;
+      seen.push(w);
+      added.push(i);
+    }
+    out[c] = [...base, ...added];
+  }
+  if ((!Array.isArray(a.value.participants) || a.value.participants.length === 0) && Array.isArray(b.value.participants)) out.participants = b.value.participants;
+  if ((a.value.consent === null || a.value.consent === undefined) && isObject(b.value.consent)) out.consent = b.value.consent;
+  if ((a.value.next_meeting === null || a.value.next_meeting === undefined) && b.value.next_meeting) out.next_meeting = b.value.next_meeting;
+  return JSON.stringify(out);
 }
 
 function emptyAccepted(): Record<DraftCategory, any[]> {
@@ -571,13 +638,13 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       if (category === 'actions') {
         const owner = item.owner;
         const hasOwner = typeof owner === 'string' ? owner.trim() !== '' : owner != null;
-        if (hasOwner && (typeof owner !== 'string' || !allNamesAreParticipants(owner, participants))) {
+        if (hasOwner && (typeof owner !== 'string' || !allNamesAreParticipants(owner, participants, normSource))) {
           reject('owner_not_participant');
           continue;
         }
       }
       if (category === 'insights' && item.who !== undefined && item.who !== null && item.who !== '') {
-        if (typeof item.who !== 'string' || !allNamesAreParticipants(item.who, participants)) {
+        if (typeof item.who !== 'string' || !allNamesAreParticipants(item.who, participants, normSource)) {
           reject('who_not_participant');
           continue;
         }
