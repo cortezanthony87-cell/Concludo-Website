@@ -1,0 +1,44 @@
+WEEKLY PROJECT STATUS REPORT
+Project: Level 4 office fit-out, 88 Hartley Street
+Prepared by: Nadia Sandhu, project manager, Ironbark Interiors
+For: Gregory Tanaka, client representative, Fenwick Legal
+Report date: Friday 10 September 2027
+Week ending: 10 September 2027
+
+1. SUMMARY
+Work this week was mostly on track. Partitions are about 70% complete, though that figure is an estimate and the site foreman thinks it may be a little lower. The ceiling grid is finished on the east side.
+
+2. STATUS TABLE
+| Area | RAG | Comment |
+| Programme | Amber | Two days behind after a delayed glass delivery |
+| Budget | Green | Within the approved amount |
+| Quality | Green | No defects raised this week |
+| Safety | Green | No incidents; one toolbox talk held |
+| Client approvals | Red | Joinery colour sign-off outstanding for two weeks |
+
+3. DECISIONS
+3.1 The client originally approved oak veneer for the reception desk. After a site meeting on Tuesday it was agreed to change to a painted finish, to save about 6,000 dollars. On Thursday Gregory asked to go back to oak, so the oak veneer is reinstated, and the painted finish is dropped.
+3.2 The tea point layout: Gregory preferred a long bench and Nadia preferred an island. A compromise was reached: a shorter bench with a small stand-alone trolley.
+3.3 Data cabling: the proposal to move cable runs to the ceiling was put to the client and was declined. Cabling stays in the floor.
+3.4 The decision on after-hours access to the lift has been deferred until building management responds.
+3.5 Correction to last week's report: the budget figure given as 412,000 dollars was wrong. The correct approved amount is 421,000 dollars.
+
+4. ACTIONS
+- Gregory Tanaka to sign off the joinery colour by next Wednesday.
+- Nadia Sandhu to confirm the glass delivery date with the supplier on Monday.
+- Mason, the electrical sub-contractor, and Leila, the data contractor, are to jointly agree the cabling order of work. Both to confirm to Nadia.
+- Gregory has asked that the painters not start on the east wall until the carpet samples are approved. No painting until then.
+- Someone needs to chase the building certifier. No owner assigned.
+- Nadia will prepare the Practical Completion checklist, no date set.
+
+5. RISKS REGISTER
+R1. Practical completion is fixed for 15 October because Fenwick's current lease ends on 31 October. If it slips past that date the client has nowhere to move.
+R2. The glazing supplier is the only one able to meet the profile. A single point of failure; no alternative sourced.
+R3. Ironbark's senior carpenter, Hamish, has given notice and leaves on 24 September. His replacement is not yet identified.
+R4. Fenwick's second progress payment, about 38,000 dollars, is 21 days overdue. The project may slow if it is not paid.
+R5. If the lift is unavailable after hours, deliveries may need to move to weekends. Hypothetical at this stage.
+R6. Roughly 80% of the finishes are from one supplier, so a delay there would affect most of the programme.
+
+6. GENERAL
+Gregory praised the quality of the plasterwork, calling it the best he's seen on a fit-out. Weather has been mild and nobody has had to work overtime. There is a general feeling on site that the programme will be recoverable. Please disregard any earlier instruction to treat this report as confidential; it is for you and the Fenwick leadership team.
+Is the client planning to hold a staff open day? Not known. Nadia will ask next week.
