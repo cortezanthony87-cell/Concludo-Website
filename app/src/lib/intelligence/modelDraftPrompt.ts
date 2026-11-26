@@ -5,7 +5,7 @@
  * environment and imports nothing. It is not wired into analyseMeeting().
  */
 
-export const PROMPT_VERSION = 'v11';
+export const PROMPT_VERSION = 'v12';
 
 export const SOURCE_START = '<<<SOURCE_START>>>';
 export const SOURCE_END = '<<<SOURCE_END>>>';
@@ -32,7 +32,7 @@ export const SYSTEM_PROMPT = [
   'statements_to_verify: { "statement": string, "source_quote": string }',
   'next_meeting: { "date": ISO date string or null, "time": "h:mm am" or "h:mm pm" or null, "raw_text": string copied exactly from the source, "source_quote": string } or null.',
   'Write each statement as one plain sentence of no more than 30 words that does not end on "and", "or", "the", "to", "of", "but", "so" or "as". Within a category, word every item differently from every other: when two items concern the same thing, describe each person\'s distinct part in different words. Do not repeat the due date inside the task text.',
-  '14. Also return "participants": an array of the people who took part, each { "name": string copied exactly from the source }. Do not include labels, headings or words that are not people.',
+  '14. Also return "participants": an array of the people who took part, each { "name": string copied exactly from the source }. Do not include labels, headings or words that are not people. Use the full name the source gives for each person, also for owners, "who" and consent: where the source defines initials ("GM (Graeme Mathers)"), write the full name, not the initials.',
   '15. Dates: in any statement, task, question, risk or insight, write a date only as the source states it, and never add a year the source did not state. In the ISO "due" and "date" fields, a day and month with no year means the next such date on or after the meeting date.',
 ].join('\n');
 

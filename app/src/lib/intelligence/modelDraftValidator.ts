@@ -334,17 +334,68 @@ function participantNames(rule: MeetingModel): string[] {
  * list, but only names found whole in the source, deduplicated, and only when at
  * least one name survives. Transcripts always keep the rule record's list.
  */
+/**
+ * Initials the source defines for a person, such as "GM (Graeme Mathers, site manager)" or
+ * "me (RS, Rosa Sandoval)", mapped to the full name. Only names written in the source are used.
+ */
+export function sourceNameAliases(text: string): Map<string, string> {
+  const map = new Map<string, string>();
+  const name = "([A-Z][\\p{L}'-]+(?:\\s+[A-Z][\\p{L}'-]+)+)";
+  const pats = [new RegExp(`\\b([A-Z]{2,3})\\s*\\(${name}`, 'gu'), new RegExp(`\\(([A-Z]{2,3}),\\s*${name}`, 'gu')];
+  for (const re of pats) for (const m of String(text ?? '').matchAll(re)) if (!map.has(m[1])) map.set(m[1], m[2].trim());
+  return map;
+}
+
+/** Replaces defined initials with the full name in the draft's people fields. */
+function applyNameAliases(draft: any, text: string): any {
+  const aliases = sourceNameAliases(text);
+  if (!aliases.size || !isObject(draft)) return draft;
+  const swap = (v: unknown): unknown => {
+    if (typeof v !== 'string') return v;
+    return v.replace(/\b[A-Z]{2,3}\b/g, (t) => aliases.get(t) ?? t);
+  };
+  const out: any = { ...draft };
+  if (Array.isArray(draft.participants)) out.participants = draft.participants.map((e: any) => (typeof e === 'string' ? swap(e) : isObject(e) ? { ...e, name: swap(e.name) } : e));
+  if (Array.isArray(draft.actions)) out.actions = draft.actions.map((a: any) => (isObject(a) ? { ...a, owner: swap(a.owner) } : a));
+  if (Array.isArray(draft.insights)) out.insights = draft.insights.map((a: any) => (isObject(a) ? { ...a, who: swap(a.who) } : a));
+  if (isObject(draft.consent)) {
+    const c: any = { ...draft.consent, asked_by: swap(draft.consent.asked_by) };
+    for (const k of ['agreed', 'declined', 'not_asked']) if (Array.isArray(c[k])) c[k] = c[k].map(swap);
+    out.consent = c;
+  }
+  return out;
+}
+
 function resolveParticipants(
   draft: Record<string, any>,
   rule: MeetingModel,
   normSource: string,
   sourceKind: SourceKind,
+  sourceText = '',
 ): { names: string[]; replacement: { name: string; role?: string; present: boolean }[] | null; dropped: string[] } {
-  const ruleNames = participantNames(rule);
+  const allRuleNames = participantNames(rule);
+  // A heading such as "Video call transcript: ..." on the first line can be read as a speaker. Such a
+  // label is dropped when the first line is its only use and the model does not list it.
+  const modelKeys = new Set((Array.isArray(draft.participants) ? draft.participants : []).map((e: any) => normaliseText(typeof e === 'string' ? e : e?.name ?? '')));
+  const lines = String(sourceText ?? '').split(/\r?\n/);
+  const headerOnly = (n: string) => {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`^\\s*(?:\\[[^\\]]*\\]\\s*)?(?:\\d{1,2}:\\d{2}(?::\\d{2})?\\s*)?${esc}\\s*:`, 'i');
+    const at = lines.map((l, i) => (re.test(l) ? i : -1)).filter((i) => i >= 0);
+    const first = lines.findIndex((l) => l.trim() !== '');
+    return lines.length > 5 && at.length === 1 && at[0] === first && !modelKeys.has(normaliseText(n));
+  };
+  const removed = sourceKind === 'transcript' && sourceText ? allRuleNames.filter(headerOnly) : [];
+  const ruleNames = allRuleNames.filter((n) => !removed.includes(n));
   // Transcripts keep the rule engine's speaker list, unless it found no real names (no speakers, or only
   // generic labels such as "Speaker 1"); then the model's names, checked against the source, are used.
   const genericOnly = ruleNames.length === 0 || ruleNames.every((n) => /^(speaker|participant|person|unknown|guest)\s*\d*$/i.test(n.trim()));
-  if ((sourceKind === 'transcript' && !genericOnly) || !Array.isArray(draft.participants)) return { names: ruleNames, replacement: null, dropped: [] };
+  const ruleOnly = () => {
+    if (!removed.length) return { names: ruleNames, replacement: null, dropped: [] };
+    const list = (Array.isArray(rule?.participants) ? rule.participants : []).filter((p: any) => p && !removed.includes(p.name));
+    return { names: ruleNames, replacement: list as any, dropped: removed };
+  };
+  if ((sourceKind === 'transcript' && !genericOnly) || !Array.isArray(draft.participants)) return ruleOnly();
   const kept: string[] = [];
   const seen = new Set<string>();
   const dropped: string[] = [];
@@ -360,7 +411,7 @@ function resolveParticipants(
     seen.add(key);
     kept.push(name.trim());
   }
-  if (kept.length === 0) return { names: ruleNames, replacement: null, dropped };
+  if (kept.length === 0) return { ...ruleOnly(), dropped: [...dropped, ...removed] };
   const ruleList = Array.isArray(rule?.participants) ? rule.participants : [];
   const replacement = kept.map((name) => {
     const match = ruleList.find((p) => p && typeof p.name === 'string' && normaliseText(p.name) === normaliseText(name));
@@ -489,10 +540,10 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     return result;
   }
   result.parsed = true;
-  const draft = parsed.value;
+  const draft = applyNameAliases(parsed.value, input.source?.text ?? '');
   const normSource = normaliseText(input.source?.text ?? '');
   const normHay = quoteHaystack(normSource, input.source?.text ?? '');
-  const resolved = resolveParticipants(draft, input.ruleRecord, normSource, input.sourceKind ?? 'transcript');
+  const resolved = resolveParticipants(draft, input.ruleRecord, normSource, input.sourceKind ?? 'transcript', input.source?.text ?? '');
   const participants = resolved.names;
   result.replacementParticipants = resolved.replacement;
   result.droppedParticipants = resolved.dropped;

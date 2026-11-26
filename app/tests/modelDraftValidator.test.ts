@@ -770,4 +770,30 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
     const same = run({ actions: [a, { ...a, task: 'Cover one Saturday next December so the other can take some leave' }] });
     expect(same.rejected.map((r) => r.rule)).toEqual(['duplicate']);
   });
+  describe('v12: initials defined in the source, heading read as a speaker', () => {
+    const WALK = [
+      'Site walk, Thursday',
+      'Walked by: GM (Graeme Mathers, site manager), me (RS, Rosa Sandoval, head office)',
+      '0712 Loading dock. Charger cable frayed. GM to replace it today, before the drivers start.',
+      '0720 Office. Rosa to send the notes and photos to head office by Monday.',
+    ].join('\n');
+    test('A1. initials the source defines become the full name in participants and owners', () => {
+      const v = validateModelDraft({ source: { ...source, kind: 'notes', text: WALK }, sourceKind: 'notes', ruleRecord: ruleRecord(), draft: { participants: ['GM', 'RS'], actions: [{ task: 'Replace the frayed charger cable today', owner: 'GM', due: null, source_quote: 'GM to replace it today, before the drivers start.' }] } } as any);
+      expect(v.accepted.actions).toHaveLength(1);
+      expect(v.accepted.actions[0].owner).toBe('Graeme Mathers');
+      expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Graeme Mathers', 'Rosa Sandoval']);
+    });
+    test('A2. initials not defined in the source are left as written', () => {
+      const v = validateModelDraft({ source: { ...source, kind: 'notes', text: WALK }, sourceKind: 'notes', ruleRecord: ruleRecord(), draft: { participants: ['GM', 'XY'], actions: [] } } as any);
+      expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Graeme Mathers']);
+      expect(v.droppedParticipants).toEqual(['XY']);
+    });
+  });
+  test('A3. a first-line heading read as a speaker is dropped from a transcript; real speakers stay', () => {
+    const text = ['Video call transcript: weekly review', 'Date: 2027-04-05', '', '00:00:04 Jordan Lee: Morning all.', '00:00:09 Casey Park: Morning.', '00:00:15 Jordan Lee: We agreed to move the review to Thursday afternoon.'].join('\n');
+    const rule = ruleRecord({ participants: [{ name: 'Video call transcript', present: true }, { name: 'Jordan Lee', present: true }, { name: 'Casey Park', present: true }] });
+    const v = validateModelDraft({ source: { ...source, text }, sourceKind: 'transcript', ruleRecord: rule, draft: { participants: ['Jordan Lee', 'Casey Park'], decisions: [{ statement: 'Move the review to Thursday afternoon', source_quote: 'We agreed to move the review to Thursday afternoon.' }] } } as any);
+    expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Jordan Lee', 'Casey Park']);
+    expect(v.droppedParticipants).toEqual(['Video call transcript']);
+  });
 });
