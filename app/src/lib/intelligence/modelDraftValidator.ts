@@ -118,6 +118,8 @@ const DANGLING = new Set(['and', 'or', 'a', 'the', 'to', 'of', 'but', 'so', 'as'
 const MAX_WORDS = 40;
 const MIN_QUOTE_WORDS = 4;
 const DUPLICATE_OVERLAP = 0.8;
+/** Lower overlap that still marks a shared task when two actions quote the same source words. */
+const SHARED_QUOTE_OVERLAP = 0.3;
 const CAP_MULTIPLIER = 2;
 const CAP_ALLOWANCE = 4;
 /** The cap never falls below this, so a weak rule engine count (notes, documents) does not trim real items. */
@@ -636,6 +638,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
     const field = TEXT_FIELD[category];
     const survivors: any[] = [];
     const keptWords: string[][] = [];
+    const keptQuotes: string[][] = [];
     const survivorDropped: number[] = [];
     for (const rawItem of raw) {
       const item: any = widenItemQuotes(rawItem, input.source?.text ?? '', normSource);
@@ -668,7 +671,18 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
         continue;
       }
       const w = words(item[field]);
-      const dupAt = keptWords.findIndex((k) => wordOverlap(k, w) >= DUPLICATE_OVERLAP);
+      const ownQuotes = itemQuotes(item).map((q) => normaliseText(q)).filter(Boolean);
+      let dupAt = keptWords.findIndex((k) => wordOverlap(k, w) >= DUPLICATE_OVERLAP);
+      if (dupAt < 0 && category === 'actions') {
+        // Two owners given one shared instruction ("Fatima and Alinta to each get a quote"): the same quote and a similar task.
+        const own = typeof item.owner === 'string' ? item.owner.trim().toLowerCase() : '';
+        dupAt = own
+          ? keptWords.findIndex((k, i) => {
+              const other = typeof survivors[i]?.owner === 'string' ? survivors[i].owner.trim().toLowerCase() : '';
+              return other !== '' && !other.includes(own) && wordOverlap(k, w) >= SHARED_QUOTE_OVERLAP && keptQuotes[i].some((q) => ownQuotes.includes(q));
+            })
+          : -1;
+      }
       if (dupAt >= 0) {
         // The same task for a different participant: one action that names both owners.
         const kept = survivors[dupAt];
@@ -683,6 +697,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       survivorDropped.push(cleaned.dropped);
       survivors.push(withReadableEvidence(withSafeDisplayQuote(cleaned.item, normHay), normHay));
       keptWords.push(w);
+      keptQuotes.push(ownQuotes);
     }
     const ruleCount = Array.isArray((input.ruleRecord as any)?.[category]) ? (input.ruleRecord as any)[category].length : 0;
     const floor = category === 'insights' ? INSIGHT_CAP_FLOOR : CAP_FLOOR;

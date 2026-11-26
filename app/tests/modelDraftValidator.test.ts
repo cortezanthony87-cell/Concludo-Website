@@ -770,6 +770,25 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
     const same = run({ actions: [a, { ...a, task: 'Cover one Saturday next December so the other can take some leave' }] });
     expect(same.rejected.map((r) => r.rule)).toEqual(['duplicate']);
   });
+  test('T3. two owners given one shared instruction in different words become one action naming both; different tasks on one quote stay apart', () => {
+    const q = 'Casey Park: I will send the updated checklist to the group by Friday.';
+    const v = run({ actions: [
+      { task: 'Obtain a quote from a gardener other than the current one', owner: 'Casey Park', due: null, source_quote: q },
+      { task: 'Obtain a quote from a different gardener, separate from the one Casey gets', owner: 'Jordan Lee', due: null, source_quote: q },
+    ] });
+    expect(v.accepted.actions).toHaveLength(1);
+    expect(v.accepted.actions[0].owner).toBe('Casey Park and Jordan Lee');
+    const apart = run({ actions: [
+      { task: 'Send the updated checklist to the group', owner: 'Casey Park', due: null, source_quote: q },
+      { task: 'Book the room for the Thursday review', owner: 'Jordan Lee', due: null, source_quote: q },
+    ] });
+    expect(apart.accepted.actions).toHaveLength(2);
+    const sameOwner = run({ actions: [
+      { task: 'Send the updated checklist to the group', owner: 'Casey Park', due: null, source_quote: q },
+      { task: 'Send the group a note that the checklist changed', owner: 'Casey Park', due: null, source_quote: q },
+    ] });
+    expect(sameOwner.accepted.actions).toHaveLength(2);
+  });
   describe('v12: initials defined in the source, heading read as a speaker', () => {
     const WALK = [
       'Site walk, Thursday',
