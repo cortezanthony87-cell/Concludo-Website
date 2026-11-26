@@ -837,4 +837,12 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
       expect(roles.replacementParticipants?.map((p: any) => p.name)).toEqual(['Chairperson', 'Treasurer']);
     });
   });
+  test('C8. a consent finding naming an absent person written in the source is kept; an invented name is not', () => {
+    const text = ['Jordan Lee: Priya Shah asked earlier not to be recorded, so only notes today. Casey, are you fine with notes?', 'Casey Park: Of course.', 'Jordan Lee: We agreed to move the review to Thursday afternoon.'].join('\n');
+    const ok: any = mergeModelDraft(ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } }), { consent: { about: 'notes', asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Priya Shah'], not_asked: [], source_quote: 'Casey, are you fine with notes?' }, decisions: [goodDecision()] }, { ...source, text });
+    expect(ok.consent.asked_by).toBe('Jordan Lee');
+    expect(ok.consent.note).toContain('Declined: Priya Shah');
+    const bad: any = mergeModelDraft(ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } }), { consent: { about: 'notes', asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Invented Person'], not_asked: [], source_quote: 'Casey, are you fine with notes?' }, decisions: [goodDecision()] }, { ...source, text });
+    expect(bad.consent.asked_by).toBeNull();
+  });
 });

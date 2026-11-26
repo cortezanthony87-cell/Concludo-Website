@@ -739,8 +739,11 @@ function validateConsent(normSource: string, c: unknown, participants: string[],
   const notAsked = nameList(c.not_asked);
   if (!agreed || !declined || !notAsked) return null;
   const askedBy = typeof c.asked_by === 'string' && c.asked_by.trim() ? c.asked_by.trim() : null;
-  const all = [...agreed, ...declined, ...notAsked, ...(askedBy ? [askedBy] : [])];
-  if (all.some((n) => !ownerIsParticipant(n, participants))) return null;
+  // The asker must be a participant or a role the source names. Someone who answered, declined or was
+  // never asked may be absent (an earlier request, a proxy), so a name written in the source is enough.
+  const named = (n: string) => ownerIsParticipant(n, participants) || ` ${normSource} `.includes(` ${normaliseText(n)} `);
+  if (askedBy && !ownerIsParticipant(askedBy, participants) && !isSourceRole(askedBy, normSource)) return null;
+  if ([...agreed, ...declined, ...notAsked].some((n) => !named(n))) return null;
   const aboutRaw = typeof c.about === 'string' ? c.about.replace(/[^\p{L}\s']/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase() : '';
   const about = aboutRaw && aboutRaw.split(' ').length <= 8 && !/\bai\b|artificial intelligence/.test(aboutRaw) ? aboutRaw : 'recording';
   const parts: string[] = [];
