@@ -406,13 +406,18 @@ function resolveParticipants(
     const name = typeof entry === 'string' ? entry : isObject(entry) && typeof entry.name === 'string' ? entry.name : '';
     const key = normaliseText(name);
     if (!key) continue;
-    if (!` ${normSource} `.includes(` ${key} `)) {
+    const author = key === NOTE_AUTHOR_KEY && sourceKind !== 'transcript' && writtenInFirstPerson(sourceText);
+    if (!author && !` ${normSource} `.includes(` ${key} `)) {
       dropped.push(name.trim());
       continue;
     }
     if (seen.has(key)) continue;
     seen.add(key);
-    kept.push(name.trim());
+    kept.push(author ? NOTE_AUTHOR : name.trim());
+  }
+  // When the source names people, office titles listed beside them ("Chairperson") are not extra people.
+  if (kept.some((n) => n !== NOTE_AUTHOR && !isSourceRole(n, normSource))) {
+    for (let i = kept.length - 1; i >= 0; i--) if (isSourceRole(kept[i], normSource)) dropped.push(kept.splice(i, 1)[0]);
   }
   if (kept.length === 0) return { ...ruleOnly(), dropped: [...dropped, ...removed] };
   if (sourceKind === 'transcript' && sharedMic) {
@@ -447,6 +452,15 @@ function ownerIsParticipant(owner: string, participants: string[]): boolean {
     const first = normaliseName(String(p).trim().split(/\s+/)[0]);
     return o === full || o === first;
   });
+}
+
+/** The writer of first-person notes or a letter who is not named anywhere in the source. */
+export const NOTE_AUTHOR = 'Note author';
+const NOTE_AUTHOR_KEY = 'note author';
+
+/** True when a written source is in the first person ("My notes", "I asked"), so it has a writer. */
+function writtenInFirstPerson(text: string): boolean {
+  return (String(text ?? '').match(/\b(?:I|my|me|I'll|I'd|I've)\b/g) ?? []).length >= 3;
 }
 
 /** Office holders and groups a source may name instead of a person. */

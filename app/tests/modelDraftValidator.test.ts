@@ -817,4 +817,24 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
       expect(v.droppedParticipants).toEqual(['Invented Person']);
     });
   });
+  describe('v15: unnamed note author, titles beside names', () => {
+    test('N1. first-person notes: "Note author" is a participant and can own an action; not in a transcript', () => {
+      const text = ['One-on-one with Casey Park, Thursday', 'My notes, written straight after.', 'I said I would ask the supplier. I will speak to the supplier on Monday.', 'Casey Park will send me the sheet by Wednesday.'].join('\n');
+      const v = validateModelDraft({ source: { ...source, kind: 'notes', text }, sourceKind: 'notes', ruleRecord: ruleRecord({ participants: [] }), draft: {
+        participants: ['Casey Park', 'Note author'],
+        actions: [{ task: 'Speak to the supplier on Monday', owner: 'Note author', due: null, source_quote: 'I will speak to the supplier on Monday.' }],
+      } } as any);
+      expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Casey Park', 'Note author']);
+      expect(v.accepted.actions).toHaveLength(1);
+      const t = validateModelDraft({ source: { ...source, text }, sourceKind: 'transcript', ruleRecord: ruleRecord({ participants: [] }), draft: { participants: ['Casey Park', 'Note author'], actions: [] } } as any);
+      expect(t.droppedParticipants).toContain('Note author');
+    });
+    test('N2. an office title listed beside named people is not counted as another person', () => {
+      const text = ['Minutes', 'Present: Jordan Lee, Casey Park. The Chairperson opened the meeting. The Treasurer reported.', 'We agreed to move the review to Thursday afternoon.'].join('\n');
+      const v = validateModelDraft({ source: { ...source, kind: 'document', text }, sourceKind: 'document', ruleRecord: ruleRecord({ participants: [] }), draft: { participants: ['Jordan Lee', 'Casey Park', 'Chairperson', 'Treasurer'], decisions: [] } } as any);
+      expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Jordan Lee', 'Casey Park']);
+      const roles = validateModelDraft({ source: { ...source, kind: 'document', text }, sourceKind: 'document', ruleRecord: ruleRecord({ participants: [] }), draft: { participants: ['Chairperson', 'Treasurer'], decisions: [] } } as any);
+      expect(roles.replacementParticipants?.map((p: any) => p.name)).toEqual(['Chairperson', 'Treasurer']);
+    });
+  });
 });
