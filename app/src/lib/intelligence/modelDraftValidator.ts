@@ -325,6 +325,16 @@ function wordOverlap(a: string[], b: string[]): number {
   return shared / (A.size + B.size - shared);
 }
 
+/** True when two statements each name a different person (capitalised word after the first), so they are not repeats. */
+function namesDiffer(a: unknown, b: unknown): boolean {
+  const caps = (t: unknown) => new Set(String(t ?? '').split(/\s+/).slice(1).map((x) => x.replace(/[^\p{L}']/gu, '')).filter((x) => /^\p{Lu}\p{Ll}+$/u.test(x)));
+  const A = caps(a);
+  const B = caps(b);
+  for (const x of A) if (!B.has(x)) return true;
+  for (const x of B) if (!A.has(x)) return true;
+  return false;
+}
+
 function participantNames(rule: MeetingModel): string[] {
   return (Array.isArray(rule?.participants) ? rule.participants : [])
     .map((p) => (p && typeof p.name === 'string' ? p.name : ''))
@@ -368,6 +378,21 @@ function applyNameAliases(draft: any, text: string): any {
   return out;
 }
 
+/**
+ * A couple or siblings written with one shared surname ("Stephen and Adaeze Kowalczyk") never show
+ * "Stephen Kowalczyk" as one run of words. The full name still counts as written in the source when a
+ * line joins the first name to another first name and the surname with "and" or "&".
+ */
+function jointSurnameInSource(key: string, sourceText: string): boolean {
+  const parts = key.split(' ').filter(Boolean);
+  if (parts.length < 2 || !sourceText) return false;
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?:^| )${esc(first)} (?:and|&) [^ ]+ ${esc(last)}(?: |$)`);
+  return String(sourceText).split(/\r?\n/).some((line) => re.test(normaliseText(line.replace(/&/g, ' and '))));
+}
+
 function resolveParticipants(
   draft: Record<string, any>,
   rule: MeetingModel,
@@ -409,7 +434,7 @@ function resolveParticipants(
     const key = normaliseText(name);
     if (!key) continue;
     const author = key === NOTE_AUTHOR_KEY && sourceKind !== 'transcript' && writtenInFirstPerson(sourceText);
-    if (!author && !` ${normSource} `.includes(` ${key} `)) {
+    if (!author && !` ${normSource} `.includes(` ${key} `) && !jointSurnameInSource(key, sourceText)) {
       dropped.push(name.trim());
       continue;
     }
@@ -672,7 +697,7 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       }
       const w = words(item[field]);
       const ownQuotes = itemQuotes(item).map((q) => normaliseText(q)).filter(Boolean);
-      let dupAt = keptWords.findIndex((k) => wordOverlap(k, w) >= DUPLICATE_OVERLAP);
+      let dupAt = keptWords.findIndex((k, i) => wordOverlap(k, w) >= DUPLICATE_OVERLAP && (category === 'actions' || !namesDiffer(survivors[i]?.[field], item[field])));
       if (dupAt < 0 && category === 'actions') {
         // Two owners given one shared instruction ("Fatima and Alinta to each get a quote"): the same quote and a similar task.
         const own = typeof item.owner === 'string' ? item.owner.trim().toLowerCase() : '';
@@ -760,11 +785,19 @@ function validateConsent(normSource: string, c: unknown, participants: string[],
   if (askedBy && !ownerIsParticipant(askedBy, participants) && !isSourceRole(askedBy, normSource)) return null;
   if ([...agreed, ...declined, ...notAsked].some((n) => !named(n))) return null;
   const aboutRaw = typeof c.about === 'string' ? c.about.replace(/[^\p{L}\s']/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase() : '';
-  const about = aboutRaw && aboutRaw.split(' ').length <= 8 && !/\bai\b|artificial intelligence/.test(aboutRaw) ? aboutRaw : 'recording';
+  // A description over eight words is not copied (it may carry instructions). Its topic is named from fixed
+  // words instead, so sharing, notes, photos or naming are never relabelled as recording.
+  const safe = aboutRaw && !/\bai\b|artificial intelligence/.test(aboutRaw);
+  const topic = /\brecording\b|\brecorded\b|\brecord (the|this|it|a)\b/.test(aboutRaw) ? 'recording'
+    : /\bshar|circulat|\bemail|\bsend\b|\bsent\b/.test(aboutRaw) ? 'sharing the notes'
+    : /\bphoto/.test(aboutRaw) ? 'photos'
+    : /\bnam(e|ed|ing)\b/.test(aboutRaw) ? 'naming people in the record'
+    : /\bnote/.test(aboutRaw) ? 'taking notes' : 'recording';
+  const about = safe && aboutRaw.split(' ').length <= 8 ? aboutRaw : topic;
   const parts: string[] = [];
   if (askedBy) parts.push(`${askedBy} asked about ${about}.`);
   if (agreed.length) parts.push(`Agreed: ${agreed.join(', ')}.`);
-  if (declined.length) parts.push(`Declined: ${declined.join(', ')}. There is no consent from them for ${about}.`);
+  if (declined.length) parts.push(`Declined: ${declined.join(', ')}. Consent for ${about} was not given by them.`);
   if (notAsked.length) parts.push(`Not asked: ${notAsked.join(', ')}. Consent was not recorded for them.`);
   if (!askedBy) parts.push(agreed.length + declined.length > 0 ? `Consent to ${about} was given without a recorded request.` : 'Consent was not asked.');
   return {

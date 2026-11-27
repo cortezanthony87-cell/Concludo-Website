@@ -856,6 +856,24 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
       expect(roles.replacementParticipants?.map((p: any) => p.name)).toEqual(['Chairperson', 'Treasurer']);
     });
   });
+  test('P1. a couple written with one shared surname keeps both full names, and the second can own an action', () => {
+    const text = ['Letter to Casey and Jordan Park, 3 Elm Street', 'Dear Casey and Jordan,', 'What we agreed: Jordan will send me the two payslips by Friday.'].join('\n');
+    const v = validateModelDraft({ source: { ...source, kind: 'document', text }, sourceKind: 'document', ruleRecord: ruleRecord({ participants: [] }), draft: {
+      participants: ['Casey Park', 'Jordan Park', 'Riley Park'],
+      actions: [{ task: 'Send the two payslips', owner: 'Jordan Park', due: null, source_quote: 'What we agreed: Jordan will send me the two payslips by Friday.' }],
+    } } as any);
+    expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Casey Park', 'Jordan Park']);
+    expect(v.droppedParticipants).toEqual(['Riley Park']);
+    expect(v.accepted.actions).toHaveLength(1);
+  });
+  test('C9. a long consent description is shortened, never relabelled as recording', () => {
+    const text = ['Jordan Lee: Before we start, the notes from today will be shared with the whole team by email. Casey, all right?', 'Casey Park: Of course.', 'Jordan Lee: We agreed to move the review to Thursday afternoon.'].join('\n');
+    const m: any = mergeModelDraft(ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } }), { consent: { about: 'Sharing the stand-up notes with the whole team by email', asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: [], not_asked: [], source_quote: 'the notes from today will be shared with the whole team by email' }, decisions: [goodDecision()] }, { ...source, text });
+    expect(m.consent.note).toContain('Jordan Lee asked about sharing the notes.');
+    expect(m.consent.note).not.toContain('recording');
+    const both: any = mergeModelDraft(ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } }), { consent: { about: 'Recording the call and sharing the written summary with the accountant', asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: [], not_asked: [], source_quote: 'the notes from today will be shared with the whole team by email' }, decisions: [goodDecision()] }, { ...source, text });
+    expect(both.consent.note).toContain('Jordan Lee asked about recording.');
+  });
   test('C8. a consent finding naming an absent person written in the source is kept; an invented name is not', () => {
     const text = ['Jordan Lee: Priya Shah asked earlier not to be recorded, so only notes today. Casey, are you fine with notes?', 'Casey Park: Of course.', 'Jordan Lee: We agreed to move the review to Thursday afternoon.'].join('\n');
     const ok: any = mergeModelDraft(ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } }), { consent: { about: 'notes', asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Priya Shah'], not_asked: [], source_quote: 'Casey, are you fine with notes?' }, decisions: [goodDecision()] }, { ...source, text });
@@ -863,5 +881,18 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
     expect(ok.consent.note).toContain('Declined: Priya Shah');
     const bad: any = mergeModelDraft(ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } }), { consent: { about: 'notes', asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Invented Person'], not_asked: [], source_quote: 'Casey, are you fine with notes?' }, decisions: [goodDecision()] }, { ...source, text });
     expect(bad.consent.asked_by).toBeNull();
+  });
+  test('D1. similar decisions about two different named people are both kept', () => {
+    const text = ['Jordan Lee: Hassan Qureshi is included on the shortlist.', 'Casey Park: Georgia Lindqvist is included on the shortlist.', 'Jordan Lee: We agreed to move the review to Thursday afternoon.'].join('\n');
+    const v = run({ decisions: [{ statement: 'Hassan Qureshi is included on the shortlist.', source_quote: 'Hassan Qureshi is included on the shortlist.' }, { statement: 'Georgia Lindqvist is included on the shortlist.', source_quote: 'Georgia Lindqvist is included on the shortlist.' }] }, ruleRecord(), text);
+    expect(v.accepted.decisions).toHaveLength(2);
+    const same = run({ decisions: [{ statement: 'Hassan Qureshi is included on the shortlist.', source_quote: 'Hassan Qureshi is included on the shortlist.' }, { statement: 'Hassan Qureshi is included on the shortlist.', source_quote: 'Hassan Qureshi is included on the shortlist.' }] }, ruleRecord(), text);
+    expect(same.accepted.decisions).toHaveLength(1);
+  });
+  test('D2. a consent note for a decline says consent was not given by that person', () => {
+    const text = ['Jordan Lee: Casey, can I record this? Priya Shah said no earlier.', 'Casey Park: Yes.', 'Jordan Lee: We agreed to move the review to Thursday afternoon.'].join('\n');
+    const m: any = mergeModelDraft(ruleRecord({ consent: { asked_by: null, answered_by: null, at: null, note: 'Consent was not recorded in the supplied transcript.', source_quote: null } }), { consent: { about: 'recording', asked_by: 'Jordan Lee', agreed: ['Casey Park'], declined: ['Priya Shah'], not_asked: [], source_quote: 'Casey, can I record this?' }, decisions: [goodDecision()] }, { ...source, text });
+    expect(m.consent.note).toContain('Declined: Priya Shah');
+    expect(m.consent.note).not.toContain('no consent');
   });
 });
