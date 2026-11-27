@@ -410,7 +410,7 @@ function resolveParticipants(
     const re = new RegExp(`^\\s*(?:\\[[^\\]]*\\]\\s*)?(?:\\d{1,2}:\\d{2}(?::\\d{2})?\\s*)?${esc}\\s*:`, 'i');
     const at = lines.map((l, i) => (re.test(l) ? i : -1)).filter((i) => i >= 0);
     const first = lines.findIndex((l) => l.trim() !== '');
-    return lines.length > 5 && at.length === 1 && at[0] === first && !modelKeys.has(normaliseText(n));
+    return lines.length > 5 && at.length === 1 && at[0] >= first && at[0] <= first + 3 && !modelKeys.has(normaliseText(n));
   };
   const removed = sourceKind === 'transcript' && sourceText ? allRuleNames.filter(headerOnly) : [];
   const ruleNames = allRuleNames.filter((n) => !removed.includes(n));

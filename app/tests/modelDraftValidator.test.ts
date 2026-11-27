@@ -837,6 +837,13 @@ describe('prompt v4 merge changes (invented snippets only)', () => {
     expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Jordan Lee', 'Casey Park']);
     expect(v.droppedParticipants).toEqual(['Video call transcript']);
   });
+  test('A3b. a header label on the third line ("Format: phone call") is dropped too', () => {
+    const text = ['Meeting: planning call', 'Date: Thursday 9 December 2027', 'Format: phone call, four people', '', 'Jordan Lee: Morning all.', 'Casey Park: Morning.', 'Jordan Lee: We agreed to move the review to Thursday afternoon.'].join('\n');
+    const rule = ruleRecord({ participants: [{ name: 'Format', present: true }, { name: 'Jordan Lee', present: true }, { name: 'Casey Park', present: true }] });
+    const v = validateModelDraft({ source: { ...source, text }, sourceKind: 'transcript', ruleRecord: rule, draft: { participants: ['Jordan Lee', 'Casey Park'], decisions: [] } });
+    expect(v.replacementParticipants?.map((p: any) => p.name)).toEqual(['Jordan Lee', 'Casey Park']);
+    expect(v.droppedParticipants).toEqual(['Format']);
+  });
   describe('v13: roles as owners, shared room microphone', () => {
     const MEMO = ['MEMORANDUM', 'The Board resolved to keep the van. The Treasurer is to obtain a written estimate by 28 May.', 'Two Board members recorded that they were opposed.'].join('\n');
     test('R1. a role the source names can own an action or hold a view; an unnamed role cannot', () => {

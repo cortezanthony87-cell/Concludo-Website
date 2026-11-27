@@ -212,7 +212,7 @@ describe('modelDraftClient', () => {
     for (const key of ['decisions', 'actions', 'open_questions', 'risks', 'insights', 'statements_to_verify', 'next_meeting', 'source_quote']) {
       expect(SYSTEM_PROMPT).toContain(key);
     }
-    expect(PROMPT_VERSION).toBe('v19');
+    expect(PROMPT_VERSION).toBe('v20');
   });
 
   test('10. the two new modules have no network, SDK, environment or supabase use', () => {
@@ -229,13 +229,15 @@ describe('modelDraftClient', () => {
     }
   });
 
-  test('11. prompt v19 carries rule 13 and every field name the validator reads', () => {
-    expect(PROMPT_VERSION).toBe('v19');
+  test('11. prompt v20 carries rule 13 and every field name the validator reads', () => {
+    expect(PROMPT_VERSION).toBe('v20');
     const joined = SYSTEM_PROMPT.replace(/\s+/g, ' ');
     expect(joined).toContain('the earlier figure it replaces');
     expect(joined).toContain('may struggle, be left behind or resist a change is a risk too');
     expect(joined).toContain('made only on a condition');
     expect(joined).toContain('even if they were not present');
+    expect(joined).toContain('a request for permission that gets no reply in the source, is an open question');
+    expect(joined).toContain('is a feedback_positive insight');
     expect(joined).toContain('leave agreed, declined and not_asked empty');
     expect(joined).toContain('merely mentioned as the person who will do a later task is not a participant');
     expect(joined).toContain('to a trade, team or role with no named person');
