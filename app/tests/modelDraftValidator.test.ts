@@ -120,6 +120,28 @@ describe('modelDraftValidator', () => {
     expect(v.rejected.map((r) => r.rule)).toEqual(['duplicate']);
   });
 
+  test('3d. a person named in the item quote may own a later task though not a participant', () => {
+    const text = SOURCE + '\nCasey Park: Priya Nair will draft the invoice once the quote arrives.';
+    const ok = run({ actions: [{ task: 'Draft the invoice once the quote arrives.', owner: 'Priya Nair', source_quote: 'Priya Nair will draft the invoice once the quote arrives' }] }, ruleRecord(), text);
+    expect(ok.accepted.actions).toHaveLength(1);
+    const bad = run({ actions: [{ task: 'Draft the invoice once the quote arrives.', owner: 'Priya Nair', source_quote: 'We agreed to move the review to Thursday afternoon' }] }, ruleRecord(), text);
+    expect(bad.rejected.map((r) => r.rule)).toEqual(['owner_not_participant']);
+  });
+
+  test('4b. the same action with two different deadlines is kept as two actions', () => {
+    const a = { ...goodAction(), due: '2026-12-27' };
+    const b = { ...goodAction(), due: '2026-12-28' };
+    const v = run({ actions: [a, b] });
+    expect(v.accepted.actions).toHaveLength(2);
+    expect(v.rejected.filter((r) => r.rule === 'duplicate')).toHaveLength(0);
+  });
+
+  test('4c. the same action with the same deadline is still a duplicate', () => {
+    const a = { ...goodAction(), due: '2026-12-27' };
+    const v = run({ actions: [a, { ...a }] });
+    expect(v.accepted.actions).toHaveLength(1);
+  });
+
   test('5. a fragment is rejected', () => {
     const dangling = run({ decisions: [{ ...goodDecision(), statement: 'Move the review to the' }] });
     expect(dangling.rejected.map((r) => r.rule)).toEqual(['fragment']);

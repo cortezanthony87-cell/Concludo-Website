@@ -680,7 +680,12 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
       if (category === 'actions') {
         const owner = item.owner;
         const hasOwner = typeof owner === 'string' ? owner.trim() !== '' : owner != null;
-        if (hasOwner && (typeof owner !== 'string' || !allNamesAreParticipants(owner, participants, normSource))) {
+        // A person who only appears in the source as taking a later task (not in the meeting) may still own it when the item's own quote names them.
+        const namedInOwnQuote = (o: string) => {
+          const n = normaliseText(o);
+          return n !== '' && itemQuotes(item).some((q) => ` ${normaliseText(q)} `.includes(` ${n} `));
+        };
+        if (hasOwner && (typeof owner !== 'string' || !(allNamesAreParticipants(owner, participants, normSource) || namedInOwnQuote(owner)))) {
           reject('owner_not_participant');
           continue;
         }
@@ -707,6 +712,13 @@ export function validateModelDraft(input: ValidateInput): ValidationResult {
               return other !== '' && !other.includes(own) && wordOverlap(k, w) >= SHARED_QUOTE_OVERLAP && keptQuotes[i].some((q) => ownQuotes.includes(q));
             })
           : -1;
+      }
+      if (dupAt >= 0 && category === 'actions') {
+        // Same wording but two different deadlines is two actions (the same task on two days), not one.
+        const dueOf = (x: any) => { const v = x?.due ?? x?.due_date; return typeof v === 'string' ? v.trim().toLowerCase() : ''; };
+        const a = dueOf(survivors[dupAt]);
+        const b = dueOf(item);
+        if (a && b && a !== b) dupAt = -1;
       }
       if (dupAt >= 0) {
         // The same task for a different participant: one action that names both owners.
