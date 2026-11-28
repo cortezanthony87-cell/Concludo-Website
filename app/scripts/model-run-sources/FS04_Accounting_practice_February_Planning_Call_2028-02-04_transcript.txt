@@ -1,0 +1,64 @@
+Title: Pillai and Marchetti Accounting, February planning call
+Date: Friday 4 February 2028
+Format: video call, five participants, speaker-labelled transcript
+
+[00:00:09] Helen Marchetti: Morning, everyone. Before we start, I would like to record this call so Jodie can catch up on the parts she misses when she drops off to answer the phones. Is everyone happy with that? Rohan?
+[00:00:21] Rohan Pillai: Fine by me.
+[00:00:24] Tessa Whitlock: Yes, no problem.
+[00:00:26] Jodie Kerr: That's fine, thanks for asking.
+[00:00:29] Greg Anand: All good here.
+[00:00:32] Helen Marchetti: Great, recording is on. Hot enough for you all? I was at the Footscray market at seven and it was already thirty degrees.
+[00:00:41] Tessa Whitlock: I gave up on the garden completely. The tomatoes have cooked on the vine.
+[00:00:48] Helen Marchetti: Right. First item, the BAS run for the end of February. Rohan, how many lodgements are we looking at?
+[00:00:57] Rohan Pillai: I make it fifty eight quarterly clients, plus the monthly ones.
+[00:01:05] Tessa Whitlock: Sorry, I have the list open and it is sixty three. Five of the new ones from December were not on your sheet.
+[00:01:14] Rohan Pillai: Sixty three, then. Thanks, Tessa.
+[00:01:18] Helen Marchetti: The due date is the twenty eighth and that does not move. If the ATO extended it, which they will not, I would still want us done by the twenty fifth.
+[00:01:30] Jodie Kerr: What if a client has not sent their bank feeds by then?
+[00:01:35] Helen Marchetti: Good question. We lodge on what we have and say so in writing. Tessa, can you chase every client who is missing documents by Monday?
+[00:01:46] Tessa Whitlock: Yes, I will send the reminders first thing Monday.
+[00:01:51] Helen Marchetti: Now, Saturdays. I would like us in on the nineteenth and twenty sixth of February to clear the backlog. Let's do a show of hands. Who is in favour?
+[00:02:03] Rohan Pillai: I'm in.
+[00:02:05] Jodie Kerr: Yes, I'm in.
+[00:02:07] Greg Anand: I can do the nineteenth only, but I will say yes.
+[00:02:12] Tessa Whitlock: I would rather not. I do the school run on Saturdays and my mother in law is not well.
+[00:02:20] Helen Marchetti: Okay, that is three to one, so we go ahead with both Saturdays. Tessa, you are not rostered and nobody will think less of you. Overtime for everyone else is at the usual rate.
+[00:02:33] Tessa Whitlock: Thank you, I appreciate it.
+[00:02:37] Helen Marchetti: Next, the new client portal. I would like to tell clients today that we switch on the first of March.
+[00:02:45] Greg Anand: Can I jump in? The vendor needs at least two weeks to migrate the document folders, and I have not even sent them the list. If we switch on the first, we are doing it in the middle of BAS week.
+[00:02:58] Helen Marchetti: Hmm. Yes. Scrap that. We do not announce anything. We park the portal until BAS is lodged and look again in the second week of March.
+[00:03:09] Greg Anand: That makes me much more comfortable.
+[00:03:13] Rohan Pillai: Since we are talking about risk, I need to say something. I am the only one who knows how to finalise the payroll file in the Wexford account. If I am sick in the last week of the month, we are stuck.
+[00:03:27] Helen Marchetti: That is a fair point. Rohan, can you and Jodie write up the steps together? Two of you, one document, so Jodie can do it if she has to.
+[00:03:38] Jodie Kerr: Happy to, but I have never touched that software.
+[00:03:43] Rohan Pillai: I will sit with you for an hour next week. Let's say we aim for the end of this month.
+[00:03:50] Helen Marchetti: Good. Now, a bit of news. Priya Nair handed in her notice yesterday. Her last day is the twenty fifth of March.
+[00:04:01] Tessa Whitlock: Oh no. I did not see that coming.
+[00:04:05] Helen Marchetti: She has fourteen clients, or fifteen, I would have to check. Somebody needs to go through her client list and propose who picks up whom. I do not want that landing on me in the last week.
+[00:04:19] Rohan Pillai: I could take a few, but only the company clients. I do not want the trusts.
+[00:04:25] Helen Marchetti: Noted. Does anyone want to take the list itself?
+[00:04:30] Greg Anand: Not me, I would not know who suits who.
+[00:04:34] Tessa Whitlock: I am flat out until the twenty eighth.
+[00:04:38] Helen Marchetti: Right. We will come back to it.
+[00:04:42] Jodie Kerr: Can I ask something? Who has the login for the ATO online services for the Dunmore Hardware account? It was Priya, I think.
+[00:04:51] Helen Marchetti: I honestly do not know. Greg?
+[00:04:55] Greg Anand: Let me look in the password manager. I will check after this call.
+[00:05:01] Helen Marchetti: Thanks. Next, the Wexford trust return. Jodie, you have the draft?
+[00:05:08] Jodie Kerr: I have a first pass. There are some distributions I am not sure how to treat.
+[00:05:14] Helen Marchetti: I worry a little that it is a lot for a second year graduate. That is not a criticism, it is a complicated file. Rohan, would you and Jodie review it together by Wednesday?
+[00:05:27] Rohan Pillai: Yes, Wednesday works.
+[00:05:30] Jodie Kerr: Thank you, that would help a lot.
+[00:05:34] Helen Marchetti: I also want to say well done to Tessa. The bank reconciliation clean up you did in January saved us probably ten hours a week. Honestly, it shows.
+[00:05:46] Tessa Whitlock: Thanks, Helen. It was mostly just tidying.
+[00:05:51] Helen Marchetti: Here is my promise. If every BAS is lodged by the twenty fifth, I will shout the whole team lunch on the following Friday. If we miss it, no lunch, and I will cry into my sandwich.
+[00:06:03] Rohan Pillai: I have heard rumours that the ATO is changing the lodgement portal again before June. Anyone else hear that?
+[00:06:11] Greg Anand: A client told me that. I would not rely on it.
+[00:06:16] Helen Marchetti: Treat it as hearsay. If it becomes official we will deal with it.
+[00:06:22] Jodie Kerr: Sorry, back to money. The software renewal is about eleven thousand, is that right?
+[00:06:29] Greg Anand: It is closer to nine and a half. The eleven included the extra seats we cancelled.
+[00:06:36] Helen Marchetti: Nine and a half, thanks. Greg, can you please pay it when the invoice comes?
+[00:06:42] Greg Anand: Will do.
+[00:06:45] Helen Marchetti: And someone needs to clean out the shared drive before the audit. It is full of old drafts. Would anyone like to volunteer?
+[00:06:54] Rohan Pillai: Who has the time, honestly.
+[00:06:58] Helen Marchetti: I take that as a no. Okay. To recap, Tessa chases documents by Monday, Rohan and Jodie write the payroll steps by the end of the month, they also review Wexford by Wednesday, Greg checks the ATO login today and pays the renewal. Priya's client list and the shared drive are still with nobody. We will talk about them at the next call.
+[00:07:20] Helen Marchetti: Thanks, all. Stay cool out there.

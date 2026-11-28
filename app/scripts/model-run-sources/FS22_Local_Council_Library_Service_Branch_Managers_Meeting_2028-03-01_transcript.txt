@@ -1,0 +1,72 @@
+Title: Marlow Shire Libraries, monthly branch managers meeting
+Date: Wednesday 1 March 2028
+Format: video call, five participants
+
+[00:00:12] Noelene Briggs: Morning all. Is everyone here? Callum, Yuki, Ruth, Gareth?
+[00:00:20] Callum Prasad: Here.
+[00:00:22] Yuki Tanaka: Yep, can hear you fine.
+[00:00:25] Ruth Adeyemi: Present. Sorry, I have a toddler's drum kit going off in the background, that is my neighbour's grandchild.
+[00:00:33] Gareth Whitlock: Here, and I have a coffee, so we are all good.
+[00:00:40] Noelene Briggs: Lovely. Before we start, I would like to record this on the platform so Callum does not have to type up everything again. Is everybody happy for me to record it and keep the transcript on the shared drive?
+[00:00:52] Callum Prasad: Fine by me.
+[00:00:54] Yuki Tanaka: Yes, happy.
+[00:00:56] Ruth Adeyemi: Yes, go for it.
+[00:00:58] Gareth Whitlock: Yep, no problem.
+[00:01:02] Noelene Briggs: Thanks. Recording is on. First item is the school holiday program for April. Yuki, where are we?
+[00:01:12] Yuki Tanaka: We have eleven sessions planned across the three branches. The robotics workshop is full already, which is great. The puppet making session has only four bookings so far.
+[00:01:26] Noelene Briggs: Is that enough to run it?
+[00:01:29] Yuki Tanaka: We need six. If we are still at four by the end of next week, I would cancel it and move the staff to the Lego session.
+[00:01:38] Noelene Briggs: Okay, that is your call, Yuki. Just let Ruth know if it goes.
+[00:01:44] Ruth Adeyemi: And I would prefer you tell me before Friday week, because I have to put the sign out at Eastfield.
+[00:01:52] Yuki Tanaka: Understood.
+[00:01:55] Noelene Briggs: Next, the Sunday opening trial. Callum, you put the proposal together.
+[00:02:03] Callum Prasad: Yes. The idea is to open Eastfield on Sundays from ten to two for three months from 7 May. Foot traffic data from the shopping centre suggests we would get about 120 visitors a day, but that is their estimate, not ours.
+[00:02:20] Ruth Adeyemi: I will be honest, my team is already stretched. If we do Sundays, who covers the desk?
+[00:02:27] Callum Prasad: Casuals on rotation, plus one permanent staff member volunteering each week.
+[00:02:34] Ruth Adeyemi: Volunteering is a lovely word for it.
+[00:02:38] Noelene Briggs: Let me suggest a compromise. We trial it for two Sundays a month rather than every Sunday, first and third, and review in August. Are we all okay with that?
+[00:02:50] Callum Prasad: I would have liked every Sunday, but yes, that is a fair start.
+[00:02:55] Ruth Adeyemi: Two Sundays I can manage.
+[00:02:58] Yuki Tanaka: In favour.
+[00:03:00] Gareth Whitlock: Yes from me, as long as I do not have to be on call for the self checkout units on Sundays.
+[00:03:07] Noelene Briggs: You will not be. Settled then, first and third Sundays from 7 May. Callum, please draft the staff roster by the 17th.
+[00:03:15] Callum Prasad: I will.
+[00:03:18] Noelene Briggs: Now, the self checkout units and the RFID system. Gareth.
+[00:03:24] Gareth Whitlock: The new units arrive on 20 March. Installation across the three branches should take two days each. The catch is that I am the only person who knows how the tag encoding works. If I am away sick the whole rollout stalls.
+[00:03:41] Noelene Briggs: That is a risk we should not ignore. Can anyone shadow Gareth?
+[00:03:47] Ruth Adeyemi: I could try, but I have never touched the back end.
+[00:03:52] Gareth Whitlock: Ruth could manage it, I think. Honestly I would rather someone from the IT team at the council learned it, but I do not know who. Nobody has volunteered.
+[00:04:03] Noelene Briggs: I will raise it with the council IT manager. Meanwhile, Gareth, please write the tag encoding steps down, even roughly.
+[00:04:12] Gareth Whitlock: I can do a rough version by the end of the month.
+[00:04:17] Noelene Briggs: Good. Budget. Last month I said we had $48,000 left in the equipment line. Callum, you were checking that.
+[00:04:27] Callum Prasad: Yes, and it is $38,000, not $48,000. The invoice for the shelving was not in the first report. Sorry.
+[00:04:36] Noelene Briggs: So that changes the 3D printer question. A decent one is about $6,500, plus filament and a training day.
+[00:04:46] Yuki Tanaka: The teens would love it. If we had a printer, I could run a monthly maker night.
+[00:04:53] Noelene Briggs: What if the printer breaks in the first month, or somebody prints something nasty? Do we want that headache?
+[00:05:00] Yuki Tanaka: It would be supervised.
+[00:05:03] Noelene Briggs: I would prefer to hold this until we know whether the Sunday trial costs us more than expected. Let us defer the printer to the May meeting.
+[00:05:12] Yuki Tanaka: Disappointing, but fair.
+[00:05:17] Noelene Briggs: Next, a grant. The state library grant for the reading program closes on 24 March and there is no extension. We would get up to $15,000 if it goes through. Who is writing it?
+[00:05:30] Callum Prasad: I can do the first draft if Yuki gives me the participation figures.
+[00:05:36] Yuki Tanaka: Yes, I will send them to you tomorrow.
+[00:05:40] Noelene Briggs: Then it is you two jointly. Callum drafts, Yuki checks it, and I sign it off. I need the final by Monday the 20th.
+[00:05:49] Callum Prasad: Okay.
+[00:05:52] Noelene Briggs: Someone also has to get the letter of support from the primary school. Anyone?
+[00:05:58] Ruth Adeyemi: Silence. Brilliant.
+[00:06:02] Noelene Briggs: Fine, I will ask the principal myself if nobody wants it.
+[00:06:07] Ruth Adeyemi: Sorry, I was on mute. I do know the principal at Eastfield Primary. I can ask her, but only if you send me the wording.
+[00:06:15] Noelene Briggs: Done, I will send you the wording today.
+[00:06:20] Noelene Briggs: Now a quick one. I have heard from someone at the council that there might be cuts to casual wages in the next budget. I have nothing official, so please do not repeat it to your teams.
+[00:06:33] Ruth Adeyemi: Which would make Sundays harder.
+[00:06:36] Noelene Briggs: It would. Which is why we review in August, not before.
+[00:06:41] Gareth Whitlock: Quick thing. All branches, please log out of the public computers at closing. Last week two were still logged in at Eastfield on Friday morning.
+[00:06:51] Ruth Adeyemi: That was me, sorry. We were short staffed.
+[00:06:55] Noelene Briggs: Everyone, please add it to the closing checklist.
+[00:07:01] Callum Prasad: Can I say, the new volunteer, Lachlan, is wonderful with the older patrons. Several have mentioned him.
+[00:07:09] Noelene Briggs: That is lovely to hear. Pass it on to him.
+[00:07:14] Yuki Tanaka: Although he is only on a three month placement. Will we lose him?
+[00:07:19] Noelene Briggs: We might. If the budget holds I would like to offer him a casual role, but I cannot promise that.
+[00:07:27] Ruth Adeyemi: Last thing from me. Mei Ling has been struggling since the move to the new catalogue system. I worry she will not cope when the checkouts go live as well.
+[00:07:38] Noelene Briggs: Ruth, can you sit with her this week and see what she needs? Let me know by Friday.
+[00:07:44] Ruth Adeyemi: I will.
+[00:07:47] Noelene Briggs: Great. Thank you, everyone. Next meeting is the first Wednesday of April. I will stop the recording now.
