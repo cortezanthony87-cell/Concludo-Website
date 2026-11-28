@@ -1,0 +1,2244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Command Centre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
+<style>
+/* ─── TOKENS ─── */
+:root {
+  --bg-deep:    #e8edf5;
+  --bg-base:    #f4f6fa;
+  --bg-surface: #ffffff;
+  --bg-raised:  #eef1f7;
+  --navy:       #16263f;
+  --navy2:      #21395c;
+  --gold:       #e2b53c;
+  --gold-dark:  #c9941a;
+  --gold-bg:    #fdf8ec;
+  --text-1:     #16263f;
+  --text-2:     #334155;
+  --text-3:     #5a6478;
+  --text-4:     #94a3b8;
+  --border:     #e2e8f0;
+  --border-md:  #cbd5e1;
+  --red:        #ef4444;
+  --red-dark:   #dc2626;
+  --red-bg:     #fef2f2;
+  --amber:      #f59e0b;
+  --amber-bg:   #fffbeb;
+  --green:      #22c55e;
+  --green-bg:   #f0fdf4;
+  --blue:       #3b82f6;
+  --blue-bg:    #eff6ff;
+  --font-head:  'Poppins', Arial, sans-serif;
+  --font-body:  'Inter', Arial, sans-serif;
+  --r-sm:       6px;
+  --r-md:       10px;
+  --r-lg:       14px;
+  color-scheme: light;
+}
+
+/* ─── RESET ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-1);
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── APP BAR ─── */
+.app-bar {
+  flex-shrink: 0;
+  height: 52px;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.app-bar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.app-bar-mark {
+  width: 30px; height: 30px;
+  background: var(--gold);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--navy);
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.app-bar-name {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 15px;
+  color: #fff;
+  letter-spacing: -0.2px;
+}
+.app-bar-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 4px; }
+.app-nav { display: flex; align-items: center; gap: 2px; }
+.app-nav-item {
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.app-nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.app-nav-item.active { background: rgba(226,181,60,0.18); color: var(--gold); }
+.app-bar-spacer { flex: 1; }
+.app-bar-actions { display: flex; align-items: center; gap: 8px; }
+.app-bar-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--navy2);
+  border: 2px solid rgba(226,181,60,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+}
+.app-bar-icon-btn {
+  width: 30px; height: 30px;
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: rgba(255,255,255,0.65);
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+.app-bar-icon-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* ─── MODULE HEADER ─── */
+.module-header {
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+.module-title-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px 10px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.module-icon {
+  width: 32px; height: 32px;
+  background: var(--navy);
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+.module-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+.module-subtitle { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.module-header-spacer { flex: 1; }
+.btn-primary {
+  padding: 7px 14px;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--navy2); }
+.btn-ghost {
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-ghost:hover { background: var(--bg-raised); border-color: var(--border-md); }
+
+/* ─── STAT TILES ─── */
+.stat-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.stat-tile {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.stat-tile:hover { border-color: var(--border-md); box-shadow: 0 2px 8px rgba(22,38,63,0.06); }
+.stat-tile.alert { border-color: #fecaca; background: var(--red-bg); }
+.stat-tile.alert:hover { border-color: #f87171; }
+.stat-tile.warn { border-color: #fde68a; background: var(--amber-bg); }
+.stat-tile.warn:hover { border-color: #fbbf24; }
+.stat-tile.good { border-color: #bbf7d0; background: var(--green-bg); }
+.stat-tile.good:hover { border-color: #4ade80; }
+.stat-icon {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.stat-tile.alert .stat-icon { background: #fee2e2; }
+.stat-tile.warn .stat-icon { background: #fef9c3; }
+.stat-tile.good .stat-icon { background: #dcfce7; }
+.stat-tile:not(.alert):not(.warn):not(.good) .stat-icon { background: var(--bg-raised); }
+.stat-body { min-width: 0; flex: 1; }
+.stat-value {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-1);
+}
+.stat-tile.alert .stat-value { color: var(--red-dark); }
+.stat-tile.warn .stat-value { color: #b45309; }
+.stat-tile.good .stat-value { color: #15803d; }
+.stat-label { font-size: 11px; font-weight: 600; color: var(--text-3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+.stat-sub { font-size: 11px; color: var(--text-4); margin-top: 2px; }
+
+/* ─── SUB-NAV ─── */
+.subnav {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 2px;
+  height: 38px;
+}
+.subnav::-webkit-scrollbar { display: none; }
+.subnav-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.subnav-item:hover { background: var(--bg-raised); color: var(--text-1); }
+.subnav-item.active { color: var(--navy); font-weight: 600; border-bottom-color: var(--gold); background: transparent; }
+.subnav-badge {
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.subnav-badge.red { background: var(--red); }
+.subnav-badge.gold { background: var(--gold); color: var(--navy); }
+
+/* ─── WORKSPACE ─── */
+.workspace {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 280px 1fr 380px;
+  background: var(--bg-deep);
+  gap: 1px;
+}
+
+/* ─── THREAD PANEL ─── */
+.thread-panel {
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.thread-search {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.thread-search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  cursor: text;
+}
+.thread-search-box span { font-size: 12px; color: var(--text-4); }
+.thread-search-icon { font-size: 13px; color: var(--text-4); }
+.thread-filter-btn {
+  width: 30px; height: 30px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.thread-filter-btn:hover { background: var(--bg-raised); }
+.thread-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.thread-list::-webkit-scrollbar { width: 4px; }
+.thread-list::-webkit-scrollbar-track { background: transparent; }
+.thread-list::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 2px; }
+.thread-group-label {
+  padding: 6px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.thread-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  position: relative;
+}
+.thread-item:hover { background: var(--bg-raised); }
+.thread-item.selected { background: var(--gold-bg); border-left-color: var(--gold); }
+.thread-item.unread .thread-subject { font-weight: 600; }
+.thread-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.thread-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.thread-time { font-size: 10px; color: var(--text-4); white-space: nowrap; }
+.thread-subject {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+.thread-preview {
+  font-size: 11px;
+  color: var(--text-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thread-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+.thread-tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex; align-items: center; gap: 3px;
+}
+.thread-tag.urgent { background: var(--red-bg); color: var(--red-dark); }
+.thread-tag.deadline { background: var(--amber-bg); color: #92400e; }
+.thread-tag.action { background: var(--blue-bg); color: #1d4ed8; }
+.thread-tag.waiting { background: var(--bg-raised); color: var(--text-3); }
+.thread-unread-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--blue);
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ─── CONVERSATION PANEL ─── */
+.conv-panel {
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.conv-header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.conv-subject-block { flex: 1; min-width: 0; }
+.conv-subject {
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.conv-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+.conv-meta-item { font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 3px; }
+.conv-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.icon-btn {
+  width: 28px; height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-3);
+  transition: background 0.12s, border-color 0.12s;
+}
+.icon-btn:hover { background: var(--bg-raised); border-color: var(--border-md); color: var(--text-1); }
+.conv-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; }
+.conv-body::-webkit-scrollbar { width: 4px; }
+.conv-body::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 2px; }
+
+/* Deadline banner */
+.deadline-banner {
+  background: var(--red-bg);
+  border: 1px solid #fecaca;
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.deadline-banner .banner-icon { font-size: 18px; }
+.deadline-banner .banner-text { flex: 1; }
+.deadline-banner .banner-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.deadline-banner .banner-detail { font-size: 12px; color: #7f1d1d; margin-top: 1px; }
+.deadline-banner .banner-time {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--red-dark);
+  white-space: nowrap;
+}
+
+/* Email message */
+.email-message {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.email-message-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.email-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--navy);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.email-sender-block { flex: 1; min-width: 0; }
+.email-sender-name { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.email-sender-addr { font-size: 11px; color: var(--text-3); }
+.email-timestamp { font-size: 11px; color: var(--text-4); white-space: nowrap; }
+.email-body {
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+.email-body p { margin-bottom: 10px; }
+.email-body p:last-child { margin-bottom: 0; }
+.email-body ol, .email-body ul { margin: 8px 0 10px 20px; }
+.email-body li { margin-bottom: 6px; }
+.email-clause { font-weight: 600; color: var(--text-1); }
+
+/* Attachment */
+.email-attachments {
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.attachment-chip:hover { background: #e8edf5; border-color: var(--border-md); }
+.attachment-chip-icon { font-size: 20px; }
+.attachment-chip-info { }
+.attachment-chip-name { font-size: 12px; font-weight: 600; color: var(--text-1); }
+.attachment-chip-size { font-size: 10px; color: var(--text-4); margin-top: 1px; }
+
+/* Reply compose */
+.conv-compose {
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  padding: 10px 16px;
+  flex-shrink: 0;
+}
+.compose-quick-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.compose-input-mock {
+  flex: 1;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-4);
+  cursor: text;
+  transition: border-color 0.12s;
+}
+.compose-input-mock:hover { border-color: var(--border-md); }
+.compose-send-btn {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--navy);
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+.compose-send-btn:hover { background: var(--navy2); }
+.compose-attach-btn {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.compose-attach-btn:hover { background: var(--bg-raised); }
+
+/* ─── INTELLIGENCE PANEL ─── */
+.intel-panel {
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+}
+.intel-header {
+  background: var(--navy);
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+.intel-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.intel-title {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+.intel-badge-row { display: flex; gap: 5px; }
+.intel-badge {
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.intel-badge.red { background: #fee2e2; color: var(--red-dark); }
+.intel-badge.amber { background: #fef9c3; color: #92400e; }
+.intel-tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.intel-tabs::-webkit-scrollbar { display: none; }
+.intel-tab {
+  padding: 5px 9px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+  display: flex; align-items: center; gap: 4px;
+}
+.intel-tab:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+.intel-tab.active { background: rgba(226,181,60,0.2); color: var(--gold); }
+.intel-tab-num {
+  min-width: 14px; height: 14px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.15);
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.65);
+}
+.intel-tab.active .intel-tab-num { background: rgba(226,181,60,0.3); color: var(--gold); }
+.intel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+}
+.intel-body::-webkit-scrollbar { width: 4px; }
+.intel-body::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 2px; }
+.intel-pane { display: none; }
+.intel-pane.active { display: block; }
+
+/* Intel cards */
+.intel-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+  margin-top: 14px;
+}
+.intel-section-label:first-child { margin-top: 0; }
+.intel-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.intel-card.gold-accent { border-left: 3px solid var(--gold); background: var(--gold-bg); }
+.intel-card.red-accent { border-left: 3px solid var(--red); background: var(--red-bg); }
+.intel-card.amber-accent { border-left: 3px solid var(--amber); background: var(--amber-bg); }
+.intel-card.blue-accent { border-left: 3px solid var(--blue); background: var(--blue-bg); }
+.intel-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.intel-card-body { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+.priority-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.priority-badge.urgent { background: var(--red-bg); color: var(--red-dark); border: 1px solid #fecaca; }
+.priority-badge.high { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.priority-badge.medium { background: var(--amber-bg); color: #92400e; border: 1px solid #fde68a; }
+.priority-badge.positive { background: var(--green-bg); color: #15803d; border: 1px solid #bbf7d0; }
+
+/* Action items */
+.action-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 10px;
+}
+.action-number {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.action-number.urgent { background: var(--red); }
+.action-content { flex: 1; min-width: 0; }
+.action-text { font-size: 12px; font-weight: 500; color: var(--text-1); line-height: 1.4; margin-bottom: 5px; }
+.action-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.action-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.action-tag.deadline-tag { background: var(--red-bg); color: var(--red-dark); }
+.action-tag.person-tag { background: var(--blue-bg); color: #1d4ed8; }
+.action-tag.date-tag { background: var(--bg-raised); color: var(--text-3); border: 1px solid var(--border); }
+
+/* Decision options */
+.decision-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.decision-question { font-size: 12px; font-weight: 600; color: var(--text-1); margin-bottom: 10px; line-height: 1.4; }
+.decision-options { display: flex; flex-direction: column; gap: 6px; }
+.decision-opt {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.decision-opt::before {
+  content: '';
+  width: 14px; height: 14px;
+  border: 2px solid var(--border-md);
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+.decision-opt:hover { background: var(--bg-raised); border-color: var(--border-md); }
+.decision-opt.selected { border-color: var(--navy); background: var(--gold-bg); color: var(--navy); }
+.decision-opt.selected::before { background: var(--navy); border-color: var(--navy); }
+
+/* Deadlines */
+.deadline-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  margin-bottom: 8px;
+}
+.deadline-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.deadline-dot.urgent { background: var(--red); }
+.deadline-dot.future { background: var(--amber); }
+.deadline-dot.done { background: var(--green); }
+.deadline-content { flex: 1; }
+.deadline-text { font-size: 12px; font-weight: 500; color: var(--text-1); margin-bottom: 3px; }
+.deadline-when { font-size: 11px; color: var(--text-4); }
+.deadline-when.urgent { color: var(--red-dark); font-weight: 600; }
+
+/* Risk cards */
+.risk-card {
+  border-radius: var(--r-md);
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  border: 1px solid;
+}
+.risk-card.high { background: var(--red-bg); border-color: #fecaca; }
+.risk-card.medium { background: var(--amber-bg); border-color: #fde68a; }
+.risk-level {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 4px;
+  display: flex; align-items: center; gap: 5px;
+}
+.risk-card.high .risk-level { color: var(--red-dark); }
+.risk-card.medium .risk-level { color: #92400e; }
+.risk-card .risk-level::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.risk-text { font-size: 12px; line-height: 1.45; }
+.risk-card.high .risk-text { color: #7f1d1d; }
+.risk-card.medium .risk-text { color: #451a03; }
+
+/* Draft reply */
+.tone-selector { display: flex; gap: 6px; margin-bottom: 14px; }
+.tone-btn {
+  flex: 1;
+  padding: 7px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.tone-btn:hover { background: var(--bg-raised); color: var(--text-1); }
+.tone-btn.active { border-color: var(--navy); background: var(--gold-bg); color: var(--navy); font-weight: 600; }
+.draft-variant { display: none; }
+.draft-variant.active { display: block; }
+.draft-box {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 13px;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+  font-family: var(--font-body);
+}
+.verify-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 7px;
+}
+.verify-list { margin-bottom: 12px; }
+.verify-item {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.verify-item:last-child { border-bottom: none; }
+.verify-item span.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex-shrink: 0;
+}
+.checklist-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 7px;
+}
+.checklist { margin-bottom: 14px; }
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.checklist-item:last-child { border-bottom: none; }
+.checklist-cb {
+  width: 15px; height: 15px;
+  border-radius: 3px;
+  border: 2px solid var(--border-md);
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+.checklist-cb.checked { background: var(--navy); border-color: var(--navy); }
+.checklist-cb.checked::after { content: '✓'; color: #fff; font-size: 9px; font-weight: 700; }
+.checklist-text { font-size: 12px; color: var(--text-2); line-height: 1.4; }
+.draft-send-btn {
+  width: 100%;
+  padding: 9px;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: background 0.15s;
+}
+.draft-send-btn:hover { background: var(--navy2); }
+.draft-send-btn:disabled { background: var(--bg-raised); color: var(--text-4); border: 1px solid var(--border); cursor: not-allowed; }
+.draft-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-4);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* Question items */
+.question-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.question-q { font-size: 12px; font-weight: 500; color: var(--text-1); margin-bottom: 4px; line-height: 1.4; }
+.question-context { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+
+/* ─── SUB-NAV ALTERNATE VIEWS ─── */
+.subnav-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: none;
+  padding: 16px 20px;
+  background: var(--bg-base);
+}
+.subnav-view.active { display: flex; flex-direction: column; }
+.subnav-view::-webkit-scrollbar { width: 5px; }
+.subnav-view::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 3px; }
+.view-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 4px;
+}
+.view-subtitle { font-size: 12px; color: var(--text-3); margin-bottom: 16px; }
+.view-list { display: flex; flex-direction: column; gap: 8px; }
+.view-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.view-card:hover { border-color: var(--border-md); box-shadow: 0 2px 10px rgba(22,38,63,0.06); }
+.view-card.urgent { border-left: 3px solid var(--red); }
+.view-card.medium { border-left: 3px solid var(--amber); }
+.view-card.positive { border-left: 3px solid var(--green); }
+.view-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; gap: 8px; }
+.view-card-sender { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.view-card-time { font-size: 11px; color: var(--text-4); white-space: nowrap; }
+.view-card-subject { font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 5px; }
+.view-card-preview { font-size: 12px; color: var(--text-3); line-height: 1.45; }
+.view-card-tags { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+.view-tag {
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.view-tag.red { background: var(--red-bg); color: var(--red-dark); }
+.view-tag.amber { background: var(--amber-bg); color: #92400e; }
+.view-tag.green { background: var(--green-bg); color: #15803d; }
+.view-tag.blue { background: var(--blue-bg); color: #1d4ed8; }
+.view-tag.grey { background: var(--bg-raised); color: var(--text-3); border: 1px solid var(--border); }
+
+/* Consolidated action view */
+.action-group-title {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: 14px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+}
+.action-group-title:first-child { margin-top: 0; }
+.agg-action-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.agg-action-card.urgent { border-left: 3px solid var(--red); }
+.agg-action-card.medium { border-left: 3px solid var(--amber); }
+.agg-num {
+  width: 18px; height: 18px;
+  background: var(--navy);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.agg-num.urgent { background: var(--red); }
+.agg-action-text { font-size: 12px; color: var(--text-1); flex: 1; font-weight: 500; line-height: 1.4; }
+.agg-action-from { font-size: 11px; color: var(--text-4); margin-top: 2px; }
+
+/* Settings panel */
+.settings-section { margin-bottom: 20px; }
+.settings-section-title {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-label { font-size: 12px; font-weight: 500; color: var(--text-1); }
+.settings-row-desc { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.toggle {
+  width: 36px; height: 20px;
+  border-radius: 10px;
+  background: var(--border-md);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.toggle.on { background: var(--navy); }
+.toggle::after {
+  content: '';
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 3px; left: 3px;
+  transition: left 0.2s;
+}
+.toggle.on::after { left: 19px; }
+
+/* Outputs view */
+.output-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.output-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.output-card:hover { border-color: var(--border-md); box-shadow: 0 2px 10px rgba(22,38,63,0.07); }
+.output-icon { font-size: 26px; margin-bottom: 8px; }
+.output-name { font-size: 12px; font-weight: 600; color: var(--text-1); margin-bottom: 3px; }
+.output-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; margin-bottom: 8px; }
+.output-from { font-size: 11px; color: var(--text-4); }
+.output-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s;
+}
+.output-btn:hover { background: var(--border); }
+
+/* Workspace iframe embedding: hide redundant outer app-bar */
+body.inside-iframe .app-bar {
+  display: none !important;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ─── APP BAR ─── -->
+<div class="app-bar">
+  <a class="app-bar-logo" href="#">
+    <img src="data:image/png;base64,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" alt="Concludo" style="height: 24px; width: auto; margin-right: 8px; vertical-align: middle;" />
+    <span class="app-bar-name">Concludo</span>
+  </a>
+  <div class="app-bar-divider"></div>
+  <nav class="app-nav">
+    <a class="app-nav-item" href="#">Workspace</a>
+    <a class="app-nav-item active" href="#">Email</a>
+    <a class="app-nav-item" href="#">Meetings</a>
+    <a class="app-nav-item" href="#">Actions</a>
+    <a class="app-nav-item" href="#">Outputs</a>
+  </nav>
+  <div class="app-bar-spacer"></div>
+  <div class="app-bar-actions">
+    <div class="app-bar-icon-btn" title="Search">🔍</div>
+    <div class="app-bar-icon-btn" title="Notifications">🔔</div>
+    <div class="app-bar-avatar" title="Alex Mercer - Meridian Consulting">AM</div>
+  </div>
+</div>
+
+<!-- ─── MODULE HEADER ─── -->
+<div class="module-header">
+  <div class="module-title-row">
+    <div class="module-icon">📬</div>
+    <div>
+      <div class="module-title">Email Command Centre</div>
+      <div class="module-subtitle">alex@meridian.com.au · Meridian Consulting</div>
+    </div>
+    <div class="module-header-spacer"></div>
+    <button class="btn-ghost" onclick="toggleView('subnav-outputs')">📄 Outputs</button>
+    <button class="btn-primary">✉️ New Thread</button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-tile alert" onclick="switchNav('subnav-needs-attention')">
+      <div class="stat-icon">🔴</div>
+      <div class="stat-body">
+        <div class="stat-value">7</div>
+        <div class="stat-label">Needs Reply</div>
+        <div class="stat-sub">4 high priority</div>
+      </div>
+    </div>
+    <div class="stat-tile warn" onclick="switchNav('subnav-unread')">
+      <div class="stat-icon">🟡</div>
+      <div class="stat-body">
+        <div class="stat-value">3</div>
+        <div class="stat-label">Unread</div>
+        <div class="stat-sub">0 unanalysed</div>
+      </div>
+    </div>
+    <div class="stat-tile" onclick="switchNav('subnav-flagged')">
+      <div class="stat-icon">🏷️</div>
+      <div class="stat-body">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Flagged</div>
+        <div class="stat-sub">No items flagged</div>
+      </div>
+    </div>
+    <div class="stat-tile good" onclick="switchNav('subnav-processed')">
+      <div class="stat-icon">✅</div>
+      <div class="stat-body">
+        <div class="stat-value">14</div>
+        <div class="stat-label">Processed</div>
+        <div class="stat-sub">This week</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subnav" id="subnav-bar">
+    <div class="subnav-item" onclick="switchNav('subnav-overview')">Overview</div>
+    <div class="subnav-item" onclick="switchNav('subnav-needs-attention')">Needs Attention <span class="subnav-badge red">7</span></div>
+    <div class="subnav-item" onclick="switchNav('subnav-reply-queue')">Reply Queue <span class="subnav-badge red">4</span></div>
+    <div class="subnav-item" onclick="switchNav('subnav-actions')">Actions &amp; Deadlines <span class="subnav-badge">5</span></div>
+    <div class="subnav-item" onclick="switchNav('subnav-waiting')">Waiting <span class="subnav-badge">3</span></div>
+    <div class="subnav-item" onclick="switchNav('subnav-quick-wins')">Quick Wins <span class="subnav-badge gold">2</span></div>
+    <div class="subnav-item" onclick="switchNav('subnav-backlog')">Clear Backlog</div>
+    <div class="subnav-item active" id="nav-all-email" onclick="switchNav('workspace-view')">All Email</div>
+    <div class="subnav-item" onclick="switchNav('subnav-outputs')">Outputs</div>
+    <div class="subnav-item" onclick="switchNav('subnav-security')">Security Review</div>
+    <div class="subnav-item" onclick="switchNav('subnav-settings')">Email Settings</div>
+  </div>
+</div>
+
+<!-- ─── WORKSPACE (All Email - 3-panel) ─── -->
+<div class="workspace" id="workspace-view" style="display:grid;">
+
+  <!-- LEFT: Thread List -->
+  <div class="thread-panel">
+    <div class="thread-search">
+      <div class="thread-search-box">
+        <span class="thread-search-icon">🔍</span>
+        <span>Search threads...</span>
+      </div>
+      <div class="thread-filter-btn" title="Filter">⚙</div>
+    </div>
+    <div class="thread-list">
+      <div class="thread-group-label">Today · Needs action</div>
+
+      <!-- Thread 1 - Selected -->
+      <div class="thread-item selected" onclick="selectThread(this)">
+        <div class="thread-item-header">
+          <span class="thread-sender">Rowe Partners</span>
+          <span class="thread-time">9:47am</span>
+        </div>
+        <div class="thread-subject">Contract terms: Annexure B</div>
+        <div class="thread-preview">Confirmation required by 5pm today</div>
+        <div class="thread-tags">
+          <span class="thread-tag urgent">🔴 Urgent</span>
+          <span class="thread-tag deadline">⏰ 5pm today</span>
+        </div>
+      </div>
+
+      <!-- Thread 2 -->
+      <div class="thread-item unread" onclick="selectThread(this)">
+        <div class="thread-unread-dot"></div>
+        <div class="thread-item-header">
+          <span class="thread-sender">BrightPath Consulting</span>
+          <span class="thread-time">8:21am</span>
+        </div>
+        <div class="thread-subject">Q4 retainer scope change request</div>
+        <div class="thread-preview">Hi Alex, following our call yesterday...</div>
+        <div class="thread-tags">
+          <span class="thread-tag action">📋 Action needed</span>
+        </div>
+      </div>
+
+      <!-- Thread 3 -->
+      <div class="thread-item" onclick="selectThread(this)">
+        <div class="thread-item-header">
+          <span class="thread-sender">Meridian Advisory</span>
+          <span class="thread-time">7:55am</span>
+        </div>
+        <div class="thread-subject">Re: Workshop facilitation brief</div>
+        <div class="thread-preview">Confirmed for Thursday the 30th, venue...</div>
+        <div class="thread-tags">
+          <span class="thread-tag deadline">📅 Thu 30 Oct</span>
+        </div>
+      </div>
+
+      <div class="thread-group-label" style="margin-top:6px;">Yesterday</div>
+
+      <!-- Thread 4 -->
+      <div class="thread-item" onclick="selectThread(this)">
+        <div class="thread-item-header">
+          <span class="thread-sender">Cassidy &amp; Moore</span>
+          <span class="thread-time">Fri 3:40pm</span>
+        </div>
+        <div class="thread-subject">Invoice 1042 - payment timeline</div>
+        <div class="thread-preview">We have processed the invoice and expect...</div>
+        <div class="thread-tags">
+          <span class="thread-tag waiting">⏳ Waiting</span>
+        </div>
+      </div>
+
+      <!-- Thread 5 -->
+      <div class="thread-item unread" onclick="selectThread(this)">
+        <div class="thread-unread-dot"></div>
+        <div class="thread-item-header">
+          <span class="thread-sender">Summit Coaching</span>
+          <span class="thread-time">Fri 1:12pm</span>
+        </div>
+        <div class="thread-subject">Program design - module 3 feedback</div>
+        <div class="thread-preview">Thanks for sending through the draft, a few...</div>
+        <div class="thread-tags">
+          <span class="thread-tag action">📋 Revisions requested</span>
+        </div>
+      </div>
+
+      <div class="thread-group-label" style="margin-top:6px;">This week</div>
+
+      <!-- Thread 6 -->
+      <div class="thread-item" onclick="selectThread(this)">
+        <div class="thread-item-header">
+          <span class="thread-sender">Pacific Growth Partners</span>
+          <span class="thread-time">Thu</span>
+        </div>
+        <div class="thread-subject">Proposal follow-up: talent framework</div>
+        <div class="thread-preview">Following up on the proposal we sent last week...</div>
+        <div class="thread-tags">
+          <span class="thread-tag waiting">⏳ Waiting on decision</span>
+        </div>
+      </div>
+
+      <!-- Thread 7 -->
+      <div class="thread-item" onclick="selectThread(this)">
+        <div class="thread-item-header">
+          <span class="thread-sender">Elara Capital</span>
+          <span class="thread-time">Wed</span>
+        </div>
+        <div class="thread-subject">Onboarding workshop - date confirmed</div>
+        <div class="thread-preview">Great to speak with you. All confirmed for...</div>
+        <div class="thread-tags">
+          <span class="thread-tag action">✅ Confirmed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MIDDLE: Conversation -->
+  <div class="conv-panel">
+    <div class="conv-header">
+      <div class="conv-subject-block">
+        <div class="conv-subject">Contract terms: Annexure B - confirmation required by 5pm today</div>
+        <div class="conv-meta">
+          <span class="conv-meta-item">📁 Rowe Partners</span>
+          <span class="conv-meta-item">🧵 1 message</span>
+          <span class="conv-meta-item">📎 1 attachment</span>
+        </div>
+      </div>
+      <div class="conv-actions">
+        <div class="icon-btn" title="Flag">🏷️</div>
+        <div class="icon-btn" title="Archive">📥</div>
+        <div class="icon-btn" title="More">•••</div>
+      </div>
+    </div>
+
+    <div class="conv-body">
+
+      <!-- Deadline banner -->
+      <div class="deadline-banner">
+        <span class="banner-icon">⏰</span>
+        <div class="banner-text">
+          <div class="banner-label">Contract deadline</div>
+          <div class="banner-detail">Written confirmation of Annexure B required to proceed with engagement</div>
+        </div>
+        <div class="banner-time">5pm AEST today</div>
+      </div>
+
+      <!-- Email message -->
+      <div class="email-message">
+        <div class="email-message-head">
+          <div class="email-avatar">SR</div>
+          <div class="email-sender-block">
+            <div class="email-sender-name">Sarah Rowe <span style="font-weight:400;color:var(--text-3);">· Senior Partner</span></div>
+            <div class="email-sender-addr">sarah.rowe@rowepartners.com.au · Rowe Partners</div>
+          </div>
+          <div class="email-timestamp">Today, 9:47am</div>
+        </div>
+        <div class="email-body">
+          <p>Hi Alex,</p>
+          <p>Following our call last Thursday, I've attached the revised Annexure B for your review.</p>
+          <p>We need your written confirmation by close of business today (5pm AEST) to proceed with the engagement.</p>
+          <p>Three points require your agreement:</p>
+          <ol>
+            <li><span class="email-clause">Clause 4.2</span> - Liability cap of AU$85,000</li>
+            <li><span class="email-clause">Clause 7.1</span> - 30-day payment terms</li>
+            <li><span class="email-clause">Clause 9.3</span> - IP assignment to Rowe Partners on delivery</li>
+          </ol>
+          <p>Please confirm by return email. If you need an extension, please let me know by 2pm today so we can accommodate.</p>
+          <p>Regards,<br>Sarah Rowe<br>Senior Partner, Rowe Partners</p>
+        </div>
+        <div class="email-attachments">
+          <div class="attachment-chip">
+            <span class="attachment-chip-icon">📄</span>
+            <div class="attachment-chip-info">
+              <div class="attachment-chip-name">Rowe_Partners_Annexure_B_v3.pdf</div>
+              <div class="attachment-chip-size">284 KB · PDF</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /conv-body -->
+
+    <div class="conv-compose">
+      <div class="compose-quick-bar">
+        <div class="compose-attach-btn" title="Attach">📎</div>
+        <div class="compose-input-mock" onclick="openDraftTab()">Reply to Sarah Rowe... or use intelligence panel →</div>
+        <button class="compose-send-btn" title="Send">➤</button>
+      </div>
+    </div>
+  </div><!-- /conv-panel -->
+
+  <!-- RIGHT: Intelligence Panel -->
+  <div class="intel-panel">
+    <div class="intel-header">
+      <div class="intel-header-top">
+        <span class="intel-title">Thread Intelligence</span>
+        <div class="intel-badge-row">
+          <span class="intel-badge red">HIGH RISK</span>
+          <span class="intel-badge amber">DEADLINE</span>
+        </div>
+      </div>
+      <div class="intel-tabs">
+        <div class="intel-tab active" onclick="switchIntelTab(0)">Overview</div>
+        <div class="intel-tab" onclick="switchIntelTab(1)">Actions <span class="intel-tab-num">2</span></div>
+        <div class="intel-tab" onclick="switchIntelTab(2)">Decisions <span class="intel-tab-num">1</span></div>
+        <div class="intel-tab" onclick="switchIntelTab(3)">Deadlines <span class="intel-tab-num">3</span></div>
+        <div class="intel-tab" onclick="switchIntelTab(4)">Questions <span class="intel-tab-num">2</span></div>
+        <div class="intel-tab" onclick="switchIntelTab(5)">Files <span class="intel-tab-num">1</span></div>
+        <div class="intel-tab" onclick="switchIntelTab(6)">Draft Reply</div>
+        <div class="intel-tab" onclick="switchIntelTab(7)">Risks <span class="intel-tab-num">2</span></div>
+      </div>
+    </div>
+
+    <div class="intel-body">
+
+      <!-- PANE 0: Overview -->
+      <div class="intel-pane active" id="intel-pane-0">
+        <div class="intel-section-label">Why this matters</div>
+        <div class="intel-card gold-accent">
+          <div class="intel-card-title">⚠️ Contract acceptance required today</div>
+          <div class="intel-card-body">Sarah Rowe has set a hard 5pm AEST deadline for written acceptance of Annexure B. Missing this deadline risks the engagement. AU$85,000 liability cap and IP assignment terms require review before you reply.</div>
+        </div>
+
+        <div class="intel-section-label">Thread context</div>
+        <div class="intel-card">
+          <div class="intel-card-title">📋 Engagement details</div>
+          <div class="intel-card-body">
+            <div style="display:flex;gap:8px;margin-bottom:4px;"><span style="color:var(--text-4);min-width:72px;font-size:11px;">From</span><span>Sarah Rowe · Rowe Partners</span></div>
+            <div style="display:flex;gap:8px;margin-bottom:4px;"><span style="color:var(--text-4);min-width:72px;font-size:11px;">Received</span><span>Today, 9:47am</span></div>
+            <div style="display:flex;gap:8px;margin-bottom:4px;"><span style="color:var(--text-4);min-width:72px;font-size:11px;">Context</span><span>Follows call last Thursday</span></div>
+            <div style="display:flex;gap:8px;"><span style="color:var(--text-4);min-width:72px;font-size:11px;">Type</span><span>Contract acceptance</span></div>
+          </div>
+        </div>
+
+        <div class="intel-section-label">Suggested action</div>
+        <div class="intel-card" style="border-left:3px solid var(--gold);background:var(--gold-bg);">
+          <div class="intel-card-title" style="color:var(--navy);">📨 Reply before 5pm AEST today</div>
+          <div class="intel-card-body" style="color:var(--text-2);">Confirm acceptance of Annexure B terms or request extension by 2pm. Use the Draft Reply tab for a ready-to-review response.</div>
+          <button class="btn-primary" style="margin-top:8px;font-size:11px;" onclick="switchIntelTab(6)">Open Draft Reply →</button>
+        </div>
+      </div>
+
+      <!-- PANE 1: Actions -->
+      <div class="intel-pane" id="intel-pane-1">
+        <div class="intel-section-label">Required actions</div>
+
+        <div class="action-item">
+          <div class="action-number urgent">1</div>
+          <div class="action-content">
+            <div class="action-text">Reply to Sarah Rowe confirming acceptance of Annexure B by 5pm AEST today</div>
+            <div class="action-meta">
+              <span class="action-tag deadline-tag">⏰ Today 5pm</span>
+              <span class="action-tag person-tag">👤 Sarah Rowe</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-item">
+          <div class="action-number">2</div>
+          <div class="action-content">
+            <div class="action-text">Forward Annexure B to Brennan (legal) to note Clause 9.3 IP assignment for records</div>
+            <div class="action-meta">
+              <span class="action-tag date-tag">📅 Fri 31 Oct</span>
+              <span class="action-tag person-tag">👤 Brennan</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANE 2: Decisions -->
+      <div class="intel-pane" id="intel-pane-2">
+        <div class="intel-section-label">Decisions required</div>
+        <div class="decision-card">
+          <div class="decision-question">How do you want to respond to Sarah Rowe's Annexure B?</div>
+          <div class="decision-options">
+            <div class="decision-opt" onclick="selectDecision(this)">Accept Annexure B as presented - confirm all three clauses</div>
+            <div class="decision-opt" onclick="selectDecision(this)">Request amendment to Clause 9.3 (IP assignment) before confirming</div>
+            <div class="decision-opt" onclick="selectDecision(this)">Request a 2pm extension to consult with legal first</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANE 3: Deadlines -->
+      <div class="intel-pane" id="intel-pane-3">
+        <div class="intel-section-label">Identified deadlines</div>
+
+        <div class="deadline-item">
+          <div class="deadline-dot urgent"></div>
+          <div class="deadline-content">
+            <div class="deadline-text">Confirm acceptance of Annexure B</div>
+            <div class="deadline-when urgent">Today · 5pm AEST · Hard deadline</div>
+          </div>
+        </div>
+
+        <div class="deadline-item">
+          <div class="deadline-dot urgent"></div>
+          <div class="deadline-content">
+            <div class="deadline-text">Request extension (if needed)</div>
+            <div class="deadline-when urgent">Today · 2pm AEST · Extension window closes</div>
+          </div>
+        </div>
+
+        <div class="deadline-item">
+          <div class="deadline-dot future"></div>
+          <div class="deadline-content">
+            <div class="deadline-text">Forward to Brennan for legal records</div>
+            <div class="deadline-when">Friday · 31 October</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANE 4: Questions -->
+      <div class="intel-pane" id="intel-pane-4">
+        <div class="intel-section-label">Questions to resolve before replying</div>
+
+        <div class="question-item">
+          <div class="question-q">Does the AU$85,000 liability cap in Clause 4.2 align with your standard engagement terms?</div>
+          <div class="question-context">Rowe Partners has specified this as a condition of the engagement. Confirm with your standard contract template or legal before accepting.</div>
+        </div>
+
+        <div class="question-item">
+          <div class="question-q">Are you comfortable with the Clause 9.3 IP assignment on delivery?</div>
+          <div class="question-context">This assigns all intellectual property to Rowe Partners upon project delivery. Consider whether any deliverables should be excluded before accepting.</div>
+        </div>
+      </div>
+
+      <!-- PANE 5: Attachments -->
+      <div class="intel-pane" id="intel-pane-5">
+        <div class="intel-section-label">Files in this thread</div>
+
+        <div class="intel-card" style="display:flex;gap:10px;align-items:center;">
+          <span style="font-size:28px;">📄</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:600;color:var(--text-1);">Rowe_Partners_Annexure_B_v3.pdf</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px;">284 KB · Attached by Sarah Rowe · 9:47am today</div>
+          </div>
+        </div>
+        <button class="btn-ghost" style="width:100%;margin-top:8px;justify-content:center;font-size:11px;">⬇ Download Annexure B</button>
+      </div>
+
+      <!-- PANE 6: Draft Reply -->
+      <div class="intel-pane" id="intel-pane-6">
+        <div style="font-size:10px;font-weight:700;color:var(--text-4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Reply tone</div>
+        <div class="tone-selector">
+          <div class="tone-btn active" onclick="switchTone(0, this)">Concise</div>
+          <div class="tone-btn" onclick="switchTone(1, this)">Formal</div>
+          <div class="tone-btn" onclick="switchTone(2, this)">Friendly</div>
+        </div>
+
+        <!-- Draft: Concise -->
+        <div class="draft-variant active" id="draft-0">
+          <div class="draft-box">Hi Sarah,
+
+Confirmed. We accept the terms of Annexure B, including Clauses 4.2, 7.1 and 9.3.
+
+Please proceed.
+
+Alex Mercer
+Meridian Consulting</div>
+        </div>
+
+        <!-- Draft: Formal -->
+        <div class="draft-variant" id="draft-1">
+          <div class="draft-box">Dear Ms Rowe,
+
+Thank you for forwarding the revised Annexure B.
+
+Following our review, Meridian Consulting confirms its acceptance of the terms as presented, including the liability cap at Clause 4.2 (AU$85,000), payment terms at Clause 7.1 (30 days), and the IP assignment provision at Clause 9.3.
+
+We are pleased to proceed on this basis. Please let me know if you require any further documentation.
+
+Yours sincerely,
+Alex Mercer
+Principal Consultant, Meridian Consulting</div>
+        </div>
+
+        <!-- Draft: Friendly -->
+        <div class="draft-variant" id="draft-2">
+          <div class="draft-box">Hi Sarah,
+
+All good on our end. We're happy with the terms in Annexure B, including the liability cap, payment terms and IP assignment - confirmed, let's proceed.
+
+Give me a call if you'd like to talk through anything before we kick off.
+
+Cheers,
+Alex</div>
+        </div>
+
+        <div class="verify-section-label">Figures to verify before sending</div>
+        <div class="verify-list">
+          <div class="verify-item"><span class="dot"></span>Liability cap: AU$85,000 (Clause 4.2)</div>
+          <div class="verify-item"><span class="dot"></span>Payment terms: 30 days (Clause 7.1)</div>
+          <div class="verify-item"><span class="dot"></span>Deadline: 5pm AEST today</div>
+          <div class="verify-item"><span class="dot"></span>Signatory name: Alex Mercer</div>
+        </div>
+
+        <div class="checklist-label">Before sending</div>
+        <div class="checklist" id="send-checklist">
+          <div class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checklist-cb"></div>
+            <div class="checklist-text">I have read Annexure B in full</div>
+          </div>
+          <div class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checklist-cb"></div>
+            <div class="checklist-text">The liability cap (AU$85,000) is acceptable</div>
+          </div>
+          <div class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checklist-cb"></div>
+            <div class="checklist-text">The IP assignment in Clause 9.3 is acceptable</div>
+          </div>
+          <div class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checklist-cb"></div>
+            <div class="checklist-text">Reply confirmed as ready to send</div>
+          </div>
+        </div>
+
+        <button class="draft-send-btn" id="draft-send-btn" disabled>✉️ Send Reply</button>
+        <div class="draft-note">Reply goes through your email client. Concludo does not send email on your behalf.</div>
+      </div>
+
+      <!-- PANE 7: Risks -->
+      <div class="intel-pane" id="intel-pane-7">
+        <div class="intel-section-label">Identified risks</div>
+
+        <div class="risk-card high">
+          <div class="risk-level">High risk</div>
+          <div class="risk-text">Missing the 5pm AEST deadline may void the engagement offer. Sarah Rowe has specified this as a hard cut-off with no automatic extension. If you need more time, you must request it before 2pm today.</div>
+        </div>
+
+        <div class="risk-card medium">
+          <div class="risk-level">Medium risk</div>
+          <div class="risk-text">Clause 9.3 assigns all IP to Rowe Partners on delivery. If any component of your work product has reuse value or forms part of a broader methodology, accepting this clause transfers it. Review with legal before confirming if relevant.</div>
+        </div>
+      </div>
+
+    </div><!-- /intel-body -->
+  </div><!-- /intel-panel -->
+
+</div><!-- /workspace -->
+
+<!-- ─── SUB-NAV VIEWS ─── -->
+
+<!-- OVERVIEW -->
+<div class="subnav-view" id="subnav-overview">
+  <div class="view-title">Email Overview</div>
+  <div class="view-subtitle">Summary of your inbox status across all threads</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:20px;">
+    <div class="view-card urgent">
+      <div class="view-card-header"><span class="view-card-sender">🔴 High Priority</span><span class="view-card-time">4 threads</span></div>
+      <div class="view-card-subject">Contract, scope change, invoice, proposal</div>
+      <div class="view-card-preview">These threads need a decision or reply today.</div>
+    </div>
+    <div class="view-card medium">
+      <div class="view-card-header"><span class="view-card-sender">🟡 Deadlines this week</span><span class="view-card-time">3 items</span></div>
+      <div class="view-card-subject">Annexure B · 5pm today, Workshop brief · Thu 30</div>
+      <div class="view-card-preview">Two time-sensitive confirmations due before Friday.</div>
+    </div>
+    <div class="view-card positive">
+      <div class="view-card-header"><span class="view-card-sender">✅ Recently processed</span><span class="view-card-time">14 this week</span></div>
+      <div class="view-card-subject">Elara Capital onboarding confirmed</div>
+      <div class="view-card-preview">Onboarding workshop confirmed for 5 November.</div>
+    </div>
+  </div>
+</div>
+
+<!-- NEEDS ATTENTION -->
+<div class="subnav-view" id="subnav-needs-attention">
+  <div class="view-title">Needs Attention</div>
+  <div class="view-subtitle">7 threads require a reply, decision or action</div>
+  <div class="view-list">
+    <div class="view-card urgent">
+      <div class="view-card-header"><span class="view-card-sender">Rowe Partners</span><span class="view-card-time">Today 9:47am</span></div>
+      <div class="view-card-subject">Contract terms: Annexure B - confirmation required by 5pm today</div>
+      <div class="view-card-preview">Three clauses require acceptance: liability cap (AU$85k), payment terms (30 days), IP assignment.</div>
+      <div class="view-card-tags"><span class="view-tag red">Urgent</span><span class="view-tag red">Hard deadline</span></div>
+    </div>
+    <div class="view-card urgent">
+      <div class="view-card-header"><span class="view-card-sender">BrightPath Consulting</span><span class="view-card-time">Today 8:21am</span></div>
+      <div class="view-card-subject">Q4 retainer scope change request</div>
+      <div class="view-card-preview">Requesting addition of two facilitation days to the Q4 retainer. Needs a decision on scope and pricing.</div>
+      <div class="view-card-tags"><span class="view-tag amber">Decision needed</span></div>
+    </div>
+    <div class="view-card medium">
+      <div class="view-card-header"><span class="view-card-sender">Meridian Advisory</span><span class="view-card-time">Today 7:55am</span></div>
+      <div class="view-card-subject">Re: Workshop facilitation brief</div>
+      <div class="view-card-preview">Venue confirmation and attendee list needed before Thursday 30 October.</div>
+      <div class="view-card-tags"><span class="view-tag amber">Thu 30 Oct</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Summit Coaching</span><span class="view-card-time">Fri 1:12pm</span></div>
+      <div class="view-card-subject">Program design - module 3 feedback</div>
+      <div class="view-card-preview">Revisions requested on learning objectives and exercise timing for module 3.</div>
+      <div class="view-card-tags"><span class="view-tag blue">Revisions</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Pacific Growth Partners</span><span class="view-card-time">Thu</span></div>
+      <div class="view-card-subject">Proposal follow-up: talent framework</div>
+      <div class="view-card-preview">Following up on the proposal sent last week. No response received.</div>
+      <div class="view-card-tags"><span class="view-tag grey">Follow-up</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Cassidy &amp; Moore</span><span class="view-card-time">Fri 3:40pm</span></div>
+      <div class="view-card-subject">Invoice 1042 - payment timeline</div>
+      <div class="view-card-preview">Awaiting payment ETA confirmation from finance team.</div>
+      <div class="view-card-tags"><span class="view-tag grey">Waiting</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Elara Capital</span><span class="view-card-time">Wed</span></div>
+      <div class="view-card-subject">Onboarding workshop - logistics checklist</div>
+      <div class="view-card-preview">Pre-workshop logistics checklist to complete before 5 November.</div>
+      <div class="view-card-tags"><span class="view-tag amber">5 Nov</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- REPLY QUEUE -->
+<div class="subnav-view" id="subnav-reply-queue">
+  <div class="view-title">Reply Queue</div>
+  <div class="view-subtitle">4 threads ordered by urgency - reply to each before moving on</div>
+  <div class="view-list">
+    <div class="view-card urgent">
+      <div class="view-card-header"><span class="view-card-sender">1 · Rowe Partners</span><span class="view-card-time">Deadline 5pm today</span></div>
+      <div class="view-card-subject">Contract terms: Annexure B</div>
+      <div class="view-card-preview">Hard deadline. Confirm Annexure B terms or request extension by 2pm.</div>
+      <div class="view-card-tags"><span class="view-tag red">Reply by 5pm AEST</span></div>
+    </div>
+    <div class="view-card urgent">
+      <div class="view-card-header"><span class="view-card-sender">2 · BrightPath Consulting</span><span class="view-card-time">Today</span></div>
+      <div class="view-card-subject">Q4 retainer scope change request</div>
+      <div class="view-card-preview">Scope and pricing decision needed before end of day to keep the Q4 program on track.</div>
+      <div class="view-card-tags"><span class="view-tag amber">Decision today</span></div>
+    </div>
+    <div class="view-card medium">
+      <div class="view-card-header"><span class="view-card-sender">3 · Summit Coaching</span><span class="view-card-time">Fri</span></div>
+      <div class="view-card-subject">Module 3 feedback - revisions</div>
+      <div class="view-card-preview">Acknowledge revisions received and confirm expected turnaround.</div>
+      <div class="view-card-tags"><span class="view-tag blue">Acknowledgement needed</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">4 · Pacific Growth Partners</span><span class="view-card-time">Thu</span></div>
+      <div class="view-card-subject">Proposal follow-up: talent framework</div>
+      <div class="view-card-preview">Follow up on unanswered proposal. Short nudge appropriate.</div>
+      <div class="view-card-tags"><span class="view-tag grey">Gentle follow-up</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIONS & DEADLINES -->
+<div class="subnav-view" id="subnav-actions">
+  <div class="view-title">Actions &amp; Deadlines</div>
+  <div class="view-subtitle">5 actions consolidated across all threads</div>
+
+  <div class="action-group-title">⚠️ Today - urgent</div>
+  <div class="agg-action-card urgent">
+    <div class="agg-num urgent">1</div>
+    <div>
+      <div class="agg-action-text">Reply to Sarah Rowe (Rowe Partners) confirming Annexure B by 5pm AEST</div>
+      <div class="agg-action-from">📧 Rowe Partners · Contract terms: Annexure B</div>
+    </div>
+  </div>
+  <div class="agg-action-card medium">
+    <div class="agg-num urgent">2</div>
+    <div>
+      <div class="agg-action-text">Request extension from Rowe Partners by 2pm if more time is needed</div>
+      <div class="agg-action-from">📧 Rowe Partners · Extension window closes 2pm AEST</div>
+    </div>
+  </div>
+
+  <div class="action-group-title">📅 This week</div>
+  <div class="agg-action-card medium">
+    <div class="agg-num">3</div>
+    <div>
+      <div class="agg-action-text">Confirm venue and attendee list for Meridian Advisory workshop</div>
+      <div class="agg-action-from">📧 Meridian Advisory · Due Thu 30 Oct</div>
+    </div>
+  </div>
+  <div class="agg-action-card">
+    <div class="agg-num">4</div>
+    <div>
+      <div class="agg-action-text">Forward Annexure B to Brennan (legal) for records</div>
+      <div class="agg-action-from">📧 Rowe Partners · By Fri 31 Oct</div>
+    </div>
+  </div>
+  <div class="agg-action-card">
+    <div class="agg-num">5</div>
+    <div>
+      <div class="agg-action-text">Send revised module 3 materials to Summit Coaching</div>
+      <div class="agg-action-from">📧 Summit Coaching · By Fri 31 Oct</div>
+    </div>
+  </div>
+</div>
+
+<!-- WAITING -->
+<div class="subnav-view" id="subnav-waiting">
+  <div class="view-title">Waiting</div>
+  <div class="view-subtitle">3 threads awaiting a response from the other party</div>
+  <div class="view-list">
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Cassidy &amp; Moore</span><span class="view-card-time">Fri 3:40pm</span></div>
+      <div class="view-card-subject">Invoice 1042 - payment timeline</div>
+      <div class="view-card-preview">Awaiting payment ETA from their finance team. No reply since Friday.</div>
+      <div class="view-card-tags"><span class="view-tag grey">Sent Fri · No reply</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Pacific Growth Partners</span><span class="view-card-time">Thu</span></div>
+      <div class="view-card-subject">Proposal follow-up: talent framework</div>
+      <div class="view-card-preview">Proposal sent last week. No response. Nudge recommended.</div>
+      <div class="view-card-tags"><span class="view-tag grey">Sent Thu · No reply</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Elara Capital</span><span class="view-card-time">Wed</span></div>
+      <div class="view-card-subject">Pre-workshop logistics: catering and AV</div>
+      <div class="view-card-preview">Waiting on catering confirmation and AV requirements for 5 November workshop.</div>
+      <div class="view-card-tags"><span class="view-tag amber">5 Nov deadline</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK WINS -->
+<div class="subnav-view" id="subnav-quick-wins">
+  <div class="view-title">Quick Wins</div>
+  <div class="view-subtitle">2 threads you can close in under 5 minutes</div>
+  <div class="view-list">
+    <div class="view-card positive">
+      <div class="view-card-header"><span class="view-card-sender">Elara Capital</span><span class="view-card-time">Wed</span></div>
+      <div class="view-card-subject">Onboarding workshop - date confirmed</div>
+      <div class="view-card-preview">Just needs a brief acknowledgement reply confirming you have received the date. Two sentences maximum.</div>
+      <div class="view-card-tags"><span class="view-tag green">Short reply</span></div>
+    </div>
+    <div class="view-card positive">
+      <div class="view-card-header"><span class="view-card-sender">Pacific Growth Partners</span><span class="view-card-time">Thu</span></div>
+      <div class="view-card-subject">Proposal follow-up: talent framework</div>
+      <div class="view-card-preview">A one-line follow-up is all that's needed. No new information required - just a prompt for a decision.</div>
+      <div class="view-card-tags"><span class="view-tag green">1-line follow-up</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- CLEAR BACKLOG -->
+<div class="subnav-view" id="subnav-backlog">
+  <div class="view-title">Clear Backlog</div>
+  <div class="view-subtitle">Older threads that need a decision: reply, archive or delegate</div>
+  <div class="view-list">
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Various senders</span><span class="view-card-time">Older than 7 days</span></div>
+      <div class="view-card-subject">No backlog items at this time</div>
+      <div class="view-card-preview">All threads older than 7 days have been processed or archived. Your inbox is current.</div>
+      <div class="view-card-tags"><span class="view-tag green">✅ Clear</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- UNREAD -->
+<div class="subnav-view" id="subnav-unread">
+  <div class="view-title">Unread</div>
+  <div class="view-subtitle">3 threads you have not opened yet</div>
+  <div class="view-list">
+    <div class="view-card urgent">
+      <div class="view-card-header"><span class="view-card-sender">BrightPath Consulting</span><span class="view-card-time">Today 8:21am</span></div>
+      <div class="view-card-subject">Q4 retainer scope change request</div>
+      <div class="view-card-preview">Unread and time-sensitive. Scope change request needs a decision before the Q4 program locks.</div>
+      <div class="view-card-tags"><span class="view-tag red">Unread</span><span class="view-tag amber">Decision today</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Summit Coaching</span><span class="view-card-time">Fri 1:12pm</span></div>
+      <div class="view-card-subject">Program design - module 3 feedback</div>
+      <div class="view-card-preview">Feedback on module 3 learning objectives and exercise timing. Revisions requested.</div>
+      <div class="view-card-tags"><span class="view-tag red">Unread</span><span class="view-tag blue">Revisions</span></div>
+    </div>
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender">Elara Capital</span><span class="view-card-time">Wed</span></div>
+      <div class="view-card-subject">Pre-workshop logistics: catering and AV brief</div>
+      <div class="view-card-preview">Venue catering preferences and AV setup requirements for the onboarding workshop.</div>
+      <div class="view-card-tags"><span class="view-tag red">Unread</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- FLAGGED -->
+<div class="subnav-view" id="subnav-flagged">
+  <div class="view-title">Flagged</div>
+  <div class="view-subtitle">Threads you have marked for follow-up</div>
+  <div class="view-list">
+    <div class="view-card">
+      <div class="view-card-header"><span class="view-card-sender"> - </span><span class="view-card-time"></span></div>
+      <div class="view-card-subject">No flagged threads</div>
+      <div class="view-card-preview">Flag a thread to track it here. Use the 🏷 button in any email to add it to this list.</div>
+    </div>
+  </div>
+</div>
+
+<!-- PROCESSED -->
+<div class="subnav-view" id="subnav-processed">
+  <div class="view-title">Processed</div>
+  <div class="view-subtitle">14 threads actioned this week</div>
+  <div class="view-list">
+    <div class="view-card positive">
+      <div class="view-card-header"><span class="view-card-sender">Elara Capital</span><span class="view-card-time">Wed</span></div>
+      <div class="view-card-subject">Onboarding workshop - date confirmed</div>
+      <div class="view-card-preview">Engagement confirmed for 5 November. Logistics email to follow.</div>
+      <div class="view-card-tags"><span class="view-tag green">✅ Confirmed</span></div>
+    </div>
+    <div class="view-card positive">
+      <div class="view-card-header"><span class="view-card-sender">Northern Group</span><span class="view-card-time">Tue</span></div>
+      <div class="view-card-subject">Strategy day brief - signed off</div>
+      <div class="view-card-preview">Brief accepted. Project kicked off. Facilitator travel confirmed.</div>
+      <div class="view-card-tags"><span class="view-tag green">✅ Processed</span></div>
+    </div>
+    <div class="view-card positive">
+      <div class="view-card-header"><span class="view-card-sender">Harbourside Co.</span><span class="view-card-time">Mon</span></div>
+      <div class="view-card-subject">Re: Q3 debrief - notes shared</div>
+      <div class="view-card-preview">Meeting notes distributed. Action log filed. Thread closed.</div>
+      <div class="view-card-tags"><span class="view-tag green">✅ Processed</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- OUTPUTS -->
+<div class="subnav-view" id="subnav-outputs">
+  <div class="view-title">Outputs</div>
+  <div class="view-subtitle">Documents and summaries prepared from your email threads</div>
+  <div class="output-grid">
+    <div class="output-card">
+      <div class="output-icon">📋</div>
+      <div class="output-name">Thread Summary</div>
+      <div class="output-desc">A clear summary of the conversation, key decisions made and outstanding items.</div>
+      <div class="output-from">From: Rowe Partners - Annexure B</div>
+      <div class="output-btn">Generate summary</div>
+    </div>
+    <div class="output-card">
+      <div class="output-icon">✅</div>
+      <div class="output-name">Action Log</div>
+      <div class="output-desc">All actions, owners and due dates from this thread in a single structured list.</div>
+      <div class="output-from">From: Active threads</div>
+      <div class="output-btn">Build action log</div>
+    </div>
+    <div class="output-card">
+      <div class="output-icon">📨</div>
+      <div class="output-name">Follow-up Email</div>
+      <div class="output-desc">A ready-to-review follow-up email drafted from the thread context.</div>
+      <div class="output-from">From: Current thread</div>
+      <div class="output-btn">Draft follow-up</div>
+    </div>
+    <div class="output-card">
+      <div class="output-icon">📊</div>
+      <div class="output-name">Decision Log</div>
+      <div class="output-desc">A structured record of decisions made, with date, parties and rationale.</div>
+      <div class="output-from">From: Active threads</div>
+      <div class="output-btn">Build decision log</div>
+    </div>
+    <div class="output-card">
+      <div class="output-icon">⚠️</div>
+      <div class="output-name">Risk Register</div>
+      <div class="output-desc">Risks identified across your email threads, ranked by severity.</div>
+      <div class="output-from">From: Active threads</div>
+      <div class="output-btn">Build risk register</div>
+    </div>
+    <div class="output-card">
+      <div class="output-icon">📅</div>
+      <div class="output-name">Deadline Report</div>
+      <div class="output-desc">All deadlines identified across your inbox, ordered by date.</div>
+      <div class="output-from">From: All threads</div>
+      <div class="output-btn">Build deadline report</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECURITY REVIEW -->
+<div class="subnav-view" id="subnav-security">
+  <div class="view-title">Security Review</div>
+  <div class="view-subtitle">Threads flagged for potential phishing, spoofing or unusual sender behaviour</div>
+  <div class="view-list">
+    <div class="view-card positive">
+      <div class="view-card-header"><span class="view-card-sender">✅ All clear</span><span class="view-card-time">Checked today</span></div>
+      <div class="view-card-subject">No security concerns found</div>
+      <div class="view-card-preview">All senders in your recent threads match known contacts. No suspicious links or unusual patterns detected.</div>
+      <div class="view-card-tags"><span class="view-tag green">✅ No alerts</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL SETTINGS -->
+<div class="subnav-view" id="subnav-settings">
+  <div class="view-title">Email Settings</div>
+  <div class="view-subtitle">Configure how the Email Command Centre analyses and presents your inbox</div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Analysis preferences</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">Auto-analyse new threads</div>
+        <div class="settings-row-desc">Surface actions, deadlines and draft replies when a new email arrives</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">Identify deadlines automatically</div>
+        <div class="settings-row-desc">Scan email bodies for date and time references</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">Draft reply suggestions</div>
+        <div class="settings-row-desc">Prepare three draft variants for threads that need a reply</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">Risk identification</div>
+        <div class="settings-row-desc">Flag contractual, financial and time-related risks in thread content</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">Security review</div>
+        <div class="settings-row-desc">Alert when sender patterns or links look unusual</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Notifications</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">Urgent deadline alerts</div>
+        <div class="settings-row-desc">Notify when a thread contains a deadline within 4 hours</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">Daily inbox digest</div>
+        <div class="settings-row-desc">Morning summary of priority threads and today's actions</div>
+      </div>
+      <div class="toggle" onclick="this.classList.toggle('on')"></div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Connected account</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">alex@meridian.com.au</div>
+        <div class="settings-row-desc">Meridian Consulting · Connected via Google Workspace</div>
+      </div>
+      <button class="btn-ghost" style="font-size:11px;">Manage</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── SUB-NAV SWITCHING ───
+function switchNav(target) {
+  // Update subnav bar active state
+  document.querySelectorAll('.subnav-item').forEach(function(item) {
+    item.classList.remove('active');
+  });
+  // Find and activate matching nav item
+  document.querySelectorAll('.subnav-item').forEach(function(item) {
+    var onclick = item.getAttribute('onclick') || '';
+    if (onclick.includes("'" + target + "'")) {
+      item.classList.add('active');
+    }
+  });
+
+  // Toggle between workspace and subnav views
+  var workspace = document.getElementById('workspace-view');
+  var views = document.querySelectorAll('.subnav-view');
+
+  if (target === 'workspace-view') {
+    workspace.style.display = 'grid';
+    views.forEach(function(v) { v.classList.remove('active'); });
+  } else {
+    workspace.style.display = 'none';
+    views.forEach(function(v) { v.classList.remove('active'); });
+    var target_el = document.getElementById(target);
+    if (target_el) { target_el.classList.add('active'); }
+  }
+}
+
+// ─── INTEL TAB SWITCHING ───
+function switchIntelTab(index) {
+  document.querySelectorAll('.intel-tab').forEach(function(tab, i) {
+    tab.classList.toggle('active', i === index);
+  });
+  document.querySelectorAll('.intel-pane').forEach(function(pane, i) {
+    pane.classList.toggle('active', i === index);
+  });
+}
+
+// ─── THREAD SELECTION ───
+function selectThread(el) {
+  document.querySelectorAll('.thread-item').forEach(function(item) {
+    item.classList.remove('selected');
+  });
+  el.classList.add('selected');
+}
+
+// ─── TONE SWITCHING ───
+function switchTone(index, btn) {
+  document.querySelectorAll('.tone-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.querySelectorAll('.draft-variant').forEach(function(v, i) {
+    v.classList.toggle('active', i === index);
+  });
+}
+
+// ─── CHECKLIST ───
+function toggleCheck(item) {
+  var cb = item.querySelector('.checklist-cb');
+  cb.classList.toggle('checked');
+  checkSendReady();
+}
+
+function checkSendReady() {
+  var all = document.querySelectorAll('#send-checklist .checklist-cb');
+  var allChecked = true;
+  all.forEach(function(cb) {
+    if (!cb.classList.contains('checked')) { allChecked = false; }
+  });
+  var btn = document.getElementById('draft-send-btn');
+  if (btn) { btn.disabled = !allChecked; }
+}
+
+// ─── DECISION OPTION ───
+function selectDecision(opt) {
+  opt.closest('.decision-options').querySelectorAll('.decision-opt').forEach(function(o) {
+    o.classList.remove('selected');
+  });
+  opt.classList.add('selected');
+}
+
+// ─── OPEN DRAFT TAB from compose ───
+function openDraftTab() {
+  // Switch to Draft Reply tab (index 6) and make workspace visible
+  switchNav('workspace-view');
+  switchIntelTab(6);
+}
+
+// ─── TOGGLE SETTING ───
+function toggleView(target) {
+  switchNav(target);
+}
+
+// ─── IFRAME DETECTION & RESIZING ───
+if (window.self !== window.top) {
+  document.body.classList.add('inside-iframe');
+}
+
+// ─── DYNAMIC ACCOUNT SYNC ───
+try {
+  var urlParams = new URLSearchParams(window.location.search);
+  var acctParam = urlParams.get('account');
+  var userEmail = null;
+
+  if (window.parent && window.parent !== window) {
+    try {
+      var rawAuth = window.parent.localStorage ? window.parent.localStorage.getItem('sb-dikthezsghsssnwtctem-auth-token') : null;
+      if (rawAuth) {
+        var parsed = JSON.parse(rawAuth);
+        if (parsed && parsed.user && parsed.user.email) {
+          userEmail = parsed.user.email;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (acctParam) {
+    userEmail = acctParam;
+  }
+
+  if (userEmail) {
+    var subEl = document.querySelector('.module-subtitle');
+    if (subEl) {
+      subEl.textContent = userEmail + ' · Concludo Workspace';
+    }
+    var avatarEl = document.querySelector('.app-bar-avatar');
+    if (avatarEl) {
+      avatarEl.textContent = userEmail.charAt(0).toUpperCase();
+      avatarEl.title = userEmail;
+    }
+  }
+} catch (_) {}
+
+// ─── INITIAL VIEW FROM URL PARAMS / HASH ───
+(function initView() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var target = params.get('view') || (window.location.hash ? window.location.hash.substring(1) : null);
+    if (target) {
+      if (target === 'workspace-view' || document.getElementById(target)) {
+        switchNav(target);
+      }
+    }
+  } catch (_) {}
+})();
+
+</script>
+</body>
+</html>
