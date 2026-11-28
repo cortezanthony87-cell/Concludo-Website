@@ -1,4 +1,4 @@
--- Migration: 20261128000000_draft_logs_and_system_alerts.sql
+-- Migration: 20261128000100_draft_logs_and_system_alerts.sql
 -- Description: Usage log and spend alert tables used by the draft-meeting-record function.
 -- Metadata only. No transcript text, no item text, no model output is stored here.
 -- Status: Staged only. Not applied to production. Apply only on Anthony's written approval.
