@@ -175,16 +175,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       if (!profile) return true;
       if (profile.role === 'admin' || profile.plan === 'admin' || profile.plan === 'enterprise') return true;
       const userPlan = (profile.plan as PlanType) || 'free_preview';
-      // Video Meeting Centre owner check
-      if (destination.path === '/video/companion') {
-        return (
-          profile.email === 'hello@concludo.au' ||
-          profile.id === '91c086e8-d2d0-4060-9a7c-650e13d2245e' ||
-          user?.email === 'hello@concludo.au' ||
-          user?.id === '91c086e8-d2d0-4060-9a7c-650e13d2245e'
-        );
-      }
-      // Work destinations always visible to authenticated workspace users
       if (destination.group === 'Work') return true;
       if (destination.path === '/integrations') return true;
       return checkClientFeatureDisplay(userPlan, destination.feature).isAllowed;
