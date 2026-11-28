@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 // Built from app/src/lib/intelligence/serverDraft.ts by app/scripts/build-draft-bundle.ts.
 // @ts-ignore: plain JS bundle, no type declarations
 import { draftMeetingServer } from './engine.bundle.js';
