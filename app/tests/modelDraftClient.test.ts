@@ -212,7 +212,7 @@ describe('modelDraftClient', () => {
     for (const key of ['decisions', 'actions', 'open_questions', 'risks', 'insights', 'statements_to_verify', 'next_meeting', 'source_quote']) {
       expect(SYSTEM_PROMPT).toContain(key);
     }
-    expect(PROMPT_VERSION).toBe('v20');
+    expect(PROMPT_VERSION).toBe('v21');
   });
 
   test('10. the two new modules have no network, SDK, environment or supabase use', () => {
@@ -229,8 +229,8 @@ describe('modelDraftClient', () => {
     }
   });
 
-  test('11. prompt v20 carries rule 13 and every field name the validator reads', () => {
-    expect(PROMPT_VERSION).toBe('v20');
+  test('11. prompt v21 carries rule 13 and every field name the validator reads', () => {
+    expect(PROMPT_VERSION).toBe('v21');
     const joined = SYSTEM_PROMPT.replace(/\s+/g, ' ');
     expect(joined).toContain('the earlier figure it replaces');
     expect(joined).toContain('may struggle, be left behind or resist a change is a risk too');
